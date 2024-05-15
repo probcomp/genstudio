@@ -4,6 +4,18 @@ import * as ReactDOM from 'https://esm.sh/react-dom@18.3.1'
 import htm from 'https://esm.sh/htm@3.1.1'
 import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.14/+esm"
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm"
+import MarkdownIt from 'https://esm.sh/markdown-it@13.0.1';
+
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true
+});
+
+function renderMarkdown(text) {
+  return html`<div dangerouslySetInnerHTML=${{ __html: md.render(text) }} />`;
+}
+
 
 const html = htm.bind(React.createElement)
 
@@ -59,6 +71,7 @@ const scope = {
   Plot, React, ReactDOM,
   View: {
     Plot: (x) => new PlotSpec(x),
+    md: (x) => renderMarkdown(x),
     el
   }  
 }

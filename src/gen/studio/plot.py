@@ -2,11 +2,8 @@
 import importlib
 import json
 from functools import partial
-
 import gen.studio.util as util
-import gen.studio.js_modules as js_modules
-importlib.reload(js_modules)
-from gen.studio.js_modules import JSRef, hiccup, js
+from gen.studio.util import JSRef, hiccup, js
 from gen.studio.util import Widget
 
 # This module provides a composable way to create interactive plots using Observable Plot
@@ -327,7 +324,7 @@ def accept_xs_ys(plot_fn, default_spec=None):
 
     inner.__doc__ = plot_fn.__doc__
     inner.__name__ = plot_fn.__name__
-    inner._repr_mimebundle_ = plot_fn._repr_mimebundle_
+    inner.doc = plot_fn.doc
     return inner
 
 
@@ -481,3 +478,4 @@ example_plot_options = {
     "style": {"font-size": "100px"},  # css string also works
     "clip": True,
 }
+
