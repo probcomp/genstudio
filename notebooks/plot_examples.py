@@ -42,10 +42,10 @@ Plot.dot(normal_100(), normal_100()) + Plot.frame()
 )
 
  # %% [markdown]
- # ### Built-in docs
- # Plot functions have a ``.doc` method which will render markdown-formatted docstring:
+ # ### Plot.doc
+ # Plot.doc(Plot.foo) will render a markdown-formatted docstring when available:
  
- Plot.line.doc()
+ Plot.doc(Plot.line)
  
  # %% [markdown]
  # ### Plot composition 

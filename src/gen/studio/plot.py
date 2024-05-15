@@ -1,14 +1,19 @@
 # %%
-import importlib
 import json
-from functools import partial
+import re
+
 import gen.studio.util as util
-from gen.studio.util import JSRef, hiccup, js
-from gen.studio.util import Widget
+from gen.studio.js_modules import JSRef, hiccup, js, js_call
+from gen.studio.widget import Widget
 
 # This module provides a composable way to create interactive plots using Observable Plot
-# via pyobsplot (https://github.com/juba/pyobsplot) and AnyWidget (https://github.com/manzt/anywidget).
-# See https://observablehq.com/plot/ for more on Observable Plot.
+# and AnyWidget, built on the work of pyobsplot.
+# 
+# See: 
+# - https://observablehq.com/plot/
+# - https://github.com/manzt/anywidget 
+# - https://github.com/juba/pyobsplot
+#
 #
 # Key features:
 # - Create plot specifications declaratively by combining marks, options and transformations 
@@ -16,6 +21,8 @@ from gen.studio.util import Widget
 # - Render specs to interactive plot widgets, with lazy evaluation and caching
 # - Easily create grids of small multiples
 # - Includes shortcuts for common options like grid lines, color legends, margins
+
+OBSERVABLE_PLOT_METADATA = json.load(open(util.PARENT_PATH / "scripts" / "observable_plot_metadata.json"))
 
 d3 = JSRef("d3")
 Math = JSRef("Math")
@@ -33,7 +40,6 @@ def get_address(tr, address):
         else:
             result = result[part]
     return result
-
 
 def _fn_wrapper(fn_name, meta):
     """
@@ -63,7 +69,7 @@ def _fn_wrapper(fn_name, meta):
 
 _plot_fns = {
     name: JSRef("Plot", name, inner=_fn_wrapper(name, meta), doc=meta["doc"])
-    for name, meta in util.OBSERVABLE_PLOT_METADATA.items()
+    for name, meta in OBSERVABLE_PLOT_METADATA.items()
 }
 
 # Re-export the dynamically constructed MarkSpec functions
@@ -479,3 +485,45 @@ example_plot_options = {
     "clip": True,
 }
 
+
+# %%
+
+
+def doc_str(functionName):
+    return OBSERVABLE_PLOT_METADATA[functionName]['doc']
+    
+def doc(plot_fn):
+    """
+    Decorator to display the docstring of a plot function nicely formatted as Markdown.
+
+    Args:
+        plot_fn: The plot function whose docstring to display.
+
+    Returns:
+        A JSCall instance
+    """
+
+    if plot_fn.__doc__:
+        name = plot_fn.__name__
+        doc = plot_fn.__doc__
+        meta = OBSERVABLE_PLOT_METADATA.get(name, None)
+        title = (
+            f"<span style='font-size: 20px; padding-right: 10px;'>Plot.{name}</span>"
+        )
+        url = (
+            f"https://observablehq.com/plot/{meta['kind']}/{re.search(r'([a-z]+)', name).group(1)}"
+            if meta
+            else None
+        )
+        return js_call("View", "md", 
+            f"""
+<div style="display: block; gap: 10px; border-bottom: 1px solid #ddd; padding: 10px 0;">
+{title} 
+<a style='color: #777; text-decoration: none;' href="{url}">Examples &#8599;</a></div>
+
+"""
+            + doc
+        )
+    else:
+        return js_call("View", "md", "No docstring available.")
+    

@@ -2,6 +2,7 @@
 
 import gen.studio.plot as Plot
 import gen.studio.util as util
+from gen.studio.widget import Widget
 # Always reload (for dev)
 import importlib 
 importlib.reload(Plot)
@@ -48,7 +49,7 @@ def test_plotspec_plot():
     ps = Plot.new(Plot.dot(xs, ys), width=100)
     assert ps.spec["width"] == 100
     plot = ps.plot()
-    assert isinstance(plot, util.Widget)
+    assert isinstance(plot, Widget)
 
     # Check plot is cached
     plot2 = ps.plot()
@@ -144,7 +145,7 @@ def test_plotspec_update():
 
 def test_plot_function_docs():
     for mark in ['dot', 'line', 'rectY']:
-        assert getattr(Plot, mark).__doc__ == util.OBSERVABLE_PLOT_METADATA[mark]['doc']
+        assert getattr(Plot, mark).__doc__ == Plot.OBSERVABLE_PLOT_METADATA[mark]['doc']
 
 def run_tests():
     test_plotspec_init()

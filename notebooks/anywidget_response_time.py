@@ -1,10 +1,9 @@
 # %%
+# Simple demo of sending a message to an AnyWidget instance and measuring the round trip 
+# response time.
 
-# Commented out IPython magic to ensure Python compatibility.
-# %pip install anywidget
 
 import anywidget
-
 
 class Widget(anywidget.AnyWidget):
     _esm = """
