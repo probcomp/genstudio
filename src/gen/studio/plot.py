@@ -425,7 +425,7 @@ def domain(xd, yd=None):
 
 
 def color_map(mappings):
-    return {"color": {"domain": mappings.keys(), "range": mappings.values()}}
+    return {"color": {"domain": list(mappings.keys()), "range": list(mappings.values())}}
 
 
 def margin(*args):
