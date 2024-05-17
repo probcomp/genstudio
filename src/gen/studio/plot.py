@@ -1,4 +1,5 @@
 # %%
+import copy
 import json
 import re
 
@@ -86,9 +87,12 @@ def _deep_merge(dict1, dict2):
     Recursively merge two dictionaries.
     Values in dict2 overwrite values in dict1. If both values are dictionaries, recursively merge them.
     """
+
     for k, v in dict2.items():
         if k in dict1 and isinstance(dict1[k], dict) and isinstance(v, dict):
             dict1[k] = _deep_merge(dict1[k], v)
+        elif isinstance(v, dict):
+            dict1[k] = copy.deepcopy(v)
         else:
             dict1[k] = v
     return dict1

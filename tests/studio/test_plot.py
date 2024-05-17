@@ -147,6 +147,57 @@ def test_plot_function_docs():
     for mark in ['dot', 'line', 'rectY']:
         assert getattr(Plot, mark).__doc__ == Plot.OBSERVABLE_PLOT_METADATA[mark]['doc']
 
+def test_plot_options_merge_nested():
+    options1 = {
+        "width": 500,
+        "style": {
+            "color": "red",
+            "border": {
+                "width": 2
+            }
+        }
+    }
+    options2 = {
+        "height": 400,
+        "style": {
+            "border": {
+                "color": "blue"
+            }
+        }
+    }
+    
+    # Create a new plot with merged options
+    ps = Plot.new() + options1 + options2
+    
+    # Check that the plot spec has the merged options
+    assert ps.spec["width"] == 500
+    assert ps.spec["height"] == 400
+    assert ps.spec["style"]["color"] == "red"
+    assert ps.spec["style"]["border"]["width"] == 2
+    assert ps.spec["style"]["border"]["color"] == "blue"
+    
+    # Ensure the original options dictionaries are not mutated
+    assert options1 == {
+        "width": 500,
+        "style": {
+            "color": "red",
+            "border": {
+                "width": 2
+            }
+        }
+    }
+    assert options2 == {
+        "height": 400,
+        "style": {
+            "border": {
+                "color": "blue"
+            }
+        }
+    }
+
+
+
+
 def run_tests():
     test_plotspec_init()
     test_plotspec_add()
@@ -157,6 +208,7 @@ def run_tests():
     test_plotspec_reset()
     test_plotspec_update()
     test_plot_function_docs()
+    test_plot_options_merge_nested()
     print("All tests passed!")
 
 
