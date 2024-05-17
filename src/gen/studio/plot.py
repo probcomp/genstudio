@@ -81,19 +81,16 @@ plot_options = {
     "default": {"width": 500, "height": 350, "inset": 20},
 }
 
-
 def _deep_merge(dict1, dict2):
     """
     Recursively merge two dictionaries.
     Values in dict2 overwrite values in dict1. If both values are dictionaries, recursively merge them.
     """
-    if not isinstance(dict1, dict) or not isinstance(dict2, dict):
-        return dict2
-    for k in dict2:
-        if k in dict1:
-            dict1[k] = _deep_merge(dict1[k], dict2[k])
+    for k, v in dict2.items():
+        if k in dict1 and isinstance(dict1[k], dict) and isinstance(v, dict):
+            dict1[k] = _deep_merge(dict1[k], v)
         else:
-            dict1[k] = dict2[k]
+            dict1[k] = v
     return dict1
 
 
@@ -137,7 +134,7 @@ def _add(spec, marks, to_add):
 
 class PlotSpec:
     """
-    Represents a specification for a plot using pyobsplot.
+    Represents a specification for an plot (in Observable Plot).
 
     PlotSpecs can be composed using the + operator. When combined, marks accumulate
     and plot options are merged. Lists of marks or dicts of plot options can also be 
@@ -179,12 +176,7 @@ class PlotSpec:
 
     def plot(self):
         """
-        Generate the pyobsplot widget for this PlotSpec.
-
-        The plot widget is created lazily on first call and cached for subsequent calls.
-
-        Returns:
-            The pyobsplot widget representing this plot.
+        Lazily generate & cache the widget for this PlotSpec.
         """
         if self._plot is None:
             self._plot = Widget(
