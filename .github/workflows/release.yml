@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: 'read'
+      contents: 'write'
       id-token: 'write'
 
     steps:
@@ -32,8 +32,8 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Display gcloud info
-        run: gcloud info
+      # - name: Display gcloud info
+      #   run: gcloud info
 
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
@@ -57,13 +57,10 @@ jobs:
         run: |
           poetry version $(date +'%Y.%m.%d.%H%M%S')
 
-      - name: Set up Git
+      - name: Create Git tag
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Create Git tag
-        run: |
           git tag -a "v$(date +'%Y.%m.%d.%H%M%S')" -m "Release version $(date +'%Y.%m.%d.%H%M%S')"
           git push origin --tags
 
