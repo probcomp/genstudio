@@ -2,9 +2,11 @@ name: Release to Artifact Registry
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
   release:
     types: [published]
-
 jobs:
   release:
     runs-on: ubuntu-latest
