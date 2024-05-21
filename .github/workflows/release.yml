@@ -57,6 +57,11 @@ jobs:
         run: |
           poetry version $(date +'%Y.%m.%d.%H%M%S')
 
+      - name: Set up Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Create Git tag
         run: |
           git tag -a "v$(date +'%Y.%m.%d.%H%M%S')" -m "Release version $(date +'%Y.%m.%d.%H%M%S')"
