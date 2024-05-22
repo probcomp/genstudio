@@ -1,4 +1,4 @@
-import {createRender, useModelState} from "https://esm.sh/@anywidget/react@0.0.7"
+import { createRender, useModelState } from "https://esm.sh/@anywidget/react@0.0.7"
 import * as React from 'https://esm.sh/react@18.3.1'
 import * as ReactDOM from 'https://esm.sh/react-dom@18.3.1'
 import htm from 'https://esm.sh/htm@3.1.1'
@@ -16,25 +16,64 @@ function renderMarkdown(text) {
   return html`<div dangerouslySetInnerHTML=${{ __html: md.render(text) }} />`;
 }
 
-
 const html = htm.bind(React.createElement)
+
+
+class MarkSpec {
+  constructor(name, data, options) {
+    this.fn = Plot[name]
+    this.name = name
+    this.data = data 
+    this.options = options
+    // analyze the mark to determine its shape
+    if (Array.isArray(data) || 'length' in data) {
+      this.format = 'array'
+    } else if (data.dimensions) {
+      this.format = 'dimensions' 
+      outer = Object.values(data)[0]
+      inner = outer[0]
+      this.outer_length = outer.length 
+      this.inner_length = outer[0].length
+      delete data.dimensions
+    } else {
+      this.format = 'columnar'
+    }
+  }
+}
+
+function readMark(mark, dim) {
+  if (!(mark instanceof MarkSpec)) {
+    return mark;
+  }
+  let {fn, data, options, format} = mark
+  switch (format) {
+    case 'columnar':
+      // format columnar data for Observable.Plot;
+      // values to into the options map.
+      return fn({ length: Object.values(data)[0].length }, { ...data, ...options})
+    case 'dimensions':
+      // select a dimension slice before formatting
+      // for Observable.Plot.
+      dim = dim || 0 
+      const dimSlice = Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [key, value[dim]])
+      );
+      return fn({ length: this.inner_length }, { ...dimSlice, ...options })
+    default:
+      return fn(data, options)
+  }
+}
+
 
 /**
  * Wrap plot specs so that our node renderer can identify them.
  */
-class PlotSpec {
+class PlotSpec {    
   /**
    * Create a new plot spec.
    */
   constructor(spec) {
     this.spec = spec;
-  }
-
-  /**
-   * Render the plot.
-   */
-  plot() {
-    return Plot.plot(this.spec);
   }
 }
 
@@ -50,14 +89,14 @@ const el = (tag, props, ...children) => {
   if (typeof tag === 'string') {
     let id, classes
     [baseTag, ...classes] = tag.split('.');
-    [baseTag, id] = baseTag.split('#'); 
-    
-    if (id) {props.id = id;}
-    
+    [baseTag, id] = baseTag.split('#');
+
+    if (id) { props.id = id; }
+
     if (classes.length > 0) {
       props.className = `${props.className || ''} ${classes.join(' ')}`.trim();
     }
-     
+
   } else {
     baseTag = tag
   }
@@ -68,12 +107,14 @@ const el = (tag, props, ...children) => {
 
 const scope = {
   d3,
-  Plot, React, ReactDOM,
+  Plot, React, ReactDOM, 
   View: {
-    Plot: (x) => new PlotSpec(x),
+    PlotSpec: (x) => new PlotSpec(x),
+    MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
     md: (x) => renderMarkdown(x),
     el
-  }  
+  },
+
 }
 const { useState, useEffect, useRef, useCallback } = React
 
@@ -85,10 +126,13 @@ export function interpret(data) {
   if (Array.isArray(data)) return data.map(interpret);
   if (typeof data === "string" || data instanceof String) return data;
   if (Object.entries(data).length == 0) return data;
-  
+
   switch (data["pyobsplot-type"]) {
     case "function":
       let fn = data.name ? scope[data.module][data.name] : scope[data.module]
+      if (!fn) {
+        console.error('f not found', data)
+      }
       return fn.call(null, ...interpret(data["args"]));
     case "ref":
       return data.name ? scope[data.module][data.name] : scope[data.module]
@@ -112,15 +156,21 @@ export function interpret(data) {
  * Renders a plot.
  */
 function PlotView({ spec }) {
+  const outer_length = (spec.marks && spec.marks.find(m => m.outer_length)?.outer_length)
+  // TODO
+  // if we have outer_length, we have an extra dimension to handle. 
+  // render a scrubber & play/pause button.
+  // allow passing in dimension options (eg. auto-play, frame-rate).
   const [parent, setParent] = useState(null)
-  const ref = useCallback(setParent)
+  const ref = useCallback(setParent) 
   useEffect(() => {
     if (parent) {
-      const plot = spec.plot()
+      const marks = spec.marks.map((m) => readMark(m, 0))
+      const plot = Plot.plot({...spec, marks: marks})
       parent.appendChild(plot)
       return () => parent.removeChild(plot)
     }
-  }, [spec, parent])
+  }, [PlotSpec, parent])
   return html`<div ref=${ref}></div>`
 }
 
@@ -131,7 +181,9 @@ function Node({ value }) {
   if (Array.isArray(value)) {
     return el.apply(null, value);
   } else if (value instanceof PlotSpec) {
-    return html`<${PlotView} spec=${value}/>`;
+    return html`<${PlotView} spec=${value.spec}/>`;
+  } else if (value instanceof MarkSpec) {
+    return Node({value: new PlotSpec({marks: [value]})})
   } else {
     return value
   }
@@ -140,7 +192,7 @@ function Node({ value }) {
 /**
  * The main app.
  */
-function App() { 
+function App() {
   const [data, _] = useModelState("data")
   const value = data ? interpret(JSON.parse(data)) : null
   return html`<div class="pa1"><${Node} value=${value}/></div>`
@@ -155,11 +207,11 @@ const installTachyons = () => {
   const id = "tachyons-cdn"
   const url = "https://unpkg.com/tachyons@4.12.0/css/tachyons.min.css"
   if (!document.getElementById(id)) {
-      const link = document.createElement("link");
-      link.id = id;
-      link.rel = "stylesheet";
-      link.href = url;
-      document.head.appendChild(link);
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = url;
+    document.head.appendChild(link);
   }
 }
 

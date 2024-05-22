@@ -114,11 +114,14 @@ def test_sugar():
     assert ps.spec["marginBottom"] == 30
     assert ps.spec["marginLeft"] == 40
 
+def mark_name(mark):
+    return mark['args'][0]
+
 def test_plot_new():
     ps = Plot.new(Plot.dot(xs, ys))
     assert isinstance(ps, Plot.PlotSpec)
     assert len(ps.spec["marks"]) == 1
-    assert ps.spec["marks"][0]["name"] == "dot"
+    assert mark_name(ps.spec["marks"][0]) == "dot"
 
 def test_plotspec_reset():
     ps = Plot.new(Plot.dot(xs, ys), width=100)
@@ -129,7 +132,7 @@ def test_plotspec_reset():
     assert ps.spec.get("width", None) == None  # width removed
     assert ps.spec["height"] == 200
     assert len(ps.spec["marks"]) == 1
-    assert ps.spec["marks"][0]["name"] == "rectY"
+    assert mark_name(ps.spec["marks"][0]) == "rectY"
 
 def test_plotspec_update():
     ps = Plot.new(Plot.dot(xs, ys), width=100)
@@ -140,8 +143,8 @@ def test_plotspec_update():
     assert ps.spec["width"] == 100
     assert ps.spec["height"] == 200
     assert len(ps.spec["marks"]) == 2
-    assert ps.spec["marks"][0]["name"] == "dot"
-    assert ps.spec["marks"][1]["name"] == "rectY"
+    assert mark_name(ps.spec["marks"][0]) == "dot"
+    assert mark_name(ps.spec["marks"][1]) == "rectY"
 
 def test_plot_function_docs():
     for mark in ['dot', 'line', 'rectY']:

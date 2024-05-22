@@ -42,41 +42,38 @@ def get_address(tr, address):
             result = result[part]
     return result
 
-def _fn_wrapper(fn_name, meta):
+def plot_spec(x):
+    return PlotSpec(x)
+
+def _plot_fn(fn_name, meta):
     """
     Returns a wrapping function for an Observable.Plot mark, accepting a positional values argument
     (where applicable) options, which may be a single dict and/or keyword arguments.
     """
     kind = meta["kind"]
+    doc = meta["doc"]
     if fn_name in ["hexgrid", "grid", "gridX", "gridY", "gridFx", "gridFy", "frame"]:
         # no values argument
-        def inner(fn, spec={}, **kwargs):
-            return PlotSpec(fn({**spec, **kwargs}))
+        def parse_args(spec={}, **kwargs):
+            return [{**spec, **kwargs}]
+        return JSRef("Plot", fn_name, parse_args=parse_args, wrap_ret=plot_spec, doc=doc)
     elif kind == "marks":
-        # values argument
-        def inner(fn, values, spec={}, **kwargs):
-            return PlotSpec(fn(values, {**spec, **kwargs}))
+        def parse_args(values, spec={}, **kwargs):
+            return [fn_name, values, {**spec, **kwargs}]
+        return JSRef("View", "MarkSpec", parse_args=parse_args, wrap_ret=plot_spec, doc=doc, label=fn_name)
     else:
-
-        def inner(fn, *args, **kwargs):
-            if kwargs:
-                raise ValueError(
-                    f"kwargs must not be passed to {fn_name}.{meta['module']} : {kwargs}"
-                )
-            return fn(*args)
-
-    return inner
+        return JSRef("Plot", fn_name, doc=doc)
 
 
 _plot_fns = {
-    name: JSRef("Plot", name, inner=_fn_wrapper(name, meta), doc=meta["doc"])
+    name: _plot_fn(name, meta)
     for name, meta in OBSERVABLE_PLOT_METADATA.items()
 }
 
 # Re-export the dynamically constructed MarkSpec functions
 globals().update(_plot_fns)
 
-#%%
+
 plot_options = {
     "small": {"width": 250, "height": 175, "inset": 10},
     "default": {"width": 500, "height": 350, "inset": 20},
@@ -184,7 +181,7 @@ class PlotSpec:
         """
         if self._plot is None:
             self._plot = Widget(
-                View.Plot(
+                View.PlotSpec(
                     {
                         **plot_options["default"],
                         **self.spec,
@@ -229,7 +226,7 @@ class PlotSpec:
         return self.plot()._repr_mimebundle_()
 
     def to_json(self):
-        return View.Plot({**plot_options["default"], **self.spec})
+        return View.PlotSpec({**plot_options["default"], **self.spec})
 
 
 def new(*specs, **kwargs):
@@ -284,45 +281,37 @@ def small_multiples(plotspecs, plot_opts={}, layout_opts={}):
 
 def accept_xs_ys(plot_fn, default_spec=None):
     """
-    Wraps a plot function to accept xs and ys arrays in addition to a values array.
+    Wraps a plot function to accept x and y arrays in addition to a values array.
 
     The wrapped function supports the following argument patterns:
     - values
     - values, spec
-    - xs, ys
-    - xs, ys, spec
+    - x, y
+    - x, y, spec
 
     Where spec is a dictionary of plot options.
     """
 
     def inner(*args, **kwargs):
+        if len(args) not in {1, 2, 3}:
+            raise ValueError(f"Invalid number of arguments: {len(args)}")
+
+        values, x, y, spec = None, None, None, None
         if len(args) == 1:
             values = args[0]
         elif len(args) == 2:
-            if isinstance(args[-1], dict):
-                values, spec = args[0], args[1]
+            if isinstance(args[1], dict):
+                values, spec = args
             else:
-                xs, ys = args
+                x, y = args
         elif len(args) == 3:
-            xs, ys, spec = args
-        else:
-            raise ValueError(f"Invalid number of arguments: {len(args)}")
+            x, y, spec = args
 
-        kwargs = (
-            {**(default_spec or {}), **spec, **kwargs}
-            if "spec" in locals()
-            else {**(default_spec or {}), **kwargs}
-        )
+        kwargs = {**(default_spec or {}), **(spec or {}), **kwargs}
 
-        if "values" in locals():
-            return PlotSpec(plot_fn(values, kwargs))
-        else:
-            return PlotSpec(
-                plot_fn(
-                    {"length": len(xs)},
-                    {"x": xs, "y": ys, **kwargs},
-                )
-            )
+        if values is not None:
+            return plot_fn(values, kwargs)
+        return plot_fn({"x": x, "y": y}, kwargs)
 
     inner.__doc__ = plot_fn.__doc__
     inner.__name__ = plot_fn.__name__
@@ -482,9 +471,6 @@ example_plot_options = {
 }
 
 
-# %%
-
-
 def doc_str(functionName):
     return OBSERVABLE_PLOT_METADATA[functionName]['doc']
     
@@ -523,3 +509,5 @@ def doc(plot_fn):
     else:
         return js_call("View", "md", "No docstring available.")
     
+
+# dot([[0, 0], [0, 1], [1, 1], [2, 3], [4, 2], [4, 0]])
