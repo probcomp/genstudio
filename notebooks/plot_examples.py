@@ -1,6 +1,11 @@
 # %% 
 import gen.studio.plot as Plot
 import numpy as np
+import genjax as genjax
+from genjax import static_gen_fn
+import jax 
+import jax.numpy as jnp 
+import numpy as np
 
 # %% [markdown]
 # ## Approach 
@@ -66,10 +71,7 @@ circle + Plot.frame() + {'inset': 50}
 
 # A GenJAX example
 
-import genjax as genjax
-from genjax import static_gen_fn
-import jax 
-import jax.numpy as jnp
+
 key = jax.random.PRNGKey(314159)
 
 # Two branches for a branching submodel.
@@ -118,16 +120,12 @@ tr = jax.jit(model.simulate)(sub_key, (data,))
 
 key, *sub_keys = jax.random.split(key, 10)
 traces = jax.vmap(lambda k: model.simulate(k, (data,)))(jnp.array(sub_keys))
-# Plot.small_multiples(
-#     [Plot.dot(data, ys) for ys in Plot.get_address(traces, ["ys", "*", "y", "value"])]
-# )
-# Plot.get_address(traces, ["ys", "*", "y", "value"])
 
-# %%
+Plot.get_address(traces, ["ys", Plot.Dimension("samples"), "y", "value"])
 
 Plot.dot(data, Plot.get_address(traces, ["ys", Plot.Dimension('samples', view='grid'), "y", "value"]))
 
 # %%
 
-Plot.dot([0, 1, 2, 3, 4, 5], Plot.Dimension('time', value=[[1, 1, 1, 1, 1, 1], [2, 2, 2, 2, 2, 2], [3, 3, 3, 3, 3, 3,]])) + \
-    Plot.dot([0, 1, 2, 3, 4, 5], Plot.Dimension('time', value=[[10, 10, 10, 10, 10, 10], [12, 12, 12, 12, 12, 12], [14, 14, 14, 14, 14, 14,]]), fill='green')
+Plot.dot([0, 1, 2, 3, 4, 5], Plot.Dimension('time', initial=1, fps=1, value=[[1, 1, 1, 1, 1, 1], [2, 2, 2, 2, 2, 2], [3, 3, 3, 3, 3, 3,]])) + \
+    Plot.dot([0, 1, 2, 3, 4, 5], Plot.Dimension('particle', view='grid', value=[[10, 10, 10, 10, 10, 10], [12, 12, 12, 12, 12, 12], [14, 14, 14, 14, 14, 14,]]), fill='green')

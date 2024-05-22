@@ -87,6 +87,8 @@ class MarkSpec {
         if (value.dimension) {
           let dimension = value.dimension;
           dimension.length = value.value.length;
+          dimension.view = dimension.view || 'slider'; // default to slider view
+          dimension.fps = dimension.fps || 0;
           domains[key] = [
             Math.min(...value.value.flat()),
             Math.max(...value.value.flat())
@@ -176,16 +178,16 @@ function DimensionSliders({dimensions, dimensionState, setDimensionState}) {
   return html`
     <div>
       ${Object.entries(dimensions).map(([key, dimension]) => html`
-        <div key=${key}>
-          <label>${dimension.label || key}</label>
-          <input 
-            type="range" 
-            min="0" 
-            max=${dimension.length - 1}
-            value=${dimensionState[key] || 0} 
-            onChange=${(e) => setDimensionState({...dimensionState, [key]: Number(e.target.value)})}
-          />
-        </div>
+          <div class="grid grid-cols-[min-content,1fr] my-2" key=${key}>
+            <label>${dimension.label || key}</label>
+            <input 
+              type="range" 
+              min="0" 
+              max=${dimension.length - 1}
+              value=${dimensionState[key] || 0} 
+              onChange=${(e) => setDimensionState({...dimensionState, [key]: Number(e.target.value)})}
+            />
+                  </div>  
       `)}
     </div>
   `;
@@ -197,9 +199,8 @@ function DimensionSliders({dimensions, dimensionState, setDimensionState}) {
 function PlotView({ spec }) {
   const [parent, setParent] = useState(null)
   const dimensions = useMemo(() => spec.marks.reduce((acc, mark) => ({...acc, ...mark.dimensions}), {}))
-  console.log(dimensions)
   const [dimensionState, setDimensionState] = useState(
-    Object.fromEntries(Object.keys(dimensions).map(k => [k, 0]))
+    Object.fromEntries(Object.entries(dimensions).map(([k, d]) => [k, d.initial || 0]))
   );
   const ref = useCallback(setParent) 
   useEffect(() => {
@@ -218,7 +219,7 @@ function PlotView({ spec }) {
         dimensionState=${dimensionState}
         setDimensionState=${setDimensionState}
       />
-    </div>
+          </div>
   `
 }
 
@@ -249,11 +250,11 @@ function App() {
 const render = createRender(App)
 
 /**
- * Install Tachyons CSS.
+ * Install Tailwind CSS.
  */
-const installTachyons = () => {
-  const id = "tachyons-cdn"
-  const url = "https://unpkg.com/tachyons@4.12.0/css/tachyons.min.css"
+const installTailwind = () => {
+  const id = "tailwind-cdn"
+  const url = "https://cdn.jsdelivr.net/gh/html-first-labs/static-tailwind@759f1d7/dist/tailwind.css"
   if (!document.getElementById(id)) {
     const link = document.createElement("link");
     link.id = id;
@@ -263,4 +264,4 @@ const installTachyons = () => {
   }
 }
 
-export default { render, initialize: installTachyons }
+export default { render, initialize: installTailwind }
