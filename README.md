@@ -19,6 +19,11 @@ Runnable examples are in `notebooks/plot_examples.py`. See [Observable Plot](htt
 
 gen-studio is published to the same artifact registry as genjax, so you can follow [these instructions](https://github.com/probcomp/genjax?tab=readme-ov-file#quickstart) but use `gen-studio` for the package name.
 
+```
+gen-studio = {version = "v2024.05.22.195933", source = "gcp"}
+```
+
+
 ## Usage
 
 
