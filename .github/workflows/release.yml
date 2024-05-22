@@ -55,13 +55,13 @@ jobs:
 
       - name: Update version in pyproject.toml
         run: |
-          poetry version $(date +'%Y.%m.%d.%H%M%S')
+          poetry version ${{ env.RELEASE_DATE }}
 
       - name: Create Git tag
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v$(date +'%Y.%m.%d.%H%M%S')" -m "Release version $(date +'%Y.%m.%d.%H%M%S')"
+          git tag -a "v${{ env.RELEASE_DATE }}" -m "Release version ${{ env.RELEASE_DATE }}"
           git push origin --tags
 
       - name: Deploy to Artifact Registry
