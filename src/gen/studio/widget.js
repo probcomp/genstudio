@@ -19,52 +19,6 @@ function renderMarkdown(text) {
 const html = htm.bind(React.createElement)
 
 
-class MarkSpec {
-  constructor(name, data, options) {
-    this.fn = Plot[name]
-    this.name = name
-    this.data = data 
-    this.options = options
-    // analyze the mark to determine its shape
-    if (Array.isArray(data) || 'length' in data) {
-      this.format = 'array'
-    } else if (data.dimensions) {
-      this.format = 'dimensions' 
-      outer = Object.values(data)[0]
-      inner = outer[0]
-      this.outer_length = outer.length 
-      this.inner_length = outer[0].length
-      delete data.dimensions
-    } else {
-      this.format = 'columnar'
-    }
-  }
-}
-
-function readMark(mark, dim) {
-  if (!(mark instanceof MarkSpec)) {
-    return mark;
-  }
-  let {fn, data, options, format} = mark
-  switch (format) {
-    case 'columnar':
-      // format columnar data for Observable.Plot;
-      // values to into the options map.
-      return fn({ length: Object.values(data)[0].length }, { ...data, ...options})
-    case 'dimensions':
-      // select a dimension slice before formatting
-      // for Observable.Plot.
-      dim = dim || 0 
-      const dimSlice = Object.fromEntries(
-        Object.entries(data).map(([key, value]) => [key, value[dim]])
-      );
-      return fn({ length: this.inner_length }, { ...dimSlice, ...options })
-    default:
-      return fn(data, options)
-  }
-}
-
-
 /**
  * Wrap plot specs so that our node renderer can identify them.
  */
@@ -74,6 +28,17 @@ class PlotSpec {
    */
   constructor(spec) {
     this.spec = spec;
+    const domains = spec.marks?.reduce((acc, mark) => {
+      for (const [key, domain] of Object.entries(mark.domains || {})) {
+        acc[key] = acc[key] 
+          ? [Math.min(acc[key][0], domain[0]), Math.max(acc[key][1], domain[1])]
+          : domain;
+      }
+      return acc;
+    }, {}) || {};
+    for (const [key, domain] of Object.entries(domains)) {
+      this.spec[key] = {...this.spec[key], domain};
+    }
   }
 }
 
@@ -105,6 +70,61 @@ const el = (tag, props, ...children) => {
 };
 
 
+class MarkSpec {
+  constructor(name, data, options) {
+    this.fn = Plot[name]
+    this.name = name
+    this.data = data 
+    this.options = options
+    // analyze the mark to determine its shape
+    if (Array.isArray(data) || 'length' in data) {
+      this.format = 'array'
+    } else {
+      this.format = 'columnar'
+      let dimensions = {}
+      let domains = {}
+      for (const [key, value] of Object.entries(data)) {
+        if (value.dimension) {
+          let dimension = value.dimension;
+          dimension.length = value.value.length;
+          domains[key] = [
+            Math.min(...value.value.flat()),
+            Math.max(...value.value.flat())
+          ];
+          dimensions[value.dimension.key] = dimension;
+        }
+      }
+      if (Object.keys(dimensions).length > 0) {this.dimensions = dimensions}
+      if (Object.keys(domains).length > 0) {this.domains = domains}
+    }
+  }
+}
+
+function readMark(mark, dimensionState) {
+  if (!(mark instanceof MarkSpec)) {
+    return mark;
+  }
+  let {fn, data, options, format} = mark
+  switch (format) {
+    case 'columnar':
+      // format columnar data for Observable.Plot;
+      // values go into the options map.
+      const formattedData = {};
+      for (const [key, value] of Object.entries(data)) {
+        if (value.dimension) {
+          const dimension = value.dimension;
+          const i = dimensionState[dimension.key] || 0;
+          formattedData[key] = value.value[i];
+        } else {
+          formattedData[key] = value; 
+        }
+      }
+      return fn({ length: Object.values(formattedData)[0].length }, { ...formattedData, ...options})
+    default:
+      return fn(data, options)
+  }
+}
+
 const scope = {
   d3,
   Plot, React, ReactDOM, 
@@ -116,7 +136,7 @@ const scope = {
   },
 
 }
-const { useState, useEffect, useRef, useCallback } = React
+const { useState, useEffect, useRef, useCallback, useMemo } = React
 
 /**
  * Interpret data recursively, evaluating functions.
@@ -152,26 +172,54 @@ export function interpret(data) {
   return ret;
 }
 
+function DimensionSliders({dimensions, dimensionState, setDimensionState}) {
+  return html`
+    <div>
+      ${Object.entries(dimensions).map(([key, dimension]) => html`
+        <div key=${key}>
+          <label>${dimension.label || key}</label>
+          <input 
+            type="range" 
+            min="0" 
+            max=${dimension.length - 1}
+            value=${dimensionState[key] || 0} 
+            onChange=${(e) => setDimensionState({...dimensionState, [key]: Number(e.target.value)})}
+          />
+        </div>
+      `)}
+    </div>
+  `;
+}
+
 /**
  * Renders a plot.
  */
 function PlotView({ spec }) {
-  const outer_length = (spec.marks && spec.marks.find(m => m.outer_length)?.outer_length)
-  // TODO
-  // if we have outer_length, we have an extra dimension to handle. 
-  // render a scrubber & play/pause button.
-  // allow passing in dimension options (eg. auto-play, frame-rate).
   const [parent, setParent] = useState(null)
+  const dimensions = useMemo(() => spec.marks.reduce((acc, mark) => ({...acc, ...mark.dimensions}), {}))
+  console.log(dimensions)
+  const [dimensionState, setDimensionState] = useState(
+    Object.fromEntries(Object.keys(dimensions).map(k => [k, 0]))
+  );
   const ref = useCallback(setParent) 
   useEffect(() => {
     if (parent) {
-      const marks = spec.marks.map((m) => readMark(m, 0))
+      const marks = spec.marks.map((m) => readMark(m, dimensionState))
       const plot = Plot.plot({...spec, marks: marks})
       parent.appendChild(plot)
       return () => parent.removeChild(plot)
     }
-  }, [PlotSpec, parent])
-  return html`<div ref=${ref}></div>`
+  }, [spec, parent, dimensionState])
+  return html`
+    <div>
+      <div ref=${ref}></div>
+      <${DimensionSliders} 
+        dimensions=${spec.marks.reduce((acc, mark) => ({...acc, ...mark.dimensions}), {})}
+        dimensionState=${dimensionState}
+        setDimensionState=${setDimensionState}
+      />
+    </div>
+  `
 }
 
 /**

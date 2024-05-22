@@ -61,3 +61,73 @@ circle
 circle + Plot.frame() + {'inset': 50}
 
 #%%
+
+#%% [markdown]
+
+# A GenJAX example
+
+import genjax as genjax
+from genjax import static_gen_fn
+import jax 
+import jax.numpy as jnp
+key = jax.random.PRNGKey(314159)
+
+# Two branches for a branching submodel.
+@static_gen_fn
+def model_y(x, coefficients):
+    basis_value = jnp.array([1.0, x, x**2])
+    polynomial_value = jnp.sum(basis_value * coefficients)
+    y = genjax.normal(polynomial_value, 0.3) @ "value"
+    return y
+
+
+@static_gen_fn
+def outlier_model(x, coefficients):
+    basis_value = jnp.array([1.0, x, x**2])
+    polynomial_value = jnp.sum(basis_value * coefficients)
+    y = genjax.normal(polynomial_value, 30.0) @ "value"
+    return y
+
+
+# The branching submodel.
+switch = genjax.switch_combinator(model_y, outlier_model)
+
+# A mapped kernel function which calls the branching submodel.
+
+
+@genjax.map_combinator(in_axes=(0, None))
+@static_gen_fn
+def kernel(x, coefficients):
+    is_outlier = genjax.flip(0.1) @ "outlier"
+    is_outlier = jnp.array(is_outlier, dtype=int)
+    y = switch(is_outlier, x, coefficients) @ "y"
+    return y
+
+
+@static_gen_fn
+def model(xs):
+    coefficients = (
+        genjax.mv_normal(np.zeros(3, dtype=float), 2.0 * np.identity(3)) @ "alpha"
+    )
+    ys = kernel(xs, coefficients) @ "ys"
+    return ys
+
+data = jnp.arange(0, 10, 0.5)
+key, sub_key = jax.random.split(key)
+tr = jax.jit(model.simulate)(sub_key, (data,))
+
+key, *sub_keys = jax.random.split(key, 10)
+traces = jax.vmap(lambda k: model.simulate(k, (data,)))(jnp.array(sub_keys))
+# Plot.small_multiples(
+#     [Plot.dot(data, ys) for ys in Plot.get_address(traces, ["ys", "*", "y", "value"])]
+# )
+# Plot.get_address(traces, ["ys", "*", "y", "value"])
+
+# %%
+
+Plot.dot(data, Plot.get_address(traces, ["ys", Plot.Dimension('samples', view='grid'), "y", "value"]))
+
+# %%
+
+Plot.dot([0, 1, 2, 3, 4, 5], Plot.Dimension('time', value=[[1, 1, 1, 1, 1, 1], [2, 2, 2, 2, 2, 2], [3, 3, 3, 3, 3, 3,]])) + \
+    Plot.dot([0, 1, 2, 3, 4, 5], Plot.Dimension('time', value=[[10, 10, 10, 10, 10, 10], [12, 12, 12, 12, 12, 12], [14, 14, 14, 14, 14, 14,]]), fill='green')

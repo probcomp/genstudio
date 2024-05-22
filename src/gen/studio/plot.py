@@ -9,41 +9,81 @@ from gen.studio.widget import Widget
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
-# 
-# See: 
+#
+# See:
 # - https://observablehq.com/plot/
-# - https://github.com/manzt/anywidget 
+# - https://github.com/manzt/anywidget
 # - https://github.com/juba/pyobsplot
 #
 #
 # Key features:
-# - Create plot specifications declaratively by combining marks, options and transformations 
+# - Create plot specifications declaratively by combining marks, options and transformations
 # - Compose plot specs using + operator to layer marks and merge options
 # - Render specs to interactive plot widgets, with lazy evaluation and caching
 # - Easily create grids of small multiples
 # - Includes shortcuts for common options like grid lines, color legends, margins
 
-OBSERVABLE_PLOT_METADATA = json.load(open(util.PARENT_PATH / "scripts" / "observable_plot_metadata.json"))
+OBSERVABLE_PLOT_METADATA = json.load(
+    open(util.PARENT_PATH / "scripts" / "observable_plot_metadata.json")
+)
 
 d3 = JSRef("d3")
 Math = JSRef("Math")
 View = JSRef("View")
 
+
+class Dimension:
+    def __init__(self, key, info={}, value=None, **kwargs):
+        self.value = value
+        self.info = {**info, **kwargs, 'key': key}
+
+    def to_json(self):
+        return {'value': self.value, 'dimension': self.info}
+
+
 def get_address(tr, address):
     """
     Retrieve a choice value from a trace using a list of keys.
     The "*" key is for accessing the `.inner` value of a trace.
+    Dimension instances are treated like "*" but also return dimension info.
     """
     result = tr
+    dimension = None
     for part in address:
-        if part == "*":
+        if isinstance(part, Dimension):
+            dimension = part
+            result = result.inner
+        elif part == "*":
             result = result.inner
         else:
             result = result[part]
-    return result
+    if dimension is not None:
+        return Dimension(dimension.info['key'], info=dimension.info, value=result)
+    else:
+        return result
+
+
+# def get_in(data, path):
+#     # maybe temporary - using for testing the dimension approach with simple python data structures
+#     """
+#     Retrieve a value from a nested dictionary/list structure using a path.
+#     The "*" key is for accessing all elements of an array or list at that level.
+#     Dimension instances are treated similar to "*", but also return dimension info.
+#     """
+#     result = data
+#     for part in path:
+#         if isinstance(part, Dimension):
+#             result = [get_in(x, path[1:]) for x in result]
+#         elif part == "*":
+#             result = [get_in(x, path[1:]) for x in result]
+#         else:
+#             result = result[part]
+#     return result
+
 
 def plot_spec(x):
     return PlotSpec(x)
+
 
 def _plot_fn(fn_name, meta):
     """
@@ -56,18 +96,29 @@ def _plot_fn(fn_name, meta):
         # no values argument
         def parse_args(spec={}, **kwargs):
             return [{**spec, **kwargs}]
-        return JSRef("Plot", fn_name, parse_args=parse_args, wrap_ret=plot_spec, doc=doc)
+
+        return JSRef(
+            "Plot", fn_name, parse_args=parse_args, wrap_ret=plot_spec, doc=doc
+        )
     elif kind == "marks":
+
         def parse_args(values, spec={}, **kwargs):
             return [fn_name, values, {**spec, **kwargs}]
-        return JSRef("View", "MarkSpec", parse_args=parse_args, wrap_ret=plot_spec, doc=doc, label=fn_name)
+
+        return JSRef(
+            "View",
+            "MarkSpec",
+            parse_args=parse_args,
+            wrap_ret=plot_spec,
+            doc=doc,
+            label=fn_name,
+        )
     else:
         return JSRef("Plot", fn_name, doc=doc)
 
 
 _plot_fns = {
-    name: _plot_fn(name, meta)
-    for name, meta in OBSERVABLE_PLOT_METADATA.items()
+    name: _plot_fn(name, meta) for name, meta in OBSERVABLE_PLOT_METADATA.items()
 }
 
 # Re-export the dynamically constructed MarkSpec functions
@@ -78,6 +129,7 @@ plot_options = {
     "small": {"width": 250, "height": 175, "inset": 10},
     "default": {"width": 500, "height": 350, "inset": 20},
 }
+
 
 def _deep_merge(dict1, dict2):
     """
@@ -138,7 +190,7 @@ class PlotSpec:
     Represents a specification for an plot (in Observable Plot).
 
     PlotSpecs can be composed using the + operator. When combined, marks accumulate
-    and plot options are merged. Lists of marks or dicts of plot options can also be 
+    and plot options are merged. Lists of marks or dicts of plot options can also be
     added directly to a PlotSpec.
 
     IPython plot widgets are created lazily when the spec is viewed in a notebook,
@@ -274,7 +326,7 @@ def small_multiples(plotspecs, plot_opts={}, layout_opts={}):
                     "grid-template-columns": "repeat(auto-fit, minmax(200px, 1fr))",
                 }
             },
-            *[(plotspec + plot_opts) for plotspec in plotspecs]
+            *[(plotspec + plot_opts) for plotspec in plotspecs],
         ]
     )
 
@@ -306,6 +358,8 @@ def accept_xs_ys(plot_fn, default_spec=None):
                 x, y = args
         elif len(args) == 3:
             x, y, spec = args
+        print(len(args))
+        print("x", x, "y", y, "spec", spec)
 
         kwargs = {**(default_spec or {}), **(spec or {}), **kwargs}
 
@@ -414,7 +468,9 @@ def domain(xd, yd=None):
 
 
 def color_map(mappings):
-    return {"color": {"domain": list(mappings.keys()), "range": list(mappings.values())}}
+    return {
+        "color": {"domain": list(mappings.keys()), "range": list(mappings.values())}
+    }
 
 
 def margin(*args):
@@ -472,8 +528,9 @@ example_plot_options = {
 
 
 def doc_str(functionName):
-    return OBSERVABLE_PLOT_METADATA[functionName]['doc']
-    
+    return OBSERVABLE_PLOT_METADATA[functionName]["doc"]
+
+
 def doc(plot_fn):
     """
     Decorator to display the docstring of a plot function nicely formatted as Markdown.
@@ -497,17 +554,19 @@ def doc(plot_fn):
             if meta
             else None
         )
-        return js_call("View", "md", 
+        return js_call(
+            "View",
+            "md",
             f"""
 <div style="display: block; gap: 10px; border-bottom: 1px solid #ddd; padding: 10px 0;">
 {title} 
 <a style='color: #777; text-decoration: none;' href="{url}">Examples &#8599;</a></div>
 
 """
-            + doc
+            + doc,
         )
     else:
         return js_call("View", "md", "No docstring available.")
-    
+
 
 # dot([[0, 0], [0, 1], [1, 1], [2, 3], [4, 2], [4, 0]])
