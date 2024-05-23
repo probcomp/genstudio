@@ -27,7 +27,7 @@ def normal_100():
 # %% [markdown]
 # ### Histogram
 
-Plot.rectY(normal_100(), Plot.binX({"y": "count"})) + Plot.ruleY()
+Plot.histogram(normal_100())
 
 # %% [markdown]
 # ### Scatter and Line plots
@@ -35,7 +35,7 @@ Plot.rectY(normal_100(), Plot.binX({"y": "count"})) + Plot.ruleY()
 # also accept separate `xs` and `ys` for passing in columnar data (usually the case
 # when working with jax.)
 
-Plot.dot(normal_100(), normal_100()) + Plot.frame()
+Plot.dot({'x': normal_100(), 'y': normal_100()}) + Plot.frame()
 
 # %% [markdown]
 # ### One-dimensional heatmap
@@ -123,9 +123,24 @@ traces = jax.vmap(lambda k: model.simulate(k, (data,)))(jnp.array(sub_keys))
 
 Plot.get_address(traces, ["ys", Plot.Dimension("samples"), "y", "value"])
 
-Plot.dot(data, Plot.get_address(traces, ["ys", Plot.Dimension('samples', view='grid'), "y", "value"]))
+Plot.dot({'x': data, 
+          'y': Plot.get_address(traces, ["ys", Plot.Dimension('samples', view='grid'), "y", "value"])})
 
-# %%
+# %% [markdown]
 
-Plot.dot([0, 1, 2, 3, 4, 5], Plot.Dimension('time', initial=1, fps=1, value=[[1, 1, 1, 1, 1, 1], [2, 2, 2, 2, 2, 2], [3, 3, 3, 3, 3, 3,]])) + \
-    Plot.dot([0, 1, 2, 3, 4, 5], Plot.Dimension('particle', view='grid', value=[[10, 10, 10, 10, 10, 10], [12, 12, 12, 12, 12, 12], [14, 14, 14, 14, 14, 14,]]), fill='green')
+### Things in progress
+
+time_data = [[1, 2, 1, 2, 1, 2, 1],
+             [1.5, 2.5, 1.5, 2.5, 1.5, 2.5, 1.5],
+             [3, 4, 3, 4, 3, 4, 3],
+             [3.5, 4.5, 3.5, 4.5, 3.5, 4.5, 3.5]]
+
+# Plot.get_in is like get_address but for ordinary Python data structures (dicts/lists)
+Plot.dot({'x': [0, 1, 2, 3, 4, 5, 6],
+          'y': Plot.get_in(time_data, [Plot.Dimension('time')])})
+
+#%%
+Plot.dot({'x': [0, 1, 2, 3, 4, 5], 
+          'y': Plot.Dimension('time', initial=1, fps=1, value=[[1, 1, 1, 1, 1, 1], [2, 2, 2, 2, 2, 2], [3, 3, 3, 3, 3, 3,]])}) + \
+    Plot.dot({'x': [0, 1, 2, 3, 4, 5], 
+              'y': Plot.Dimension('particle', view='grid', value=[[10, 10, 10, 10, 10, 10], [12, 12, 12, 12, 12, 12], [14, 14, 14, 14, 14, 14,]])}, fill='green')

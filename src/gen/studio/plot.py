@@ -63,22 +63,28 @@ def get_address(tr, address):
         return result
 
 
-# def get_in(data, path):
-#     # maybe temporary - using for testing the dimension approach with simple python data structures
-#     """
-#     Retrieve a value from a nested dictionary/list structure using a path.
-#     The "*" key is for accessing all elements of an array or list at that level.
-#     Dimension instances are treated similar to "*", but also return dimension info.
-#     """
-#     result = data
-#     for part in path:
-#         if isinstance(part, Dimension):
-#             result = [get_in(x, path[1:]) for x in result]
-#         elif part == "*":
-#             result = [get_in(x, path[1:]) for x in result]
-#         else:
-#             result = result[part]
-#     return result
+def get_in(data, path):
+    """
+    Retrieve a value from a nested dictionary/list structure using a path.
+    The "*" key is for accessing all elements of an array or list at that level.
+    Dimension instances are treated similar to "*", but also return dimension info.
+    """
+    result = data
+    dimension = None
+    for i, part in enumerate(path):
+        if isinstance(part, Dimension):
+            dimension = part
+            result = [get_in(x, path[i+1:]) for x in result]
+            break
+        elif part == "*":
+            result = [get_in(x, path[i+1:]) for x in result]
+            break
+        else:
+            result = result[part]
+    if dimension is not None:
+        return Dimension(dimension.info['key'], info=dimension.info, value=result)
+    else:
+        return result
 
 
 def plot_spec(x):
@@ -331,51 +337,50 @@ def small_multiples(plotspecs, plot_opts={}, layout_opts={}):
     )
 
 
-def accept_xs_ys(plot_fn, default_spec=None):
+def partial_plot(plot_fn, default_spec):
     """
-    Wraps a plot function to accept x and y arrays in addition to a values array.
-
-    The wrapped function supports the following argument patterns:
-    - values
-    - values, spec
-    - x, y
-    - x, y, spec
-
-    Where spec is a dictionary of plot options.
+    Returns plot fn with default options, retaining metadata.
     """
 
-    def inner(*args, **kwargs):
-        if len(args) not in {1, 2, 3}:
-            raise ValueError(f"Invalid number of arguments: {len(args)}")
-
-        values, x, y, spec = None, None, None, None
-        if len(args) == 1:
-            values = args[0]
-        elif len(args) == 2:
-            if isinstance(args[1], dict):
-                values, spec = args
-            else:
-                x, y = args
-        elif len(args) == 3:
-            x, y, spec = args
-        print(len(args))
-        print("x", x, "y", y, "spec", spec)
-
-        kwargs = {**(default_spec or {}), **(spec or {}), **kwargs}
-
-        if values is not None:
-            return plot_fn(values, kwargs)
-        return plot_fn({"x": x, "y": y}, kwargs)
+    def inner(values, spec={}, **kwargs):
+        return plot_fn(values, {**default_spec, **spec, **kwargs})
 
     inner.__doc__ = plot_fn.__doc__
     inner.__name__ = plot_fn.__name__
     inner.doc = plot_fn.doc
     return inner
 
+dot = partial_plot(_plot_fns["dot"], {"fill": "currentColor"})
 
-line = accept_xs_ys(_plot_fns["line"])
-dot = accept_xs_ys(_plot_fns["dot"], {"fill": "currentColor"})
+def histogram(values, mark='rectY', thresholds='auto'):
+    """
+Create a histogram plot from the given values.
 
+Args:
+     
+values (list or array-like): The data values to be binned and plotted.
+mark (str): 'rectY' or 'dot'.
+thresholds (str, int, list, or callable, optional): The thresholds option may be specified as a named method or a variety of other ways:
+  
+- 'auto' (default): Scott’s rule, capped at 200.
+- 'freedman-diaconis': The Freedman–Diaconis rule.
+- 'scott': Scott’s normal reference rule.
+- 'sturges': Sturges’ formula.
+- A count (int) representing the desired number of bins.
+- An array of n threshold values for n - 1 bins.
+- An interval or time interval (for temporal binning).
+- A function that returns an array, count, or time interval.
+
+ Returns:
+  PlotSpec: A plot specification for a histogram with the y-axis representing the count of values in each bin.
+    """
+    opts = {'x': {'thresholds': thresholds}}
+    if mark == 'rectY':
+        return rectY(values, binX({'y': 'count'}, opts)) + ruleY([0])
+    elif mark == 'dot':
+        return dot(values, binX({'r': 'count'}, opts))
+
+#%%
 
 class PlotSpecWithDefault:
     """

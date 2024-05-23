@@ -13,7 +13,7 @@ const md = new MarkdownIt({
 });
 
 function renderMarkdown(text) {
-  return html`<div dangerouslySetInnerHTML=${{ __html: md.render(text) }} />`;
+  return html`<div class='prose' dangerouslySetInnerHTML=${{ __html: md.render(text) }} />`;
 }
 
 const html = htm.bind(React.createElement)
@@ -178,7 +178,7 @@ function DimensionSliders({dimensions, dimensionState, setDimensionState}) {
   return html`
     <div>
       ${Object.entries(dimensions).map(([key, dimension]) => html`
-          <div class="grid grid-cols-[min-content,1fr] my-2" key=${key}>
+          <div class="flex flex-col my-2 gap-2" key=${key}>
             <label>${dimension.label || key}</label>
             <input 
               type="range" 
@@ -254,14 +254,21 @@ const render = createRender(App)
  */
 const installTailwind = () => {
   const id = "tailwind-cdn"
-  const url = "https://cdn.jsdelivr.net/gh/html-first-labs/static-tailwind@759f1d7/dist/tailwind.css"
+  const scriptUrl = "https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio";
   if (!document.getElementById(id)) {
-    const link = document.createElement("link");
-    link.id = id;
-    link.rel = "stylesheet";
-    link.href = url;
-    document.head.appendChild(link);
+    const script = document.createElement("script");
+    script.id = id;
+    script.src = scriptUrl;
+    document.head.appendChild(script);
   }
+  // const url = "https://cdn.jsdelivr.net/gh/html-first-labs/static-tailwind@759f1d7/dist/tailwind.css"
+  // if (!document.getElementById(id)) {
+  //   const link = document.createElement("link");
+  //   link.id = id;
+  //   link.rel = "stylesheet";
+  //   link.href = url;
+  //   document.head.appendChild(link);
+  // }
 }
 
 export default { render, initialize: installTailwind }
