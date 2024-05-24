@@ -4,7 +4,7 @@ import json
 import re
 
 import gen.studio.util as util
-from gen.studio.js_modules import JSRef, hiccup, js, js_call
+from gen.studio.js_modules import JSRef, Hiccup, js, js_call
 from gen.studio.widget import Widget
 
 # This module provides a composable way to create interactive plots using Observable Plot
@@ -323,7 +323,7 @@ def small_multiples(plotspecs, plot_opts={}, layout_opts={}):
         **layout_opts,
     }
 
-    return hiccup(
+    return Hiccup(
         [
             "div.grid.black",
             {

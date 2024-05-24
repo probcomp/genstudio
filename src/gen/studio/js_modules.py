@@ -49,16 +49,12 @@ class JSRef(dict):
             raise ValueError("Only module.name paths are currently supported")
             # return JSRef(f"{self['module']}.{self['name']}", name)
 
-class Hiccup(list):
+class Hiccup:
     """Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
     def __init__(self, contents):
-        super().__init__(contents)
+        self.contents = contents
 
     def _repr_mimebundle_(self, **kwargs):
         """Renders the Hiccup list as an interactive widget in the JavaScript runtime."""
-        return Widget(self)._repr_mimebundle_(**kwargs)
+        return Widget(self.contents)._repr_mimebundle_(**kwargs)
 
-
-def hiccup(x):
-    """Constructs a Hiccup object from the provided list to be rendered in the JavaScript runtime."""
-    return Hiccup(x)

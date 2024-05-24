@@ -1,5 +1,7 @@
 # %% 
+
 import gen.studio.plot as Plot
+from gen.studio.js_modules import Hiccup
 import numpy as np
 import genjax as genjax
 from genjax import static_gen_fn
@@ -126,6 +128,7 @@ Plot.get_address(traces, ["ys", Plot.Dimension("samples"), "y", "value"])
 Plot.dot({'x': data, 
           'y': Plot.get_address(traces, ["ys", Plot.Dimension('samples', view='grid'), "y", "value"])})
 
+
 # %% [markdown]
 
 ### Things in progress
@@ -144,3 +147,6 @@ Plot.dot({'x': [0, 1, 2, 3, 4, 5],
           'y': Plot.Dimension('time', initial=1, fps=1, value=[[1, 1, 1, 1, 1, 1], [2, 2, 2, 2, 2, 2], [3, 3, 3, 3, 3, 3,]])}) + \
     Plot.dot({'x': [0, 1, 2, 3, 4, 5], 
               'y': Plot.Dimension('particle', view='grid', value=[[10, 10, 10, 10, 10, 10], [12, 12, 12, 12, 12, 12], [14, 14, 14, 14, 14, 14,]])}, fill='green')
+    
+    
+# %%
