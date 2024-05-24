@@ -4,9 +4,10 @@ import gen.studio.plot as Plot
 from gen.studio.js_modules import Hiccup
 import numpy as np
 import genjax as genjax
-from genjax import static_gen_fn
+from genjax import gen
 import jax 
 import jax.numpy as jnp 
+import jax.random as jrand
 import numpy as np
 
 # %% [markdown]
@@ -74,59 +75,49 @@ circle + Plot.frame() + {'inset': 50}
 # A GenJAX example
 
 
-key = jax.random.PRNGKey(314159)
+key = jrand.PRNGKey(314159)
 
-# Two branches for a branching submodel.
-@static_gen_fn
-def model_y(x, coefficients):
+# A regression distribution.
+@gen
+def regression(x, coefficients, sigma):
     basis_value = jnp.array([1.0, x, x**2])
     polynomial_value = jnp.sum(basis_value * coefficients)
-    y = genjax.normal(polynomial_value, 0.3) @ "value"
+    y = genjax.normal(polynomial_value, sigma) @ "v"
     return y
 
 
-@static_gen_fn
-def outlier_model(x, coefficients):
-    basis_value = jnp.array([1.0, x, x**2])
-    polynomial_value = jnp.sum(basis_value * coefficients)
-    y = genjax.normal(polynomial_value, 30.0) @ "value"
-    return y
-
-
-# The branching submodel.
-switch = genjax.switch_combinator(model_y, outlier_model)
-
-# A mapped kernel function which calls the branching submodel.
-
-
-@genjax.map_combinator(in_axes=(0, None))
-@static_gen_fn
-def kernel(x, coefficients):
-    is_outlier = genjax.flip(0.1) @ "outlier"
+# Regression, with an outlier random variable.
+@gen
+def regression_with_outlier(x, coefficients):
+    is_outlier = genjax.flip(0.1) @ "is_outlier"
+    sigma = jnp.where(is_outlier, 30.0, 0.3)
     is_outlier = jnp.array(is_outlier, dtype=int)
-    y = switch(is_outlier, x, coefficients) @ "y"
-    return y
+    return regression(x, coefficients, sigma) @ "y"
 
 
-@static_gen_fn
-def model(xs):
+# The full model, sample coefficients for a curve, and then use
+# them in independent draws from the regression submodel.
+@gen
+def full_model(xs):
     coefficients = (
-        genjax.mv_normal(np.zeros(3, dtype=float), 2.0 * np.identity(3)) @ "alpha"
+        genjax.mv_normal(
+            jnp.zeros(3, dtype=float),
+            2.0 * jnp.identity(3),
+        )
+        @ "alpha"
     )
-    ys = kernel(xs, coefficients) @ "ys"
+    ys = regression_with_outlier.vmap(in_axes=(0, None))(xs, coefficients) @ "ys"
     return ys
 
 data = jnp.arange(0, 10, 0.5)
-key, sub_key = jax.random.split(key)
-tr = jax.jit(model.simulate)(sub_key, (data,))
+key, sub_key = jrand.split(key)
+tr = jax.jit(full_model.simulate)(sub_key, (data,))
 
-key, *sub_keys = jax.random.split(key, 10)
-traces = jax.vmap(lambda k: model.simulate(k, (data,)))(jnp.array(sub_keys))
-
-Plot.get_address(traces, ["ys", Plot.Dimension("samples"), "y", "value"])
+key, *sub_keys = jrand.split(key, 10)
+traces = jax.vmap(lambda k: full_model.simulate(k, (data,)))(jnp.array(sub_keys))
 
 Plot.dot({'x': data, 
-          'y': Plot.get_address(traces, ["ys", Plot.Dimension('samples', view='grid'), "y", "value"])})
+          'y': Plot.get_choice(traces, ["ys", Plot.Dimension('samples', view='grid'), "y", "v"])})
 
 
 # %% [markdown]

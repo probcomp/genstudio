@@ -25,7 +25,7 @@ bokeh = "^3.4.1"
 pythreejs = "^2.4.2"
 ipykernel = "^6.29.4"
 watchfiles = "^0.21.0"
-genjax = {version = "^0.3.1", source = "gcp"}
+genjax = {git = "git@github.com:probcomp/genjax.git", branch = "main"}
 
 
 [[tool.poetry.source]]

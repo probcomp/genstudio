@@ -41,33 +41,31 @@ class Dimension:
         return {'value': self.value, 'dimension': self.info}
 
 
-def get_address(tr, address):
+def get_choice(tr, address):
     """
     Retrieve a choice value from a trace using a list of keys.
-    The "*" key is for accessing the `.inner` value of a trace.
-    Dimension instances are treated like "*" but also return dimension info.
+    Dimension instances are treated like ... but also return dimension info.
     """
-    result = tr
+    choices = tr.get_choices()
     dimension = None
+    address2 = []
     for part in address:
         if isinstance(part, Dimension):
             dimension = part
-            result = result.inner
-        elif part == "*":
-            result = result.inner
+            address2.append(...)
         else:
-            result = result[part]
+            address2.append(part)
     if dimension is not None:
-        return Dimension(dimension.info['key'], info=dimension.info, value=result)
+        return Dimension(dimension.info['key'], info=dimension.info, value=choices[*address2])
     else:
-        return result
+        return choices[*address]
 
 
 def get_in(data, path):
     """
     Retrieve a value from a nested dictionary/list structure using a path.
     The "*" key is for accessing all elements of an array or list at that level.
-    Dimension instances are treated similar to "*", but also return dimension info.
+    Dimension instances are treated like ... but also return dimension info.
     """
     result = data
     dimension = None
@@ -76,7 +74,7 @@ def get_in(data, path):
             dimension = part
             result = [get_in(x, path[i+1:]) for x in result]
             break
-        elif part == "*":
+        elif part == ...:
             result = [get_in(x, path[i+1:]) for x in result]
             break
         else:
