@@ -15,6 +15,7 @@ numpy = "^1.26.4"
 jax = "^0.4.25"
 penzai = "^0.1.1"
 jaxlib = "^0.4.28"
+nbclient = "^0.10.0"
 
 [tool.poetry.group.dev.dependencies]
 seaborn = "^0.13.2"
@@ -25,7 +26,9 @@ bokeh = "^3.4.1"
 pythreejs = "^2.4.2"
 ipykernel = "^6.29.4"
 watchfiles = "^0.21.0"
-genjax = {git = "git@github.com:probcomp/genjax.git", branch = "main"}
+genjax = {version = "0.3.1.post258.dev0+b103dee7", source = "gcp"}
+jupyter-client = "^8.6.2"
+nbformat = "^5.10.4"
 
 
 [[tool.poetry.source]]
