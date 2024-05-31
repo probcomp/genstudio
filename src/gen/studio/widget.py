@@ -1,12 +1,12 @@
+#%%
 import json
 import datetime
-import jax.numpy as jnp
-import numpy as np
 import anywidget
 import traitlets
 from pathlib import Path
 import importlib.util
 
+#%%
 # necessary for VS Code IPython interactive contexts 
 PARENT_PATH = Path(importlib.util.find_spec("gen.studio.widget").origin).parent
 
@@ -14,7 +14,7 @@ def to_json(data, _widget):
     def default(obj):
         if hasattr(obj, "to_json"):
             return obj.to_json()
-        if isinstance(obj, (jnp.ndarray, np.ndarray)):
+        if type(obj).__name__ in ('ndarray', 'ArrayImpl'): # intended to identify numpy.ndarray and jax.numpy.ndarray
             return obj.tolist()
         elif isinstance(obj, (datetime.date, datetime.datetime)):
             return {"pyobsplot-type": "datetime", "value": obj.isoformat()}
