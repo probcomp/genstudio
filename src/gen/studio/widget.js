@@ -22,22 +22,25 @@ const html = htm.bind(React.createElement)
 /**
  * Wrap plot specs so that our node renderer can identify them.
  */
-class PlotSpec {    
+class PlotSpec {
   /**
    * Create a new plot spec.
    */
   constructor(spec) {
     this.spec = spec;
+
+    // Compute dimension domains for all marks contained in this plog
+
     const domains = spec.marks?.reduce((acc, mark) => {
-      for (const [key, domain] of Object.entries(mark.domains || {})) {
-        acc[key] = acc[key] 
-          ? [Math.min(acc[key][0], domain[0]), Math.max(acc[key][1], domain[1])]
+      for (const [dimensionKey, domain] of Object.entries(mark.domains || {})) {
+        acc[dimensionKey] = acc[dimensionKey]
+          ? [Math.min(acc[dimensionKey][0], domain[0]), Math.max(acc[dimensionKey][1], domain[1])]
           : domain;
       }
       return acc;
     }, {}) || {};
-    for (const [key, domain] of Object.entries(domains)) {
-      this.spec[key] = {...this.spec[key], domain};
+    for (const [dimensionKey, domainInfo] of Object.entries(domains)) {
+      this.spec[dimensionKey] = { ...this.spec[dimensionKey], domain: domainInfo };
     }
   }
 }
@@ -69,36 +72,57 @@ const el = (tag, props, ...children) => {
   return html`<${baseTag} ...${props}>${children}</${tag}>`;
 };
 
-
 class MarkSpec {
   constructor(name, data, options) {
-    this.fn = Plot[name]
-    this.name = name
-    this.data = data 
-    this.options = options
-    // analyze the mark to determine its shape
-    if (Array.isArray(data) || 'length' in data) {
-      this.format = 'array'
-    } else {
-      this.format = 'columnar'
-      let dimensions = {}
-      let domains = {}
-      for (const [key, value] of Object.entries(data)) {
-        if (value.dimension) {
-          let dimension = value.dimension;
-          dimension.length = value.value.length;
+    this.fn = Plot[name];
+    if (!Plot[name]) {
+      throw new Error(`Plot function "${name}" not found.`);
+    }
+    this.name = name;
+    this.data = data;
+    this.options = options;
+    this.format = Array.isArray(data) || 'length' in data ? 'array' : 'columnar';
+    if (this.format === 'columnar') {
+      const { dimensions, domains } = this.analyzeColumnarData(data);
+      if (dimensions?.length > 0) this.dimensions = dimensions;
+      if (Object.keys(domains).length > 0) this.domains = domains;
+    }
+  }
+
+  analyzeColumnarData(data) {
+    let dimensions = [];
+    let domains = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value.dimensions) {
+        let dimensionValue = value.value;
+        value.dimensions.forEach((dimension) => {
+          dimension.size = dimensionValue?.length || 0;
           dimension.view = dimension.view || 'slider'; // default to slider view
           dimension.fps = dimension.fps || 0;
-          domains[key] = [
-            Math.min(...value.value.flat()),
-            Math.max(...value.value.flat())
-          ];
-          dimensions[value.dimension.key] = dimension;
-        }
+          domains[key] = dimension.domain;
+          if (dimensionValue && typeof dimensionValue[0] === 'number') {
+            let [min, max] = this.calculateDomain(value.value);
+            dimension.domain = [min, max];
+            domains[key] = dimension.domain;
+          }
+          dimensions.push(dimension);
+          dimensionValue = dimensionValue && dimensionValue[0];
+        });
       }
-      if (Object.keys(dimensions).length > 0) {this.dimensions = dimensions}
-      if (Object.keys(domains).length > 0) {this.domains = domains}
     }
+    return { dimensions, domains };
+  }
+
+  calculateDomain(values) {
+    let min = Infinity;
+    let max = -Infinity;
+    for (const subArray of values) {
+      for (const num of subArray) {
+        if (num < min) min = num;
+        if (num > max) max = num;
+      }
+    }
+    return [min, max];
   }
 }
 
@@ -106,22 +130,28 @@ function readMark(mark, dimensionState) {
   if (!(mark instanceof MarkSpec)) {
     return mark;
   }
-  let {fn, data, options, format} = mark
+  let { fn, data, options, format } = mark
   switch (format) {
     case 'columnar':
       // format columnar data for Observable.Plot;
       // values go into the options map.
       const formattedData = {};
-      for (const [key, value] of Object.entries(data)) {
-        if (value.dimension) {
-          const dimension = value.dimension;
-          const i = dimensionState[dimension.key] || 0;
-          formattedData[key] = value.value[i];
+      for (let [key, value] of Object.entries(data)) {
+        if (value.dimensions) {
+          const dimensions = value.dimensions;
+          formattedData[key] = value.value;
+          for (const dimension of dimensions) {
+            if (!dimensionState.hasOwnProperty(dimension.key)) {
+              throw new Error(`Dimension state for ${dimension.key} is missing.`);
+            }
+            const i = dimensionState[dimension.key]
+            formattedData[key] = formattedData[key][i]
+          }
         } else {
-          formattedData[key] = value; 
+          formattedData[key] = value;
         }
       }
-      return fn({ length: Object.values(formattedData)[0].length }, { ...formattedData, ...options})
+      return fn({ length: Object.values(formattedData)[0].length }, { ...formattedData, ...options })
     default:
       return fn(data, options)
   }
@@ -129,7 +159,7 @@ function readMark(mark, dimensionState) {
 
 const scope = {
   d3,
-  Plot, React, ReactDOM, 
+  Plot, React, ReactDOM,
   View: {
     PlotSpec: (x) => new PlotSpec(x),
     MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
@@ -174,18 +204,20 @@ export function interpret(data) {
   return ret;
 }
 
-function DimensionSliders({dimensions, dimensionState, setDimensionState}) {
+function SlidersView({ info, state, setState }) {
+  // `info` should be an object of {key, {label, size}}
   return html`
     <div>
-      ${Object.entries(dimensions).map(([key, dimension]) => html`
+      ${Object.entries(info).map(([key, {label, size}]) => html`
           <div class="flex flex-col my-2 gap-2" key=${key}>
-            <label>${dimension.label || key}</label>
+            <label>${label || key}</label>
+            ${state[key]}
             <input 
               type="range" 
               min="0" 
-              max=${dimension.length - 1}
-              value=${dimensionState[key] || 0} 
-              onChange=${(e) => setDimensionState({...dimensionState, [key]: Number(e.target.value)})}
+              max=${size - 1}
+              value=${state[key] || 0} 
+              onChange=${(e) => setState({ ...state, [key]: Number(e.target.value) })}
             />
                   </div>  
       `)}
@@ -193,33 +225,47 @@ function DimensionSliders({dimensions, dimensionState, setDimensionState}) {
   `;
 }
 
-/**
- * Renders a plot.
- */
-function PlotView({ spec }) {
+function PlotView({spec, dimensionState}) {
   const [parent, setParent] = useState(null)
-  const dimensions = useMemo(() => spec.marks.reduce((acc, mark) => ({...acc, ...mark.dimensions}), {}))
-  const [dimensionState, setDimensionState] = useState(
-    Object.fromEntries(Object.entries(dimensions).map(([k, d]) => [k, d.initial || 0]))
-  );
-  const ref = useCallback(setParent) 
+  const ref = useCallback(setParent)
   useEffect(() => {
     if (parent) {
       const marks = spec.marks.map((m) => readMark(m, dimensionState))
-      const plot = Plot.plot({...spec, marks: marks})
+      const plot = Plot.plot({ ...spec, marks: marks })
       parent.appendChild(plot)
       return () => parent.removeChild(plot)
     }
   }, [spec, parent, dimensionState])
   return html`
+    <div ref=${ref}></div>
+  `
+}
+
+function PlotWrapper({ spec }) {
+  const dimensionInfo = useMemo(() => {
+    return spec.marks.flatMap(mark => mark.dimensions).reduce((acc, dimension) => {
+      if (!dimension) {
+        acc
+      } else if (acc[dimension.key]) {
+        acc[dimension.key] = { ...acc[dimension.key], ...dimension };
+      } else {
+        acc[dimension.key] = dimension;
+      }
+      return acc;
+    }, {});
+  }, []);
+  
+  const [dimensionState, setDimensionState] = useState(
+    Object.fromEntries(Object.entries(dimensionInfo).map(([k, d]) => [k, d.initial || 0]))
+  );
+  return html`
     <div>
-      <div ref=${ref}></div>
-      <${DimensionSliders} 
-        dimensions=${spec.marks.reduce((acc, mark) => ({...acc, ...mark.dimensions}), {})}
-        dimensionState=${dimensionState}
-        setDimensionState=${setDimensionState}
-      />
-          </div>
+      <${PlotView} spec=${spec} dimensionState=${dimensionState}></div>
+      <${SlidersView} 
+        info=${dimensionInfo}
+        state=${dimensionState}
+        setState=${setDimensionState}/>
+    </div>
   `
 }
 
@@ -230,9 +276,9 @@ function Node({ value }) {
   if (Array.isArray(value)) {
     return el.apply(null, value);
   } else if (value instanceof PlotSpec) {
-    return html`<${PlotView} spec=${value.spec}/>`;
+    return html`<${PlotWrapper} spec=${value.spec}/>`;
   } else if (value instanceof MarkSpec) {
-    return Node({value: new PlotSpec({marks: [value]})})
+    return Node({ value: new PlotSpec({ marks: [value] }) })
   } else {
     return value
   }

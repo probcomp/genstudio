@@ -1,5 +1,7 @@
 # %% 
-
+# %load_ext autoreload
+# %autoreload 2
+#%%
 import gen.studio.plot as Plot
 from gen.studio.js_modules import Hiccup
 import numpy as np
@@ -117,27 +119,19 @@ key, *sub_keys = jrand.split(key, 10)
 traces = jax.vmap(lambda k: full_model.simulate(k, (data,)))(jnp.array(sub_keys))
 
 Plot.dot({'x': data, 
-          'y': Plot.get_choice(traces, ["ys", Plot.Dimension('samples', view='grid'), "y", "v"])})
+          'y': Plot.get_choice(traces, ["ys", {...: 'samples'}, "y", "v"])})
 
 
 # %% [markdown]
 
 ### Things in progress
 
-time_data = [[1, 2, 1, 2, 1, 2, 1],
-             [1.5, 2.5, 1.5, 2.5, 1.5, 2.5, 1.5],
-             [3, 4, 3, 4, 3, 4, 3],
-             [3.5, 4.5, 3.5, 4.5, 3.5, 4.5, 3.5]]
-
-# Plot.get_in is like get_address but for ordinary Python data structures (dicts/lists)
-Plot.dot({'x': [0, 1, 2, 3, 4, 5, 6],
-          'y': Plot.get_in(time_data, [Plot.Dimension('time')])})
-
-#%%
-Plot.dot({'x': [0, 1, 2, 3, 4, 5], 
-          'y': Plot.Dimension('time', initial=1, fps=1, value=[[1, 1, 1, 1, 1, 1], [2, 2, 2, 2, 2, 2], [3, 3, 3, 3, 3, 3,]])}) + \
-    Plot.dot({'x': [0, 1, 2, 3, 4, 5], 
-              'y': Plot.Dimension('particle', view='grid', value=[[10, 10, 10, 10, 10, 10], [12, 12, 12, 12, 12, 12], [14, 14, 14, 14, 14, 14,]])}, fill='green')
-    
-    
-# %%
+import random
+bean_data = [[0 for _ in range(5)]]
+for day in range(1, 21):
+    bean_data.append([height + random.uniform(0.5, 1.5) for height in bean_data[-1]])
+        
+Plot.line(Plot.get_in(bean_data, [{...: 'day'}, {...: 'bean'},{'height'}]).flat(),
+         {'x': 'day', 
+          'y': 'height', 
+          'fx': 'bean'})

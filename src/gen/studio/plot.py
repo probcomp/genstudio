@@ -30,16 +30,29 @@ OBSERVABLE_PLOT_METADATA = json.load(
 d3 = JSRef("d3")
 Math = JSRef("Math")
 View = JSRef("View")
-
-
-class Dimension:
-    def __init__(self, key, info={}, value=None, **kwargs):
+class Dimensioned:
+    def __init__(self, dimensions, value=None):
         self.value = value
-        self.info = {**info, **kwargs, 'key': key}
+        self.dimensions = dimensions
 
     def to_json(self):
-        return {'value': self.value, 'dimension': self.info}
+        return {'value': self.value, 'dimensions': self.dimensions}
+    def flat(self):
+        def _flat(value, dims, prefix=None):
+            if not dims:
+                return [prefix | value] if prefix else [value]
+            
+            results = []
+            dim_key = dims[0]['key']
+            for i, v in enumerate(value):
+                new_prefix = {**prefix, dim_key: i} if prefix else {dim_key: i}
+                results.extend(_flat(v, dims[1:], new_prefix))
+            return results
 
+        return _flat(self.value, self.dimensions)
+    
+def rename_key(d, prev_k, new_k):
+    return {k if k != prev_k else new_k: v for k, v in d.items()}
 
 def get_choice(tr, address):
     """
@@ -47,44 +60,97 @@ def get_choice(tr, address):
     Dimension instances are treated like ... but also return dimension info.
     """
     choices = tr.get_choices()
-    dimension = None
-    address2 = []
-    for part in address:
-        if isinstance(part, Dimension):
-            dimension = part
-            address2.append(...)
-        else:
-            address2.append(part)
-    if dimension is not None:
-        return Dimension(dimension.info['key'], info=dimension.info, value=choices[*address2])
+    dimensions = [rename_key(segment, ..., 'key') for segment in address if isinstance(segment, dict) and ... in segment]
+    
+    if isinstance(address[-1], set):
+        # If the last entry in address is a set, we want to retrieve multiple values
+        # from the choices and return them as a dictionary with keys from the set.
+        keys = address[-1]
+        value = choices[*address[:-1]]
+        value = {key: value[key] for key in keys}
     else:
-        return choices[*address]
+        # If the last entry is not a set, proceed as normal
+        value = choices[*address]
+    
+    if dimensions:
+        address = [... if (isinstance(segment, dict) and ... in segment) else segment for segment in address]
+        return Dimensioned(dimensions, value=value)
+    else:
+        return value
 
 
-def get_in(data, path):
+def get_in(data, path, toplevel=True):
     """
     Retrieve a value from a nested dictionary/list structure using a path.
-    The "*" key is for accessing all elements of an array or list at that level.
-    Dimension instances are treated like ... but also return dimension info.
+    
+    Args:
+        data (dict or list): The nested data structure to traverse.
+        path (list): A list specifying the path to the desired value. 
+            - Use a python Ellipsis (...) to access all elements of a list at that level.
+            - Use a dict of the form {... 'dimension_key', **moreKeys} to represent a dimension 
+              (treated like ... for data gathering).
+            - Use a set in the last position to read multiple keys from the result into a dict.
+        toplevel (bool, optional): Flag indicating if this is the top-level call. Defaults to True.
+        
+    Returns:
+        The value at the specified path. If one or more dimensions are found, returns a Dimensioned instance.
+        If a set is provided in the last position, returns a dict with the specified keys read from the result.
     """
     result = data
-    dimension = None
+    dimensions = [rename_key(segment, ..., 'key') for segment in path if isinstance(segment, dict) and ... in segment]
     for i, part in enumerate(path):
-        if isinstance(part, Dimension):
-            dimension = part
-            result = [get_in(x, path[i+1:]) for x in result]
-            break
-        elif part == ...:
-            result = [get_in(x, path[i+1:]) for x in result]
+        if isinstance(part, dict) and ... in part:
+            part = ...
+        if part == ...:
+            if isinstance(result, list):
+                result = [get_in(sub_result, path[i+1:], False) for sub_result in result]
+                break
+            else:
+                raise TypeError(f"Expected list at path index {i}, got {type(result).__name__}")
+        elif isinstance(part, set) and i == len(path) - 1:
+            if isinstance(result, dict) and len(part) == 1: 
+                result = {key: result[key] for key in part}
+            else:
+                result = {next(iter(part)): result} 
             break
         else:
             result = result[part]
-    if dimension is not None:
-        return Dimension(dimension.info['key'], info=dimension.info, value=result)
+    if toplevel and dimensions:
+        return Dimensioned(dimensions, value=result)
     else:
         return result
 
 
+# Test case to verify traversal of more than one dimension
+def test_get_in():
+    data = {
+        'a': [
+            {'b': [{'c': 1}, {'c': 2}]},
+            {'b': [{'c': 3}, {'c': 4}]}
+        ]
+    }
+    path = ['a', {...: 'first'}, 'b', {...: 'second'}, 'c']
+    result = get_in(data, path)
+    assert isinstance(result, Dimensioned), f"Expected Dimensioned, got {type(result).__name__}"
+    assert result.value == [[1, 2], [3, 4]], f"Expected [[1, 2], [3, 4]], got {result.value}"
+    assert isinstance(result.dimensions, list), f"Expected dimensions to be a list, got {type(result.dimensions).__name__}"
+    assert len(result.dimensions) == 2, f"Expected 2 dimensions, got {len(result.dimensions)}"
+    assert [d['key'] for d in result.dimensions] == ['first', 'second'], f"Expected dimension keys to be ['first', 'second'], got {[d['key'] for d in result.dimensions]}"
+    
+    flattened = get_in(data, ['a', {...: 'first'}, 'b', {...: 'second'}, {'c'}]).flatten()
+    
+    assert flattened == [
+        {'first': 0, 'second': 0, 'c': 1},
+        {'first': 0, 'second': 1, 'c': 2},
+        {'first': 1, 'second': 0, 'c': 3},
+        {'first': 1, 'second': 1, 'c': 4}
+    ], f"Expected flattened result to be [{{...}}, ...], got {flattened}"
+    
+    print('tests passed')
+
+# test_get_in()
+
+#%%
 def plot_spec(x):
     return PlotSpec(x)
 
