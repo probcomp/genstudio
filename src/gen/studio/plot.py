@@ -61,6 +61,7 @@ def get_choice(tr, address):
     """
     choices = tr.get_choices()
     dimensions = [rename_key(segment, ..., 'key') for segment in address if isinstance(segment, dict) and ... in segment]
+    address = [... if (isinstance(segment, dict) and ... in segment) else segment for segment in address]
     
     if isinstance(address[-1], set):
         # If the last entry in address is a set, we want to retrieve multiple values
@@ -73,7 +74,6 @@ def get_choice(tr, address):
         value = choices[*address]
     
     if dimensions:
-        address = [... if (isinstance(segment, dict) and ... in segment) else segment for segment in address]
         return Dimensioned(dimensions, value=value)
     else:
         return value

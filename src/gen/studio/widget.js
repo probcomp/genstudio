@@ -72,6 +72,24 @@ const el = (tag, props, ...children) => {
   return html`<${baseTag} ...${props}>${children}</${tag}>`;
 };
 
+const flat = (data, dimensions) => {
+  const _flat = (data, dimensions, prefix = null) => {
+    if (!dimensions.length) {
+      return prefix ? [{ ...prefix, ...data }] : [data];
+    }
+
+    const results = [];
+    const dKey = dimensions[0].key;
+    for (let i = 0; i < data.length; i++) {
+      const newPrefix = prefix ? { ...prefix, [dKey]: i } : { [dKey]: i };
+      results.push(..._flat(data[i], dimensions.slice(1), newPrefix));
+    }
+    return results;
+  };
+
+  return _flat(data, dimensions);
+}
+
 class MarkSpec {
   constructor(name, data, options) {
     this.fn = Plot[name];
@@ -84,7 +102,12 @@ class MarkSpec {
     this.format = Array.isArray(data) || 'length' in data ? 'array' : 'columnar';
     if (this.format === 'columnar') {
       const { dimensions, domains } = this.analyzeColumnarData(data);
-      if (dimensions?.length > 0) this.dimensions = dimensions;
+      if (dimensions?.length > 0) {
+        this.dimensions = dimensions;
+        // this.data = flat(data, dimensions)
+        // console.log("D", data)
+        // console.log("F", this.data)
+      }
       if (Object.keys(domains).length > 0) this.domains = domains;
     }
   }

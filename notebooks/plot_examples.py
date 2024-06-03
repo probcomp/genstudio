@@ -30,12 +30,12 @@ def normal_100():
 
 
 # %% [markdown]
-# ### Histogram
+# #### Histogram
 
 Plot.histogram(normal_100())
 
 # %% [markdown]
-# ### Scatter and Line plots
+# #### Scatter and Line plots
 # Unlike other mark types which expect a single values argument, `dot` and `line`
 # also accept separate `xs` and `ys` for passing in columnar data (usually the case
 # when working with jax.)
@@ -43,7 +43,7 @@ Plot.histogram(normal_100())
 Plot.dot({'x': normal_100(), 'y': normal_100()}) + Plot.frame()
 
 # %% [markdown]
-# ### One-dimensional heatmap
+# #### One-dimensional heatmap
 
 (
     Plot.rect(normal_100(), Plot.binX({"fill": "count"}))
@@ -52,13 +52,13 @@ Plot.dot({'x': normal_100(), 'y': normal_100()}) + Plot.frame()
 )
 
  # %% [markdown]
- # ### Plot.doc
+ # #### Plot.doc
  # Plot.doc(Plot.foo) will render a markdown-formatted docstring when available:
  
  Plot.doc(Plot.line)
  
  # %% [markdown]
- # ### Plot composition 
+ # #### Plot composition 
  # 
  # Marks and options can be composed by including them as arguments to `Plot.new(...)`,
  # or by adding them to a plot. Adding marks or options does not change the underlying plot,
@@ -124,14 +124,20 @@ Plot.dot({'x': data,
 
 # %% [markdown]
 
-### Things in progress
+#### Flattening dimensions with `get_choice` and `get_in`
+
+# When working with Gen 
 
 import random
-bean_data = [[0 for _ in range(5)]]
+bean_data = [[0 for _ in range(20)]]
 for day in range(1, 21):
-    bean_data.append([height + random.uniform(0.5, 1.5) for height in bean_data[-1]])
+    bean_data.append([height + random.uniform(0.5, 5) for height in bean_data[-1]])
+
+bean_plot_data = Plot.get_in(bean_data, [{...: 'day'}, {...: 'bean'},{'height'}]).flat()
         
-Plot.line(Plot.get_in(bean_data, [{...: 'day'}, {...: 'bean'},{'height'}]).flat(),
+Plot.line(bean_plot_data,
          {'x': 'day', 
           'y': 'height', 
-          'fx': 'bean'})
+          'fx': Plot.js("({bean}) => bean % 5"),
+          'fy': Plot.js("({bean}) => Math.floor(bean / 5)")}) + \
+              {'axis': None}
