@@ -51,17 +51,17 @@ jobs:
       - name: Get current date and time
         id: datetime
         run: |
-          echo "RELEASE_DATE=$(date +'%Y.%m.%d.%H%M%S')" >> $GITHUB_ENV
+          echo "NEXT_VERSION=$(date +'%Y.%m.%d.%H%M.%S')" >> $GITHUB_ENV
 
       - name: Update version in pyproject.toml
         run: |
-          poetry version ${{ env.RELEASE_DATE }}
+          poetry version ${{ env.NEXT_VERSION }}
 
       - name: Create Git tag
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ env.RELEASE_DATE }}" -m "Release version ${{ env.RELEASE_DATE }}"
+          git tag -a "v${{ env.NEXT_VERSION }}" -m "Release version ${{ env.NEXT_VERSION }}"
           git push origin --tags
 
       - name: Deploy to Artifact Registry
