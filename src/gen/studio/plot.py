@@ -31,73 +31,49 @@ d3 = JSRef("d3")
 Math = JSRef("Math")
 View = JSRef("View")
 class Dimensioned:
-    def __init__(self, dimensions, value=None):
+    def __init__(self, dimensions, leaf=None, value=None):
         self.value = value
+        self.leaf = leaf
         self.dimensions = dimensions
 
-    def to_json(self):
-        return {'value': self.value, 'dimensions': self.dimensions}
-    def flat(self):
-        def _flat(value, dims, prefix=None):
-            if not dims:
-                return [prefix | value] if prefix else [value]
-            
-            results = []
-            dim_key = dims[0]['key']
-            for i, v in enumerate(value):
-                new_prefix = {**prefix, dim_key: i} if prefix else {dim_key: i}
-                results.extend(_flat(v, dims[1:], new_prefix))
-            return results
-
-        return _flat(self.value, self.dimensions)
+    def to_json(self): 
+        return View.flattenDimensions(self.value, self.dimensions, self.leaf)
     
 def rename_key(d, prev_k, new_k):
     return {k if k != prev_k else new_k: v for k, v in d.items()}
 
-def get_choice(tr, address):
+def get_choice(tr, path):
     """
     Retrieve a choice value from a trace using a list of keys.
     Dimension instances are treated like ... but also return dimension info.
     """
     choices = tr.get_choices()
-    dimensions = [rename_key(segment, ..., 'key') for segment in address if isinstance(segment, dict) and ... in segment]
-    address = [... if (isinstance(segment, dict) and ... in segment) else segment for segment in address]
-    
-    if isinstance(address[-1], set):
+    dimensions = [rename_key(segment, ..., 'key') for segment in path if isinstance(segment, dict) and ... in segment]
+    path = [... if (isinstance(segment, dict) and ... in segment) else segment for segment in path]
+    lastSegment = path and path[-1]
+    leaf = lastSegment if isinstance(lastSegment, dict) and 'as' in lastSegment else None
+    path = path[:-1] if leaf else path
+    if isinstance(path[-1], set):
         # If the last entry in address is a set, we want to retrieve multiple values
         # from the choices and return them as a dictionary with keys from the set.
-        keys = address[-1]
-        value = choices[*address[:-1]]
+        keys = path[-1]
+        value = choices[*path[:-1]]
         value = {key: value[key] for key in keys}
     else:
         # If the last entry is not a set, proceed as normal
-        value = choices[*address]
+        value = choices[*path]
     
     if dimensions:
-        return Dimensioned(dimensions, value=value)
+        return Dimensioned(dimensions, leaf=leaf, value=value)
     else:
         return value
 
 
 def get_in(data, path, toplevel=True):
-    """
-    Retrieve a value from a nested dictionary/list structure using a path.
-    
-    Args:
-        data (dict or list): The nested data structure to traverse.
-        path (list): A list specifying the path to the desired value. 
-            - Use a python Ellipsis (...) to access all elements of a list at that level.
-            - Use a dict of the form {... 'dimension_key', **moreKeys} to represent a dimension 
-              (treated like ... for data gathering).
-            - Use a set in the last position to read multiple keys from the result into a dict.
-        toplevel (bool, optional): Flag indicating if this is the top-level call. Defaults to True.
-        
-    Returns:
-        The value at the specified path. If one or more dimensions are found, returns a Dimensioned instance.
-        If a set is provided in the last position, returns a dict with the specified keys read from the result.
-    """
     result = data
     dimensions = [rename_key(segment, ..., 'key') for segment in path if isinstance(segment, dict) and ... in segment]
+    lastSegment = path and path[-1]
+    leaf = lastSegment if isinstance(lastSegment, dict) and 'as' in lastSegment else None
     for i, part in enumerate(path):
         if isinstance(part, dict) and ... in part:
             part = ...
@@ -107,16 +83,12 @@ def get_in(data, path, toplevel=True):
                 break
             else:
                 raise TypeError(f"Expected list at path index {i}, got {type(result).__name__}")
-        elif isinstance(part, set) and i == len(path) - 1:
-            if isinstance(result, dict) and len(part) == 1: 
-                result = {key: result[key] for key in part}
-            else:
-                result = {next(iter(part)): result} 
+        elif isinstance(part, dict) and 'as' in part:
             break
         else:
             result = result[part]
     if toplevel and dimensions:
-        return Dimensioned(dimensions, value=result)
+        return Dimensioned(dimensions, leaf=leaf, value=result)
     else:
         return result
 

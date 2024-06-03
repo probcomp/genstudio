@@ -72,9 +72,10 @@ const el = (tag, props, ...children) => {
   return html`<${baseTag} ...${props}>${children}</${tag}>`;
 };
 
-const flat = (data, dimensions) => {
+const flattenDimensions = (data, dimensions, leaf) => {
   const _flat = (data, dimensions, prefix = null) => {
     if (!dimensions.length) {
+      data = leaf?.as ? {[leaf.as]: data} : data
       return prefix ? [{ ...prefix, ...data }] : [data];
     }
 
@@ -86,8 +87,8 @@ const flat = (data, dimensions) => {
     }
     return results;
   };
-
-  return _flat(data, dimensions);
+  const flattened = _flat(data, dimensions);
+  return flattened;
 }
 
 class MarkSpec {
@@ -99,13 +100,19 @@ class MarkSpec {
     this.name = name;
     this.data = data;
     this.options = options;
+    
     this.format = Array.isArray(data) || 'length' in data ? 'array' : 'columnar';
+    
     if (this.format === 'columnar') {
       const { dimensions, domains } = this.analyzeColumnarData(data);
+      console.log("Dimensions", data, dimensions)
+      // What about the case where we pass "just" the dimensioned data,
+      // because it is to be expanded? 
       if (dimensions?.length > 0) {
         this.dimensions = dimensions;
         // this.data = flat(data, dimensions)
-        // console.log("D", data)
+        // this.format = 'array'
+        // console.log("D", data )
         // console.log("F", this.data)
       }
       if (Object.keys(domains).length > 0) this.domains = domains;
@@ -187,6 +194,7 @@ const scope = {
     PlotSpec: (x) => new PlotSpec(x),
     MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
     md: (x) => renderMarkdown(x),
+    flattenDimensions,
     el
   },
 

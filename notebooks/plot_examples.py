@@ -1,7 +1,7 @@
 # %% 
-# %load_ext autoreload
-# %autoreload 2
-#%%
+%load_ext autoreload
+%autoreload 2
+
 import gen.studio.plot as Plot
 from gen.studio.js_modules import Hiccup
 import numpy as np
@@ -133,11 +133,13 @@ bean_data = [[0 for _ in range(20)]]
 for day in range(1, 21):
     bean_data.append([height + random.uniform(0.5, 5) for height in bean_data[-1]])
 
-bean_plot_data = Plot.get_in(bean_data, [{...: 'day'}, {...: 'bean'},{'height'}]).flat()
-        
-Plot.line(bean_plot_data,
+Plot.dot(Plot.get_in(bean_data, [{...: 'day'}, {...: 'bean'}, {'as': 'height'}]),
          {'x': 'day', 
-          'y': 'height', 
+          'y': 'height',
+          'r': 1, 
           'fx': Plot.js("({bean}) => bean % 5"),
           'fy': Plot.js("({bean}) => Math.floor(bean / 5)")}) + \
               {'axis': None}
+
+# - grids
+# - 
