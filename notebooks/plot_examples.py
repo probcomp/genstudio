@@ -87,7 +87,6 @@ def regression(x, coefficients, sigma):
     y = genjax.normal(polynomial_value, sigma) @ "v"
     return y
 
-
 # Regression, with an outlier random variable.
 @gen
 def regression_with_outlier(x, coefficients):
@@ -118,8 +117,27 @@ tr = jax.jit(full_model.simulate)(sub_key, (data,))
 key, *sub_keys = jrand.split(key, 10)
 traces = jax.vmap(lambda k: full_model.simulate(k, (data,)))(jnp.array(sub_keys))
 
-Plot.dot({'x': data, 
-          'y': Plot.get_choice(traces, ["ys", {...: 'samples'}, "y", "v"])})
+
+traces.get_choices()["ys", ..., "y", "v"]
+
+# Plot.get_choice(traces, "ys", {...: 'sample'}, "y", "v", {'as': 'y'})
+Plot.dot(traces.get_choices()["ys", ..., "y", "v"],
+         
+         # DONE 
+         dimensions=["sample", "ys", {'as': 'y'}], # flatten dimensions, wrap leaves
+         
+         # TODO / TO DESIGN
+         
+         # how to "split" the data into separate frames?
+         split={"sample": ["grid", {'cols': 3}],
+                "sample2": ["slider", {}],
+                "sample3": ["animate", {'fps': 1}]},
+         
+
+         x=Plot.repeat(data), 
+         y='y', 
+         opacity=0.4)
+
 
 
 # %% [markdown]
@@ -133,13 +151,13 @@ bean_data = [[0 for _ in range(20)]]
 for day in range(1, 21):
     bean_data.append([height + random.uniform(0.5, 5) for height in bean_data[-1]])
 
-Plot.dot(Plot.get_in(bean_data, [{...: 'day'}, {...: 'bean'}, {'as': 'height'}]),
+Plot.dot(Plot.get_in(bean_data, {...: 'day'}, {...: 'bean'}, {'as': 'height'}),
          {'x': 'day', 
           'y': 'height',
           'r': 1, 
           'fx': Plot.js("({bean}) => bean % 5"),
           'fy': Plot.js("({bean}) => Math.floor(bean / 5)")}) + \
-              {'axis': None}
+              {'axis': None} + Plot.frame()
 
 # - grids
-# - 
+# - sliders

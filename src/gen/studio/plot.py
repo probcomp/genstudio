@@ -27,22 +27,46 @@ OBSERVABLE_PLOT_METADATA = json.load(
     open(util.PARENT_PATH / "scripts" / "observable_plot_metadata.json")
 )
 
-d3 = JSRef("d3")
+d3 = JSRef("d3") 
 Math = JSRef("Math")
 View = JSRef("View")
+
+def repeat(data):
+    """
+    For passing columnar data to Observable.Plot which should repeat/cycle.
+    eg. for a set of 'xs' that are to be repeated for each set of `ys`. 
+    """
+    return View.repeatedData(data)
 class Dimensioned:
     def __init__(self, dimensions, leaf=None, value=None):
         self.value = value
         self.leaf = leaf
         self.dimensions = dimensions
+    def flatten(self):
+        # flattens the data in python, rather than js. 
+        # currently we are not using/recommending this 
+        # but it may be useful later or for debugging.
+        def _flatten(value, dims, prefix=None):
+            if not dims:
+                value = {self.leaf['as']: value} if self.leaf else value
+                return [prefix | value] if prefix else [value]
+            
+            results = []
+            dim_key = dims[0]['key']
+            for i, v in enumerate(value):
+                new_prefix = {**prefix, dim_key: i} if prefix else {dim_key: i}
+                results.extend(_flatten(v, dims[1:], new_prefix))
+            return results
 
+        return _flatten(self.value, self.dimensions)
     def to_json(self): 
         return View.flattenDimensions(self.value, self.dimensions, self.leaf)
     
 def rename_key(d, prev_k, new_k):
     return {k if k != prev_k else new_k: v for k, v in d.items()}
 
-def get_choice(tr, path):
+# Probably will be deprecated - in favour of separate flattening functions.
+def get_choice(tr, *path):
     """
     Retrieve a choice value from a trace using a list of keys.
     Dimension instances are treated like ... but also return dimension info.
@@ -69,7 +93,8 @@ def get_choice(tr, path):
         return value
 
 
-def get_in(data, path, toplevel=True):
+# useful for simulating multi-dimensional GenJAX choicemap lookups.
+def get_in(data, *path, toplevel=True):
     result = data
     dimensions = [rename_key(segment, ..., 'key') for segment in path if isinstance(segment, dict) and ... in segment]
     lastSegment = path and path[-1]
@@ -79,7 +104,7 @@ def get_in(data, path, toplevel=True):
             part = ...
         if part == ...:
             if isinstance(result, list):
-                result = [get_in(sub_result, path[i+1:], False) for sub_result in result]
+                result = [get_in(sub_result, *path[i+1:], toplevel=False) for sub_result in result]
                 break
             else:
                 raise TypeError(f"Expected list at path index {i}, got {type(result).__name__}")
@@ -101,16 +126,15 @@ def test_get_in():
             {'b': [{'c': 3}, {'c': 4}]}
         ]
     }
-    path = ['a', {...: 'first'}, 'b', {...: 'second'}, 'c']
-    result = get_in(data, path)
+    
+    result = get_in(data, 'a', {...: 'first'}, 'b', {...: 'second'}, 'c')
     assert isinstance(result, Dimensioned), f"Expected Dimensioned, got {type(result).__name__}"
     assert result.value == [[1, 2], [3, 4]], f"Expected [[1, 2], [3, 4]], got {result.value}"
     assert isinstance(result.dimensions, list), f"Expected dimensions to be a list, got {type(result.dimensions).__name__}"
     assert len(result.dimensions) == 2, f"Expected 2 dimensions, got {len(result.dimensions)}"
     assert [d['key'] for d in result.dimensions] == ['first', 'second'], f"Expected dimension keys to be ['first', 'second'], got {[d['key'] for d in result.dimensions]}"
     
-    flattened = get_in(data, ['a', {...: 'first'}, 'b', {...: 'second'}, {'c'}]).flatten()
-    
+    flattened = get_in(data, 'a', {...: 'first'}, 'b', {...: 'second'}, 'c', {'as': 'c'}).flatten()
     assert flattened == [
         {'first': 0, 'second': 0, 'c': 1},
         {'first': 0, 'second': 1, 'c': 2},
@@ -120,7 +144,7 @@ def test_get_in():
     
     print('tests passed')
 
-# test_get_in()
+test_get_in()
 
 #%%
 def plot_spec(x):

@@ -91,6 +91,29 @@ const flattenDimensions = (data, dimensions, leaf) => {
   return flattened;
 }
 
+const flat = (data, dimensions) => {
+  let leaf;
+  if (typeof dimensions[dimensions.length - 1] === 'object' && 'as' in dimensions[dimensions.length - 1]) {
+    leaf = dimensions[dimensions.length - 1].as;
+    dimensions = dimensions.slice(0, -1);
+  }
+  const _flat = (data, dim, prefix = null) => {
+    if (!dim.length) {
+      data = leaf ? {[leaf]: data} : data
+      return prefix ? [{ ...prefix, ...data }] : [data];
+    }
+
+    const results = [];
+    const dimName = dim[0];
+    for (let i = 0; i < data.length; i++) {
+      const newPrefix = prefix ? { ...prefix, [dimName]: i } : { [dimName]: i };
+      results.push(..._flat(data[i], dim.slice(1), newPrefix));
+    }
+    return results;
+  };
+  return _flat(data, dimensions);
+}
+
 class MarkSpec {
   constructor(name, data, options) {
     this.fn = Plot[name];
@@ -103,45 +126,48 @@ class MarkSpec {
     
     this.format = Array.isArray(data) || 'length' in data ? 'array' : 'columnar';
     
-    if (this.format === 'columnar') {
-      const { dimensions, domains } = this.analyzeColumnarData(data);
-      console.log("Dimensions", data, dimensions)
-      // What about the case where we pass "just" the dimensioned data,
-      // because it is to be expanded? 
-      if (dimensions?.length > 0) {
-        this.dimensions = dimensions;
-        // this.data = flat(data, dimensions)
-        // this.format = 'array'
-        // console.log("D", data )
-        // console.log("F", this.data)
-      }
-      if (Object.keys(domains).length > 0) this.domains = domains;
+    if (options.dimensions) {
+      this.data = flat(this.data, options.dimensions)
     }
+    // if (this.format === 'columnar') {
+    //   const { dimensions, domains } = this.analyzeColumnarData(data);
+    //   console.log("Dimensions", data, dimensions)
+    //   // What about the case where we pass "just" the dimensioned data,
+    //   // because it is to be expanded? 
+    //   if (dimensions?.length > 0) {
+    //     this.dimensions = dimensions;
+    //     // this.data = flat(data, dimensions)
+    //     // this.format = 'array'
+    //     // console.log("D", data )
+    //     // console.log("F", this.data)
+    //   }
+    //   if (Object.keys(domains).length > 0) this.domains = domains;
+    // }
   }
 
-  analyzeColumnarData(data) {
-    let dimensions = [];
-    let domains = {};
-    for (const [key, value] of Object.entries(data)) {
-      if (value.dimensions) {
-        let dimensionValue = value.value;
-        value.dimensions.forEach((dimension) => {
-          dimension.size = dimensionValue?.length || 0;
-          dimension.view = dimension.view || 'slider'; // default to slider view
-          dimension.fps = dimension.fps || 0;
-          domains[key] = dimension.domain;
-          if (dimensionValue && typeof dimensionValue[0] === 'number') {
-            let [min, max] = this.calculateDomain(value.value);
-            dimension.domain = [min, max];
-            domains[key] = dimension.domain;
-          }
-          dimensions.push(dimension);
-          dimensionValue = dimensionValue && dimensionValue[0];
-        });
-      }
-    }
-    return { dimensions, domains };
-  }
+  // analyzeColumnarData(data) {
+  //   let dimensions = [];
+  //   let domains = {};
+  //   for (const [key, value] of Object.entries(data)) {
+  //     if (value.dimensions) {
+  //       let dimensionValue = value.value;
+  //       value.dimensions.forEach((dimension) => {
+  //         dimension.size = dimensionValue?.length || 0;
+  //         dimension.view = dimension.view || 'slider'; // default to slider view
+  //         dimension.fps = dimension.fps || 0;
+  //         domains[key] = dimension.domain;
+  //         if (dimensionValue && typeof dimensionValue[0] === 'number') {
+  //           let [min, max] = this.calculateDomain(value.value);
+  //           dimension.domain = [min, max];
+  //           domains[key] = dimension.domain;
+  //         }
+  //         dimensions.push(dimension);
+  //         dimensionValue = dimensionValue && dimensionValue[0];
+  //       });
+  //     }
+  //   }
+  //   return { dimensions, domains };
+  // }
 
   calculateDomain(values) {
     let min = Infinity;
@@ -187,6 +213,10 @@ function readMark(mark, dimensionState) {
   }
 }
 
+const repeatedData = (data) => {
+  return (_, i) => data[i % data.length];
+}
+
 const scope = {
   d3,
   Plot, React, ReactDOM,
@@ -195,6 +225,8 @@ const scope = {
     MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
     md: (x) => renderMarkdown(x),
     flattenDimensions,
+    repeatedData,
+    flat,
     el
   },
 
