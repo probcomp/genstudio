@@ -73,15 +73,15 @@ const el = (tag, props, ...children) => {
 };
 
 const flat = (data, dimensions) => {
-  let leaf;
-  if (typeof dimensions[dimensions.length - 1] === 'object' && 'as' in dimensions[dimensions.length - 1]) {
-    leaf = dimensions[dimensions.length - 1].as;
+  let leaves;
+  if (typeof dimensions[dimensions.length - 1] === 'object' && 'leaves' in dimensions[dimensions.length - 1]) {
+    leaves = dimensions[dimensions.length - 1]['leaves'];
     dimensions = dimensions.slice(0, -1);
   }
 
   const _flat = (data, dim, prefix = null) => {
     if (!dim.length) {
-      data = leaf ? { [leaf]: data } : data
+      data = leaves ? { [leaves]: data } : data
       return prefix ? [{ ...prefix, ...data }] : [data];
     }
 
@@ -104,25 +104,46 @@ class MarkSpec {
       throw new Error(`Plot function "${name}" not found.`);
     }
 
-    // unwrap data which includes dimension metadata
+    // Below is where we add functionality to Observable.Plot by preprocessing
+    // the data & options that are passed in.
+
+    // handle dimensional data passed in the 1st position
     if (data.dimensions) {
       options.dimensions = data.dimensions
       data = data.value
     }
 
-    // unwrap dimensional data
+    // flatten dimensional data
     if (options.dimensions) {
       options.dimensions = options.dimensions.map(dim => typeof dim === 'string' ? { 'key': dim } : dim);
       data = flat(data, options.dimensions)
     }
 
+    // handle columnar data in the 1st position
+    if (!Array.isArray(data) && !('length' in data)) {
+      let length = null
+      for (let [key, value] of Object.entries(data)) {
+        options[key] = value;
+        if (Array.isArray(value)) {
+          length = value.length
+        }
+        if (length === null) {
+          throw new Error("Invalid columnar data: at least one column must be an array.");
+        }
+        data = {length: value.length}
+      }
+
+    }
+
     // handle facetWrap option (grid)
     // see https://github.com/observablehq/plot/pull/892/files
-    if (options.grid) {
-      const [key, gridOpts] = options.grid
-      const { columns } = gridOpts
+    if (options.facetGrid) {
+      const facetGrid = (typeof options.facetGrid === 'string') ? [options.facetGrid, {}] : options.facetGrid
+      const [key, gridOpts] = facetGrid
       const keys = Array.from(d3.union(data.map((d) => d[key])))
       const index = new Map(keys.map((key, i) => [key, i]))
+      const columns = gridOpts.columns || Math.floor(Math.sqrt(keys.length))
+
       const fx = (key) => index.get(key) % columns
       const fy = (key) => Math.floor(index.get(key) / columns)
       options.fx = (d) => fx(d[key])
@@ -130,7 +151,7 @@ class MarkSpec {
       this.plotOptions = { fx: { axis: null }, fy: { axis: null } }
       this.extraMarks.push(Plot.text(keys, {
         fx, fy,
-        frameAnchor: "top", 
+        frameAnchor: "top",
         dy: 4
       }))
     }
@@ -139,60 +160,16 @@ class MarkSpec {
     this.data = data;
     this.options = options;
     this.plotOptions = this.plotOptions || {};
-    this.format = Array.isArray(data) || 'length' in data ? 'array' : 'columnar';
   }
 }
 
 function readMark(mark, dimensionState) {
+
   if (!(mark instanceof MarkSpec)) {
     return mark;
   }
-  let { fn, data, options, format } = mark
-  let out
-  switch (format) {
-    case 'columnar':
-      // format columnar data for Observable.Plot;
-      // values go into the options map.
-      const formattedData = {};
-      for (let [key, value] of Object.entries(data)) {
-        if (value.dimensions) {
-          const dimensions = value.dimensions;
-          formattedData[key] = value.value;
-          for (const dimension of dimensions) {
-            if (!dimensionState.hasOwnProperty(dimension.key)) {
-              throw new Error(`Dimension state for ${dimension.key} is missing.`);
-            }
-            const i = dimensionState[dimension.key]
-            formattedData[key] = formattedData[key][i]
-          }
-        } else {
-          formattedData[key] = value;
-        }
-      }
-      out = fn({ length: Object.values(formattedData)[0].length }, { ...formattedData, ...options })
-    default:
-      out = fn(data, options)
-  }
-  return [out, ...mark.extraMarks]
-}
-
-function calculateDomain(values) {
-  let min = Infinity;
-  let max = -Infinity;
-
-  function findMinMax(value) {
-    if (Array.isArray(value)) {
-      for (const subValue of value) {
-        findMinMax(subValue); // Recursively find min and max in sub-arrays
-      }
-    } else {
-      if (value < min) min = value;
-      if (value > max) max = value;
-    }
-  }
-
-  findMinMax(values); // Start the recursive search with the initial array
-  return [min, max];
+  let { fn, data, options} = mark
+  return [fn(data, options), ...mark.extraMarks]
 }
 
 const repeat = (data) => {
@@ -275,6 +252,7 @@ function PlotView({ spec, splitState }) {
     if (parent) {
       const marks = spec.marks.flatMap((m) => readMark(m, splitState))
       const plotOptions = spec.marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {});
+      console.log({ ...spec, ...plotOptions, marks: marks })
       const plot = Plot.plot({ ...spec, ...plotOptions, marks: marks })
       parent.appendChild(plot)
       return () => parent.removeChild(plot)

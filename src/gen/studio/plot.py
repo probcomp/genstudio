@@ -40,12 +40,25 @@ def repeat(data):
 class Dimensioned:
     def __init__(self, value, path):
         self.value = value
-        self.dimensions = [rename_key(segment, ..., 'key') for segment in path if isinstance(segment, dict)]    
+        self.dimensions = [rename_key(segment, ..., 'key') for segment in path if isinstance(segment, dict)]
+    def shape(self):
+        shape = ()
+        current_value = self.value
+        for dimension in self.dimensions:
+            if 'leaves' not in dimension:
+                shape += (len(current_value),)
+                current_value = current_value[0]
+        return shape        
+    def names(self):
+        return [dimension.get('key', dimension.get('leaves')) for dimension in self.dimensions]                
+    def __repr__(self):
+        return f"<Dimensioned shape={self.shape()}, names={self.names()}>"
+    
     def flatten(self):
         # flattens the data in python, rather than js. 
         # currently we are not using/recommending this 
         # but it may be useful later or for debugging.
-        leaf = self.dimensions[-1]['as'] if isinstance(self.dimensions[-1], dict) and 'as' in self.dimensions[-1] else None
+        leaf = self.dimensions[-1]['leaves'] if isinstance(self.dimensions[-1], dict) and 'leaves' in self.dimensions[-1] else None
         dimensions = self.dimensions[:-1] if leaf else self.dimensions
         
         def _flatten(value, dims, prefix=None):
@@ -59,62 +72,65 @@ class Dimensioned:
                 results.extend(_flatten(v, dims[1:], new_prefix))
             return results
         return _flatten(self.value, dimensions)
+    
     def to_json(self): 
         return {'value': self.value, 'dimensions': self.dimensions}
     
 def rename_key(d, prev_k, new_k):
     return {k if k != prev_k else new_k: v for k, v in d.items()}
 
-# Probably will be deprecated - in favour of separate flattening functions.
-def get_choice(tr, *path):
-    """
-    Retrieve a choice value from a trace using a list of keys.
-    Dimension instances are treated like ... but also return dimension info.
-    """
-    choices = tr.get_choices()
-    dimensions = [rename_key(segment, ..., 'key') for segment in path if isinstance(segment, dict) and ... in segment]
-    path = [... if (isinstance(segment, dict) and ... in segment) else segment for segment in path]
-    lastSegment = path and path[-1]
-    leaf = lastSegment if isinstance(lastSegment, dict) and 'as' in lastSegment else None
-    path = path[:-1] if leaf else path
-    if isinstance(path[-1], set):
-        # If the last entry in address is a set, we want to retrieve multiple values
-        # from the choices and return them as a dictionary with keys from the set.
-        keys = path[-1]
-        value = choices[*path[:-1]]
-        value = {key: value[key] for key in keys}
-    else:
-        # If the last entry is not a set, proceed as normal
-        value = choices[*path]
+def get_choice(ch, path):
     
-    if dimensions:
-        return Dimensioned(dimensions, leaf=leaf, value=value)
-    else:
-        return value
-
-
-# useful for simulating multi-dimensional GenJAX choicemap lookups.
-def get_in(data, *path, toplevel=True):
-    value = data
-    for i, part in enumerate(path):
-        if isinstance(part, dict) and ... in part:
-            part = ...
-        if part == ...:
-            if isinstance(value, list):
-                value = [get_in(sub_result, *path[i+1:], toplevel=False) for sub_result in value]
-                break
-            else:
-                raise TypeError(f"Expected list at path index {i}, got {type(value).__name__}")
-        elif isinstance(part, dict) and 'as' in part:
-            break
+    ch = ch.get_sample() if getattr(ch, 'get_sample', None) else ch
+    
+    def _get(value, path):
+        if not path:
+            return value 
+        segment = path[0]
+        if not isinstance(segment, dict):
+            return _get(value(segment), path[1:])
+        elif ... in segment:
+            v = value.get_value()
+            if hasattr(value, 'get_submap') and v is None:
+                v = value.get_submap(...)
+            return _get(v, path[1:])
+        elif 'leaves' in segment:
+            return value
         else:
-            value = value[part]
-        
-    if toplevel and any(isinstance(elem, dict) for elem in path):
+            raise TypeError(f"Invalid path segment, expected ... or 'leaves' key, got {segment}")
+
+    value = _get(ch, path)
+    value = value.get_value() if  hasattr(value, 'get_value') else value
+    
+    if any(isinstance(elem, dict) for elem in path):
         return Dimensioned(value, path)
     else:
         return value
 
+def get_in(data, *path, toplevel=True):
+    def _get(value, path):
+        if not path:
+            return value 
+        segment = path[0]
+        if not isinstance(segment, dict):
+            return _get(value[segment], path[1:])
+        elif ... in segment:
+            if isinstance(value, list):
+                p = path[1:]
+                return [get_in(v, *p, toplevel=False) for v in value]
+            else:
+                raise TypeError(f"Expected list at path index {i}, got {type(value).__name__}")
+        elif 'leaves' in segment:
+            return value 
+        else:
+            raise TypeError(f"Invalid path segment, expected ... or 'leaves' key, got {segment}")
+    
+    value = _get(data, path)
+    
+    if toplevel and any(isinstance(elem, dict) for elem in path):
+        return Dimensioned(value, path)
+    else:
+        return value
 
 # Test case to verify traversal of more than one dimension
 def test_get_in():
@@ -132,7 +148,7 @@ def test_get_in():
     assert len(result.dimensions) == 2, f"Expected 2 dimensions, got {len(result.dimensions)}"
     assert [d['key'] for d in result.dimensions] == ['first', 'second'], f"Expected dimension keys to be ['first', 'second'], got {[d['key'] for d in result.dimensions]}"
     
-    flattened = get_in(data, 'a', {...: 'first'}, 'b', {...: 'second'}, 'c', {'as': 'c'}).flatten()
+    flattened = get_in(data, 'a', {...: 'first'}, 'b', {...: 'second'}, 'c', {'leaves': 'c'}).flatten()
     assert flattened == [
         {'first': 0, 'second': 0, 'c': 1},
         {'first': 0, 'second': 1, 'c': 2},

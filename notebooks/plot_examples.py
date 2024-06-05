@@ -3,7 +3,6 @@
 %autoreload 2
 
 import gen.studio.plot as Plot
-from gen.studio.js_modules import Hiccup
 import numpy as np
 import genjax as genjax
 from genjax import gen
@@ -119,27 +118,60 @@ tr = jax.jit(full_model.simulate)(sub_key, (data,))
 key, *sub_keys = jrand.split(key, 10)
 traces = jax.vmap(lambda k: full_model.simulate(k, (data,)))(jnp.array(sub_keys))
 
-# Plot.get_choice(traces, "ys", {...: 'sample'}, "y", "v", {'as': 'y'})
-Plot.dot(traces.get_choices()["ys", ..., "y", "v"],
-         dimensions=["sample", "ys", {'as': 'y'}],
-         grid=["sample", {"columns": 3}],
+# Compare the following two plots.
+
+# using Plot.get_choice & Observable faceting:
+
+Plot.dot(Plot.get_choice(traces, ["ys", {...: 'sample'}, "y", "v", {...: "ys"}, {'leaves': 'y'}]),
+         facetGrid="sample",
          x=Plot.repeat(data), 
          y='y') + {'height': 600} + Plot.frame()
 
+# using list comprehensions & hiccup composition:
+
+Plot.small_multiples([
+    Plot.dot({"x": data, "y": ys}) + Plot.frame() for ys in traces.get_sample()["ys", ..., "y", "v"]
+])
+
+#%%
+
+ch = traces.get_choices()
+Plot.get_choice(traces, ["ys", {...: 'sample'}, "y", "v", {...: "ys"}, {'leaves': 'y'}]).flatten()
+# ch("ys")(...)("y")("v")
+
+
 # %% [markdown]
 
-#### Flattening dimensions with `get_choice` and `get_in`
+#### Handling multi-dimensional data
 
-# When working with Gen 
+# When working with JAX or Numpy we often receive nested arrays. 
+# `Plot.get_in` and `Plot.get_choice` retrieve values from nested structures,
+# while specifying names for the dimensions and leaf nodes encountered.
 
 import random
 bean_data = [[0 for _ in range(20)]]
 for day in range(1, 21):
     bean_data.append([height + random.uniform(0.5, 5) for height in bean_data[-1]])
+bean_data
 
-Plot.dot(Plot.get_in(bean_data, {...: 'day'}, {...: 'bean'}, {'as': 'height'}),
+# Bean data:
+
+# using Plot.get_in & Observable faceting:
+
+Plot.dot(Plot.get_in(bean_data, {...: 'day'}, {...: 'bean'}, {'leaves': 'height'}),
          {'x': 'day', 
           'y': 'height',
-          'grid': ["bean", {'columns': 3}],
-          'r': 2,
+          'facetGrid': "bean"
           }) + Plot.frame() + {'height': 800}
+
+# using list comprehensions & hiccup composition:
+
+Plot.small_multiples([
+    Plot.dot({'x': list(range(1, 21)),
+              'y': [bean_data[day][bean] for day in range(1, 21)]}) for bean in range(20)
+])
+
+#### Grid views
+
+#%% 
+
