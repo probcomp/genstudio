@@ -36,31 +36,31 @@ def repeat(data):
     For passing columnar data to Observable.Plot which should repeat/cycle.
     eg. for a set of 'xs' that are to be repeated for each set of `ys`. 
     """
-    return View.repeatedData(data)
+    return View.repeat(data)
 class Dimensioned:
-    def __init__(self, dimensions, leaf=None, value=None):
+    def __init__(self, value, path):
         self.value = value
-        self.leaf = leaf
-        self.dimensions = dimensions
+        self.dimensions = [rename_key(segment, ..., 'key') for segment in path if isinstance(segment, dict)]    
     def flatten(self):
         # flattens the data in python, rather than js. 
         # currently we are not using/recommending this 
         # but it may be useful later or for debugging.
+        leaf = self.dimensions[-1]['as'] if isinstance(self.dimensions[-1], dict) and 'as' in self.dimensions[-1] else None
+        dimensions = self.dimensions[:-1] if leaf else self.dimensions
+        
         def _flatten(value, dims, prefix=None):
             if not dims:
-                value = {self.leaf['as']: value} if self.leaf else value
+                value = {leaf: value} if leaf else value
                 return [prefix | value] if prefix else [value]
-            
             results = []
             dim_key = dims[0]['key']
             for i, v in enumerate(value):
                 new_prefix = {**prefix, dim_key: i} if prefix else {dim_key: i}
                 results.extend(_flatten(v, dims[1:], new_prefix))
             return results
-
-        return _flatten(self.value, self.dimensions)
+        return _flatten(self.value, dimensions)
     def to_json(self): 
-        return View.flattenDimensions(self.value, self.dimensions, self.leaf)
+        return {'value': self.value, 'dimensions': self.dimensions}
     
 def rename_key(d, prev_k, new_k):
     return {k if k != prev_k else new_k: v for k, v in d.items()}
@@ -95,27 +95,25 @@ def get_choice(tr, *path):
 
 # useful for simulating multi-dimensional GenJAX choicemap lookups.
 def get_in(data, *path, toplevel=True):
-    result = data
-    dimensions = [rename_key(segment, ..., 'key') for segment in path if isinstance(segment, dict) and ... in segment]
-    lastSegment = path and path[-1]
-    leaf = lastSegment if isinstance(lastSegment, dict) and 'as' in lastSegment else None
+    value = data
     for i, part in enumerate(path):
         if isinstance(part, dict) and ... in part:
             part = ...
         if part == ...:
-            if isinstance(result, list):
-                result = [get_in(sub_result, *path[i+1:], toplevel=False) for sub_result in result]
+            if isinstance(value, list):
+                value = [get_in(sub_result, *path[i+1:], toplevel=False) for sub_result in value]
                 break
             else:
-                raise TypeError(f"Expected list at path index {i}, got {type(result).__name__}")
+                raise TypeError(f"Expected list at path index {i}, got {type(value).__name__}")
         elif isinstance(part, dict) and 'as' in part:
             break
         else:
-            result = result[part]
-    if toplevel and dimensions:
-        return Dimensioned(dimensions, leaf=leaf, value=result)
+            value = value[part]
+        
+    if toplevel and any(isinstance(elem, dict) for elem in path):
+        return Dimensioned(value, path)
     else:
-        return result
+        return value
 
 
 # Test case to verify traversal of more than one dimension

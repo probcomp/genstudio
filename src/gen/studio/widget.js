@@ -72,39 +72,21 @@ const el = (tag, props, ...children) => {
   return html`<${baseTag} ...${props}>${children}</${tag}>`;
 };
 
-const flattenDimensions = (data, dimensions, leaf) => {
-  const _flat = (data, dimensions, prefix = null) => {
-    if (!dimensions.length) {
-      data = leaf?.as ? {[leaf.as]: data} : data
-      return prefix ? [{ ...prefix, ...data }] : [data];
-    }
-
-    const results = [];
-    const dKey = dimensions[0].key;
-    for (let i = 0; i < data.length; i++) {
-      const newPrefix = prefix ? { ...prefix, [dKey]: i } : { [dKey]: i };
-      results.push(..._flat(data[i], dimensions.slice(1), newPrefix));
-    }
-    return results;
-  };
-  const flattened = _flat(data, dimensions);
-  return flattened;
-}
-
 const flat = (data, dimensions) => {
   let leaf;
   if (typeof dimensions[dimensions.length - 1] === 'object' && 'as' in dimensions[dimensions.length - 1]) {
     leaf = dimensions[dimensions.length - 1].as;
     dimensions = dimensions.slice(0, -1);
   }
+
   const _flat = (data, dim, prefix = null) => {
     if (!dim.length) {
-      data = leaf ? {[leaf]: data} : data
+      data = leaf ? { [leaf]: data } : data
       return prefix ? [{ ...prefix, ...data }] : [data];
     }
 
     const results = [];
-    const dimName = dim[0];
+    const dimName = dim[0].key;
     for (let i = 0; i < data.length; i++) {
       const newPrefix = prefix ? { ...prefix, [dimName]: i } : { [dimName]: i };
       results.push(..._flat(data[i], dim.slice(1), newPrefix));
@@ -117,68 +99,47 @@ const flat = (data, dimensions) => {
 class MarkSpec {
   constructor(name, data, options) {
     this.fn = Plot[name];
+    this.extraMarks = []
     if (!Plot[name]) {
       throw new Error(`Plot function "${name}" not found.`);
     }
+
+    // unwrap data which includes dimension metadata
+    if (data.dimensions) {
+      options.dimensions = data.dimensions
+      data = data.value
+    }
+
+    // unwrap dimensional data
+    if (options.dimensions) {
+      options.dimensions = options.dimensions.map(dim => typeof dim === 'string' ? { 'key': dim } : dim);
+      data = flat(data, options.dimensions)
+    }
+
+    // handle facetWrap option (grid)
+    // see https://github.com/observablehq/plot/pull/892/files
+    if (options.grid) {
+      const [key, gridOpts] = options.grid
+      const { columns } = gridOpts
+      const keys = Array.from(d3.union(data.map((d) => d[key])))
+      const index = new Map(keys.map((key, i) => [key, i]))
+      const fx = (key) => index.get(key) % columns
+      const fy = (key) => Math.floor(index.get(key) / columns)
+      options.fx = (d) => fx(d[key])
+      options.fy = (d) => fy(d[key])
+      this.plotOptions = { fx: { axis: null }, fy: { axis: null } }
+      this.extraMarks.push(Plot.text(keys, {
+        fx, fy,
+        frameAnchor: "top", 
+        dy: 4
+      }))
+    }
+
     this.name = name;
     this.data = data;
     this.options = options;
-    
+    this.plotOptions = this.plotOptions || {};
     this.format = Array.isArray(data) || 'length' in data ? 'array' : 'columnar';
-    
-    if (options.dimensions) {
-      this.data = flat(this.data, options.dimensions)
-    }
-    // if (this.format === 'columnar') {
-    //   const { dimensions, domains } = this.analyzeColumnarData(data);
-    //   console.log("Dimensions", data, dimensions)
-    //   // What about the case where we pass "just" the dimensioned data,
-    //   // because it is to be expanded? 
-    //   if (dimensions?.length > 0) {
-    //     this.dimensions = dimensions;
-    //     // this.data = flat(data, dimensions)
-    //     // this.format = 'array'
-    //     // console.log("D", data )
-    //     // console.log("F", this.data)
-    //   }
-    //   if (Object.keys(domains).length > 0) this.domains = domains;
-    // }
-  }
-
-  // analyzeColumnarData(data) {
-  //   let dimensions = [];
-  //   let domains = {};
-  //   for (const [key, value] of Object.entries(data)) {
-  //     if (value.dimensions) {
-  //       let dimensionValue = value.value;
-  //       value.dimensions.forEach((dimension) => {
-  //         dimension.size = dimensionValue?.length || 0;
-  //         dimension.view = dimension.view || 'slider'; // default to slider view
-  //         dimension.fps = dimension.fps || 0;
-  //         domains[key] = dimension.domain;
-  //         if (dimensionValue && typeof dimensionValue[0] === 'number') {
-  //           let [min, max] = this.calculateDomain(value.value);
-  //           dimension.domain = [min, max];
-  //           domains[key] = dimension.domain;
-  //         }
-  //         dimensions.push(dimension);
-  //         dimensionValue = dimensionValue && dimensionValue[0];
-  //       });
-  //     }
-  //   }
-  //   return { dimensions, domains };
-  // }
-
-  calculateDomain(values) {
-    let min = Infinity;
-    let max = -Infinity;
-    for (const subArray of values) {
-      for (const num of subArray) {
-        if (num < min) min = num;
-        if (num > max) max = num;
-      }
-    }
-    return [min, max];
   }
 }
 
@@ -187,6 +148,7 @@ function readMark(mark, dimensionState) {
     return mark;
   }
   let { fn, data, options, format } = mark
+  let out
   switch (format) {
     case 'columnar':
       // format columnar data for Observable.Plot;
@@ -207,13 +169,33 @@ function readMark(mark, dimensionState) {
           formattedData[key] = value;
         }
       }
-      return fn({ length: Object.values(formattedData)[0].length }, { ...formattedData, ...options })
+      out = fn({ length: Object.values(formattedData)[0].length }, { ...formattedData, ...options })
     default:
-      return fn(data, options)
+      out = fn(data, options)
   }
+  return [out, ...mark.extraMarks]
 }
 
-const repeatedData = (data) => {
+function calculateDomain(values) {
+  let min = Infinity;
+  let max = -Infinity;
+
+  function findMinMax(value) {
+    if (Array.isArray(value)) {
+      for (const subValue of value) {
+        findMinMax(subValue); // Recursively find min and max in sub-arrays
+      }
+    } else {
+      if (value < min) min = value;
+      if (value > max) max = value;
+    }
+  }
+
+  findMinMax(values); // Start the recursive search with the initial array
+  return [min, max];
+}
+
+const repeat = (data) => {
   return (_, i) => data[i % data.length];
 }
 
@@ -224,9 +206,7 @@ const scope = {
     PlotSpec: (x) => new PlotSpec(x),
     MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
     md: (x) => renderMarkdown(x),
-    flattenDimensions,
-    repeatedData,
-    flat,
+    repeat,
     el
   },
 
@@ -267,20 +247,20 @@ export function interpret(data) {
   return ret;
 }
 
-function SlidersView({ info, state, setState }) {
+function SlidersView({ info, splitState, setSplitState }) {
   // `info` should be an object of {key, {label, size}}
   return html`
     <div>
-      ${Object.entries(info).map(([key, {label, size}]) => html`
+      ${Object.entries(info).map(([key, { label, size }]) => html`
           <div class="flex flex-col my-2 gap-2" key=${key}>
             <label>${label || key}</label>
-            ${state[key]}
+            ${splitState[key]}
             <input 
               type="range" 
               min="0" 
               max=${size - 1}
-              value=${state[key] || 0} 
-              onChange=${(e) => setState({ ...state, [key]: Number(e.target.value) })}
+              value=${splitState[key] || 0} 
+              onChange=${(e) => setSplitState({ ...splitState, [key]: Number(e.target.value) })}
             />
                   </div>  
       `)}
@@ -288,17 +268,18 @@ function SlidersView({ info, state, setState }) {
   `;
 }
 
-function PlotView({spec, dimensionState}) {
+function PlotView({ spec, splitState }) {
   const [parent, setParent] = useState(null)
   const ref = useCallback(setParent)
   useEffect(() => {
     if (parent) {
-      const marks = spec.marks.map((m) => readMark(m, dimensionState))
-      const plot = Plot.plot({ ...spec, marks: marks })
+      const marks = spec.marks.flatMap((m) => readMark(m, splitState))
+      const plotOptions = spec.marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {});
+      const plot = Plot.plot({ ...spec, ...plotOptions, marks: marks })
       parent.appendChild(plot)
       return () => parent.removeChild(plot)
     }
-  }, [spec, parent, dimensionState])
+  }, [spec, parent, splitState])
   return html`
     <div ref=${ref}></div>
   `
@@ -317,17 +298,17 @@ function PlotWrapper({ spec }) {
       return acc;
     }, {});
   }, []);
-  
-  const [dimensionState, setDimensionState] = useState(
+
+  const [splitState, setSplitState] = useState(
     Object.fromEntries(Object.entries(dimensionInfo).map(([k, d]) => [k, d.initial || 0]))
   );
   return html`
     <div>
-      <${PlotView} spec=${spec} dimensionState=${dimensionState}></div>
+      <${PlotView} spec=${spec} splitState=${splitState}></div>
       <${SlidersView} 
         info=${dimensionInfo}
-        state=${dimensionState}
-        setState=${setDimensionState}/>
+        splitState=${splitState}
+        setSplitState=${setSplitState}/>
     </div>
   `
 }

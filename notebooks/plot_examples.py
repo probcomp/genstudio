@@ -79,6 +79,8 @@ circle + Plot.frame() + {'inset': 50}
 
 key = jrand.PRNGKey(314159)
 
+#%%
+
 # A regression distribution.
 @gen
 def regression(x, coefficients, sigma):
@@ -117,28 +119,12 @@ tr = jax.jit(full_model.simulate)(sub_key, (data,))
 key, *sub_keys = jrand.split(key, 10)
 traces = jax.vmap(lambda k: full_model.simulate(k, (data,)))(jnp.array(sub_keys))
 
-
-traces.get_choices()["ys", ..., "y", "v"]
-
 # Plot.get_choice(traces, "ys", {...: 'sample'}, "y", "v", {'as': 'y'})
 Plot.dot(traces.get_choices()["ys", ..., "y", "v"],
-         
-         # DONE 
-         dimensions=["sample", "ys", {'as': 'y'}], # flatten dimensions, wrap leaves
-         
-         # TODO / TO DESIGN
-         
-         # how to "split" the data into separate frames?
-         split={"sample": ["grid", {'cols': 3}],
-                "sample2": ["slider", {}],
-                "sample3": ["animate", {'fps': 1}]},
-         
-
+         dimensions=["sample", "ys", {'as': 'y'}],
+         grid=["sample", {"columns": 3}],
          x=Plot.repeat(data), 
-         y='y', 
-         opacity=0.4)
-
-
+         y='y') + {'height': 600} + Plot.frame()
 
 # %% [markdown]
 
@@ -154,10 +140,6 @@ for day in range(1, 21):
 Plot.dot(Plot.get_in(bean_data, {...: 'day'}, {...: 'bean'}, {'as': 'height'}),
          {'x': 'day', 
           'y': 'height',
-          'r': 1, 
-          'fx': Plot.js("({bean}) => bean % 5"),
-          'fy': Plot.js("({bean}) => Math.floor(bean / 5)")}) + \
-              {'axis': None} + Plot.frame()
-
-# - grids
-# - sliders
+          'grid': ["bean", {'columns': 3}],
+          'r': 2,
+          }) + Plot.frame() + {'height': 800}
