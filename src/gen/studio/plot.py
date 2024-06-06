@@ -20,7 +20,7 @@ from gen.studio.widget import Widget
 # - Create plot specifications declaratively by combining marks, options and transformations
 # - Compose plot specs using + operator to layer marks and merge options
 # - Render specs to interactive plot widgets, with lazy evaluation and caching
-# - Easily create grids of small multiples
+# - Easily create grids to compare small multiples
 # - Includes shortcuts for common options like grid lines, color legends, margins
 
 OBSERVABLE_PLOT_METADATA = json.load(
@@ -75,6 +75,14 @@ class Dimensioned:
     
     def to_json(self): 
         return {'value': self.value, 'dimensions': self.dimensions}
+
+def dimensions(data, dimensions=[], leaves=None):
+    """
+    Attaches dimension metadata, for further processing in JavaScript.
+    """
+    dimensions = [{'key': d} for d in dimensions]
+    dimensions = [*dimensions, {'leaves': leaves}] if leaves else dimensions 
+    return Dimensioned(data, dimensions)
     
 def rename_key(d, prev_k, new_k):
     return {k if k != prev_k else new_k: v for k, v in d.items()}
@@ -107,7 +115,20 @@ def get_choice(ch, path):
     else:
         return value
 
-def get_in(data, *path, toplevel=True):
+def is_choicemap(data):
+    current_class = data.__class__
+    while current_class:
+        if current_class.__name__ == 'ChoiceMap':
+            return True
+        current_class = current_class.__base__
+    return False
+
+def get_in(data, path, toplevel=True):
+    if toplevel:
+        data = data.get_sample() if getattr(data, 'get_sample', None) else data
+        if is_choicemap(data):
+            return get_choice(data, path)
+        
     def _get(value, path):
         if not path:
             return value 
@@ -117,7 +138,7 @@ def get_in(data, *path, toplevel=True):
         elif ... in segment:
             if isinstance(value, list):
                 p = path[1:]
-                return [get_in(v, *p, toplevel=False) for v in value]
+                return [get_in(v, p, toplevel=False) for v in value]
             else:
                 raise TypeError(f"Expected list at path index {i}, got {type(value).__name__}")
         elif 'leaves' in segment:
@@ -141,14 +162,14 @@ def test_get_in():
         ]
     }
     
-    result = get_in(data, 'a', {...: 'first'}, 'b', {...: 'second'}, 'c')
+    result = get_in(data, ['a', {...: 'first'}, 'b', {...: 'second'}, 'c'])
     assert isinstance(result, Dimensioned), f"Expected Dimensioned, got {type(result).__name__}"
     assert result.value == [[1, 2], [3, 4]], f"Expected [[1, 2], [3, 4]], got {result.value}"
     assert isinstance(result.dimensions, list), f"Expected dimensions to be a list, got {type(result.dimensions).__name__}"
     assert len(result.dimensions) == 2, f"Expected 2 dimensions, got {len(result.dimensions)}"
     assert [d['key'] for d in result.dimensions] == ['first', 'second'], f"Expected dimension keys to be ['first', 'second'], got {[d['key'] for d in result.dimensions]}"
     
-    flattened = get_in(data, 'a', {...: 'first'}, 'b', {...: 'second'}, 'c', {'leaves': 'c'}).flatten()
+    flattened = get_in(data, ['a', {...: 'first'}, 'b', {...: 'second'}, 'c', {'leaves': 'c'}]).flatten()
     assert flattened == [
         {'first': 0, 'second': 0, 'c': 1},
         {'first': 0, 'second': 1, 'c': 2},
@@ -207,7 +228,7 @@ globals().update(_plot_fns)
 
 plot_options = {
     "small": {"width": 250, "height": 175, "inset": 10},
-    "default": {"width": 500, "height": 350, "inset": 20},
+    "default": {"inset": 20},
 }
 
 
@@ -378,38 +399,11 @@ def constantly(x):
     return js(f"()=>{x}")
 
 
+def autoGrid(plotspecs, plot_opts={}, layout_opts={}):
+    return Hiccup([View.AutoGrid, {'specs': plotspecs, 'plotOptions': plot_opts, 'layoutOptions': layout_opts}])
+
 def small_multiples(plotspecs, plot_opts={}, layout_opts={}):
-    """
-    Create a grid of small multiple plots from the given list of plot specifications.
-
-    Args:
-        plotspecs (list): A list of PlotSpecs to render as small multiples.
-        plot_opts (dict, optional): Options to apply to each individual plot.
-            Defaults to the 'small' preset if not provided.
-        layout_opts (dict, optional): Options to pass to the Layout of the GridBox.
-
-    Returns:
-        ipywidgets.GridBox: A grid box containing the rendered small multiple plots.
-    """
-    plot_opts = {**plot_options["small"], **plot_opts}
-    layout_opts = {
-        "grid_template_columns": "repeat(auto-fit, minmax(200px, 1fr))",
-        **layout_opts,
-    }
-
-    return Hiccup(
-        [
-            "div.grid.black",
-            {
-                "style": {
-                    "display": "grid",
-                    "grid-template-columns": "repeat(auto-fit, minmax(200px, 1fr))",
-                }
-            },
-            *[(plotspec + plot_opts) for plotspec in plotspecs],
-        ]
-    )
-
+    return autoGrid(plotspecs, plot_opts={**plot_opts, 'smallMultiples': True}, layout_opts=layout_opts)
 
 def partial_plot(plot_fn, default_spec):
     """
@@ -426,7 +420,7 @@ def partial_plot(plot_fn, default_spec):
 
 dot = partial_plot(_plot_fns["dot"], {"fill": "currentColor"})
 
-def histogram(values, mark='rectY', thresholds='auto'):
+def histogram(values, mark='rectY', thresholds='auto', layout={'width': 200, 'height': 200, 'inset': 0}):
     """
 Create a histogram plot from the given values.
 
@@ -448,9 +442,9 @@ thresholds (str, int, list, or callable, optional): The thresholds option may be
  Returns:
   PlotSpec: A plot specification for a histogram with the y-axis representing the count of values in each bin.
     """
-    opts = {'x': {'thresholds': thresholds}}
+    opts = {'x': {'thresholds': thresholds}, 'tip': True}
     if mark == 'rectY':
-        return rectY(values, binX({'y': 'count'}, opts)) + ruleY([0])
+        return rectY(values, binX({'y': 'count'}, opts)) + ruleY([0]) + layout
     elif mark == 'dot':
         return dot(values, binX({'r': 'count'}, opts))
 

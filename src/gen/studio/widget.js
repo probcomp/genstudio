@@ -18,6 +18,8 @@ function renderMarkdown(text) {
 
 const html = htm.bind(React.createElement)
 
+const WidthContext = React.createContext();
+
 
 /**
  * Wrap plot specs so that our node renderer can identify them.
@@ -72,7 +74,7 @@ const el = (tag, props, ...children) => {
   return html`<${baseTag} ...${props}>${children}</${tag}>`;
 };
 
-const flat = (data, dimensions) => {
+const flatten = (data, dimensions) => {
   let leaves;
   if (typeof dimensions[dimensions.length - 1] === 'object' && 'leaves' in dimensions[dimensions.length - 1]) {
     leaves = dimensions[dimensions.length - 1]['leaves'];
@@ -86,7 +88,7 @@ const flat = (data, dimensions) => {
     }
 
     const results = [];
-    const dimName = dim[0].key;
+    const dimName = typeof dim[0] === 'string' ? dim[0] : dim[0].key;
     for (let i = 0; i < data.length; i++) {
       const newPrefix = prefix ? { ...prefix, [dimName]: i } : { [dimName]: i };
       results.push(..._flat(data[i], dim.slice(1), newPrefix));
@@ -98,11 +100,29 @@ const flat = (data, dimensions) => {
 
 class MarkSpec {
   constructor(name, data, options) {
-    this.fn = Plot[name];
-    this.extraMarks = []
     if (!Plot[name]) {
       throw new Error(`Plot function "${name}" not found.`);
     }
+    this.fn = Plot[name];
+    this.data = data;
+    this.options = options;
+    this.computed = {}
+  }
+
+  compute(containerWidth) {
+    if (this.computed.forWidth == containerWidth) {
+      return this.computed
+    }
+    this.extraMarks = [];
+    let data = this.data
+    let options = {...this.options}
+    let computed = {
+      forWidth: containerWidth,
+      extraMarks: [],
+      plotOptions: {},
+      fn: this.fn
+    }
+
 
     // Below is where we add functionality to Observable.Plot by preprocessing
     // the data & options that are passed in.
@@ -115,8 +135,7 @@ class MarkSpec {
 
     // flatten dimensional data
     if (options.dimensions) {
-      options.dimensions = options.dimensions.map(dim => typeof dim === 'string' ? { 'key': dim } : dim);
-      data = flat(data, options.dimensions)
+      data = flatten(data, options.dimensions)
     }
 
     // handle columnar data in the 1st position
@@ -130,46 +149,57 @@ class MarkSpec {
         if (length === null) {
           throw new Error("Invalid columnar data: at least one column must be an array.");
         }
-        data = {length: value.length}
+        data = { length: value.length }
       }
 
     }
 
-    // handle facetWrap option (grid)
+    // handle facetWrap option (grid) with minWidth consideration
     // see https://github.com/observablehq/plot/pull/892/files
     if (options.facetGrid) {
-      const facetGrid = (typeof options.facetGrid === 'string') ? [options.facetGrid, {}] : options.facetGrid
-      const [key, gridOpts] = facetGrid
-      const keys = Array.from(d3.union(data.map((d) => d[key])))
-      const index = new Map(keys.map((key, i) => [key, i]))
-      const columns = gridOpts.columns || Math.floor(Math.sqrt(keys.length))
+      const facetGrid = (typeof options.facetGrid === 'string') ? [options.facetGrid, {}] : options.facetGrid;
+      const [key, gridOpts] = facetGrid;
+      const keys = Array.from(d3.union(data.map((d) => d[key])));
+      const index = new Map(keys.map((key, i) => [key, i]));
 
-      const fx = (key) => index.get(key) % columns
-      const fy = (key) => Math.floor(index.get(key) / columns)
-      options.fx = (d) => fx(d[key])
-      options.fy = (d) => fy(d[key])
-      this.plotOptions = { fx: { axis: null }, fy: { axis: null } }
-      this.extraMarks.push(Plot.text(keys, {
+      // Calculate columns based on minWidth and containerWidth
+      const minWidth = gridOpts.minWidth || 200;
+      const columns = gridOpts.columns || Math.min(Math.floor(containerWidth / minWidth), Math.floor(Math.sqrt(keys.length)));
+
+      const fx = (key) => index.get(key) % columns;
+      const fy = (key) => Math.floor(index.get(key) / columns);
+      options.fx = (d) => fx(d[key]);
+      options.fy = (d) => fy(d[key]);
+      computed.plotOptions = { fx: { axis: null }, fy: { axis: null } };
+      computed.extraMarks.push(Plot.text(keys, {
         fx, fy,
         frameAnchor: "top",
         dy: 4
-      }))
+      }));
     }
 
-    this.name = name;
-    this.data = data;
-    this.options = options;
-    this.plotOptions = this.plotOptions || {};
+    if (!('tip' in options)) {
+      options.tip = true;
+    }
+
+    computed.data = data;
+    computed.options = options;
+    this.computed = computed;
+    return computed;
+  }
+  readMark(dimensionState, width) {
+    let { fn, data, options, extraMarks } = this.compute(width)
+    return [fn(data, options), ...extraMarks]
   }
 }
 
-function readMark(mark, dimensionState) {
+function readMark(mark, dimensionState, width) {
 
   if (!(mark instanceof MarkSpec)) {
     return mark;
   }
-  let { fn, data, options} = mark
-  return [fn(data, options), ...mark.extraMarks]
+  let { fn, data, options, extraMarks } = mark.compute(width)
+  return [fn(data, options), ...extraMarks]
 }
 
 const repeat = (data) => {
@@ -184,12 +214,14 @@ const scope = {
     MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
     md: (x) => renderMarkdown(x),
     repeat,
-    el
+    el,
+    AutoGrid, 
+    flatten
   },
 
 }
-const { useState, useEffect, useRef, useCallback, useMemo } = React
-
+const { useState, useEffect, useRef, useCallback, useContext, useMemo } = React
+ 
 /**
  * Interpret data recursively, evaluating functions.
  */
@@ -247,17 +279,17 @@ function SlidersView({ info, splitState, setSplitState }) {
 
 function PlotView({ spec, splitState }) {
   const [parent, setParent] = useState(null)
+  const width = useContext(WidthContext)
   const ref = useCallback(setParent)
   useEffect(() => {
     if (parent) {
-      const marks = spec.marks.flatMap((m) => readMark(m, splitState))
+      const marks = spec.marks.flatMap((m) => readMark(m, splitState, width))
       const plotOptions = spec.marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {});
-      console.log({ ...spec, ...plotOptions, marks: marks })
       const plot = Plot.plot({ ...spec, ...plotOptions, marks: marks })
       parent.appendChild(plot)
       return () => parent.removeChild(plot)
     }
-  }, [spec, parent, splitState])
+  }, [spec, parent, splitState, width])
   return html`
     <div ref=${ref}></div>
   `
@@ -291,6 +323,54 @@ function PlotWrapper({ spec }) {
   `
 }
 
+function normalizeDomains(PlotSpecs) {
+
+}
+
+function AutoGrid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
+  normalizeDomains(PlotSpecs)
+  const containerWidth = useContext(WidthContext);
+  const aspectRatio = plotOptions.aspectRatio || 1;
+  const minWidth = Math.min(plotOptions.minWidth || 200, containerWidth);
+  const defaultPlotOptions = { inset: 10 };
+
+  // Compute the number of columns based on containerWidth and minWidth, no more than the number of specs
+  const numColumns = Math.max(Math.min(Math.floor(containerWidth / minWidth), PlotSpecs.length), 1);
+  const itemWidth = containerWidth / numColumns;
+  const itemHeight = itemWidth / aspectRatio;
+
+  // Merge width and height into defaultPlotOptions
+  const mergedPlotOptions = {
+    ...defaultPlotOptions,
+    width: itemWidth,
+    height: itemHeight,
+    ...plotOptions
+  };
+
+  // Compute the total layout height
+  const numRows = Math.ceil(PlotSpecs.length / numColumns);
+  const layoutHeight = numRows * itemHeight;
+
+  // Update defaultLayoutOptions with the computed layout height
+  const defaultLayoutOptions = {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
+    gridAutoRows: `${itemHeight}px`,
+    height: `${layoutHeight}px`
+  };
+
+  // Merge default options with provided options
+  const mergedLayoutOptions = { ...defaultLayoutOptions, ...layoutOptions };
+
+  return html`
+    <div style=${mergedLayoutOptions}>
+      ${PlotSpecs.map(({ spec }, index) => {
+    return html`<${PlotWrapper} key=${index} spec=${{ ...spec, ...mergedPlotOptions }} />`;
+  })}
+    </div>
+  `;
+}
+
 /**
  * Renders a node. Arrays are parsed as hiccup.
  */
@@ -309,26 +389,49 @@ function Node({ value }) {
 /**
  * The main app.
  */
+
 function App() {
-  const [data, _] = useModelState("data")
-  const value = data ? interpret(JSON.parse(data)) : null
-  return html`<div class="pa1"><${Node} value=${value}/></div>`
+  const [el, setEl] = useState();
+  const [data, _] = useModelState("data");
+  const [width, setWidth] = useState(0);
+  const value = data ? interpret(JSON.parse(data)) : null;
+  
+  useEffect(() => {
+    const handleResize = () => {
+      if (el) {
+        setWidth(el.offsetWidth);
+      }
+    };
+
+    // Set initial width
+    handleResize();
+
+    // Add event listener to update width on resize
+    window.addEventListener('resize', handleResize);
+
+    // Remove event listener on cleanup
+    return () => window.removeEventListener('resize', handleResize);
+  }, [el]);
+
+  return html`<${WidthContext.Provider} value=${width}>
+      <div style=${{color: '#333'}} ref=${setEl}>
+        <${Node} value=${el ? value : null}/>
+      </div>
+    </>`
 }
 
 const render = createRender(App)
 
-/**
- * Install Tailwind CSS.
- */
-const installTailwind = () => {
-  const id = "tailwind-cdn"
-  const scriptUrl = "https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio";
-  if (!document.getElementById(id)) {
-    const script = document.createElement("script");
-    script.id = id;
-    script.src = scriptUrl;
-    document.head.appendChild(script);
-  }
+
+const installCSS = () => {
+  // const id = "tailwind-cdn"
+  // const scriptUrl = "https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio";
+  // if (!document.getElementById(id)) {
+  //   const script = document.createElement("script");
+  //   script.id = id;
+  //   script.src = scriptUrl;
+  //   document.head.appendChild(script);
+  // }
   // const url = "https://cdn.jsdelivr.net/gh/html-first-labs/static-tailwind@759f1d7/dist/tailwind.css"
   // if (!document.getElementById(id)) {
   //   const link = document.createElement("link");
@@ -339,4 +442,4 @@ const installTailwind = () => {
   // }
 }
 
-export default { render, initialize: installTailwind }
+export default { render }
