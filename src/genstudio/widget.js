@@ -311,10 +311,6 @@ function PlotWrapper({ spec }) {
   return html`<${PlotView} spec=${spec}></div>`
 }
 
-function normalizeDomains(PlotSpecs) {
-
-}
-
 function AutoGrid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
   normalizeDomains(PlotSpecs)
   const containerWidth = useContext(WidthContext);
@@ -374,16 +370,39 @@ function Node({ value }) {
   }
 }
 
-/**
- * The main app.
- */
+function useCellUnmounted(el) {        
+  // for Python Interactive Output in VS Code, detect when this element 
+  // is unmounted & save that state on the element itself.
+  // We have to directly read from the ancestor DOM because none of our 
+  // cell output is preserved across reload.
+  useEffect(() => { 
+    let observer; 
+    // .output_container is stable across refresh
+    const outputContainer = el?.closest(".output_container")
+    // .widgetarea contains all the notebook's cells 
+    const widgetarea = outputContainer?.closest(".widgetarea")
+    if (el && !el.initialized && widgetarea) {      
+      el.initialized = true;
+      
+      const mutationCallback = (mutationsList, observer) => {
+        for (let mutation of mutationsList) {
+          if (mutation.type === 'childList' && !widgetarea.contains(outputContainer)) {
+            el.unmounted = true
+            observer.disconnect(); 
+            break;
+          }
+        }
+      };
+      observer = new MutationObserver(mutationCallback);
+      observer.observe(widgetarea, { childList: true, subtree: true });
+    }
+    return () => observer?.disconnect()
+  }, [el]);
+  return el?.unmounted
+}
 
-function App() {
-  const [el, setEl] = useState();
-  const [data, _] = useModelState("data");
+function useElementWidth(el) {
   const [width, setWidth] = useState(0);
-  const value = data ? interpret(JSON.parse(data)) : null;
-  
   useEffect(() => {
     const handleResize = () => {
       if (el) {
@@ -400,13 +419,21 @@ function App() {
     // Remove event listener on cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, [el]);
+  return width
+}
 
-  return html`<${WidthContext.Provider} value=${width}>
+function App() {
+  const [el, setEl] = useState();
+  const [data, _] = useModelState("data");
+  const width = useElementWidth(el)
+  const unmounted = useCellUnmounted(el?.parentNode);   
+  const value = !unmounted && data ? interpret(JSON.parse(data)) : null; 
+  return html`<${WidthContext.Provider} value=${width}>  
       <div style=${{color: '#333'}} ref=${setEl}>
         <${Node} value=${el ? value : null}/>
       </div>
     </>`
-}
+} 
 
 const render = createRender(App)
 
