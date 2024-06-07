@@ -3,9 +3,9 @@ import copy
 import json
 import re
 
-import gen.studio.util as util
-from gen.studio.js_modules import JSRef, Hiccup, js, js_call
-from gen.studio.widget import Widget
+import genstudio.util as util
+from genstudio.js_modules import JSRef, Hiccup, js, js_call
+from genstudio.widget import Widget
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.

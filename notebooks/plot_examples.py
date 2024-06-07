@@ -15,10 +15,10 @@
 # ---
 
 # %%
-# %load_ext autoreload
-# %autoreload 2
+%load_ext autoreload
+%autoreload 2
 
-import gen.studio.plot as Plot
+import genstudio.plot as Plot
 import numpy as np
 import genjax as genjax
 from genjax import gen
@@ -93,13 +93,11 @@ circle + Plot.frame() + {"inset": 50}
 # %% [markdown]
 #
 # A GenJAX example
+
+# A regression distribution.
 # %%
 
 key = jrand.PRNGKey(314159)
-
-# %% [markdown]
-# A regression distribution.
-# %%
 
 @gen
 def regression(x, coefficients, sigma):
@@ -151,7 +149,25 @@ traces
 # Data from GenJAX often comes in the form of multi-dimensional (nested) lists.
 # To prepare data for plotting, we can describe these dimensions using `Plot.dimensions`.
 # %%
+
 ys = traces.get_choices()["ys", ..., "y", "v"]
+data = Plot.dimensions(ys, ["sample", "ys"], leaves="y")
+
+# => <Dimensioned shape=(9, 20), names=['sample', 'ys', 'y']>
+
+data.flatten()
+# => [{'sample': 0, 'ys': 0, 'y': Array(0.11651635, dtype=float32)},
+#     {'sample': 0, 'ys': 1, 'y': Array(-5.046837, dtype=float32)},
+#     {'sample': 0, 'ys': 2, 'y': Array(-0.9120707, dtype=float32)},
+#     {'sample': 0, 'ys': 3, 'y': Array(0.4919241, dtype=float32)},
+#     {'sample': 0, 'ys': 4, 'y': Array(1.081743, dtype=float32)},
+#     {'sample': 0, 'ys': 5, 'y': Array(1.6471565, dtype=float32)},
+#     {'sample': 0, 'ys': 6, 'y': Array(3.6472352, dtype=float32)},
+#     {'sample': 0, 'ys': 7, 'y': Array(5.080149, dtype=float32)},
+#     {'sample': 0, 'ys': 8, 'y': Array(6.961242, dtype=float32)},
+#     {'sample': 0, 'ys': 9, 'y': Array(10.374397, dtype=float32)} ...]
+
+#%%
 
 # %% [markdown]
 #
@@ -205,8 +221,23 @@ bean_data
 # Using `get_in` we've given names to each level of nesting (and leaf values), which we can see in the metadata
 # of the Dimensioned object:
 # %%
+
 data = Plot.get_in(bean_data, [{...: "day"}, {...: "bean"}, {"leaves": "height"}])
-data
+# => <Dimensioned shape=(21, 8), names=['day', 'bean', 'height']>
+
+data.flatten()
+# => [{'day': 0, 'bean': 0, 'height': 0},
+#     {'day': 0, 'bean': 1, 'height': 0},
+#     {'day': 0, 'bean': 2, 'height': 0},
+#     {'day': 0, 'bean': 3, 'height': 0},
+#     {'day': 0, 'bean': 4, 'height': 0},
+#     {'day': 0, 'bean': 5, 'height': 0},
+#     {'day': 0, 'bean': 6, 'height': 0},
+#     {'day': 0, 'bean': 7, 'height': 0},
+#     {'day': 1, 'bean': 0, 'height': 0.17486922945122418},
+#     {'day': 1, 'bean': 1, 'height': 0.8780341204172442},
+#     {'day': 1, 'bean': 2, 'height': 0.6476780304516665},
+#     {'day': 1, 'bean': 3, 'height': 0.9339147036777222}, ...]
 
 # %%[markdown]
 # Now that our dimensions and leaf have names, we can pass them as options to `Plot.dot`.
@@ -224,3 +255,6 @@ Plot.dot(data, {"x": "day", "y": "height", "facetGrid": "bean"}) + Plot.frame()
     )
     + Plot.frame()
 )
+
+#%%
+Plot.View.domainTest(Plot.dimensions(bean_data, ["day", "bean"], leaves="height"))

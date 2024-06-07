@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "gen-studio"
+name = "genstudio"
 version = "0.1.0"
 description = ""
 authors = ["Matthew Huebert <me@matt.is>"]

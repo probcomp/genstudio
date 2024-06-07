@@ -8,7 +8,7 @@ const html = htm.bind(React.createElement)
   const useCustomMessages = (model) => {
       const [messages, setMessages] = useState([])
       const handleMessage = (message, info) => {
-        if (message.kind !== 'gen.studio') {
+        if (message.kind !== 'genstudio') {
           return;
         }
         setMessages((ms) => [...ms, message.content]);

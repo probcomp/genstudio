@@ -1,4 +1,4 @@
-from gen.studio.widget import Widget
+from genstudio.widget import Widget
 
 class JSCall(dict):
     """Represents a JavaScript function call."""

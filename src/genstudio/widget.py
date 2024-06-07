@@ -8,7 +8,7 @@ import importlib.util
 
 #%%
 # necessary for VS Code IPython interactive contexts 
-PARENT_PATH = Path(importlib.util.find_spec("gen.studio.widget").origin).parent
+PARENT_PATH = Path(importlib.util.find_spec("genstudio.widget").origin).parent
 
 def to_json(data, _widget):
     def default(obj):

@@ -1,8 +1,8 @@
 # %%
 
-import gen.studio.plot as Plot
-import gen.studio.util as util
-from gen.studio.widget import Widget
+import genstudio.plot as Plot
+import genstudio.util as util
+from genstudio.widget import Widget
 # Always reload (for dev)
 import importlib 
 importlib.reload(Plot)

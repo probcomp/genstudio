@@ -1,6 +1,6 @@
 #%%
 
-from gen.studio.plot  import JSRef, d3, Math
+from genstudio.plot  import JSRef, d3, Math
 
 def test_jswrapper_init():
     wrapper = JSRef("TestModule", "test_method")

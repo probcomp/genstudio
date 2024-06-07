@@ -3,7 +3,7 @@ _Visualization tools for GenJAX._
 
 -----
 
-`gen.studio.plot` provides a composable way to create interactive plots using [Observable Plot](https://observablehq.com/plot/)
+`genstudio.plot` provides a composable way to create interactive plots using [Observable Plot](https://observablehq.com/plot/)
 and [AnyWidget](https://github.com/manzt/anywidget), built on the work of [pyobsplot](https://github.com/juba/pyobsplot).
 
 Key features:
@@ -17,10 +17,10 @@ Runnable examples are in `notebooks/plot_examples.py`. See [Observable Plot](htt
 
 ## Installation 
 
-gen-studio is published to the same artifact registry as genjax, so you can follow [these instructions](https://github.com/probcomp/genjax?tab=readme-ov-file#quickstart) but use `gen-studio` for the package name.
+genstudio is published to the same artifact registry as genjax, so you can follow [these instructions](https://github.com/probcomp/genjax?tab=readme-ov-file#quickstart) but use `genstudio` for the package name.
 
 ```
-gen-studio = {version = "v2024.05.23.085705", source = "gcp"}
+genstudio = {version = "v2024.05.23.085705", source = "gcp"}
 ```
 
 
@@ -30,7 +30,7 @@ gen-studio = {version = "v2024.05.23.085705", source = "gcp"}
 Given the following setup:
 
 ```py 
-import gen.studio.plot as Plot
+import genstudio.plot as Plot
 import numpy as np
 
 def normal_100():

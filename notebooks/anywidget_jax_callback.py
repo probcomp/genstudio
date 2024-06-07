@@ -27,7 +27,7 @@ w
 
 def effectful_fn(x):
     print(f"Performing an effect with {x}")
-    w.send({'kind': 'gen.studio', 'content': x.tolist()})
+    w.send({'kind': 'genstudio', 'content': x.tolist()})
     return x
 
 @jax.jit

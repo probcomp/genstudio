@@ -206,6 +206,20 @@ const repeat = (data) => {
   return (_, i) => data[i % data.length];
 }
 
+const getScales = (spec) => {
+  let plot = Plot.plot(spec);
+  let scales = {};
+  for (const scaleName of ["x", "y", "r", "color", "opacity", "length", "symbol"]) {
+    scales[scaleName] = plot.scale(scaleName);
+  }
+  return scales;
+}
+
+const domainTest = (data) => {
+  data = flatten(data.value, data.dimensions)
+  console.log(getScales({marks: [Plot.dot(data, {x: 'bean', y: 'height'})]}))
+}
+
 const scope = {
   d3,
   Plot, React, ReactDOM,
@@ -216,7 +230,8 @@ const scope = {
     repeat,
     el,
     AutoGrid, 
-    flatten
+    flatten,
+    domainTest
   },
 
 }
@@ -296,31 +311,7 @@ function PlotView({ spec, splitState }) {
 }
 
 function PlotWrapper({ spec }) {
-  const dimensionInfo = useMemo(() => {
-    return spec.marks.flatMap(mark => mark.dimensions).reduce((acc, dimension) => {
-      if (!dimension) {
-        acc
-      } else if (acc[dimension.key]) {
-        acc[dimension.key] = { ...acc[dimension.key], ...dimension };
-      } else {
-        acc[dimension.key] = dimension;
-      }
-      return acc;
-    }, {});
-  }, []);
-
-  const [splitState, setSplitState] = useState(
-    Object.fromEntries(Object.entries(dimensionInfo).map(([k, d]) => [k, d.initial || 0]))
-  );
-  return html`
-    <div>
-      <${PlotView} spec=${spec} splitState=${splitState}></div>
-      <${SlidersView} 
-        info=${dimensionInfo}
-        splitState=${splitState}
-        setSplitState=${setSplitState}/>
-    </div>
-  `
+  return html`<${PlotView} spec=${spec}></div>`
 }
 
 function normalizeDomains(PlotSpecs) {
