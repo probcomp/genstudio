@@ -44,7 +44,6 @@ import numpy as np
 def normal_100():
     return np.random.normal(loc=0, scale=1, size=1000)
 
-
 # %% [markdown]
 # #### Histogram
 # %%
@@ -61,7 +60,6 @@ Plot.dot({"x": normal_100(), "y": normal_100()}) + Plot.frame()
 # %% [markdown]
 # #### One-dimensional heatmap
 # %%
-
 (
     Plot.rect(normal_100(), Plot.binX({"fill": "count"}))
     + Plot.color_scheme("YlGnBu")
@@ -73,7 +71,6 @@ Plot.dot({"x": normal_100(), "y": normal_100()}) + Plot.frame()
 # 
 # Plot.doc(Plot.foo) will render a markdown-formatted docstring when available:
 # %%
-
 Plot.doc(Plot.line)
 
 # %% [markdown]
@@ -96,7 +93,6 @@ circle + Plot.frame() + {"inset": 50}
 
 # A regression distribution.
 # %%
-
 key = jrand.PRNGKey(314159)
 
 @gen
@@ -110,7 +106,6 @@ def regression(x, coefficients, sigma):
 # %% [markdown]
 # Regression, with an outlier random variable.
 # %%
-
 @gen
 def regression_with_outlier(x, coefficients):
     is_outlier = genjax.flip(0.1) @ "is_outlier"
@@ -149,35 +144,16 @@ traces
 # Data from GenJAX often comes in the form of multi-dimensional (nested) lists.
 # To prepare data for plotting, we can describe these dimensions using `Plot.dimensions`.
 # %%
-
 ys = traces.get_choices()["ys", ..., "y", "v"]
-data = Plot.dimensions(ys, ["sample", "ys"], leaves="y")
-
-# => <Dimensioned shape=(9, 20), names=['sample', 'ys', 'y']>
-
-data.flatten()
-# => [{'sample': 0, 'ys': 0, 'y': Array(0.11651635, dtype=float32)},
-#     {'sample': 0, 'ys': 1, 'y': Array(-5.046837, dtype=float32)},
-#     {'sample': 0, 'ys': 2, 'y': Array(-0.9120707, dtype=float32)},
-#     {'sample': 0, 'ys': 3, 'y': Array(0.4919241, dtype=float32)},
-#     {'sample': 0, 'ys': 4, 'y': Array(1.081743, dtype=float32)},
-#     {'sample': 0, 'ys': 5, 'y': Array(1.6471565, dtype=float32)},
-#     {'sample': 0, 'ys': 6, 'y': Array(3.6472352, dtype=float32)},
-#     {'sample': 0, 'ys': 7, 'y': Array(5.080149, dtype=float32)},
-#     {'sample': 0, 'ys': 8, 'y': Array(6.961242, dtype=float32)},
-#     {'sample': 0, 'ys': 9, 'y': Array(10.374397, dtype=float32)} ...]
-
-#%%
 
 # %% [markdown]
-#
 # When passed to a plotting function, this annotated dimensional data will be flattened into
 # a single list of objects, with entries for each dimension and leaf name. Here, we'll call
 # .flatten() directly in python, but in practice the arrays will be flattened after (de)serialization
 # to our JavaScript rendering environment.
 # %%
-
 Plot.dimensions(ys, ["sample", "ys"], leaves="y").flatten()[:10]
+# => <Dimensioned shape=(9, 20), names=['sample', 'ys', 'y']>
 
 # %% [markdown]
 # #### Small Multiples
@@ -201,7 +177,6 @@ Plot.dimensions(ys, ["sample", "ys"], leaves="y").flatten()[:10]
 # along the way in a single step. It works with Python lists/dicts as well as GenJAX
 # traces and choicemaps. Here we'll construct a synthetic dataset and plot using `get_in`.
 # %%
-
 import random
 
 bean_data = [[0 for _ in range(8)]]
@@ -221,29 +196,18 @@ bean_data
 # Using `get_in` we've given names to each level of nesting (and leaf values), which we can see in the metadata
 # of the Dimensioned object:
 # %%
-
 data = Plot.get_in(bean_data, [{...: "day"}, {...: "bean"}, {"leaves": "height"}])
-# => <Dimensioned shape=(21, 8), names=['day', 'bean', 'height']>
-
+data
+#%%
 data.flatten()
-# => [{'day': 0, 'bean': 0, 'height': 0},
-#     {'day': 0, 'bean': 1, 'height': 0},
-#     {'day': 0, 'bean': 2, 'height': 0},
-#     {'day': 0, 'bean': 3, 'height': 0},
-#     {'day': 0, 'bean': 4, 'height': 0},
-#     {'day': 0, 'bean': 5, 'height': 0},
-#     {'day': 0, 'bean': 6, 'height': 0},
-#     {'day': 0, 'bean': 7, 'height': 0},
-#     {'day': 1, 'bean': 0, 'height': 0.17486922945122418},
-#     {'day': 1, 'bean': 1, 'height': 0.8780341204172442},
-#     {'day': 1, 'bean': 2, 'height': 0.6476780304516665},
-#     {'day': 1, 'bean': 3, 'height': 0.9339147036777222}, ...]
 
 # %%[markdown]
 # Now that our dimensions and leaf have names, we can pass them as options to `Plot.dot`.
 # Here we'll use the `facetGrid` option to render a separate plot for each bean.
 # %%
-Plot.dot(data, {"x": "day", "y": "height", "facetGrid": "bean"}) + Plot.frame()
+Plot.dot(data, {"x": "day", 
+                "y": "height", 
+                "facetGrid": "bean"}) + Plot.frame()
 
 # %% [markdown]
 # Let's draw a line for each bean to plot its growth over time. The `z` channel splits the data into
@@ -255,6 +219,3 @@ Plot.dot(data, {"x": "day", "y": "height", "facetGrid": "bean"}) + Plot.frame()
     )
     + Plot.frame()
 )
-
-#%%
-Plot.View.domainTest(Plot.dimensions(bean_data, ["day", "bean"], leaves="height"))

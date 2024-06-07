@@ -4,7 +4,7 @@ import json
 import re
 
 import genstudio.util as util
-from genstudio.js_modules import JSRef, Hiccup, js, js_call
+from genstudio.js_modules import JSRef, Hiccup, js
 from genstudio.widget import Widget
 
 # This module provides a composable way to create interactive plots using Observable Plot
@@ -627,19 +627,14 @@ def doc(plot_fn):
             if meta
             else None
         )
-        return js_call(
-            "View",
-            "md",
-            f"""
+        return View.md(f"""
 <div style="display: block; gap: 10px; border-bottom: 1px solid #ddd; padding: 10px 0;">
 {title} 
 <a style='color: #777; text-decoration: none;' href="{url}">Examples &#8599;</a></div>
-
-"""
-            + doc,
-        )
+<div style="max-width:400px; margin: 1  0px 0;">{doc}</div>
+""")
     else:
-        return js_call("View", "md", "No docstring available.")
+        return View.md("No docstring available.")
 
 
 # dot([[0, 0], [0, 1], [1, 1], [2, 3], [4, 2], [4, 0]])

@@ -187,10 +187,6 @@ class MarkSpec {
     this.computed = computed;
     return computed;
   }
-  readMark(dimensionState, width) {
-    let { fn, data, options, extraMarks } = this.compute(width)
-    return [fn(data, options), ...extraMarks]
-  }
 }
 
 function readMark(mark, dimensionState, width) {
@@ -198,8 +194,10 @@ function readMark(mark, dimensionState, width) {
   if (!(mark instanceof MarkSpec)) {
     return mark;
   }
-  let { fn, data, options, extraMarks } = mark.compute(width)
-  return [fn(data, options), ...extraMarks]
+  let { fn, data, options, plotOptions, extraMarks } = mark.compute(width);
+  mark = fn(data, options);
+  mark.plotOptions = plotOptions;
+  return [mark, ...extraMarks]
 }
 
 const repeat = (data) => {
@@ -217,7 +215,6 @@ const getScales = (spec) => {
 
 const domainTest = (data) => {
   data = flatten(data.value, data.dimensions)
-  console.log(getScales({marks: [Plot.dot(data, {x: 'bean', y: 'height'})]}))
 }
 
 const scope = {
@@ -299,7 +296,7 @@ function PlotView({ spec, splitState }) {
   useEffect(() => {
     if (parent) {
       const marks = spec.marks.flatMap((m) => readMark(m, splitState, width))
-      const plotOptions = spec.marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {});
+      const plotOptions = marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {});
       const plot = Plot.plot({ ...spec, ...plotOptions, marks: marks })
       parent.appendChild(plot)
       return () => parent.removeChild(plot)
