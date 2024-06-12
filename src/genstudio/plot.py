@@ -1,10 +1,11 @@
 # %%
 import copy
 import json
+import math
 import re
 
 import genstudio.util as util
-from genstudio.js_modules import JSRef, Hiccup, js
+from genstudio.js_modules import Hiccup, JSRef, js
 from genstudio.widget import Widget
 
 # This module provides a composable way to create interactive plots using Observable Plot
@@ -394,6 +395,9 @@ def new(*specs, **kwargs):
     """Create a new PlotSpec from the given specs and options."""
     return PlotSpec(specs, **kwargs)
 
+def scaled_circle(x, y, r, n=16, curve='catmull-rom-closed', **kwargs):
+    points = [(x + r * math.cos(2 * math.pi * i / n), y + r * math.sin(2 * math.pi * i / n)) for i in range(n)]
+    return line(points, curve=curve, **kwargs)
 
 def constantly(x):
     """
