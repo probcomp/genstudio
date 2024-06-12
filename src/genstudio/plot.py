@@ -48,11 +48,19 @@ class Dimensioned:
             if 'leaves' not in dimension:
                 shape += (len(current_value),)
                 current_value = current_value[0]
-        return shape        
+        return shape
+            
     def names(self):
         return [dimension.get('key', dimension.get('leaves')) for dimension in self.dimensions]                
     def __repr__(self):
         return f"<Dimensioned shape={self.shape()}, names={self.names()}>"
+    
+    def size(self, name):
+        names = self.names()
+        shape = self.shape()
+        if name in names:
+            return shape[names.index(name)]
+        raise ValueError(f"Dimension with name '{name}' not found")
     
     def flatten(self):
         # flattens the data in python, rather than js. 
@@ -583,6 +591,20 @@ def margin(*args):
     else:
         raise ValueError(f"Invalid number of arguments: {len(args)}")
 
+# WIP
+def slider(key, range, label=None):
+    range = [0, range] if isinstance(range, int) else range
+    return {'$state': {key: {'range': range,
+                             'label': label or key,
+                             'kind': 'slider'}}}
+
+# WIP
+def animate(key, range, fps=5, label=None):
+    range = [0, range] if isinstance(range, int) else range
+    return {'$state': {key: {'range': range,
+                             'label': label or key,
+                             'kind': 'animate',
+                             'fps': fps}}}
 
 # barX
 # For reference - other options supported by plots

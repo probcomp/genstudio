@@ -115,14 +115,13 @@ class MarkSpec {
     }
     this.extraMarks = [];
     let data = this.data
-    let options = {...this.options}
+    let options = { tip: true, ...this.options }
     let computed = {
       forWidth: containerWidth,
       extraMarks: [],
       plotOptions: {},
       fn: this.fn
     }
-
 
     // Below is where we add functionality to Observable.Plot by preprocessing
     // the data & options that are passed in.
@@ -153,7 +152,6 @@ class MarkSpec {
       }
 
     }
-
     // handle facetWrap option (grid) with minWidth consideration
     // see https://github.com/observablehq/plot/pull/892/files
     if (options.facetGrid) {
@@ -178,10 +176,6 @@ class MarkSpec {
       }));
     }
 
-    if (!('tip' in options)) {
-      options.tip = true;
-    }
-
     computed.data = data;
     computed.options = options;
     this.computed = computed;
@@ -189,7 +183,7 @@ class MarkSpec {
   }
 }
 
-function readMark(mark, dimensionState, width) {
+function readMark(mark, width) {
 
   if (!(mark instanceof MarkSpec)) {
     return mark;
@@ -204,19 +198,6 @@ const repeat = (data) => {
   return (_, i) => data[i % data.length];
 }
 
-const getScales = (spec) => {
-  let plot = Plot.plot(spec);
-  let scales = {};
-  for (const scaleName of ["x", "y", "r", "color", "opacity", "length", "symbol"]) {
-    scales[scaleName] = plot.scale(scaleName);
-  }
-  return scales;
-}
-
-const domainTest = (data) => {
-  data = flatten(data.value, data.dimensions)
-}
-
 const scope = {
   d3,
   Plot, React, ReactDOM,
@@ -226,14 +207,13 @@ const scope = {
     md: (x) => renderMarkdown(x),
     repeat,
     el,
-    AutoGrid, 
-    flatten,
-    domainTest
+    AutoGrid,
+    flatten
   },
 
 }
 const { useState, useEffect, useRef, useCallback, useContext, useMemo } = React
- 
+
 /**
  * Interpret data recursively, evaluating functions.
  */
@@ -268,20 +248,19 @@ export function interpret(data) {
   return ret;
 }
 
-function SlidersView({ info, splitState, setSplitState }) {
-  // `info` should be an object of {key, {label, size}}
+function SlidersView({ $info, $state, set$state }) {
   return html`
     <div>
-      ${Object.entries(info).map(([key, { label, size }]) => html`
+      ${Object.entries($info).map(([key, { label, range, init }]) => html`
           <div class="flex flex-col my-2 gap-2" key=${key}>
             <label>${label || key}</label>
-            ${splitState[key]}
+            ${$state[key]}
             <input 
               type="range" 
-              min="0" 
-              max=${size - 1}
-              value=${splitState[key] || 0} 
-              onChange=${(e) => setSplitState({ ...splitState, [key]: Number(e.target.value) })}
+              min=${range[0]} 
+              max=${range[1]}
+              value=${$state[key] || init || 0} 
+              onChange=${(e) => set$state({ ...$state, [key]: Number(e.target.value) })}
             />
                   </div>  
       `)}
@@ -289,26 +268,47 @@ function SlidersView({ info, splitState, setSplitState }) {
   `;
 }
 
-function PlotView({ spec, splitState }) {
+function binding(varName, varValue, f) {
+  const prevValue = window[varName]
+  window[varName] = varValue
+  const ret = f()
+  window[varName] = prevValue
+  return ret
+}
+
+function PlotView({ spec, $state, width }) {
   const [parent, setParent] = useState(null)
-  const width = useContext(WidthContext)
   const ref = useCallback(setParent)
   useEffect(() => {
     if (parent) {
-      const marks = spec.marks.flatMap((m) => readMark(m, splitState, width))
-      const plotOptions = marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {});
-      const plot = Plot.plot({ ...spec, ...plotOptions, marks: marks })
+      const plot = binding("$state", $state, () => Plot.plot(spec))
       parent.appendChild(plot)
       return () => parent.removeChild(plot)
     }
-  }, [spec, parent, splitState, width])
+  }, [spec, parent, width])
   return html`
     <div ref=${ref}></div>
   `
 }
 
 function PlotWrapper({ spec }) {
-  return html`<${PlotView} spec=${spec}></div>`
+  const $info = spec.$state || {} 
+  const [$state, set$state] = useState(Object.keys($info).reduce((stateObj, key) => ({
+    ...stateObj,
+    [key]: $info[key].init || $info[key].range[0]
+  }), {}))
+  
+  const width = useContext(WidthContext)
+  const marks = spec.marks.flatMap((m) => readMark(m, $state, width))
+  spec = {
+    ...spec,
+    ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
+    marks: marks
+  };
+  return html`<div>
+                <${PlotView} spec=${spec} $state=${$state} />
+                <${SlidersView} $state=${$state} set$state=${set$state} $info=${$info} />  
+              </div>`
 }
 
 function AutoGrid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
@@ -370,25 +370,25 @@ function Node({ value }) {
   }
 }
 
-function useCellUnmounted(el) {        
+function useCellUnmounted(el) {
   // for Python Interactive Output in VS Code, detect when this element 
   // is unmounted & save that state on the element itself.
   // We have to directly read from the ancestor DOM because none of our 
   // cell output is preserved across reload.
-  useEffect(() => { 
-    let observer; 
+  useEffect(() => {
+    let observer;
     // .output_container is stable across refresh
     const outputContainer = el?.closest(".output_container")
     // .widgetarea contains all the notebook's cells 
     const widgetarea = outputContainer?.closest(".widgetarea")
-    if (el && !el.initialized && widgetarea) {      
+    if (el && !el.initialized && widgetarea) {
       el.initialized = true;
-      
+
       const mutationCallback = (mutationsList, observer) => {
         for (let mutation of mutationsList) {
           if (mutation.type === 'childList' && !widgetarea.contains(outputContainer)) {
             el.unmounted = true
-            observer.disconnect(); 
+            observer.disconnect();
             break;
           }
         }
@@ -426,14 +426,14 @@ function App() {
   const [el, setEl] = useState();
   const [data, _] = useModelState("data");
   const width = useElementWidth(el)
-  const unmounted = useCellUnmounted(el?.parentNode);   
-  const value = !unmounted && data ? interpret(JSON.parse(data)) : null; 
+  const unmounted = useCellUnmounted(el?.parentNode);
+  const value = !unmounted && data ? interpret(JSON.parse(data)) : null;
   return html`<${WidthContext.Provider} value=${width}>  
-      <div style=${{color: '#333'}} ref=${setEl}>
+      <div style=${{ color: '#333' }} ref=${setEl}>
         <${Node} value=${el ? value : null}/>
       </div>
     </>`
-} 
+}
 
 const render = createRender(App)
 

@@ -15,8 +15,8 @@
 # ---
 
 # %%
-%load_ext autoreload
-%autoreload 2
+# %load_ext autoreload
+# %autoreload 2
 
 import genstudio.plot as Plot
 import numpy as np
@@ -25,7 +25,6 @@ from genjax import gen
 import jax
 import jax.numpy as jnp
 import jax.random as jrand
-import numpy as np
 
 
 # %% [markdown]
@@ -196,18 +195,19 @@ bean_data
 # Using `get_in` we've given names to each level of nesting (and leaf values), which we can see in the metadata
 # of the Dimensioned object:
 # %%
-data = Plot.get_in(bean_data, [{...: "day"}, {...: "bean"}, {"leaves": "height"}])
-data
+bean_data_dims = Plot.get_in(bean_data, [{...: "day"}, {...: "bean"}, {"leaves": "height"}])
+bean_data_dims
 #%%
-data.flatten()
+bean_data_dims.flatten()
 
 # %%[markdown]
 # Now that our dimensions and leaf have names, we can pass them as options to `Plot.dot`.
 # Here we'll use the `facetGrid` option to render a separate plot for each bean.
 # %%
-Plot.dot(data, {"x": "day", 
-                "y": "height", 
-                "facetGrid": "bean"}) + Plot.frame()
+Plot.dot(bean_data_dims, {"x": "day", 
+                          "y": "height", 
+                          "fill": "bean",
+                          "facetGrid": "bean"}) + Plot.frame()
 
 # %% [markdown]
 # Let's draw a line for each bean to plot its growth over time. The `z` channel splits the data into
@@ -215,7 +215,7 @@ Plot.dot(data, {"x": "day",
 # %%
 (
     Plot.line(
-        data, {"x": "day", "y": "height", "z": "bean", "stroke": "bean"}
+        bean_data_dims, {"x": "day", "y": "height", "z": "bean", "stroke": "bean"}
     )
     + Plot.frame()
 )
