@@ -115,7 +115,7 @@ class MarkSpec {
     }
     this.extraMarks = [];
     let data = this.data
-    let options = { tip: true, ...this.options }
+    let options = { ...this.options }
     let computed = {
       forWidth: containerWidth,
       extraMarks: [],
