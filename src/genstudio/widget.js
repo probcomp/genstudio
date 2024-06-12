@@ -354,7 +354,7 @@ function PlotWrapper({ spec }) {
 }
 
 function AutoGrid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
-  normalizeDomains(PlotSpecs)
+  // normalizeDomains(PlotSpecs)
   const containerWidth = useContext(WidthContext);
   const aspectRatio = plotOptions.aspectRatio || 1;
   const minWidth = Math.min(plotOptions.minWidth || 200, containerWidth);
