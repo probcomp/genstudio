@@ -8,9 +8,6 @@
 import genstudio.plot as Plot
 from plot_examples import bean_data_dims
 
-# Plot.slider and Plot.animate can be added to a plot.
-# They will 
-
 (
     Plot.dot(
         bean_data_dims,
@@ -18,7 +15,7 @@ from plot_examples import bean_data_dims
             "x": "day",
             "y": "height",
             "facetGrid": "bean",
-            "filter": Plot.js("(d) => d.day <= $state.day"),
+            "filter": Plot.js("(d) => d.day <= $state.currentDay"),
         },
     )
     + Plot.frame()
@@ -27,10 +24,9 @@ from plot_examples import bean_data_dims
     # + Plot.slider("day", range=bean_data_dims.size("day"))
     # (OR)
     # animate a $state variable
-    + Plot.animate("day", range=bean_data_dims.size("day"))
+    + Plot.animate("currentDay", range=bean_data_dims.size("day"))
 )
-
-
+    
 
 # %%
 
