@@ -248,26 +248,68 @@ export function interpret(data) {
   return ret;
 }
 
-function SlidersView({ $info, $state, set$state }) {
+function $StateView({ $info, $state, set$state }) {
+  const [isPlaying, setIsPlaying] = useState(true);
+
+  // Build up the active intervals array up top
+  const activeIntervals = Object.entries($info).filter(([key, { kind, fps }]) => kind === 'animate' && fps > 0);
+
+  useEffect(() => {
+    const intervals = activeIntervals.map(([key, { fps, loop, range }]) => {
+      const intervalId = setInterval(() => {
+        if (isPlaying) {
+          set$state((prevState) => {
+            const nextValue = prevState[key] + 1;
+            if (nextValue < range[1]) {
+              return { ...prevState, [key]: nextValue };
+            } else {
+              return loop !== false ? { ...prevState, [key]: range[0] } : prevState;
+            }
+          });
+        }
+      }, 1000 / fps);
+      return intervalId;
+    });
+
+    return () => intervals.forEach(clearInterval);
+  }, [activeIntervals, set$state, isPlaying]);
+
+  const togglePlayPause = () => {
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleSliderChange = (key, value) => {
+    setIsPlaying(false);
+    set$state({ ...$state, [key]: Number(value) });
+  };
+
+  const playIcon = `<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
+  const pauseIcon = `<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`;
+
   return html`
-    <div>
-      ${Object.entries($info).map(([key, { label, range, init }]) => html`
-          <div class="flex flex-col my-2 gap-2" key=${key}>
-            <label>${label || key}</label>
-            ${$state[key]}
-            <input 
-              type="range" 
-              min=${range[0]} 
-              max=${range[1]}
-              value=${$state[key] || init || 0} 
-              onChange=${(e) => set$state({ ...$state, [key]: Number(e.target.value) })}
-            />
-                  </div>  
+    <div style=${{display: 'flex', alignItems: 'center', gap: '10px', width: '100%'}}>
+      ${activeIntervals.length ? html`
+        <div onClick=${togglePlayPause} style=${{flexShrink: 0}} dangerouslySetInnerHTML=${{ __html: isPlaying ? pauseIcon : playIcon }}></div>
+      ` : null}
+      <div style=${{display: 'flex', flexGrow: 1, flexDirection: 'column'}}>
+      ${Object.entries($info).map(([key, { label, range, init, kind }]) => html`
+        <div style=${{ display: 'flex', flexDirection: 'column', marginTop: '0.5rem', marginBottom: '0.5rem', gap: '0.5rem' }} key=${key}>
+          <label>${label || key} ${$state[key]}</label>
+          ${kind === 'animate' ? null : html`<span>${$state[key]}</span>`}
+          <input 
+            type="range" 
+            min=${range[0]} 
+            max=${range[1] - 1}
+            value=${$state[key] || init || 0} 
+            onChange=${(e) => handleSliderChange(key, e.target.value)}
+            style=${{outline: 'none'}}
+          />
+        </div>
       `)}
+      </div>
     </div>
   `;
 }
-
 function binding(varName, varValue, f) {
   const prevValue = window[varName]
   window[varName] = varValue
@@ -307,7 +349,7 @@ function PlotWrapper({ spec }) {
   };
   return html`<div>
                 <${PlotView} spec=${spec} $state=${$state} />
-                <${SlidersView} $state=${$state} set$state=${set$state} $info=${$info} />  
+                <${$StateView} $state=${$state} set$state=${set$state} $info=${$info} />  
               </div>`
 }
 
