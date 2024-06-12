@@ -299,7 +299,7 @@ function PlotWrapper({ spec }) {
   }), {}))
   
   const width = useContext(WidthContext)
-  const marks = spec.marks.flatMap((m) => readMark(m, $state, width))
+  const marks = spec.marks.flatMap((m) => readMark(m, width))
   spec = {
     ...spec,
     ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
