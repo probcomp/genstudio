@@ -1,10 +1,13 @@
-import { createRender, useModelState } from "https://esm.sh/@anywidget/react@0.0.7"
-import * as React from 'https://esm.sh/react@18.3.1'
-import * as ReactDOM from 'https://esm.sh/react-dom@18.3.1'
-import htm from 'https://esm.sh/htm@3.1.1'
-import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.14/+esm"
-import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm"
-import MarkdownIt from 'https://esm.sh/markdown-it@13.0.1';
+import { createRender, useModelState } from "@anywidget/react";
+import * as React from "react";
+import * as ReactDOM from "react-dom";
+import htm from "htm";
+import * as Plot from "@observablehq/plot";
+import * as d3 from "d3";
+import MarkdownIt from "markdown-it";
+
+const AUTOGRID_MIN = 150
+const DEFAULT_PLOT_OPTIONS = { inset: 20 };
 
 const md = new MarkdownIt({
   html: true,
@@ -119,7 +122,7 @@ class MarkSpec {
     let computed = {
       forWidth: containerWidth,
       extraMarks: [],
-      plotOptions: {},
+      plotOptions: {...DEFAULT_PLOT_OPTIONS},
       fn: this.fn
     }
 
@@ -161,20 +164,19 @@ class MarkSpec {
       const index = new Map(keys.map((key, i) => [key, i]));
 
       // Calculate columns based on minWidth and containerWidth
-      const minWidth = gridOpts.minWidth || 200;
+      const minWidth = gridOpts.minWidth || 100;
       const columns = gridOpts.columns || Math.min(Math.floor(containerWidth / minWidth), Math.floor(Math.sqrt(keys.length)));
-
       const fx = (key) => index.get(key) % columns;
       const fy = (key) => Math.floor(index.get(key) / columns);
       options.fx = (d) => fx(d[key]);
       options.fy = (d) => fy(d[key]);
-      computed.plotOptions = { fx: { axis: null }, fy: { axis: null } };
+      computed.plotOptions = {...computed.plotOptions, fx: { axis: null }, fy: { axis: null } };
       computed.extraMarks.push(Plot.text(keys, {
         fx, fy,
         frameAnchor: "top",
         dy: 4
       }));
-    }
+    } 
 
     computed.data = data;
     computed.options = options;
@@ -274,7 +276,7 @@ function $StateView({ $info, $state, set$state }) {
     return () => intervals.forEach(clearInterval);
   }, [activeIntervals, set$state, isPlaying]);
 
-  const togglePlayPause = () => {
+  const togglePlayPause = () => { 
     setIsPlaying(!isPlaying);
   };
 
@@ -293,7 +295,7 @@ function $StateView({ $info, $state, set$state }) {
       ` : null}
       <div style=${{display: 'flex', flexGrow: 1, flexDirection: 'column'}}>
       ${Object.entries($info).map(([key, { label, range, init, kind }]) => html`
-        <div style=${{ display: 'flex', flexDirection: 'column', marginTop: '0.5rem', marginBottom: '0.5rem', gap: '0.5rem' }} key=${key}>
+        <div style=${{ fontSize: "14px", display: 'flex', flexDirection: 'column', marginTop: '0.5rem', marginBottom: '0.5rem', gap: '0.5rem' }} key=${key}>
           <label>${label || key} ${$state[key]}</label>
           ${kind === 'animate' ? null : html`<span>${$state[key]}</span>`}
           <input 
@@ -357,8 +359,7 @@ function AutoGrid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
   // normalizeDomains(PlotSpecs)
   const containerWidth = useContext(WidthContext);
   const aspectRatio = plotOptions.aspectRatio || 1;
-  const minWidth = Math.min(plotOptions.minWidth || 200, containerWidth);
-  const defaultPlotOptions = { inset: 10 };
+  const minWidth = Math.min(plotOptions.minWidth || AUTOGRID_MIN, containerWidth);
 
   // Compute the number of columns based on containerWidth and minWidth, no more than the number of specs
   const numColumns = Math.max(Math.min(Math.floor(containerWidth / minWidth), PlotSpecs.length), 1);
@@ -367,7 +368,7 @@ function AutoGrid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
 
   // Merge width and height into defaultPlotOptions
   const mergedPlotOptions = {
-    ...defaultPlotOptions,
+    ...DEFAULT_PLOT_OPTIONS,
     width: itemWidth,
     height: itemHeight,
     ...plotOptions
@@ -461,6 +462,7 @@ function useElementWidth(el) {
     // Remove event listener on cleanup
     return () => window.removeEventListener('resize', handleResize);
   }, [el]);
+  
   return width
 }
 

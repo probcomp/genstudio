@@ -188,7 +188,7 @@ def test_get_in():
     
     print('tests passed')
 
-test_get_in()
+# test_get_in()
 
 #%%
 def plot_spec(x):
@@ -233,13 +233,6 @@ _plot_fns = {
 
 # Re-export the dynamically constructed MarkSpec functions
 globals().update(_plot_fns)
-
-
-plot_options = {
-    "small": {"width": 250, "height": 175, "inset": 10},
-    "default": {"inset": 20},
-}
-
 
 def _deep_merge(dict1, dict2):
     """
@@ -343,12 +336,7 @@ class PlotSpec:
         """
         if self._plot is None:
             self._plot = Widget(
-                View.PlotSpec(
-                    {
-                        **plot_options["default"],
-                        **self.spec,
-                    }
-                )
+                View.PlotSpec(self.spec)
             )
         return self._plot
 
@@ -646,7 +634,7 @@ def doc(plot_fn):
         doc = plot_fn.__doc__
         meta = OBSERVABLE_PLOT_METADATA.get(name, None)
         title = (
-            f"<span style='font-size: 20px; padding-right: 10px;'>Plot.{name}</span>"
+            f"<span style='padding-right: 10px;'>Plot.{name}</span>"
         )
         url = (
             f"https://observablehq.com/plot/{meta['kind']}/{re.search(r'([a-z]+)', name).group(1)}"
@@ -654,10 +642,8 @@ def doc(plot_fn):
             else None
         )
         return View.md(f"""
-<div style="display: block; gap: 10px; border-bottom: 1px solid #ddd; padding: 10px 0;">
-{title} 
-<a style='color: #777; text-decoration: none;' href="{url}">Examples &#8599;</a></div>
-<div style="max-width:400px; margin: 1  0px 0;">{doc}</div>
+<div class="doc-header">{title}<a style='font-size: 70%; color: #777; text-decoration: none;' href="{url}">Examples &#8599;</a></div>
+<div class="doc-content">{doc}</div>
 """)
     else:
         return View.md("No docstring available.")

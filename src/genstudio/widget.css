@@ -1,0 +1,12 @@
+.doc-header {
+    display: block;
+    gap: 10px;
+    border-bottom: 1px solid #ddd;
+    padding: 10px 0;
+    font-size: 20px;
+}
+
+.doc-content {
+    max-width: 400px;
+    margin: 10px 0;
+}

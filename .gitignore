@@ -1,0 +1,3 @@
+src/genstudio/dist.js
+*.ipynb
+*.slides.html

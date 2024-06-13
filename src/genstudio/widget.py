@@ -24,7 +24,8 @@ def to_json(data, _widget):
     return json.dumps(data, default=default)
 
 class Widget(anywidget.AnyWidget):
-    _esm = PARENT_PATH / "widget.js"
+    _esm = PARENT_PATH / "dist.js"
+    _css = PARENT_PATH / "widget.css"
     data = traitlets.Any().tag(sync=True, to_json=to_json)
 
     def __init__(self, data):
