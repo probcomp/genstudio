@@ -173,7 +173,7 @@ def get_in(data, path, toplevel=True):
                 return [get_in(v, p, toplevel=False) for v in value]
             else:
                 raise TypeError(
-                    f"Expected list at path index {i}, got {type(value).__name__}"
+                    f"Expected list at path {path}, got {type(value).__name__}"
                 )
         elif "leaves" in segment:
             return value
@@ -271,7 +271,6 @@ _plot_fns = {
 
 # Re-export the dynamically constructed MarkSpec functions
 globals().update(_plot_fns)
-
 
 plot_options = {
     "small": {"width": 250, "height": 175, "inset": 10},

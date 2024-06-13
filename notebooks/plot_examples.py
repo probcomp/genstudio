@@ -18,13 +18,15 @@
 # %load_ext autoreload
 # %autoreload 2
 
-import genstudio.plot as Plot
-import numpy as np
+import random
+
 import genjax as genjax
-from genjax import gen
+import genstudio.plot as Plot
 import jax
 import jax.numpy as jnp
 import jax.random as jrand
+import numpy as np
+from genjax import gen
 
 
 # %% [markdown]
@@ -178,7 +180,6 @@ Plot.dimensions(ys, ["sample", "ys"], leaves="y").flatten()[:10]
 # along the way in a single step. It works with Python lists/dicts as well as GenJAX
 # traces and choicemaps. Here we'll construct a synthetic dataset and plot using `get_in`.
 # %%
-import random
 
 bean_data = [[0 for _ in range(8)]]
 for day in range(1, 21):
