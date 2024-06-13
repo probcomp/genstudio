@@ -1,9 +1,6 @@
 # %%
 import importlib.util
-import json
 import pathlib
-import re
-from functools import partial
 from timeit import default_timer as timer
 
 
@@ -35,6 +32,7 @@ class benchmark(object):
         t = timer() - self.start
         print(("%s : " + self.fmt + " seconds") % (self.msg, t))
         self.time = t
+
 
 PARENT_PATH = pathlib.Path(importlib.util.find_spec("genstudio.util").origin).parent
 

@@ -28,119 +28,142 @@ OBSERVABLE_PLOT_METADATA = json.load(
     open(util.PARENT_PATH / "scripts" / "observable_plot_metadata.json")
 )
 
-d3 = JSRef("d3") 
+d3 = JSRef("d3")
 Math = JSRef("Math")
 View = JSRef("View")
+
 
 def repeat(data):
     """
     For passing columnar data to Observable.Plot which should repeat/cycle.
-    eg. for a set of 'xs' that are to be repeated for each set of `ys`. 
+    eg. for a set of 'xs' that are to be repeated for each set of `ys`.
     """
     return View.repeat(data)
+
+
 class Dimensioned:
     def __init__(self, value, path):
         self.value = value
-        self.dimensions = [rename_key(segment, ..., 'key') for segment in path if isinstance(segment, dict)]
+        self.dimensions = [
+            rename_key(segment, ..., "key")
+            for segment in path
+            if isinstance(segment, dict)
+        ]
+
     def shape(self):
         shape = ()
         current_value = self.value
         for dimension in self.dimensions:
-            if 'leaves' not in dimension:
+            if "leaves" not in dimension:
                 shape += (len(current_value),)
                 current_value = current_value[0]
         return shape
-            
+
     def names(self):
-        return [dimension.get('key', dimension.get('leaves')) for dimension in self.dimensions]                
+        return [
+            dimension.get("key", dimension.get("leaves"))
+            for dimension in self.dimensions
+        ]
+
     def __repr__(self):
         return f"<Dimensioned shape={self.shape()}, names={self.names()}>"
-    
+
     def size(self, name):
         names = self.names()
         shape = self.shape()
         if name in names:
             return shape[names.index(name)]
         raise ValueError(f"Dimension with name '{name}' not found")
-    
+
     def flatten(self):
-        # flattens the data in python, rather than js. 
-        # currently we are not using/recommending this 
+        # flattens the data in python, rather than js.
+        # currently we are not using/recommending this
         # but it may be useful later or for debugging.
-        leaf = self.dimensions[-1]['leaves'] if isinstance(self.dimensions[-1], dict) and 'leaves' in self.dimensions[-1] else None
+        leaf = (
+            self.dimensions[-1]["leaves"]
+            if isinstance(self.dimensions[-1], dict) and "leaves" in self.dimensions[-1]
+            else None
+        )
         dimensions = self.dimensions[:-1] if leaf else self.dimensions
-        
+
         def _flatten(value, dims, prefix=None):
             if not dims:
                 value = {leaf: value} if leaf else value
                 return [prefix | value] if prefix else [value]
             results = []
-            dim_key = dims[0]['key']
+            dim_key = dims[0]["key"]
             for i, v in enumerate(value):
                 new_prefix = {**prefix, dim_key: i} if prefix else {dim_key: i}
                 results.extend(_flatten(v, dims[1:], new_prefix))
             return results
+
         return _flatten(self.value, dimensions)
-    
-    def to_json(self): 
-        return {'value': self.value, 'dimensions': self.dimensions}
+
+    def to_json(self):
+        return {"value": self.value, "dimensions": self.dimensions}
+
 
 def dimensions(data, dimensions=[], leaves=None):
     """
     Attaches dimension metadata, for further processing in JavaScript.
     """
-    dimensions = [{'key': d} for d in dimensions]
-    dimensions = [*dimensions, {'leaves': leaves}] if leaves else dimensions 
+    dimensions = [{"key": d} for d in dimensions]
+    dimensions = [*dimensions, {"leaves": leaves}] if leaves else dimensions
     return Dimensioned(data, dimensions)
-    
+
+
 def rename_key(d, prev_k, new_k):
     return {k if k != prev_k else new_k: v for k, v in d.items()}
 
+
 def get_choice(ch, path):
-    
-    ch = ch.get_sample() if getattr(ch, 'get_sample', None) else ch
-    
+    ch = ch.get_sample() if getattr(ch, "get_sample", None) else ch
+
     def _get(value, path):
         if not path:
-            return value 
+            return value
         segment = path[0]
         if not isinstance(segment, dict):
             return _get(value(segment), path[1:])
         elif ... in segment:
             v = value.get_value()
-            if hasattr(value, 'get_submap') and v is None:
+            if hasattr(value, "get_submap") and v is None:
                 v = value.get_submap(...)
             return _get(v, path[1:])
-        elif 'leaves' in segment:
+        elif "leaves" in segment:
             return value
         else:
-            raise TypeError(f"Invalid path segment, expected ... or 'leaves' key, got {segment}")
+            raise TypeError(
+                f"Invalid path segment, expected ... or 'leaves' key, got {segment}"
+            )
 
     value = _get(ch, path)
-    value = value.get_value() if  hasattr(value, 'get_value') else value
-    
+    value = value.get_value() if hasattr(value, "get_value") else value
+
     if any(isinstance(elem, dict) for elem in path):
         return Dimensioned(value, path)
     else:
         return value
 
+
 def is_choicemap(data):
     current_class = data.__class__
     while current_class:
-        if current_class.__name__ == 'ChoiceMap':
+        if current_class.__name__ == "ChoiceMap":
             return True
         current_class = current_class.__base__
     return False
 
+
 def get_in(data, path, toplevel=True):
     if toplevel:
-        data = data.get_sample() if getattr(data, 'get_sample', None) else data
+        data = data.get_sample() if getattr(data, "get_sample", None) else data
         if is_choicemap(data):
             return get_choice(data, path)
-        
+
     def _get(value, path):
         if not path:
-            return value 
+            return value
         segment = path[0]
         if not isinstance(segment, dict):
             return _get(value[segment], path[1:])
@@ -149,48 +172,63 @@ def get_in(data, path, toplevel=True):
                 p = path[1:]
                 return [get_in(v, p, toplevel=False) for v in value]
             else:
-                raise TypeError(f"Expected list at path index {i}, got {type(value).__name__}")
-        elif 'leaves' in segment:
-            return value 
+                raise TypeError(
+                    f"Expected list at path index {i}, got {type(value).__name__}"
+                )
+        elif "leaves" in segment:
+            return value
         else:
-            raise TypeError(f"Invalid path segment, expected ... or 'leaves' key, got {segment}")
-    
+            raise TypeError(
+                f"Invalid path segment, expected ... or 'leaves' key, got {segment}"
+            )
+
     value = _get(data, path)
-    
+
     if toplevel and any(isinstance(elem, dict) for elem in path):
         return Dimensioned(value, path)
     else:
         return value
 
+
 # Test case to verify traversal of more than one dimension
 def test_get_in():
-    data = {
-        'a': [
-            {'b': [{'c': 1}, {'c': 2}]},
-            {'b': [{'c': 3}, {'c': 4}]}
-        ]
-    }
-    
-    result = get_in(data, ['a', {...: 'first'}, 'b', {...: 'second'}, 'c'])
-    assert isinstance(result, Dimensioned), f"Expected Dimensioned, got {type(result).__name__}"
-    assert result.value == [[1, 2], [3, 4]], f"Expected [[1, 2], [3, 4]], got {result.value}"
-    assert isinstance(result.dimensions, list), f"Expected dimensions to be a list, got {type(result.dimensions).__name__}"
-    assert len(result.dimensions) == 2, f"Expected 2 dimensions, got {len(result.dimensions)}"
-    assert [d['key'] for d in result.dimensions] == ['first', 'second'], f"Expected dimension keys to be ['first', 'second'], got {[d['key'] for d in result.dimensions]}"
-    
-    flattened = get_in(data, ['a', {...: 'first'}, 'b', {...: 'second'}, 'c', {'leaves': 'c'}]).flatten()
+    data = {"a": [{"b": [{"c": 1}, {"c": 2}]}, {"b": [{"c": 3}, {"c": 4}]}]}
+
+    result = get_in(data, ["a", {...: "first"}, "b", {...: "second"}, "c"])
+    assert isinstance(
+        result, Dimensioned
+    ), f"Expected Dimensioned, got {type(result).__name__}"
+    assert result.value == [
+        [1, 2],
+        [3, 4],
+    ], f"Expected [[1, 2], [3, 4]], got {result.value}"
+    assert isinstance(
+        result.dimensions, list
+    ), f"Expected dimensions to be a list, got {type(result.dimensions).__name__}"
+    assert (
+        len(result.dimensions) == 2
+    ), f"Expected 2 dimensions, got {len(result.dimensions)}"
+    assert (
+        [d["key"] for d in result.dimensions] == ["first", "second"]
+    ), f"Expected dimension keys to be ['first', 'second'], got {[d['key'] for d in result.dimensions]}"
+
+    flattened = get_in(
+        data, ["a", {...: "first"}, "b", {...: "second"}, "c", {"leaves": "c"}]
+    ).flatten()
     assert flattened == [
-        {'first': 0, 'second': 0, 'c': 1},
-        {'first': 0, 'second': 1, 'c': 2},
-        {'first': 1, 'second': 0, 'c': 3},
-        {'first': 1, 'second': 1, 'c': 4}
+        {"first": 0, "second": 0, "c": 1},
+        {"first": 0, "second": 1, "c": 2},
+        {"first": 1, "second": 0, "c": 3},
+        {"first": 1, "second": 1, "c": 4},
     ], f"Expected flattened result to be [{{...}}, ...], got {flattened}"
-    
-    print('tests passed')
+
+    print("tests passed")
+
 
 test_get_in()
 
-#%%
+
+# %%
 def plot_spec(x):
     return PlotSpec(x)
 
@@ -395,9 +433,14 @@ def new(*specs, **kwargs):
     """Create a new PlotSpec from the given specs and options."""
     return PlotSpec(specs, **kwargs)
 
-def scaled_circle(x, y, r, n=16, curve='catmull-rom-closed', **kwargs):
-    points = [(x + r * math.cos(2 * math.pi * i / n), y + r * math.sin(2 * math.pi * i / n)) for i in range(n)]
+
+def scaled_circle(x, y, r, n=16, curve="catmull-rom-closed", **kwargs):
+    points = [
+        (x + r * math.cos(2 * math.pi * i / n), y + r * math.sin(2 * math.pi * i / n))
+        for i in range(n)
+    ]
     return line(points, curve=curve, **kwargs)
+
 
 def constantly(x):
     """
@@ -412,10 +455,25 @@ def constantly(x):
 
 
 def autoGrid(plotspecs, plot_opts={}, layout_opts={}):
-    return Hiccup([View.AutoGrid, {'specs': plotspecs, 'plotOptions': plot_opts, 'layoutOptions': layout_opts}])
+    return Hiccup(
+        [
+            View.AutoGrid,
+            {
+                "specs": plotspecs,
+                "plotOptions": plot_opts,
+                "layoutOptions": layout_opts,
+            },
+        ]
+    )
+
 
 def small_multiples(plotspecs, plot_opts={}, layout_opts={}):
-    return autoGrid(plotspecs, plot_opts={**plot_opts, 'smallMultiples': True}, layout_opts=layout_opts)
+    return autoGrid(
+        plotspecs,
+        plot_opts={**plot_opts, "smallMultiples": True},
+        layout_opts=layout_opts,
+    )
+
 
 def partial_plot(plot_fn, default_spec):
     """
@@ -430,37 +488,46 @@ def partial_plot(plot_fn, default_spec):
     inner.doc = plot_fn.doc
     return inner
 
+
 dot = partial_plot(_plot_fns["dot"], {"fill": "currentColor"})
 
-def histogram(values, mark='rectY', thresholds='auto', layout={'width': 200, 'height': 200, 'inset': 0}):
+
+def histogram(
+    values,
+    mark="rectY",
+    thresholds="auto",
+    layout={"width": 200, "height": 200, "inset": 0},
+):
     """
-Create a histogram plot from the given values.
+    Create a histogram plot from the given values.
 
-Args:
-     
-values (list or array-like): The data values to be binned and plotted.
-mark (str): 'rectY' or 'dot'.
-thresholds (str, int, list, or callable, optional): The thresholds option may be specified as a named method or a variety of other ways:
-  
-- 'auto' (default): Scott’s rule, capped at 200.
-- 'freedman-diaconis': The Freedman–Diaconis rule.
-- 'scott': Scott’s normal reference rule.
-- 'sturges': Sturges’ formula.
-- A count (int) representing the desired number of bins.
-- An array of n threshold values for n - 1 bins.
-- An interval or time interval (for temporal binning).
-- A function that returns an array, count, or time interval.
+    Args:
 
- Returns:
-  PlotSpec: A plot specification for a histogram with the y-axis representing the count of values in each bin.
+    values (list or array-like): The data values to be binned and plotted.
+    mark (str): 'rectY' or 'dot'.
+    thresholds (str, int, list, or callable, optional): The thresholds option may be specified as a named method or a variety of other ways:
+
+    - 'auto' (default): Scott’s rule, capped at 200.
+    - 'freedman-diaconis': The Freedman–Diaconis rule.
+    - 'scott': Scott’s normal reference rule.
+    - 'sturges': Sturges’ formula.
+    - A count (int) representing the desired number of bins.
+    - An array of n threshold values for n - 1 bins.
+    - An interval or time interval (for temporal binning).
+    - A function that returns an array, count, or time interval.
+
+     Returns:
+      PlotSpec: A plot specification for a histogram with the y-axis representing the count of values in each bin.
     """
-    opts = {'x': {'thresholds': thresholds}, 'tip': True}
-    if mark == 'rectY':
-        return rectY(values, binX({'y': 'count'}, opts)) + ruleY([0]) + layout
-    elif mark == 'dot':
-        return dot(values, binX({'r': 'count'}, opts))
+    opts = {"x": {"thresholds": thresholds}, "tip": True}
+    if mark == "rectY":
+        return rectY(values, binX({"y": "count"}, opts)) + ruleY([0]) + layout
+    elif mark == "dot":
+        return dot(values, binX({"r": "count"}, opts))
 
-#%%
+
+# %%
+
 
 class PlotSpecWithDefault:
     """
@@ -595,20 +662,22 @@ def margin(*args):
     else:
         raise ValueError(f"Invalid number of arguments: {len(args)}")
 
+
 # WIP
 def slider(key, range, label=None):
     range = [0, range] if isinstance(range, int) else range
-    return {'$state': {key: {'range': range,
-                             'label': label or key,
-                             'kind': 'slider'}}}
+    return {"$state": {key: {"range": range, "label": label or key, "kind": "slider"}}}
+
 
 # WIP
 def animate(key, range, fps=5, label=None):
     range = [0, range] if isinstance(range, int) else range
-    return {'$state': {key: {'range': range,
-                             'label': label or key,
-                             'kind': 'animate',
-                             'fps': fps}}}
+    return {
+        "$state": {
+            key: {"range": range, "label": label or key, "kind": "animate", "fps": fps}
+        }
+    }
+
 
 # barX
 # For reference - other options supported by plots
@@ -655,7 +724,7 @@ def doc(plot_fn):
         )
         return View.md(f"""
 <div style="display: block; gap: 10px; border-bottom: 1px solid #ddd; padding: 10px 0;">
-{title} 
+{title}
 <a style='color: #777; text-decoration: none;' href="{url}">Examples &#8599;</a></div>
 <div style="max-width:400px; margin: 1  0px 0;">{doc}</div>
 """)

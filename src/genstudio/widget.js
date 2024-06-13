@@ -296,11 +296,11 @@ function $StateView({ $info, $state, set$state }) {
         <div style=${{ display: 'flex', flexDirection: 'column', marginTop: '0.5rem', marginBottom: '0.5rem', gap: '0.5rem' }} key=${key}>
           <label>${label || key} ${$state[key]}</label>
           ${kind === 'animate' ? null : html`<span>${$state[key]}</span>`}
-          <input 
-            type="range" 
-            min=${range[0]} 
+          <input
+            type="range"
+            min=${range[0]}
             max=${range[1] - 1}
-            value=${$state[key] || init || 0} 
+            value=${$state[key] || init || 0}
             onChange=${(e) => handleSliderChange(key, e.target.value)}
             style=${{outline: 'none'}}
           />
@@ -334,12 +334,12 @@ function PlotView({ spec, $state, width }) {
 }
 
 function PlotWrapper({ spec }) {
-  const $info = spec.$state || {} 
+  const $info = spec.$state || {}
   const [$state, set$state] = useState(Object.keys($info).reduce((stateObj, key) => ({
     ...stateObj,
     [key]: $info[key].init || $info[key].range[0]
   }), {}))
-  
+
   const width = useContext(WidthContext)
   const marks = spec.marks.flatMap((m) => readMark(m, width))
   spec = {
@@ -349,7 +349,7 @@ function PlotWrapper({ spec }) {
   };
   return html`<div>
                 <${PlotView} spec=${spec} $state=${$state} />
-                <${$StateView} $state=${$state} set$state=${set$state} $info=${$info} />  
+                <${$StateView} $state=${$state} set$state=${set$state} $info=${$info} />
               </div>`
 }
 
@@ -413,15 +413,15 @@ function Node({ value }) {
 }
 
 function useCellUnmounted(el) {
-  // for Python Interactive Output in VS Code, detect when this element 
+  // for Python Interactive Output in VS Code, detect when this element
   // is unmounted & save that state on the element itself.
-  // We have to directly read from the ancestor DOM because none of our 
+  // We have to directly read from the ancestor DOM because none of our
   // cell output is preserved across reload.
   useEffect(() => {
     let observer;
     // .output_container is stable across refresh
     const outputContainer = el?.closest(".output_container")
-    // .widgetarea contains all the notebook's cells 
+    // .widgetarea contains all the notebook's cells
     const widgetarea = outputContainer?.closest(".widgetarea")
     if (el && !el.initialized && widgetarea) {
       el.initialized = true;
@@ -470,7 +470,7 @@ function App() {
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
   const value = !unmounted && data ? interpret(JSON.parse(data)) : null;
-  return html`<${WidthContext.Provider} value=${width}>  
+  return html`<${WidthContext.Provider} value=${width}>
       <div style=${{ color: '#333' }} ref=${setEl}>
         <${Node} value=${el ? value : null}/>
       </div>

@@ -29,9 +29,9 @@ function readFiles(fileName) {
             const moduleName = node.getSourceFile().fileName;
             const kind = moduleName.split('@observablehq/plot/src/')[1].split(/[/.]/)[0];
             const doc = node.jsDoc && node.jsDoc[0].comment
-            entries[functionName] = entry = entries[functionName] || {} 
-            entry.kind = kind 
-            if (doc) {entry.doc = doc} 
+            entries[functionName] = entry = entries[functionName] || {}
+            entry.kind = kind
+            if (doc) {entry.doc = doc}
 
         }
 

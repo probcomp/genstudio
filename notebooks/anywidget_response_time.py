@@ -1,9 +1,10 @@
 # %%
-# Simple demo of sending a message to an AnyWidget instance and measuring the round trip 
+# Simple demo of sending a message to an AnyWidget instance and measuring the round trip
 # response time.
 
 
 import anywidget
+
 
 class Widget(anywidget.AnyWidget):
     _esm = """

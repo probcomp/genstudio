@@ -43,6 +43,7 @@ import jax.random as jrand
 def normal_100():
     return np.random.normal(loc=0, scale=1, size=1000)
 
+
 # %% [markdown]
 # #### Histogram
 # %%
@@ -67,7 +68,7 @@ Plot.dot({"x": normal_100(), "y": normal_100()}) + Plot.frame()
 
 # %% [markdown]
 # #### Plot.doc
-# 
+#
 # Plot.doc(Plot.foo) will render a markdown-formatted docstring when available:
 # %%
 Plot.doc(Plot.line)
@@ -93,6 +94,7 @@ circle + Plot.frame() + {"inset": 50}
 # A regression distribution.
 # %%
 key = jrand.PRNGKey(314159)
+
 
 @gen
 def regression(x, coefficients, sigma):
@@ -195,19 +197,23 @@ bean_data
 # Using `get_in` we've given names to each level of nesting (and leaf values), which we can see in the metadata
 # of the Dimensioned object:
 # %%
-bean_data_dims = Plot.get_in(bean_data, [{...: "day"}, {...: "bean"}, {"leaves": "height"}])
+bean_data_dims = Plot.get_in(
+    bean_data, [{...: "day"}, {...: "bean"}, {"leaves": "height"}]
+)
 bean_data_dims
-#%%
+# %%
 bean_data_dims.flatten()
 
 # %%[markdown]
 # Now that our dimensions and leaf have names, we can pass them as options to `Plot.dot`.
 # Here we'll use the `facetGrid` option to render a separate plot for each bean.
 # %%
-Plot.dot(bean_data_dims, {"x": "day", 
-                          "y": "height", 
-                          "fill": "bean",
-                          "facetGrid": "bean"}) + Plot.frame()
+(
+    Plot.dot(
+        bean_data_dims, {"x": "day", "y": "height", "fill": "bean", "facetGrid": "bean"}
+    )
+    + Plot.frame()
+)
 
 # %% [markdown]
 # Let's draw a line for each bean to plot its growth over time. The `z` channel splits the data into

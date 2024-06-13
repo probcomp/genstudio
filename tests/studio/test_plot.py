@@ -1,15 +1,17 @@
 # %%
 
 import genstudio.plot as Plot
-import genstudio.util as util
 from genstudio.widget import Widget
+
 # Always reload (for dev)
-import importlib 
+import importlib
+
 importlib.reload(Plot)
 
 
 xs = [1, 2, 3, 4, 5]
 ys = [2, 3, 2, 1, 8]
+
 
 def test_plotspec_init():
     ps = Plot.new()
@@ -64,6 +66,7 @@ def test_mark_default():
     md2 = md(stroke="blue")
     assert md2.spec["marks"][0]["args"][0]["stroke"] == "blue"
 
+
 def test_sugar():
     ps = Plot.new() + Plot.grid_x
     assert ps.spec["x"]["grid"] == True
@@ -102,7 +105,7 @@ def test_sugar():
     assert ps.spec["marginLeft"] == 20
     assert ps.spec["marginRight"] == 20
 
-    ps = Plot.new() + Plot.margin(10, 20, 30)  
+    ps = Plot.new() + Plot.margin(10, 20, 30)
     assert ps.spec["marginTop"] == 10
     assert ps.spec["marginLeft"] == 20
     assert ps.spec["marginRight"] == 20
@@ -114,8 +117,10 @@ def test_sugar():
     assert ps.spec["marginBottom"] == 30
     assert ps.spec["marginLeft"] == 40
 
+
 def mark_name(mark):
-    return mark['args'][0]
+    return mark["args"][0]
+
 
 def test_plot_new():
     ps = Plot.new(Plot.dot(xs, ys))
@@ -123,22 +128,24 @@ def test_plot_new():
     assert len(ps.spec["marks"]) == 1
     assert mark_name(ps.spec["marks"][0]) == "dot"
 
+
 def test_plotspec_reset():
     ps = Plot.new(Plot.dot(xs, ys), width=100)
     assert ps.spec["width"] == 100
     assert len(ps.spec["marks"]) == 1
-    
+
     ps.reset(marks=[Plot.rectY(xs)], height=200)
     assert ps.spec.get("width", None) == None  # width removed
     assert ps.spec["height"] == 200
     assert len(ps.spec["marks"]) == 1
     assert mark_name(ps.spec["marks"][0]) == "rectY"
 
+
 def test_plotspec_update():
     ps = Plot.new(Plot.dot(xs, ys), width=100)
     assert ps.spec["width"] == 100
     assert len(ps.spec["marks"]) == 1
-    
+
     ps.update(Plot.rectY(xs), height=200)
     assert ps.spec["width"] == 100
     assert ps.spec["height"] == 200
@@ -146,59 +153,29 @@ def test_plotspec_update():
     assert mark_name(ps.spec["marks"][0]) == "dot"
     assert mark_name(ps.spec["marks"][1]) == "rectY"
 
+
 def test_plot_function_docs():
-    for mark in ['dot', 'line', 'rectY']:
-        assert getattr(Plot, mark).__doc__ == Plot.OBSERVABLE_PLOT_METADATA[mark]['doc']
+    for mark in ["dot", "line", "rectY"]:
+        assert getattr(Plot, mark).__doc__ == Plot.OBSERVABLE_PLOT_METADATA[mark]["doc"]
+
 
 def test_plot_options_merge_nested():
-    options1 = {
-        "width": 500,
-        "style": {
-            "color": "red",
-            "border": {
-                "width": 2
-            }
-        }
-    }
-    options2 = {
-        "height": 400,
-        "style": {
-            "border": {
-                "color": "blue"
-            }
-        }
-    }
-    
+    options1 = {"width": 500, "style": {"color": "red", "border": {"width": 2}}}
+    options2 = {"height": 400, "style": {"border": {"color": "blue"}}}
+
     # Create a new plot with merged options
     ps = Plot.new() + options1 + options2
-    
+
     # Check that the plot spec has the merged options
     assert ps.spec["width"] == 500
     assert ps.spec["height"] == 400
     assert ps.spec["style"]["color"] == "red"
     assert ps.spec["style"]["border"]["width"] == 2
     assert ps.spec["style"]["border"]["color"] == "blue"
-    
+
     # Ensure the original options dictionaries are not mutated
-    assert options1 == {
-        "width": 500,
-        "style": {
-            "color": "red",
-            "border": {
-                "width": 2
-            }
-        }
-    }
-    assert options2 == {
-        "height": 400,
-        "style": {
-            "border": {
-                "color": "blue"
-            }
-        }
-    }
-
-
+    assert options1 == {"width": 500, "style": {"color": "red", "border": {"width": 2}}}
+    assert options2 == {"height": 400, "style": {"border": {"color": "blue"}}}
 
 
 def run_tests():
@@ -217,4 +194,4 @@ def run_tests():
 
 run_tests()
 
-#%%
+# %%

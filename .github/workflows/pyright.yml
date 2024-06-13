@@ -1,0 +1,36 @@
+name: Pyright type checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  pyright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11.5
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: "${{ secrets.ARTIFACT_REGISTRY_KEY }}"
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Install and configure Poetry
+        uses: snok/install-poetry@v1
+
+      - run: poetry self update && poetry self add keyrings.google-artifactregistry-auth
+
+      - run: poetry install
+
+      - uses: jakebailey/pyright-action@v1
+        with:
+          version: 1.1.358

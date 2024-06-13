@@ -1,4 +1,4 @@
-# Gen Studio 
+# Gen Studio
 _Visualization tools for GenJAX._
 
 -----
@@ -15,7 +15,7 @@ Key features:
 
 Runnable examples are in `notebooks/plot_examples.py`. See [Observable Plot](https://observablehq.com/plot/) for detailed examples of all mark types.
 
-## Installation 
+## Installation
 
 genstudio is published to the same artifact registry as genjax, so you can follow [these instructions](https://github.com/probcomp/genjax?tab=readme-ov-file#quickstart) but use `genstudio` for the package name.
 
@@ -29,7 +29,7 @@ genstudio = {version = "v2024.05.23.085705", source = "gcp"}
 
 Given the following setup:
 
-```py 
+```py
 import genstudio.plot as Plot
 import numpy as np
 
@@ -41,19 +41,19 @@ def normal_100():
 
 Data is provided in the first argument. Three formats are accepted:
 - A dict of arrays, directly mapping axes to values.
-  ```py 
-  Plot.dot({'x': [1, 2], 
+  ```py
+  Plot.dot({'x': [1, 2],
             'y': [100, 200]})
   ```
 - An array of dicts, whose properties are mapped to axes in the options dict.
   ```py
-  Plot.dot([{'t': 1, 'foo': 100}, {'t': 2, 'foo': 200}], 
+  Plot.dot([{'t': 1, 'foo': 100}, {'t': 2, 'foo': 200}],
             {'x': 't', 'y': 'foo'})
   ```
 - Some marks support a list of [x, y] points.
   ```py
   Plot.dot([[1, 100], [2, 200]])
-  ```  
+  ```
 
 ### Mark examples
 
@@ -66,7 +66,7 @@ Specify a number of bins:
 ```py
 Plot.histogram(normal_100(), thresholds=20)
 ```
-2. Scatter plot 
+2. Scatter plot
 
 ```py
 Plot.dot({'x': normal_100(), 'y': normal_100()}) + Plot.frame()
@@ -74,14 +74,14 @@ Plot.dot({'x': normal_100(), 'y': normal_100()}) + Plot.frame()
 
 3. Compose plots and options
 
-```py 
+```py
 circle = Plot.dot([[0, 0]], r=100)
 circle + Plot.frame() + {'inset': 50}
 ```
 
 4. Display plot documentation:
 
-```py 
+```py
 Plot.doc(Plot.line)
 ```
 
