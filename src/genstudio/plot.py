@@ -482,14 +482,25 @@ frame = PlotSpecWithDefault("frame", {"stroke": "#dddddd"})
 ruleY = PlotSpecWithDefault("ruleY", [0])
 ruleX = PlotSpecWithDefault("ruleX", [0])
 
+def identity():
+    return js("(x)=>x")
+
 # The following convenience dicts can be added directly to PlotSpecs to declare additional behaviour.
 
-grid_y = {"y": {"grid": True}}
-grid_x = {"x": {"grid": True}}
-grid = {"grid": True}
-color_legend = {"color": {"legend": True}}
-clip = {"clip": True}
+def grid_y():
+    return {"y": {"grid": True}}
 
+def grid_x():
+    return {"x": {"grid": True}}
+
+def grid():
+    return {"grid": True}
+
+def color_legend():
+    return {"color": {"legend": True}}
+
+def clip():
+    return {"clip": True}
 
 def title(title):
     return {"title": title}

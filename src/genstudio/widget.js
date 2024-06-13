@@ -6,7 +6,7 @@ import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import MarkdownIt from "markdown-it";
 
-const AUTOGRID_MIN = 150
+const AUTOGRID_MIN = 165
 const DEFAULT_PLOT_OPTIONS = { inset: 20 };
 
 const md = new MarkdownIt({
@@ -112,15 +112,15 @@ class MarkSpec {
     this.computed = {}
   }
 
-  compute(containerWidth) {
-    if (this.computed.forWidth == containerWidth) {
+  compute(width) {
+    if (this.computed.forWidth == width) {
       return this.computed
     }
     this.extraMarks = [];
     let data = this.data
     let options = { ...this.options }
     let computed = {
-      forWidth: containerWidth,
+      forWidth: width,
       extraMarks: [],
       plotOptions: {...DEFAULT_PLOT_OPTIONS},
       fn: this.fn
@@ -164,8 +164,9 @@ class MarkSpec {
       const index = new Map(keys.map((key, i) => [key, i]));
 
       // Calculate columns based on minWidth and containerWidth
-      const minWidth = gridOpts.minWidth || 100;
-      const columns = gridOpts.columns || Math.min(Math.floor(containerWidth / minWidth), Math.floor(Math.sqrt(keys.length)));
+      const minWidth = gridOpts.minWidth || AUTOGRID_MIN;
+      const columns = gridOpts.columns || Math.floor(width / minWidth);
+      console.log('cols', columns, 'would be', Math.floor(width / minWidth))
       const fx = (key) => index.get(key) % columns;
       const fy = (key) => Math.floor(index.get(key) / columns);
       options.fx = (d) => fx(d[key]);
@@ -345,6 +346,7 @@ function PlotWrapper({ spec }) {
   const width = useContext(WidthContext)
   const marks = spec.marks.flatMap((m) => readMark(m, width))
   spec = {
+    width: width,
     ...spec,
     ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
     marks: marks
@@ -448,8 +450,9 @@ function useElementWidth(el) {
   const [width, setWidth] = useState(0);
   useEffect(() => {
     const handleResize = () => {
+      
       if (el) {
-        setWidth(el.offsetWidth);
+        setWidth(el.offsetWidth ? el.offsetWidth : document.body.offsetWidth);
       }
     };
 
