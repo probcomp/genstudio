@@ -26,8 +26,10 @@ import jax
 import jax.numpy as jnp
 import jax.random as jrand
 
+
 def normal_100():
     return np.random.normal(loc=0, scale=1, size=1000)
+
 
 # %% [markdown]
 # ## Approach

@@ -3,19 +3,22 @@
 import genstudio.plot as Plot
 import genstudio.util as util
 from genstudio.widget import Widget
+
 # Always reload (for dev)
-import importlib 
+import importlib
+
 importlib.reload(Plot)
 
 
 xs = [1, 2, 3, 4, 5]
 ys = [2, 3, 2, 1, 8]
 
+
 def test_plotspec_init():
     ps = Plot.new()
     assert ps.spec == {"marks": []}
 
-    ps = Plot.dot({'x': xs, 'y': ys})
+    ps = Plot.dot({"x": xs, "y": ys})
     assert len(ps.spec["marks"]) == 1
     assert "pyobsplot-type" in ps.spec["marks"][0]
 
@@ -24,8 +27,8 @@ def test_plotspec_init():
 
 
 def test_plotspec_add():
-    ps1 = Plot.new(Plot.dot({'x': xs, 'y': ys}), width=100)
-    ps2 = Plot.new(Plot.line({'x': xs, 'y': ys}), height=200)
+    ps1 = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
+    ps2 = Plot.new(Plot.line({"x": xs, "y": ys}), height=200)
 
     ps3 = ps1 + ps2
     assert len(ps3.spec["marks"]) == 2
@@ -46,7 +49,7 @@ def test_plotspec_add():
 
 
 def test_plotspec_plot():
-    ps = Plot.new(Plot.dot({'x': xs, 'y': ys}), width=100)
+    ps = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
     assert ps.spec["width"] == 100
     plot = ps.plot()
     assert isinstance(plot, Widget)
@@ -54,6 +57,7 @@ def test_plotspec_plot():
     # Check plot is cached
     plot2 = ps.plot()
     assert plot is plot2
+
 
 def test_sugar():
     ps = Plot.new() + Plot.grid_x()
@@ -93,7 +97,7 @@ def test_sugar():
     assert ps.spec["marginLeft"] == 20
     assert ps.spec["marginRight"] == 20
 
-    ps = Plot.new() + Plot.margin(10, 20, 30)  
+    ps = Plot.new() + Plot.margin(10, 20, 30)
     assert ps.spec["marginTop"] == 10
     assert ps.spec["marginLeft"] == 20
     assert ps.spec["marginRight"] == 20
@@ -105,31 +109,35 @@ def test_sugar():
     assert ps.spec["marginBottom"] == 30
     assert ps.spec["marginLeft"] == 40
 
+
 def mark_name(mark):
-    return mark['args'][0]
+    return mark["args"][0]
+
 
 def test_plot_new():
-    ps = Plot.new(Plot.dot({'x': xs, 'y': ys}))
+    ps = Plot.new(Plot.dot({"x": xs, "y": ys}))
     assert isinstance(ps, Plot.PlotSpec)
     assert len(ps.spec["marks"]) == 1
     assert mark_name(ps.spec["marks"][0]) == "dot"
 
+
 def test_plotspec_reset():
-    ps = Plot.new(Plot.dot({'x': xs, 'y': ys}), width=100)
+    ps = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
     assert ps.spec["width"] == 100
     assert len(ps.spec["marks"]) == 1
-    
+
     ps.reset(marks=[Plot.rectY(xs)], height=200)
     assert ps.spec.get("width", None) == None  # width removed
     assert ps.spec["height"] == 200
     assert len(ps.spec["marks"]) == 1
     assert mark_name(ps.spec["marks"][0]) == "rectY"
 
+
 def test_plotspec_update():
-    ps = Plot.new(Plot.dot({'x': xs, 'y': ys}), width=100)
+    ps = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
     assert ps.spec["width"] == 100
     assert len(ps.spec["marks"]) == 1
-    
+
     ps.update(Plot.rectY(xs), height=200)
     assert ps.spec["width"] == 100
     assert ps.spec["height"] == 200
@@ -137,59 +145,29 @@ def test_plotspec_update():
     assert mark_name(ps.spec["marks"][0]) == "dot"
     assert mark_name(ps.spec["marks"][1]) == "rectY"
 
+
 def test_plot_function_docs():
-    for mark in ['dot', 'line', 'rectY']:
+    for mark in ["dot", "line", "rectY"]:
         assert isinstance(getattr(Plot, mark).__doc__, str)
 
+
 def test_plot_options_merge_nested():
-    options1 = {
-        "width": 500,
-        "style": {
-            "color": "red",
-            "border": {
-                "width": 2
-            }
-        }
-    }
-    options2 = {
-        "height": 400,
-        "style": {
-            "border": {
-                "color": "blue"
-            }
-        }
-    }
-    
+    options1 = {"width": 500, "style": {"color": "red", "border": {"width": 2}}}
+    options2 = {"height": 400, "style": {"border": {"color": "blue"}}}
+
     # Create a new plot with merged options
     ps = Plot.new() + options1 + options2
-    
+
     # Check that the plot spec has the merged options
     assert ps.spec["width"] == 500
     assert ps.spec["height"] == 400
     assert ps.spec["style"]["color"] == "red"
     assert ps.spec["style"]["border"]["width"] == 2
     assert ps.spec["style"]["border"]["color"] == "blue"
-    
+
     # Ensure the original options dictionaries are not mutated
-    assert options1 == {
-        "width": 500,
-        "style": {
-            "color": "red",
-            "border": {
-                "width": 2
-            }
-        }
-    }
-    assert options2 == {
-        "height": 400,
-        "style": {
-            "border": {
-                "color": "blue"
-            }
-        }
-    }
-
-
+    assert options1 == {"width": 500, "style": {"color": "red", "border": {"width": 2}}}
+    assert options2 == {"height": 400, "style": {"border": {"color": "blue"}}}
 
 
 def run_tests():
@@ -207,4 +185,4 @@ def run_tests():
 
 run_tests()
 
-#%%
+# %%

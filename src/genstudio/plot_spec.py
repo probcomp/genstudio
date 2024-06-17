@@ -1,9 +1,9 @@
-
 import copy
 from genstudio.widget import Widget
 from genstudio.js_modules import JSRef
 
 View = JSRef("View")
+
 
 def _deep_merge(dict1, dict2):
     """
@@ -106,9 +106,7 @@ class PlotSpec:
         Lazily generate & cache the widget for this PlotSpec.
         """
         if self._plot is None:
-            self._plot = Widget(
-                View.PlotSpec(self.spec)
-            )
+            self._plot = Widget(View.PlotSpec(self.spec))
         return self._plot
 
     def reset(self, *specs, **kwargs):

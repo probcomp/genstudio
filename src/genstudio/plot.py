@@ -156,12 +156,14 @@ d3 = JSRef("d3")
 Math = JSRef("Math")
 View = JSRef("View")
 
+
 def repeat(data):
     """
     For passing columnar data to Observable.Plot which should repeat/cycle.
     eg. for a set of 'xs' that are to be repeated for each set of `ys`.
     """
     return View.repeat(data)
+
 
 class Dimensioned:
     def __init__(self, value, path):
@@ -390,9 +392,13 @@ def small_multiples(plotspecs, plot_opts={}, layout_opts={}):
         layout_opts=layout_opts,
     )
 
+
 def dot(values, options={}, **kwargs):
     return plot_defs.dot(values, {"fill": "currentColor", **options, **kwargs})
+
+
 dot.__doc__ = plot_defs.dot.__doc__
+
 
 def histogram(
     values,
@@ -429,15 +435,15 @@ def histogram(
 
 
 def frame(options={}, **kwargs):
-    return plot_defs.frame({'stroke': "#dddddd", **options, **kwargs})
+    return plot_defs.frame({"stroke": "#dddddd", **options, **kwargs})
 
 
 def ruleY(values=[0], options={}, **kwargs):
     return plot_defs.ruleY(values, options, **kwargs)
-    
+
 
 def ruleX(values=[0], options={}, **kwargs):
-    return plot_defs.ruleX(values, options, **kwargs)    
+    return plot_defs.ruleX(values, options, **kwargs)
 
 
 def identity():
@@ -601,6 +607,7 @@ example_plot_options = {
 
 # dot([[0, 0], [0, 1], [1, 1], [2, 3], [4, 2], [4, 0]])
 
+
 def doc(fn):
     """
     Decorator to display the docstring of a python function formatted as Markdown.
@@ -616,13 +623,13 @@ def doc(fn):
         name = fn.__name__
         doc = fn.__doc__
         module = fn.__module__
-        module = "Plot" if fn.__module__.endswith('plot_defs') else module
-        title = (
-            f"<span style='padding-right: 10px;'>{module}.{name}</span>"
-        )
-        return View.md(f"""
+        module = "Plot" if fn.__module__.endswith("plot_defs") else module
+        title = f"<span style='padding-right: 10px;'>{module}.{name}</span>"
+        return View.md(
+            f"""
 <div class="doc-header">{title}</div>
 <div class="doc-content">{doc}</div>
-""")
+"""
+        )
     else:
         return View.md("No docstring available.")

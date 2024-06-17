@@ -1,6 +1,7 @@
-#%%
+# %%
 
-from genstudio.plot  import JSRef, d3, Math
+from genstudio.plot import JSRef, d3, Math
+
 
 def test_jswrapper_init():
     wrapper = JSRef("TestModule", "test_method")
@@ -12,20 +13,22 @@ def test_jswrapper_init():
     assert wrapper.__name__ == "test_method"
     assert wrapper.__doc__ is None
 
+
 def test_jswrapper_call():
     def test_inner(fn, *args):
         return fn(*args)
-    
+
     wrapper = JSRef("TestModule", "test_method", inner=test_inner)
     result = wrapper(1, 2, 3)
-    
+
     assert result == {
         "pyobsplot-type": "function",
         "module": "TestModule",
-        "name": "test_method", 
-        "args": (1, 2, 3)
+        "name": "test_method",
+        "args": (1, 2, 3),
     }
-    
+
+
 def test_jsmodule_getattr():
     result = d3.test_method
     assert isinstance(result, JSRef)
@@ -35,6 +38,7 @@ def test_jsmodule_getattr():
         "name": "test_method",
     }
 
+
 def test_math_getattr():
     result = Math.test_method
     assert isinstance(result, JSRef)
@@ -43,24 +47,27 @@ def test_math_getattr():
         "module": "Math",
         "name": "test_method",
     }
-    
+
+
 def test_d3_method_call():
     result = d3.test_method(1, 2, 3)
     assert result == {
         "pyobsplot-type": "function",
         "module": "d3",
         "name": "test_method",
-        "args": (1, 2, 3)
+        "args": (1, 2, 3),
     }
+
 
 def test_math_method_call():
     result = Math.test_method(4, 5, 6)
     assert result == {
-        "pyobsplot-type": "function", 
+        "pyobsplot-type": "function",
         "module": "Math",
         "name": "test_method",
-        "args": (4, 5, 6)
+        "args": (4, 5, 6),
     }
+
 
 def run_tests():
     test_jsmodule_getattr()
@@ -68,9 +75,10 @@ def run_tests():
     test_jswrapper_call()
     test_jswrapper_init()
     test_d3_method_call()
-    test_math_method_call()   
+    test_math_method_call()
     print("all tests pass")
 
-run_tests()    
 
-#%%
+run_tests()
+
+# %%

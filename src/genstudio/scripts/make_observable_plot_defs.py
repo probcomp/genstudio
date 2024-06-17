@@ -10,8 +10,8 @@ from pathlib import Path
 OBSERVABLE_PLOT_METADATA = json.load(
     open(util.PARENT_PATH / "scripts" / "observable_plot_metadata.json")
 )
-OBSERVABLE_FNS = OBSERVABLE_PLOT_METADATA['entries']
-OBSERVABLE_VERSION = OBSERVABLE_PLOT_METADATA['version']
+OBSERVABLE_FNS = OBSERVABLE_PLOT_METADATA["entries"]
+OBSERVABLE_VERSION = OBSERVABLE_PLOT_METADATA["version"]
 
 
 def get_function_def(path, func_name):
@@ -44,6 +44,7 @@ def get_function_def(path, func_name):
 
 # Templates for inclusion in output
 
+
 def FN_VALUELESS(options={}, **kwargs):
     """DOC"""
     return JSCall("Plot", "FN_VALUELESS", [{**options, **kwargs}])
@@ -51,7 +52,9 @@ def FN_VALUELESS(options={}, **kwargs):
 
 def FN_MARK(values, options={}, **kwargs):
     """DOC"""
-    return PlotSpec(JSCall("View", "MarkSpec", ["FN_MARK", values, {**options, **kwargs}]))
+    return PlotSpec(
+        JSCall("View", "MarkSpec", ["FN_MARK", values, {**options, **kwargs}])
+    )
 
 
 def FN_OTHER(*args):
@@ -64,18 +67,24 @@ sources = {
     for name in ["FN_VALUELESS", "FN_MARK", "FN_OTHER"]
 }
 
+
 def def_source(name, meta):
     kind = meta["kind"]
     doc = meta["doc"]
-    variant = None 
+    variant = None
     if name in ["hexgrid", "grid", "gridX", "gridY", "gridFx", "gridFy", "frame"]:
         variant = "FN_VALUELESS"
     elif kind == "marks":
         variant = "FN_MARK"
     else:
         variant = "FN_OTHER"
-    return sources[variant].replace(variant, name).replace("\"\"\"DOC\"\"\"",  f"""\"\"\"\n{doc}\n\"\"\"""" if doc else "")
-    
+    return (
+        sources[variant]
+        .replace(variant, name)
+        .replace('"""DOC"""', f"""\"\"\"\n{doc}\n\"\"\"""" if doc else "")
+    )
+
+
 plot_defs = f"""# Generated from version {OBSERVABLE_VERSION} of Observable Plot
 
 from genstudio.js_modules import JSCall
@@ -91,8 +100,9 @@ with open(util.PARENT_PATH / "plot_defs.py", "w") as f:
     f.write(plot_defs)
 
 # %%
-import_statement = "from genstudio.plot_defs import " + ", ".join(sorted(OBSERVABLE_FNS).keys())
+import_statement = "from genstudio.plot_defs import " + ", ".join(
+    sorted(OBSERVABLE_FNS).keys()
+)
 import_statement
 
-# %% 
-
+# %%
