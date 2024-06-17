@@ -26,6 +26,8 @@ import jax
 import jax.numpy as jnp
 import jax.random as jrand
 
+def normal_100():
+    return np.random.normal(loc=0, scale=1, size=1000)
 
 # %% [markdown]
 # ## Approach
@@ -38,15 +40,11 @@ import jax.random as jrand
 # The starting point for seeing what's possible is the [Observable Plot](https://observablehq.com/plot/what-is-plot) website.
 # Plots are composed of **marks**, and you'll want to familiarize yourself with the available marks and how they're created.
 #
-# Generate random data from a normal distribution
-# %%
-def normal_100():
-    return np.random.normal(loc=0, scale=1, size=1000)
-
-
 # %% [markdown]
 # #### Histogram
 # %%
+
+
 Plot.histogram(normal_100())
 
 # %% [markdown]
@@ -85,6 +83,7 @@ circle = Plot.dot([[0, 0]], r=100)
 circle
 
 # %%
+
 circle + Plot.frame() + {"inset": 50}
 
 # %% [markdown]

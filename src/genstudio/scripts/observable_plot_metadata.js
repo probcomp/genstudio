@@ -29,9 +29,9 @@ function readFiles(fileName) {
             const moduleName = node.getSourceFile().fileName;
             const kind = moduleName.split('@observablehq/plot/src/')[1].split(/[/.]/)[0];
             const doc = node.jsDoc && node.jsDoc[0].comment
-            entries[functionName] = entry = entries[functionName] || {} 
-            entry.kind = kind 
-            if (doc) {entry.doc = doc} 
+            entries[functionName] = entry = entries[functionName] || {}
+            entry.kind = kind
+            if (doc) { entry.doc = doc }
 
         }
 
@@ -42,4 +42,11 @@ function readFiles(fileName) {
 }
 
 const entries = readFiles(path.join(__dirname, 'node_modules/@observablehq/plot/src/index.d.ts'));
-fs.writeFileSync(path.join(__dirname, 'observable_plot_metadata.json'), JSON.stringify(entries, null, 2));
+const packageJson = require('./package.json');
+const observablehqVersion = packageJson.dependencies["@observablehq/plot"];
+fs.writeFileSync(path.join(__dirname, 'observable_plot_metadata.json'), JSON.stringify({
+    version: observablehqVersion, 
+    entries: entries
+}, null, 2));
+
+console.log(`Fetched Observablehq Plot version: ${observablehqVersion}`);

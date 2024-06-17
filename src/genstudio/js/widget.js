@@ -7,7 +7,7 @@ import * as ReactDOM from "react-dom";
 import { WidthContext } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper } from "./plot";
 import { flatten, html } from "./utils";
-const { useState, useEffect, useContext } = React
+const { useState, useEffect, useContext, useMemo } = React
 
 const AUTOGRID_MIN = 165
 
@@ -65,10 +65,11 @@ const scope = {
  * Interpret data recursively, evaluating functions.
  */
 export function interpret(data) {
+  
   if (data === null) return null;
   if (Array.isArray(data)) return data.map(interpret);
   if (typeof data === "string" || data instanceof String) return data;
-  if (Object.entries(data).length == 0) return data;
+  if (data.constructor !== Object) return data;
 
   switch (data["pyobsplot-type"]) {
     case "function":
@@ -76,7 +77,8 @@ export function interpret(data) {
       if (!fn) {
         console.error('f not found', data)
       }
-      return fn.call(null, ...interpret(data["args"]));
+      const interpretedArgs = interpret(data.args) 
+      return fn.call(null, ...interpretedArgs);
     case "ref":
       return data.name ? scope[data.module][data.name] : scope[data.module]
     case "js":
@@ -210,9 +212,10 @@ function useElementWidth(el) {
 function App() {
   const [el, setEl] = useState();
   const [data, _] = useModelState("data");
+  const interpretedData = useMemo(() => data ? interpret(JSON.parse(data)) : null, [data])
   const width = useElementWidth(el)
-  const unmounted = useCellUnmounted(el?.parentNode);
-  const value = !unmounted && data ? interpret(JSON.parse(data)) : null;
+  const unmounted = useCellUnmounted(el?.parentNode); 
+  const value = unmounted ? null : interpretedData;
   return html`<${WidthContext.Provider} value=${width}>  
       <div style=${{ color: '#333' }} ref=${setEl}>
         <${Node} value=${el ? value : null}/>

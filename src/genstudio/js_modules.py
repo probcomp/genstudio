@@ -3,22 +3,19 @@ from genstudio.widget import Widget
 class JSCall(dict):
     """Represents a JavaScript function call."""
     def __init__(self, module, name, args):
+        if not isinstance(args, (list, tuple)):
+            print("not a list", type(args))
+            raise TypeError("args must be a list")
         super().__init__(
             {"pyobsplot-type": "function", "module": module, "name": name, "args": args}
         )
         
     def _repr_mimebundle_(self, **kwargs):
         return Widget(self)._repr_mimebundle_(**kwargs)
-
-def js_call(module, name, *args):
-    """Represents a JavaScript function call."""
-    return JSCall(module, name, args)
-
  
 def js_ref(module, name):
     """Represents a reference to a JavaScript module or name."""
     return JSRef(module=module, name=name)
-
 
 def js(txt: str) -> dict:
     """Represents raw JavaScript code to be evaluated."""
@@ -32,12 +29,10 @@ class JSRef(dict):
         self.parse_args = parse_args
         self.wrap_ret = wrap_ret
         super().__init__({"pyobsplot-type": "ref", "module": module, "name": name})
-    def doc(self):
-        return doc(self)
 
     def __call__(self, *args, **kwargs):
         """Invokes the wrapped JavaScript function in the runtime with the provided arguments."""
-        return self.wrap_ret(js_call(self["module"], self["name"], *self.parse_args(*args, **kwargs)))
+        return self.wrap_ret(JSCall(self["module"], self["name"], self.parse_args(*args, **kwargs)))
 
     def __getattr__(self, name):
         """Returns a reference to a nested property or method of the JavaScript object."""
