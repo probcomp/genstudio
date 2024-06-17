@@ -1,8 +1,9 @@
 
 import * as Plot from "@observablehq/plot";
+import * as d3 from "d3";
 import * as React from "react";
-import { WidthContext } from "./context";
-import { binding, html, flatten } from "./utils";
+import { WidthContext, AUTOGRID_MIN } from "./context";
+import { binding, flatten, html } from "./utils";
 
 const { useEffect } = React
 const DEFAULT_PLOT_OPTIONS = { inset: 20 };

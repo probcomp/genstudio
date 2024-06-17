@@ -4,12 +4,10 @@ import * as d3 from "d3";
 import MarkdownIt from "markdown-it";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import { WidthContext } from "./context";
+import { WidthContext, AUTOGRID_MIN } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper } from "./plot";
 import { flatten, html } from "./utils";
 const { useState, useEffect, useContext, useMemo } = React
-
-const AUTOGRID_MIN = 165
 
 const md = new MarkdownIt({
   html: true,
