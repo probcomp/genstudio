@@ -52,7 +52,7 @@ const scope = {
     PlotSpec: (x) => new PlotSpec(x),
     MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
     md: (x) => renderMarkdown(x),
-    repeat: (_, i) => data[i % data.length],
+    repeat: (data) => (_, i) => data[i % data.length],
     hiccup,
     AutoGrid,
     flatten
