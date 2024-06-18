@@ -3,8 +3,6 @@ import json
 import datetime
 import anywidget
 import traitlets
-from pathlib import Path
-import importlib.util
 from genstudio.util import PARENT_PATH
 
 

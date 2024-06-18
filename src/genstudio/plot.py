@@ -1,9 +1,11 @@
 # %%
+# ruff: noqa: F401
 import json
 import math
+from typing import Any, Dict, List, Union
 
-from genstudio.js_modules import Hiccup, JSRef, js
 import genstudio.plot_defs as plot_defs
+from genstudio.js_modules import Hiccup, JSRef, js
 from genstudio.plot_defs import (
     area,
     areaX,
@@ -42,7 +44,6 @@ from genstudio.plot_defs import (
     differenceY,
     dodgeX,
     dodgeY,
-    dot,
     dotX,
     dotY,
     filter,
@@ -50,7 +51,6 @@ from genstudio.plot_defs import (
     formatIsoDate,
     formatMonth,
     formatWeekday,
-    frame,
     geo,
     geoCentroid,
     graticule,
@@ -93,8 +93,6 @@ from genstudio.plot_defs import (
     rectX,
     rectY,
     reverse,
-    ruleX,
-    ruleY,
     scale,
     select,
     selectFirst,
@@ -134,7 +132,7 @@ from genstudio.plot_defs import (
     windowX,
     windowY,
 )
-from genstudio.plot_spec import new, PlotSpec
+from genstudio.plot_spec import PlotSpec, new
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
@@ -277,9 +275,6 @@ def is_choicemap(data):
             return True
         current_class = current_class.__base__
     return False
-
-
-from typing import Any, Dict, List, Union
 
 
 def get_in(data: Union[Dict, Any], path: List[Union[str, Dict]]) -> Any:

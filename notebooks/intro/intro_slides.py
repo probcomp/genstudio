@@ -9,7 +9,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.16.2
 # ---
-
+# ruff: noqa: E402
 # %% slideshow={"slide_type": "none"}
 import random
 

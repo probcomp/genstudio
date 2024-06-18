@@ -1,7 +1,6 @@
 # %%
 
 import genstudio.plot as Plot
-import genstudio.util as util
 from genstudio.widget import Widget
 
 
@@ -56,16 +55,16 @@ def test_plotspec_plot():
 
 def test_sugar():
     ps = Plot.new() + Plot.grid_x()
-    assert ps.spec["x"]["grid"] == True
+    assert ps.spec["x"]["grid"] is True
 
     ps = Plot.new() + Plot.grid()
-    assert ps.spec["grid"] == True
+    assert ps.spec["grid"] is True
 
     ps = Plot.new() + Plot.color_legend()
-    assert ps.spec["color"]["legend"] == True
+    assert ps.spec["color"]["legend"] is True
 
     ps = Plot.new() + Plot.clip()
-    assert ps.spec["clip"] == True
+    assert ps.spec["clip"] is True
 
     ps = Plot.new() + Plot.aspect_ratio(0.5)
     assert ps.spec["aspectRatio"] == 0.5
@@ -122,7 +121,7 @@ def test_plotspec_reset():
     assert len(ps.spec["marks"]) == 1
 
     ps.reset(marks=[Plot.rectY(xs)], height=200)
-    assert ps.spec.get("width", None) == None  # width removed
+    assert ps.spec.get("width", None) is None  # width removed
     assert ps.spec["height"] == 200
     assert len(ps.spec["marks"]) == 1
     assert mark_name(ps.spec["marks"][0]) == "rectY"

@@ -13,7 +13,7 @@
 #     language: python
 #     name: python3
 # ---
-
+# ruff: noqa: E402
 # %%
 # %load_ext autoreload
 # %autoreload 2
