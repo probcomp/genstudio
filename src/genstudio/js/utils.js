@@ -34,4 +34,3 @@ export const flatten = (data, dimensions) => {
     window[varName] = prevValue
     return ret
   }
-
