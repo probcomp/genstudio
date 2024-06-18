@@ -35,7 +35,7 @@ export class MarkSpec {
         }
 
         // flatten dimensional data
-        if (options.dimensions) { 
+        if (options.dimensions) {
             data = flatten(data, options.dimensions)
         }
 
@@ -96,7 +96,7 @@ export class MarkSpec {
                 fx, fy,
                 frameAnchor: "top",
                 dy: 4
-            })); 
+            }));
         }
         computed.data = data;
         computed.options = options;
@@ -180,11 +180,11 @@ function $StateView({ $info, $state, set$state }) {
           <div style=${{ fontSize: "14px", display: 'flex', flexDirection: 'column', marginTop: '0.5rem', marginBottom: '0.5rem', gap: '0.5rem' }} key=${key}>
             <label>${label || key} ${$state[key]}</label>
             ${kind === 'animate' ? null : html`<span>${$state[key]}</span>`}
-            <input 
-              type="range" 
-              min=${range[0]} 
+            <input
+              type="range"
+              min=${range[0]}
               max=${range[1] - 1}
-              value=${$state[key] || init || 0} 
+              value=${$state[key] || init || 0}
               onChange=${(e) => handleSliderChange(key, e.target.value)}
               style=${{ outline: 'none' }}
             />
@@ -212,6 +212,6 @@ export function PlotWrapper({ spec }) {
     };
     return html`<div>
                   <${PlotView} spec=${spec} $state=${$state} />
-                  <${$StateView} $state=${$state} set$state=${set$state} $info=${$info} />  
+                  <${$StateView} $state=${$state} set$state=${set$state} $info=${$info} />
                 </div>`
 }

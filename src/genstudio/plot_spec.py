@@ -4,7 +4,9 @@ from genstudio.js_modules import JSRef
 from typing import Any, Dict, List, Sequence, Optional, Union
 
 
-SpecInput = Union['PlotSpec', Sequence[Union['PlotSpec', Dict[str, Any]]], Dict[str, Any]]
+SpecInput = Union[
+    "PlotSpec", Sequence[Union["PlotSpec", Dict[str, Any]]], Dict[str, Any]
+]
 Mark = Dict[str, Any]
 
 View = JSRef("View")
@@ -26,7 +28,9 @@ def _deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
     return dict1
 
 
-def _add_list(spec: Dict[str, Any], marks: List[Mark], to_add: Sequence[SpecInput]) -> None:
+def _add_list(
+    spec: Dict[str, Any], marks: List[Mark], to_add: Sequence[SpecInput]
+) -> None:
     # mutates spec & marks, returns nothing
     for new_spec in to_add:
         if isinstance(new_spec, dict):
@@ -51,14 +55,18 @@ def _add_dict(spec: Dict[str, Any], marks: List[Mark], to_add: Dict[str, Any]) -
             _add_list(spec, marks, new_marks)
 
 
-def _add(spec: Dict[str, Any], marks: List[Mark], to_add: Union[SpecInput, Sequence[SpecInput]]) -> None:
+def _add(
+    spec: Dict[str, Any],
+    marks: List[Mark],
+    to_add: Union[SpecInput, Sequence[SpecInput]],
+) -> None:
     # mutates spec & marks, returns nothing
     if isinstance(to_add, (list, tuple)):
         _add_list(spec, marks, to_add)
     elif isinstance(to_add, dict):
         _add_dict(spec, marks, to_add)
     elif isinstance(to_add, PlotSpec):
-        _add_dict(spec, marks, to_add.spec)    
+        _add_dict(spec, marks, to_add.spec)
     else:
         raise TypeError(
             f"Unsupported operand type(s) for +: 'PlotSpec' and '{type(to_add).__name__}'"
@@ -91,7 +99,7 @@ class PlotSpec:
         self.spec["marks"] = marks
         self._plot: Optional[Widget] = None
 
-    def __add__(self, to_add: SpecInput) -> 'PlotSpec':
+    def __add__(self, to_add: SpecInput) -> "PlotSpec":
         """
         Combine this PlotSpec with another PlotSpec, list of marks, or dict of options.
 
@@ -128,7 +136,9 @@ class PlotSpec:
         self.spec = PlotSpec(*specs, **kwargs).spec
         self.plot().data = self.spec
 
-    def update(self, *to_add: SpecInput, marks: Optional[List[Mark]] = None, **kwargs: Any) -> None:
+    def update(
+        self, *to_add: SpecInput, marks: Optional[List[Mark]] = None, **kwargs: Any
+    ) -> None:
         """
         Update this PlotSpec's options and marks in-place.
 
@@ -152,6 +162,7 @@ class PlotSpec:
 
     def to_json(self):
         return View.PlotSpec(self.spec)
+
 
 def new(*specs, **kwargs):
     """Create a new PlotSpec from the given specs and options."""

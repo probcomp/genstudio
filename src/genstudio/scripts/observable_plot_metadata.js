@@ -45,7 +45,7 @@ const entries = readFiles(path.join(__dirname, 'node_modules/@observablehq/plot/
 const packageJson = require('./package.json');
 const observablehqVersion = packageJson.dependencies["@observablehq/plot"];
 fs.writeFileSync(path.join(__dirname, 'observable_plot_metadata.json'), JSON.stringify({
-    version: observablehqVersion, 
+    version: observablehqVersion,
     entries: entries
 }, null, 2));
 

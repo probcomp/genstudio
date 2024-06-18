@@ -278,10 +278,12 @@ def is_choicemap(data):
         current_class = current_class.__base__
     return False
 
+
 from typing import Any, Dict, List, Union
 
+
 def get_in(data: Union[Dict, Any], path: List[Union[str, Dict]]) -> Any:
-    data = data.get_sample() if getattr(data, "get_sample", None) else data # type: ignore
+    data = data.get_sample() if getattr(data, "get_sample", None) else data  # type: ignore
     if is_choicemap(data):
         return get_choice(data, path)
 
@@ -290,7 +292,9 @@ def get_in(data: Union[Dict, Any], path: List[Union[str, Dict]]) -> Any:
             if isinstance(segment, dict):
                 if ... in segment:
                     if isinstance(value, list):
-                        return [process_segment(v, remaining_path[i+1:]) for v in value]
+                        return [
+                            process_segment(v, remaining_path[i + 1 :]) for v in value
+                        ]
                     else:
                         raise TypeError(
                             f"Expected list at path index {i}, got {type(value).__name__}"
@@ -311,6 +315,7 @@ def get_in(data: Union[Dict, Any], path: List[Union[str, Dict]]) -> Any:
         return Dimensioned(value, path)
     else:
         return value
+
 
 # Test case to verify traversal of more than one dimension
 def test_get_in():
@@ -343,43 +348,43 @@ def test_get_in():
         {"first": 1, "second": 0, "c": 3},
         {"first": 1, "second": 1, "c": 4},
     ], f"Expected flattened result to be [{{...}}, ...], got {flattened}"
-    
+
     def test_deeper_nesting():
         data = {
             "x": [
-                {
-                    "y": [
-                        {"z": [{"a": 5}, {"a": 6}]},
-                        {"z": [{"a": 7}, {"a": 8}]}
-                    ]
-                },
-                {
-                    "y": [
-                        {"z": [{"a": 9}, {"a": 10}]},
-                        {"z": [{"a": 11}, {"a": 12}]}
-                    ]
-                }
+                {"y": [{"z": [{"a": 5}, {"a": 6}]}, {"z": [{"a": 7}, {"a": 8}]}]},
+                {"y": [{"z": [{"a": 9}, {"a": 10}]}, {"z": [{"a": 11}, {"a": 12}]}]},
             ]
         }
 
-        result = get_in(data, ["x", {...: "level1"}, "y", {...: "level2"}, "z", {...: "level3"}, "a"])
+        result = get_in(
+            data,
+            ["x", {...: "level1"}, "y", {...: "level2"}, "z", {...: "level3"}, "a"],
+        )
         assert isinstance(result, Dimensioned), "Expected Dimensioned object"
         assert result.value == [
-            [
-                [5, 6],
-                [7, 8]
-            ],
-            [
-                [9, 10],
-                [11, 12]
-            ]
+            [[5, 6], [7, 8]],
+            [[9, 10], [11, 12]],
         ], f"Expected nested list of values, got {result.value}"
         assert len(result.dimensions) == 3, "Expected 3 dimensions"
-        assert [d["key"] for d in result.dimensions] == ["level1", "level2", "level3"], \
-            "Dimension keys do not match expected values"
+        assert [d["key"] for d in result.dimensions] == [
+            "level1",
+            "level2",
+            "level3",
+        ], "Dimension keys do not match expected values"
 
         flattened = get_in(
-            data, ["x", {...: "level1"}, "y", {...: "level2"}, "z", {...: "level3"}, "a", {"leaves": "a"}]
+            data,
+            [
+                "x",
+                {...: "level1"},
+                "y",
+                {...: "level2"},
+                "z",
+                {...: "level3"},
+                "a",
+                {"leaves": "a"},
+            ],
         ).flatten()
         assert flattened == [
             {"level1": 0, "level2": 0, "level3": 0, "a": 5},

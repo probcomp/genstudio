@@ -15,7 +15,6 @@ def test_jswrapper_init():
 
 
 def test_jswrapper_call():
-
     wrapper = JSRef("TestModule", "test_method")
     result = wrapper(1, 2, 3)
 

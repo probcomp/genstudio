@@ -63,7 +63,7 @@ const scope = {
  * Interpret data recursively, evaluating functions.
  */
 export function interpret(data) {
-  
+
   if (data === null) return null;
   if (Array.isArray(data)) return data.map(interpret);
   if (typeof data === "string" || data instanceof String) return data;
@@ -75,7 +75,7 @@ export function interpret(data) {
       if (!fn) {
         console.error('f not found', data)
       }
-      const interpretedArgs = interpret(data.args) 
+      const interpretedArgs = interpret(data.args)
       return fn.call(null, ...interpretedArgs);
     case "ref":
       return data.name ? scope[data.module][data.name] : scope[data.module]
@@ -154,15 +154,15 @@ function Node({ value }) {
 }
 
 function useCellUnmounted(el) {
-  // for Python Interactive Output in VS Code, detect when this element 
+  // for Python Interactive Output in VS Code, detect when this element
   // is unmounted & save that state on the element itself.
-  // We have to directly read from the ancestor DOM because none of our 
+  // We have to directly read from the ancestor DOM because none of our
   // cell output is preserved across reload.
   useEffect(() => {
     let observer;
     // .output_container is stable across refresh
     const outputContainer = el?.closest(".output_container")
-    // .widgetarea contains all the notebook's cells 
+    // .widgetarea contains all the notebook's cells
     const widgetarea = outputContainer?.closest(".widgetarea")
     if (el && !el.initialized && widgetarea) {
       el.initialized = true;
@@ -212,9 +212,9 @@ function App() {
   const [data, _] = useModelState("data");
   const interpretedData = useMemo(() => data ? interpret(JSON.parse(data)) : null, [data])
   const width = useElementWidth(el)
-  const unmounted = useCellUnmounted(el?.parentNode); 
+  const unmounted = useCellUnmounted(el?.parentNode);
   const value = unmounted ? null : interpretedData;
-  return html`<${WidthContext.Provider} value=${width}>  
+  return html`<${WidthContext.Provider} value=${width}>
       <div style=${{ color: '#333' }} ref=${setEl}>
         <${Node} value=${el ? value : null}/>
       </div>
@@ -244,4 +244,3 @@ const installCSS = () => {
 }
 
 export default { render }
-

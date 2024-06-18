@@ -37,7 +37,7 @@ def test_plotspec_add():
     assert ps5.spec["color"] == "red"
 
     try:
-        ps1 + "invalid" # type: ignore
+        ps1 + "invalid"  # type: ignore
         assert False, "Expected TypeError"
     except TypeError:
         pass
@@ -139,6 +139,7 @@ def test_plotspec_update():
     assert len(ps.spec["marks"]) == 2
     assert mark_name(ps.spec["marks"][0]) == "dot"
     assert mark_name(ps.spec["marks"][1]) == "rectY"
+
 
 def test_plot_function_docs():
     for mark in ["dot", "line", "rectY"]:

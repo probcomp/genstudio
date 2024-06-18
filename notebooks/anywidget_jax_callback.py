@@ -17,7 +17,7 @@ class Widget(anywidget.AnyWidget):
     def __init__(self):
         super().__init__()
 
-    @anywidget.experimental.command # type: ignore
+    @anywidget.experimental.command  # type: ignore
     def _receive_message(self, msg, buffers):
         print(f"Received message from js: {msg}")
         return ["ok", []]

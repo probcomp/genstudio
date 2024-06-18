@@ -46,16 +46,23 @@ def get_function_def(path: str, func_name: str) -> Optional[str]:
 # Templates for inclusion in output
 
 
-def FN_VALUELESS(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def FN_VALUELESS(
+    options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]
+) -> Dict[str, Any]:
     """DOC"""
     return JSCall("Plot", "FN_VALUELESS", [{**options, **kwargs}])
 
 
-def FN_MARK(values: Union[Dict[str, Any], List[Any]], options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> PlotSpec:
+def FN_MARK(
+    values: Union[Dict[str, Any], List[Any]],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """DOC"""
     return PlotSpec(
         JSCall("View", "MarkSpec", ["FN_MARK", values, {**options, **kwargs}])
     )
+
 
 def FN_OTHER(*args: Union[Any, List[Any]]) -> Dict[str, Any]:
     """DOC"""
@@ -78,14 +85,16 @@ def def_source(name: str, meta: Dict[str, Any]) -> str:
         variant = "FN_MARK"
     else:
         variant = "FN_OTHER"
-    
+
     source_code = sources.get(variant)
     if source_code is None:
         raise ValueError(f"Source code for variant '{variant}' not found.")
-    
+
     source_code = source_code.replace(variant, name)
-    source_code = source_code.replace('"""DOC"""', f"""\"\"\"\n{doc}\n\"\"\"""" if doc else "")
-    
+    source_code = source_code.replace(
+        '"""DOC"""', f"""\"\"\"\n{doc}\n\"\"\"""" if doc else ""
+    )
+
     return source_code
 
 

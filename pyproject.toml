@@ -39,8 +39,7 @@ priority = "explicit"
  venvPath = "."
  venv = ".venv"
  include = ["src", "tests"]
- 
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-

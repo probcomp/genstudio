@@ -17,7 +17,7 @@ class JSCall(dict):
         return Widget(self)._repr_mimebundle_(**kwargs)
 
 
-def js_ref(module: str, name: str) -> 'JSRef':
+def js_ref(module: str, name: str) -> "JSRef":
     """Represents a reference to a JavaScript module or name."""
     return JSRef(module=module, name=name)
 
@@ -45,7 +45,7 @@ class JSRef(dict):
         """Invokes the wrapped JavaScript function in the runtime with the provided arguments."""
         return JSCall(self["module"], self["name"], args)
 
-    def __getattr__(self, name: str) -> 'JSRef':
+    def __getattr__(self, name: str) -> "JSRef":
         """Returns a reference to a nested property or method of the JavaScript object."""
         if name[0] == "_":
             return super().__getattribute__(name)
@@ -65,4 +65,3 @@ class Hiccup:
     def _repr_mimebundle_(self, **kwargs: Any):
         """Renders the Hiccup list as an interactive widget in the JavaScript runtime."""
         return Widget(self.contents)._repr_mimebundle_(**kwargs)
-
