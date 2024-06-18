@@ -5,10 +5,7 @@ import anywidget
 import traitlets
 from pathlib import Path
 import importlib.util
-
-# %%
-# necessary for VS Code IPython interactive contexts
-PARENT_PATH = Path(importlib.util.find_spec("genstudio.widget").origin).parent
+from genstudio.util import PARENT_PATH
 
 
 def to_json(data, _widget):
@@ -36,6 +33,6 @@ class Widget(anywidget.AnyWidget):
     def __init__(self, data):
         super().__init__(data=data)
 
-    @anywidget.experimental.command
+    @anywidget.experimental.command  # type: ignore
     def ping(self, msg, buffers):
         return "pong", None

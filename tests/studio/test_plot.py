@@ -4,11 +4,6 @@ import genstudio.plot as Plot
 import genstudio.util as util
 from genstudio.widget import Widget
 
-# Always reload (for dev)
-import importlib
-
-importlib.reload(Plot)
-
 
 xs = [1, 2, 3, 4, 5]
 ys = [2, 3, 2, 1, 8]
@@ -42,7 +37,7 @@ def test_plotspec_add():
     assert ps5.spec["color"] == "red"
 
     try:
-        ps1 + "invalid"
+        ps1 + "invalid" # type: ignore
         assert False, "Expected TypeError"
     except TypeError:
         pass
@@ -144,7 +139,6 @@ def test_plotspec_update():
     assert len(ps.spec["marks"]) == 2
     assert mark_name(ps.spec["marks"][0]) == "dot"
     assert mark_name(ps.spec["marks"][1]) == "rectY"
-
 
 def test_plot_function_docs():
     for mark in ["dot", "line", "rectY"]:

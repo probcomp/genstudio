@@ -15,10 +15,8 @@ def test_jswrapper_init():
 
 
 def test_jswrapper_call():
-    def test_inner(fn, *args):
-        return fn(*args)
 
-    wrapper = JSRef("TestModule", "test_method", inner=test_inner)
+    wrapper = JSRef("TestModule", "test_method")
     result = wrapper(1, 2, 3)
 
     assert result == {

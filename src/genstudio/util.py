@@ -33,7 +33,8 @@ class benchmark(object):
         print(("%s : " + self.fmt + " seconds") % (self.msg, t))
         self.time = t
 
-
-PARENT_PATH = pathlib.Path(importlib.util.find_spec("genstudio.util").origin).parent
-
+try:
+    PARENT_PATH = pathlib.Path(importlib.util.find_spec("genstudio.util").origin).parent  # type: ignore
+except AttributeError:
+    raise ImportError("Cannot find the genstudio.util module")
 # %%

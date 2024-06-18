@@ -1,13 +1,18 @@
 import copy
 from genstudio.widget import Widget
 from genstudio.js_modules import JSRef
+from typing import Any, Dict, List, Sequence, Optional, Union
+
+
+SpecInput = Union['PlotSpec', Sequence[Union['PlotSpec', Dict[str, Any]]], Dict[str, Any]]
+Mark = Dict[str, Any]
 
 View = JSRef("View")
 
 
-def _deep_merge(dict1, dict2):
+def _deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Recursively merge two dictionaries.
+    Recursively merge two dictionaries. Mutates dict1.
     Values in dict2 overwrite values in dict1. If both values are dictionaries, recursively merge them.
     """
 
@@ -21,7 +26,7 @@ def _deep_merge(dict1, dict2):
     return dict1
 
 
-def _add_list(spec, marks, to_add):
+def _add_list(spec: Dict[str, Any], marks: List[Mark], to_add: Sequence[SpecInput]) -> None:
     # mutates spec & marks, returns nothing
     for new_spec in to_add:
         if isinstance(new_spec, dict):
@@ -34,25 +39,26 @@ def _add_list(spec, marks, to_add):
             raise ValueError(f"Invalid plot specification: {new_spec}")
 
 
-def _add_dict(spec, marks, to_add):
+def _add_dict(spec: Dict[str, Any], marks: List[Mark], to_add: Dict[str, Any]) -> None:
     # mutates spec & marks, returns nothing
     if "pyobsplot-type" in to_add:
         marks.append(to_add)
     else:
-        spec = _deep_merge(spec, to_add)
+        _deep_merge(spec, to_add)
         new_marks = to_add.get("marks", None)
         if new_marks:
+            spec["marks"] = marks
             _add_list(spec, marks, new_marks)
 
 
-def _add(spec, marks, to_add):
+def _add(spec: Dict[str, Any], marks: List[Mark], to_add: Union[SpecInput, Sequence[SpecInput]]) -> None:
     # mutates spec & marks, returns nothing
     if isinstance(to_add, (list, tuple)):
         _add_list(spec, marks, to_add)
     elif isinstance(to_add, dict):
         _add_dict(spec, marks, to_add)
     elif isinstance(to_add, PlotSpec):
-        _add_dict(spec, marks, to_add.spec)
+        _add_dict(spec, marks, to_add.spec)    
     else:
         raise TypeError(
             f"Unsupported operand type(s) for +: 'PlotSpec' and '{type(to_add).__name__}'"
@@ -75,17 +81,17 @@ class PlotSpec:
         **kwargs: Additional plot options passed as keyword arguments.
     """
 
-    def __init__(self, *specs, **kwargs):
-        marks = []
-        self.spec = spec = {"marks": []}
+    def __init__(self, *specs: SpecInput, **kwargs: Any) -> None:
+        marks: List[Mark] = []
+        self.spec: Dict[str, Any] = {"marks": []}
         if specs:
-            _add_list(spec, marks, specs)
+            _add_list(self.spec, marks, specs)
         if kwargs:
-            _add_dict(spec, marks, kwargs)
-        spec["marks"] = marks
-        self._plot = None
+            _add_dict(self.spec, marks, kwargs)
+        self.spec["marks"] = marks
+        self._plot: Optional[Widget] = None
 
-    def __add__(self, to_add):
+    def __add__(self, to_add: SpecInput) -> 'PlotSpec':
         """
         Combine this PlotSpec with another PlotSpec, list of marks, or dict of options.
 
@@ -101,7 +107,7 @@ class PlotSpec:
         spec["marks"] = marks
         return PlotSpec(spec)
 
-    def plot(self):
+    def plot(self) -> Widget:
         """
         Lazily generate & cache the widget for this PlotSpec.
         """
@@ -109,7 +115,7 @@ class PlotSpec:
             self._plot = Widget(View.PlotSpec(self.spec))
         return self._plot
 
-    def reset(self, *specs, **kwargs):
+    def reset(self, *specs: SpecInput, **kwargs: Any) -> None:
         """
         Reset this PlotSpec's options and marks to those from the given specs.
 
@@ -122,7 +128,7 @@ class PlotSpec:
         self.spec = PlotSpec(*specs, **kwargs).spec
         self.plot().data = self.spec
 
-    def update(self, *specs, marks=None, **kwargs):
+    def update(self, *to_add: SpecInput, marks: Optional[List[Mark]] = None, **kwargs: Any) -> None:
         """
         Update this PlotSpec's options and marks in-place.
 
@@ -134,8 +140,8 @@ class PlotSpec:
                 If provided, overwrites rather than adds to existing marks.
             **kwargs: Additional options to update.
         """
-        if specs:
-            self.spec = (self + specs).spec
+        if to_add:
+            _add(self.spec, self.spec["marks"], to_add)
         if marks is not None:
             self.spec["marks"] = marks
         self.spec.update(kwargs)
@@ -147,7 +153,6 @@ class PlotSpec:
     def to_json(self):
         return View.PlotSpec(self.spec)
 
-
 def new(*specs, **kwargs):
     """Create a new PlotSpec from the given specs and options."""
-    return PlotSpec(specs, **kwargs)
+    return PlotSpec(*specs, **kwargs)

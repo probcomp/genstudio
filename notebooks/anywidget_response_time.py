@@ -31,7 +31,7 @@ class Widget(anywidget.AnyWidget):
   export default {render: renderWidget}
   """
 
-    @anywidget.experimental.command
+    @anywidget.experimental.command  # type: ignore
     def ping(self, msg, buffers):
         return "pong", None
 
