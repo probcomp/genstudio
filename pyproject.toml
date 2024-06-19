@@ -36,9 +36,11 @@ url = "https://us-west1-python.pkg.dev/probcomp-caliban/probcomp/simple/"
 priority = "explicit"
 
 [tool.pyright]
- venvPath = "."
- venv = ".venv"
- include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"
+include = ["src", "tests"]
+exclude = ["notebooks"]
+reportUnusedExpression = false
 
 [build-system]
 requires = ["poetry-core"]
