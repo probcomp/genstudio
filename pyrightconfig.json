@@ -1,1 +1,2 @@
-{"reportUnusedExpression": false}
+{"reportUnusedExpression": false,
+ "exclude": ["notebooks"]}
