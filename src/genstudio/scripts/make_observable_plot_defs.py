@@ -97,7 +97,10 @@ def def_source(name: str, meta: Dict[str, Any]) -> str:
 
     return source_code
 
-plot_defs = "\n\n\n".join([def_source(name, meta) for name, meta in sorted(OBSERVABLE_FNS.items())])
+
+plot_defs = "\n\n\n".join(
+    [def_source(name, meta) for name, meta in sorted(OBSERVABLE_FNS.items())]
+)
 
 plot_defs_module = f"""# Generated from version {OBSERVABLE_VERSION} of Observable Plot
 
