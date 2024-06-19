@@ -14,6 +14,7 @@
 #     name: python3
 # ---
 # ruff: noqa: E402
+# type: ignore
 # %%
 # %load_ext autoreload
 # %autoreload 2

@@ -1,3 +1,4 @@
+# type: ignore
 # %%
 # Example of using JAX's io_callback to send messages to an AnyWidget instance.
 # The widget responds, but python won't receive the message until after the
