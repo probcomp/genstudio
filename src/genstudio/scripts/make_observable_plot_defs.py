@@ -97,20 +97,21 @@ def def_source(name: str, meta: Dict[str, Any]) -> str:
 
     return source_code
 
+plot_defs = "\n\n\n".join([def_source(name, meta) for name, meta in sorted(OBSERVABLE_FNS.items())])
 
-plot_defs = f"""# Generated from version {OBSERVABLE_VERSION} of Observable Plot
+plot_defs_module = f"""# Generated from version {OBSERVABLE_VERSION} of Observable Plot
 
 from genstudio.js_modules import JSCall
 from genstudio.plot_spec import PlotSpec
 
 
-{"\n\n\n".join([def_source(name, meta) for name, meta in sorted(OBSERVABLE_FNS.items())])}
+{plot_defs}
 
 """
-plot_defs
+plot_defs_module
 
 with open(util.PARENT_PATH / "plot_defs.py", "w") as f:
-    f.write(plot_defs)
+    f.write(plot_defs_module)
 
 # %%
 import_statement = "from genstudio.plot_defs import " + ", ".join(
