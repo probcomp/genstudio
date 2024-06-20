@@ -483,7 +483,15 @@ ruleY = PlotSpecWithDefault("ruleY", [0])
 ruleX = PlotSpecWithDefault("ruleX", [0])
 
 def identity():
-    return js("(x)=>x")
+    """Returns a JavaScript identity function.
+
+    This function creates a JavaScript snippet that represents an identity function,
+    which returns its input unchanged.
+
+    Returns:
+        dict: A dictionary representing the JavaScript identity function.
+    """
+    return js("(x) => x")
 
 # The following convenience dicts can be added directly to PlotSpecs to declare additional behaviour.
 
