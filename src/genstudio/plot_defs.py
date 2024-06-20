@@ -2,9 +2,14 @@
 
 from genstudio.js_modules import JSCall
 from genstudio.plot_spec import PlotSpec
+from typing import Any, Dict, Iterable
 
 
-def area(values, options={}, **kwargs):
+def area(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new area mark with the given *data* and *options*. The area mark is
     rarely used directly; it is only needed when the baseline and topline have
@@ -15,7 +20,11 @@ def area(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["area", values, {**options, **kwargs}]))
 
 
-def areaX(values, options={}, **kwargs):
+def areaX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new vertically-oriented area mark for the given *data* and
     *options*, where the baseline and topline share **y** values, as in a
@@ -51,7 +60,11 @@ def areaX(values, options={}, **kwargs):
     )
 
 
-def areaY(values, options={}, **kwargs):
+def areaY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new horizontally-oriented area mark for the given *data* and
     *options*, where the baseline and topline share **x** values, as in a
@@ -87,7 +100,11 @@ def areaY(values, options={}, **kwargs):
     )
 
 
-def arrow(values, options={}, **kwargs):
+def arrow(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new arrow mark for the given *data* and *options*, drawing
     (possibly swoopy) arrows connecting pairs of points. For example, to draw an
@@ -103,7 +120,11 @@ def arrow(values, options={}, **kwargs):
     )
 
 
-def auto(values, options={}, **kwargs):
+def auto(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new mark whose implementation is chosen dynamically to best
     represent the dimensions of the given *data* specified in *options*,
@@ -119,7 +140,11 @@ def auto(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["auto", values, {**options, **kwargs}]))
 
 
-def autoSpec(values, options={}, **kwargs):
+def autoSpec(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a fully-specified *options* object for the auto mark, with nothing
     left undefined. This is mostly for internal use, but can be used to “lock
@@ -138,7 +163,11 @@ def autoSpec(values, options={}, **kwargs):
     )
 
 
-def axisFx(values, options={}, **kwargs):
+def axisFx(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new compound axis mark to document the visual encoding of the
     horizontal facet position *fx* scale, comprised of (up to) three marks: a
@@ -165,7 +194,11 @@ def axisFx(values, options={}, **kwargs):
     )
 
 
-def axisFy(values, options={}, **kwargs):
+def axisFy(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new compound axis mark to document the visual encoding of the
     vertical facet position *fy* scale, comprised of (up to) three marks: a
@@ -192,7 +225,11 @@ def axisFy(values, options={}, **kwargs):
     )
 
 
-def axisX(values, options={}, **kwargs):
+def axisX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new compound axis mark to document the visual encoding of the
     horizontal position *x* scale, comprised of (up to) three marks: a vector for
@@ -221,7 +258,11 @@ def axisX(values, options={}, **kwargs):
     )
 
 
-def axisY(values, options={}, **kwargs):
+def axisY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new compound axis mark to document the visual encoding of the
     vertical position *y* scale, comprised of (up to) three marks: a vector for
@@ -249,7 +290,11 @@ def axisY(values, options={}, **kwargs):
     )
 
 
-def barX(values, options={}, **kwargs):
+def barX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new horizontal bar mark for the given *data* and *options*; the
     required *x* values should be quantitative or temporal, and the optional *y*
@@ -292,7 +337,11 @@ def barX(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["barX", values, {**options, **kwargs}]))
 
 
-def barY(values, options={}, **kwargs):
+def barY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new vertical bar mark for the given *data* and *options*; the
     required *y* values should be quantitative or temporal, and the optional *x*
@@ -334,7 +383,7 @@ def barY(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["barY", values, {**options, **kwargs}]))
 
 
-def bin(*args):
+def bin(*args: Any) -> Dict[str, Any]:
     """
     Bins on the **x** and **y** channels; then subdivides bins on the first
     channel of **z**, **fill**, or **stroke**, if any; and lastly for each
@@ -370,7 +419,7 @@ def bin(*args):
     return JSCall("Plot", "bin", args)
 
 
-def binX(*args):
+def binX(*args: Any) -> Dict[str, Any]:
     """
     Bins on the **x** channel; then subdivides bins on the first channel of
     **z**, **fill**, or **stroke**, if any; then further subdivides bins on the
@@ -404,7 +453,7 @@ def binX(*args):
     return JSCall("Plot", "binX", args)
 
 
-def binY(*args):
+def binY(*args: Any) -> Dict[str, Any]:
     """
     Bins on the **y** channel; then subdivides bins on the first channel of
     **z**, **fill**, or **stroke**, if any; then further subdivides bins on the
@@ -438,7 +487,11 @@ def binY(*args):
     return JSCall("Plot", "binY", args)
 
 
-def bollinger(values, options={}, **kwargs):
+def bollinger(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Given the specified bollinger *options*, returns a corresponding map
     implementation for use with the map transform, allowing the bollinger
@@ -456,7 +509,11 @@ def bollinger(values, options={}, **kwargs):
     )
 
 
-def bollingerX(values, options={}, **kwargs):
+def bollingerX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new vertically-oriented bollinger mark for the given *data* and
     *options*, as in a time-series area chart where time goes up↑ (or down↓).
@@ -470,7 +527,11 @@ def bollingerX(values, options={}, **kwargs):
     )
 
 
-def bollingerY(values, options={}, **kwargs):
+def bollingerY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new horizontally-oriented bollinger mark for the given *data* and
     *options*, as in a time-series area chart where time goes right→ (or ←left).
@@ -484,7 +545,11 @@ def bollingerY(values, options={}, **kwargs):
     )
 
 
-def boxX(values, options={}, **kwargs):
+def boxX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a box mark that draws horizontal boxplots where **x** is quantitative
     or temporal and **y**, if present, is ordinal. The box mark is a compound
@@ -507,7 +572,11 @@ def boxX(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["boxX", values, {**options, **kwargs}]))
 
 
-def boxY(values, options={}, **kwargs):
+def boxY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a box mark that draws vertical boxplots where **y** is quantitative
     or temporal and **x**, if present, is ordinal. The box mark is a compound
@@ -530,7 +599,11 @@ def boxY(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["boxY", values, {**options, **kwargs}]))
 
 
-def cell(values, options={}, **kwargs):
+def cell(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a rectangular cell mark for the given *data* and *options*. Along
     with **x** and/or **y**, a **fill** channel is typically specified to encode
@@ -552,7 +625,11 @@ def cell(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["cell", values, {**options, **kwargs}]))
 
 
-def cellX(values, options={}, **kwargs):
+def cellX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like cell, but **x** defaults to the zero-based index [0, 1, 2, …], and if
     **stroke** is not a channel, **fill** defaults to the identity function,
@@ -568,7 +645,11 @@ def cellX(values, options={}, **kwargs):
     )
 
 
-def cellY(values, options={}, **kwargs):
+def cellY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like cell, but **y** defaults to the zero-based index [0, 1, 2, …], and if
     **stroke** is not a channel, **fill** defaults to the identity function,
@@ -584,7 +665,7 @@ def cellY(values, options={}, **kwargs):
     )
 
 
-def centroid(*args):
+def centroid(*args: Any) -> Dict[str, Any]:
     """
     Given a **geometry** input channel of GeoJSON geometry, derives **x** and
     **y** output channels representing the planar (projected) centroids of the
@@ -596,7 +677,11 @@ def centroid(*args):
     return JSCall("Plot", "centroid", args)
 
 
-def circle(values, options={}, **kwargs):
+def circle(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like dot, except that the **symbol** option is set to *circle*.
     """
@@ -605,7 +690,11 @@ def circle(values, options={}, **kwargs):
     )
 
 
-def cluster(values, options={}, **kwargs):
+def cluster(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Shorthand for the tree mark using [d3.cluster][1] as the **treeLayout**
     option, placing leaf nodes of the tree at the same depth. Equivalent to:
@@ -621,7 +710,7 @@ def cluster(values, options={}, **kwargs):
     )
 
 
-def column(*args):
+def column(*args: Any) -> Dict[str, Any]:
     """
     Returns a [*column*, *setColumn*] helper for deriving columns; *column* is a
     channel transform that returns whatever value was most recently passed to
@@ -637,7 +726,11 @@ def column(*args):
     return JSCall("Plot", "column", args)
 
 
-def contour(values, options={}, **kwargs):
+def contour(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new contour mark, which creates contour polygons from spatial
     samples. If *data* is provided, it represents discrete samples in abstract
@@ -670,7 +763,11 @@ def contour(values, options={}, **kwargs):
     )
 
 
-def crosshair(values, options={}, **kwargs):
+def crosshair(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new crosshair mark for the given *data* and *options*, drawing
     horizontal and vertical rules centered at the point closest to the pointer.
@@ -684,7 +781,11 @@ def crosshair(values, options={}, **kwargs):
     )
 
 
-def crosshairX(values, options={}, **kwargs):
+def crosshairX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like crosshair, but uses the pointerX transform: the determination of the
     closest point is heavily weighted by the *x* (horizontal↔︎) position; this
@@ -697,7 +798,11 @@ def crosshairX(values, options={}, **kwargs):
     )
 
 
-def crosshairY(values, options={}, **kwargs):
+def crosshairY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like crosshair, but uses the pointerY transform: the determination of the
     closest point is heavily weighted by the *y* (vertical↕︎) position; this
@@ -710,7 +815,11 @@ def crosshairY(values, options={}, **kwargs):
     )
 
 
-def delaunayLink(values, options={}, **kwargs):
+def delaunayLink(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a mark that draws links for each edge of the Delaunay triangulation
     of the points given by the **x** and **y** channels. Like the link mark,
@@ -727,7 +836,11 @@ def delaunayLink(values, options={}, **kwargs):
     )
 
 
-def delaunayMesh(values, options={}, **kwargs):
+def delaunayMesh(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a mark that draws a mesh of the Delaunay triangulation of the points
     given by the **x** and **y** channels. The **stroke** option defaults to
@@ -744,7 +857,11 @@ def delaunayMesh(values, options={}, **kwargs):
     )
 
 
-def density(values, options={}, **kwargs):
+def density(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a mark that draws contours representing the estimated density of the
     two-dimensional points given by **x** and **y**, and possibly weighted by
@@ -760,7 +877,11 @@ def density(values, options={}, **kwargs):
     )
 
 
-def differenceY(values, options={}, **kwargs):
+def differenceY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new vertical difference mark for the given the specified *data* and
     *options*, as in a time-series chart where time goes right→ (or ←left).
@@ -777,7 +898,7 @@ def differenceY(values, options={}, **kwargs):
     )
 
 
-def dodgeX(*args):
+def dodgeX(*args: Any) -> Dict[str, Any]:
     """
     Given a **y** position channel, derives a new **x** position channel that
     places circles of the given radius **r** to avoid overlap. The order in which
@@ -790,7 +911,7 @@ def dodgeX(*args):
     return JSCall("Plot", "dodgeX", args)
 
 
-def dodgeY(*args):
+def dodgeY(*args: Any) -> Dict[str, Any]:
     """
     Given an **x** position channel, derives a new **y** position channel that
     places circles of the given radius **r** to avoid overlap. The order in which
@@ -803,7 +924,11 @@ def dodgeY(*args):
     return JSCall("Plot", "dodgeY", args)
 
 
-def dot(values, options={}, **kwargs):
+def dot(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new dot mark for the given *data* and *options* that draws circles,
     or other symbols, as in a scatterplot. For example, a scatterplot of sales by
@@ -825,7 +950,11 @@ def dot(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["dot", values, {**options, **kwargs}]))
 
 
-def dotX(values, options={}, **kwargs):
+def dotX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like dot, except that **x** defaults to the identity function, assuming that
     *data* = [*x₀*, *x₁*, *x₂*, …].
@@ -840,7 +969,11 @@ def dotX(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["dotX", values, {**options, **kwargs}]))
 
 
-def dotY(values, options={}, **kwargs):
+def dotY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like dot, except that **y** defaults to the identity function, assuming that
     *data* = [*y₀*, *y₁*, *y₂*, …].
@@ -855,7 +988,7 @@ def dotY(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["dotY", values, {**options, **kwargs}]))
 
 
-def filter(*args):
+def filter(*args: Any) -> Dict[str, Any]:
     """
     Applies a transform to *options* to filter the mark’s index according to the
     given *test*, which can be a function (receiving the datum *d* and index *i*)
@@ -873,7 +1006,7 @@ def filter(*args):
     return JSCall("Plot", "filter", args)
 
 
-def find(*args):
+def find(*args: Any) -> Dict[str, Any]:
     """
     Given the specified *test* function, returns a corresponding reducer
     implementation for use with the group or bin transform. The reducer returns
@@ -882,7 +1015,7 @@ def find(*args):
     return JSCall("Plot", "find", args)
 
 
-def formatIsoDate(*args):
+def formatIsoDate(*args: Any) -> Dict[str, Any]:
     """
     Given a *date*, returns the shortest equivalent ISO 8601 UTC string. If the
     given *date* is not valid, returns `"Invalid Date"`.
@@ -890,7 +1023,7 @@ def formatIsoDate(*args):
     return JSCall("Plot", "formatIsoDate", args)
 
 
-def formatMonth(*args):
+def formatMonth(*args: Any) -> Dict[str, Any]:
     """
     Returns a function that formats a given month number (from 0 = January to 11
     = December) according to the specified *locale* and *format*.
@@ -901,7 +1034,7 @@ def formatMonth(*args):
     return JSCall("Plot", "formatMonth", args)
 
 
-def formatWeekday(*args):
+def formatWeekday(*args: Any) -> Dict[str, Any]:
     """
     Returns a function that formats a given week day number (from 0 = Sunday to 6
     = Saturday) according to the specified *locale* and *format*.
@@ -912,7 +1045,7 @@ def formatWeekday(*args):
     return JSCall("Plot", "formatWeekday", args)
 
 
-def frame(options={}, **kwargs):
+def frame(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """
     Draws a rectangle around the plot’s frame, or if an **anchor** is given, a
     line on the given side. Useful for visual separation of facets, or in
@@ -921,7 +1054,11 @@ def frame(options={}, **kwargs):
     return JSCall("Plot", "frame", [{**options, **kwargs}])
 
 
-def geo(values, options={}, **kwargs):
+def geo(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new geo mark with the given *data* and *options*. The **geometry**
     channel, which defaults to the identity function assuming that *data* is a
@@ -941,7 +1078,7 @@ def geo(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["geo", values, {**options, **kwargs}]))
 
 
-def geoCentroid(*args):
+def geoCentroid(*args: Any) -> Dict[str, Any]:
     """
     Given a **geometry** input channel of spherical GeoJSON geometry, derives
     **x** and **y** output channels representing the spherical centroids of the
@@ -952,7 +1089,11 @@ def geoCentroid(*args):
     return JSCall("Plot", "geoCentroid", args)
 
 
-def graticule(values, options={}, **kwargs):
+def graticule(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new geo mark whose *data* is a 10° global graticule. (For use with
     a spherical **projection** only.) For more control, use [d3.geoGraticule][1]
@@ -965,7 +1106,7 @@ def graticule(values, options={}, **kwargs):
     )
 
 
-def gridFx(options={}, **kwargs):
+def gridFx(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """
     Returns a new horizontally-positioned ruleX mark (a vertical line, |) that
     renders a grid for the *fx* scale. The *data* defaults to the *fx* scale’s
@@ -975,7 +1116,7 @@ def gridFx(options={}, **kwargs):
     return JSCall("Plot", "gridFx", [{**options, **kwargs}])
 
 
-def gridFy(options={}, **kwargs):
+def gridFy(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """
     Returns a new vertically-positioned ruleY mark (a horizontal line, —) that
     renders a grid for the *fy* scale. The *data* defaults to the *fy* scale’s
@@ -985,7 +1126,7 @@ def gridFy(options={}, **kwargs):
     return JSCall("Plot", "gridFy", [{**options, **kwargs}])
 
 
-def gridX(options={}, **kwargs):
+def gridX(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """
     Returns a new horizontally-positioned ruleX mark (a vertical line, |) that
     renders a grid for the *x* scale. The *data* defaults to tick values sampled
@@ -995,7 +1136,7 @@ def gridX(options={}, **kwargs):
     return JSCall("Plot", "gridX", [{**options, **kwargs}])
 
 
-def gridY(options={}, **kwargs):
+def gridY(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """
     Returns a new vertically-positioned ruleY mark (a horizontal line, —) that
     renders a grid for the *y* scale. The *data* defaults to tick values sampled
@@ -1005,7 +1146,7 @@ def gridY(options={}, **kwargs):
     return JSCall("Plot", "gridY", [{**options, **kwargs}])
 
 
-def group(*args):
+def group(*args: Any) -> Dict[str, Any]:
     """
     Groups on the **x** and **y** channels; then subdivides groups on the first
     channel of **z**, **fill**, or **stroke**, if any; and then for each channel
@@ -1038,7 +1179,7 @@ def group(*args):
     return JSCall("Plot", "group", args)
 
 
-def groupX(*args):
+def groupX(*args: Any) -> Dict[str, Any]:
     """
     Groups on the **x** channel; then subdivides groups on the first channel of
     **z**, **fill**, or **stroke**, if any; and then for each channel in the
@@ -1067,7 +1208,7 @@ def groupX(*args):
     return JSCall("Plot", "groupX", args)
 
 
-def groupY(*args):
+def groupY(*args: Any) -> Dict[str, Any]:
     """
     Groups on the **y** channel; then subdivides groups on the first channel of
     **z**, **fill**, or **stroke**, if any; and then for each channel in the
@@ -1096,7 +1237,7 @@ def groupY(*args):
     return JSCall("Plot", "groupY", args)
 
 
-def groupZ(*args):
+def groupZ(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then for each channel in the specified *outputs*, applies the corresponding
@@ -1116,7 +1257,11 @@ def groupZ(*args):
     return JSCall("Plot", "groupZ", args)
 
 
-def hexagon(values, options={}, **kwargs):
+def hexagon(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like dot, except that the **symbol** option is set to *hexagon*.
     """
@@ -1125,7 +1270,7 @@ def hexagon(values, options={}, **kwargs):
     )
 
 
-def hexbin(*args):
+def hexbin(*args: Any) -> Dict[str, Any]:
     """
     Bins hexagonally on the scaled **x** and **y** channels; then subdivides bins
     on the first channel of **z**, **fill**, or **stroke**, if any; and lastly
@@ -1156,7 +1301,7 @@ def hexbin(*args):
     return JSCall("Plot", "hexbin", args)
 
 
-def hexgrid(options={}, **kwargs):
+def hexgrid(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
     """
     The hexgrid decoration mark complements the hexbin transform, showing the
     outlines of all hexagons spanning the frame with a default **stroke** of
@@ -1179,7 +1324,11 @@ def hexgrid(options={}, **kwargs):
     return JSCall("Plot", "hexgrid", [{**options, **kwargs}])
 
 
-def hull(values, options={}, **kwargs):
+def hull(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a mark that draws a convex hull around the points given by the **x**
     and **y** channels. The **stroke** option defaults to _currentColor_ and the
@@ -1194,7 +1343,11 @@ def hull(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["hull", values, {**options, **kwargs}]))
 
 
-def image(values, options={}, **kwargs):
+def image(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new image mark for the given *data* and *options* that draws images
     as in a scatterplot. For example, portraits of U.S. presidents by date of
@@ -1215,7 +1368,7 @@ def image(values, options={}, **kwargs):
     )
 
 
-def initializer(*args):
+def initializer(*args: Any) -> Dict[str, Any]:
     """
     Given an *options* object that may specify some basic initializers
     (**filter**, **sort**, or **reverse**) or a custom **initializer**, composes
@@ -1235,7 +1388,11 @@ def initializer(*args):
     return JSCall("Plot", "initializer", args)
 
 
-def interpolatorBarycentric(values, options={}, **kwargs):
+def interpolatorBarycentric(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Constructs a Delaunay triangulation of the samples, and then for each pixel
     in the raster grid, determines the triangle that covers the pixel’s centroid
@@ -1258,7 +1415,11 @@ def interpolatorBarycentric(values, options={}, **kwargs):
     )
 
 
-def interpolatorRandomWalk(values, options={}, **kwargs):
+def interpolatorRandomWalk(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     For each pixel in the raster grid, initiates a random walk, stopping when
     either the walk is within a given distance (**minDistance**) of a sample or
@@ -1278,7 +1439,7 @@ def interpolatorRandomWalk(values, options={}, **kwargs):
     )
 
 
-def legend(*args):
+def legend(*args: Any) -> Dict[str, Any]:
     """
     Generates a standalone legend for the scale defined by the given *options*,
     returning either an SVG or HTML element depending on the scale and the
@@ -1288,7 +1449,11 @@ def legend(*args):
     return JSCall("Plot", "legend", args)
 
 
-def line(values, options={}, **kwargs):
+def line(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new line mark for the given *data* and *options* by connecting
     control points. If neither the **x** nor **y** options are specified, *data*
@@ -1320,7 +1485,11 @@ def line(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["line", values, {**options, **kwargs}]))
 
 
-def lineX(values, options={}, **kwargs):
+def lineX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like line, except that **x** defaults to the identity function assuming that
     *data* = [*x₀*, *x₁*, *x₂*, …] and **y** defaults to the zero-based index [0,
@@ -1344,7 +1513,11 @@ def lineX(values, options={}, **kwargs):
     )
 
 
-def lineY(values, options={}, **kwargs):
+def lineY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like line, except **y** defaults to the identity function and assumes that
     *data* = [*y₀*, *y₁*, *y₂*, …] and **x** defaults to the zero-based index [0,
@@ -1369,7 +1542,11 @@ def lineY(values, options={}, **kwargs):
     )
 
 
-def linearRegressionX(values, options={}, **kwargs):
+def linearRegressionX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like linearRegressionY, but where *x* is the dependent variable and *y* is
     the independent variable. This orientation is infrequently used, but suitable
@@ -1381,7 +1558,11 @@ def linearRegressionX(values, options={}, **kwargs):
     )
 
 
-def linearRegressionY(values, options={}, **kwargs):
+def linearRegressionY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a mark that draws [linear regression][1] lines with confidence bands,
     representing the estimated relation of a dependent variable (*y*) on an
@@ -1409,7 +1590,11 @@ def linearRegressionY(values, options={}, **kwargs):
     )
 
 
-def link(values, options={}, **kwargs):
+def link(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new link mark for the given *data* and *options*, drawing line
     segments (curves) connecting pairs of points. For example, to draw a link
@@ -1427,7 +1612,7 @@ def link(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["link", values, {**options, **kwargs}]))
 
 
-def map(*args):
+def map(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then for each channel in the specified *outputs*, applies the corresponding
@@ -1448,7 +1633,7 @@ def map(*args):
     return JSCall("Plot", "map", args)
 
 
-def mapX(*args):
+def mapX(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then applies the specified *map* method to each of the **x**, **x1**, and
@@ -1469,7 +1654,7 @@ def mapX(*args):
     return JSCall("Plot", "mapX", args)
 
 
-def mapY(*args):
+def mapY(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then applies the specified map method to each of the **y**, **y1**, and
@@ -1490,14 +1675,14 @@ def mapY(*args):
     return JSCall("Plot", "mapY", args)
 
 
-def marks(*args):
+def marks(*args: Any) -> Dict[str, Any]:
     """
     Given an array of marks, returns a compound mark; supports *mark*.plot shorthand.
     """
     return JSCall("Plot", "marks", args)
 
 
-def normalize(*args):
+def normalize(*args: Any) -> Dict[str, Any]:
     """
     Given a normalize *basis*, returns a corresponding map implementation for use
     with the map transform, allowing the normalization of arbitrary channels
@@ -1511,7 +1696,7 @@ def normalize(*args):
     return JSCall("Plot", "normalize", args)
 
 
-def normalizeX(*args):
+def normalizeX(*args: Any) -> Dict[str, Any]:
     """
     Groups data into series using the first channel of **z**, **fill**, or
     **stroke** (if any), then derives new **x**, **x1**, and **x2** channels for
@@ -1523,7 +1708,7 @@ def normalizeX(*args):
     return JSCall("Plot", "normalizeX", args)
 
 
-def normalizeY(*args):
+def normalizeY(*args: Any) -> Dict[str, Any]:
     """
     Groups data into series using the first channel of **z**, **fill**, or
     **stroke** (if any), then derives new **y**, **y1**, and **y2** channels for
@@ -1535,7 +1720,7 @@ def normalizeY(*args):
     return JSCall("Plot", "normalizeY", args)
 
 
-def plot(*args):
+def plot(*args: Any) -> Dict[str, Any]:
     """
     Renders a new plot given the specified *options* and returns the
     corresponding SVG element, or an HTML figure element if a caption or legend
@@ -1544,7 +1729,7 @@ def plot(*args):
     return JSCall("Plot", "plot", args)
 
 
-def pointer(*args):
+def pointer(*args: Any) -> Dict[str, Any]:
     """
     Applies a render transform to the specified *options* to filter the mark
     index such that only the point closest to the pointer is rendered; the mark
@@ -1553,7 +1738,7 @@ def pointer(*args):
     return JSCall("Plot", "pointer", args)
 
 
-def pointerX(*args):
+def pointerX(*args: Any) -> Dict[str, Any]:
     """
     Like the pointer transform, except the determination of the closest point
     considers mostly the *x* (horizontal↔︎) position; this should be used for
@@ -1564,7 +1749,7 @@ def pointerX(*args):
     return JSCall("Plot", "pointerX", args)
 
 
-def pointerY(*args):
+def pointerY(*args: Any) -> Dict[str, Any]:
     """
     Like the pointer transform, except the determination of the closest point
     considers mostly the *y* (vertical↕︎) position; this should be used for plots
@@ -1575,7 +1760,11 @@ def pointerY(*args):
     return JSCall("Plot", "pointerY", args)
 
 
-def raster(values, options={}, **kwargs):
+def raster(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a raster mark which renders a raster image from spatial samples. If
     *data* is provided, it represents discrete samples in abstract coordinates
@@ -1608,7 +1797,11 @@ def raster(values, options={}, **kwargs):
     )
 
 
-def rect(values, options={}, **kwargs):
+def rect(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a rect mark for the given *data* and *options*. The rectangle extends
     horizontally from **x1** to **x2**, and vertically from **y1** to **y2**. The
@@ -1634,7 +1827,11 @@ def rect(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["rect", values, {**options, **kwargs}]))
 
 
-def rectX(values, options={}, **kwargs):
+def rectX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like rect, but if neither **x1** nor **x2** is specified, an implicit stackX
     transform is applied to **x**, and if **x** is not specified, it defaults to
@@ -1651,7 +1848,11 @@ def rectX(values, options={}, **kwargs):
     )
 
 
-def rectY(values, options={}, **kwargs):
+def rectY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like rect, but if neither **y1** nor **y2** is specified, apply an implicit
     stackY transform is applied to **y**, and if **y** is not specified, it
@@ -1668,7 +1869,7 @@ def rectY(values, options={}, **kwargs):
     )
 
 
-def reverse(*args):
+def reverse(*args: Any) -> Dict[str, Any]:
     """
     Applies a transform to *options* to reverse the order of the mark’s index,
     say for reverse input order.
@@ -1676,7 +1877,11 @@ def reverse(*args):
     return JSCall("Plot", "reverse", args)
 
 
-def ruleX(values, options={}, **kwargs):
+def ruleX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new horizontally-positioned ruleX mark (a vertical line, |) for the
     given *data* and *options*. The **x** channel specifies the rule’s horizontal
@@ -1702,7 +1907,11 @@ def ruleX(values, options={}, **kwargs):
     )
 
 
-def ruleY(values, options={}, **kwargs):
+def ruleY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new vertically-positioned ruleY mark (a horizontal line, —) for the
     given *data* and *options*. The **y** channel specifies the vertical position
@@ -1729,7 +1938,7 @@ def ruleY(values, options={}, **kwargs):
     )
 
 
-def scale(*args):
+def scale(*args: Any) -> Dict[str, Any]:
     """
     Returns a standalone scale given the specified scale *options*, which must
     define exactly one named scale. For example, for a default *linear* *color*
@@ -1742,7 +1951,7 @@ def scale(*args):
     return JSCall("Plot", "scale", args)
 
 
-def select(*args):
+def select(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects points from each series based on the given *selector*. For
@@ -1755,7 +1964,7 @@ def select(*args):
     return JSCall("Plot", "select", args)
 
 
-def selectFirst(*args):
+def selectFirst(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the first point from each series in input order.
@@ -1763,7 +1972,7 @@ def selectFirst(*args):
     return JSCall("Plot", "selectFirst", args)
 
 
-def selectLast(*args):
+def selectLast(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the last point from each series in input order.
@@ -1771,7 +1980,7 @@ def selectLast(*args):
     return JSCall("Plot", "selectLast", args)
 
 
-def selectMaxX(*args):
+def selectMaxX(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the maximum point from each series based on **x** channel value.
@@ -1779,7 +1988,7 @@ def selectMaxX(*args):
     return JSCall("Plot", "selectMaxX", args)
 
 
-def selectMaxY(*args):
+def selectMaxY(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the maximum point from each series based on **y** channel value.
@@ -1787,7 +1996,7 @@ def selectMaxY(*args):
     return JSCall("Plot", "selectMaxY", args)
 
 
-def selectMinX(*args):
+def selectMinX(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the minimum point from each series based on **x** channel value.
@@ -1795,7 +2004,7 @@ def selectMinX(*args):
     return JSCall("Plot", "selectMinX", args)
 
 
-def selectMinY(*args):
+def selectMinY(*args: Any) -> Dict[str, Any]:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the minimum point from each series based on **y** channel value.
@@ -1803,7 +2012,7 @@ def selectMinY(*args):
     return JSCall("Plot", "selectMinY", args)
 
 
-def shiftX(*args):
+def shiftX(*args: Any) -> Dict[str, Any]:
     """
     Groups data into series using the first channel of *z*, *fill*, or *stroke*
     (if any), then derives *x1* and *x2* output channels by shifting the input
@@ -1812,7 +2021,7 @@ def shiftX(*args):
     return JSCall("Plot", "shiftX", args)
 
 
-def shuffle(*args):
+def shuffle(*args: Any) -> Dict[str, Any]:
     """
     Applies a transform to *options* to randomly shuffles the mark’s index. If a
     **seed** is specified, a linear congruential generator with the given seed is
@@ -1822,7 +2031,7 @@ def shuffle(*args):
     return JSCall("Plot", "shuffle", args)
 
 
-def sort(*args):
+def sort(*args: Any) -> Dict[str, Any]:
     """
     Applies a transform to *options* to sort the mark’s index by the specified
     *order*. The *order* is one of:
@@ -1841,7 +2050,11 @@ def sort(*args):
     return JSCall("Plot", "sort", args)
 
 
-def sphere(values, options={}, **kwargs):
+def sphere(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new geo mark whose *data* is the outline of the sphere on the
     projection’s plane. (For use with a spherical **projection** only.)
@@ -1851,7 +2064,11 @@ def sphere(values, options={}, **kwargs):
     )
 
 
-def spike(values, options={}, **kwargs):
+def spike(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like vector, but with default *options* suitable for drawing a spike map. For
     example, to show city populations:
@@ -1865,7 +2082,7 @@ def spike(values, options={}, **kwargs):
     )
 
 
-def stackX(*args):
+def stackX(*args: Any) -> Dict[str, Any]:
     """
     Transforms a length channel **x** into starting and ending position channels
     **x1** and **x2** by “stacking” elements that share a given **y** position.
@@ -1879,7 +2096,7 @@ def stackX(*args):
     return JSCall("Plot", "stackX", args)
 
 
-def stackX1(*args):
+def stackX1(*args: Any) -> Dict[str, Any]:
     """
     Like **stackX**, but returns the starting position **x1** as the **x**
     channel, for example to position a dot on the left-hand side of each element
@@ -1888,7 +2105,7 @@ def stackX1(*args):
     return JSCall("Plot", "stackX1", args)
 
 
-def stackX2(*args):
+def stackX2(*args: Any) -> Dict[str, Any]:
     """
     Like **stackX**, but returns the starting position **x2** as the **x**
     channel, for example to position a dot on the right-hand side of each element
@@ -1897,7 +2114,7 @@ def stackX2(*args):
     return JSCall("Plot", "stackX2", args)
 
 
-def stackY(*args):
+def stackY(*args: Any) -> Dict[str, Any]:
     """
     Transforms a length channel **y** into starting and ending position channels
     **y1** and **y2** by “stacking” elements that share a given **x** position.
@@ -1910,7 +2127,7 @@ def stackY(*args):
     return JSCall("Plot", "stackY", args)
 
 
-def stackY1(*args):
+def stackY1(*args: Any) -> Dict[str, Any]:
     """
     Like **stackY**, but returns the starting position **y1** as the **y**
     channel, for example to position a dot at the bottom of each element of a
@@ -1919,7 +2136,7 @@ def stackY1(*args):
     return JSCall("Plot", "stackY1", args)
 
 
-def stackY2(*args):
+def stackY2(*args: Any) -> Dict[str, Any]:
     """
     Like **stackY**, but returns the ending position **y2** as the **y** channel,
     for example to position a dot at the top of each element of a stack.
@@ -1927,7 +2144,11 @@ def stackY2(*args):
     return JSCall("Plot", "stackY2", args)
 
 
-def text(values, options={}, **kwargs):
+def text(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new text mark for the given *data* and *options*. The **text**
     channel specifies the textual contents of the mark, which may be preformatted
@@ -1956,7 +2177,11 @@ def text(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["text", values, {**options, **kwargs}]))
 
 
-def textX(values, options={}, **kwargs):
+def textX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like text, but **x** defaults to the identity function, assuming that *data*
     = [*x₀*, *x₁*, *x₂*, …]. For example to display tick label-like marks at the
@@ -1974,7 +2199,11 @@ def textX(values, options={}, **kwargs):
     )
 
 
-def textY(values, options={}, **kwargs):
+def textY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like text, but **y** defaults to the identity function, assuming that *data*
     = [*y₀*, *y₁*, *y₂*, …]. For example to display tick label-like marks on the
@@ -1992,7 +2221,11 @@ def textY(values, options={}, **kwargs):
     )
 
 
-def tickX(values, options={}, **kwargs):
+def tickX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new horizontally-positioned tickX mark (a vertical line, |) for the
     given *data* and *options*. The **x** channel specifies the tick’s horizontal
@@ -2011,7 +2244,11 @@ def tickX(values, options={}, **kwargs):
     )
 
 
-def tickY(values, options={}, **kwargs):
+def tickY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new vertically-positioned tickY mark (a horizontal line, —) for the
     given *data* and *options*. The **y** channel specifies the vertical position
@@ -2030,7 +2267,11 @@ def tickY(values, options={}, **kwargs):
     )
 
 
-def tip(values, options={}, **kwargs):
+def tip(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new tip mark for the given *data* and *options*.
 
@@ -2043,7 +2284,7 @@ def tip(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["tip", values, {**options, **kwargs}]))
 
 
-def transform(*args):
+def transform(*args: Any) -> Dict[str, Any]:
     """
     Given an *options* object that may specify some basic transforms (**filter**,
     **sort**, or **reverse**) or a custom **transform**, composes those
@@ -2063,7 +2304,11 @@ def transform(*args):
     return JSCall("Plot", "transform", args)
 
 
-def tree(values, options={}, **kwargs):
+def tree(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a compound tree mark, with a link to display edges from parent to
     child, a dot to display nodes, and a text to display node labels.
@@ -2079,7 +2324,7 @@ def tree(values, options={}, **kwargs):
     return PlotSpec(JSCall("View", "MarkSpec", ["tree", values, {**options, **kwargs}]))
 
 
-def treeLink(*args):
+def treeLink(*args: Any) -> Dict[str, Any]:
     """
     Populates the *x1*, *y1*, *x2*, and *y2* channels, and applies the following
     defaults: **curve** is *bump-x*, **stroke** is #555, **strokeWidth** is 1.5,
@@ -2111,7 +2356,7 @@ def treeLink(*args):
     return JSCall("Plot", "treeLink", args)
 
 
-def treeNode(*args):
+def treeNode(*args: Any) -> Dict[str, Any]:
     """
     Populates the *x* and *y* channels with the positions for each node, and
     applies a default **frameAnchor** based on the specified **treeAnchor**. This
@@ -2135,7 +2380,7 @@ def treeNode(*args):
     return JSCall("Plot", "treeNode", args)
 
 
-def valueof(*args):
+def valueof(*args: Any) -> Dict[str, Any]:
     """
     Given some *data* and a channel *value* definition (such as a field name or
     function accessor), returns an array of the specified *type* containing the
@@ -2149,7 +2394,11 @@ def valueof(*args):
     return JSCall("Plot", "valueof", args)
 
 
-def vector(values, options={}, **kwargs):
+def vector(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a new vector mark for the given *data* and *options*. For example, to
     create a vector field from spatial samples of wind observations:
@@ -2167,7 +2416,11 @@ def vector(values, options={}, **kwargs):
     )
 
 
-def vectorX(values, options={}, **kwargs):
+def vectorX(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like vector, but **x** instead defaults to the identity function and **y**
     defaults to null, assuming that *data* is an array of numbers [*x₀*, *x₁*,
@@ -2178,7 +2431,11 @@ def vectorX(values, options={}, **kwargs):
     )
 
 
-def vectorY(values, options={}, **kwargs):
+def vectorY(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Like vector, but **y** instead defaults to the identity function and **x**
     defaults to null, assuming that *data* is an array of numbers [*y₀*, *y₁*,
@@ -2189,7 +2446,11 @@ def vectorY(values, options={}, **kwargs):
     )
 
 
-def voronoi(values, options={}, **kwargs):
+def voronoi(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a mark that draws polygons for each cell of the Voronoi tesselation
     of the points given by the **x** and **y** channels.
@@ -2202,7 +2463,11 @@ def voronoi(values, options={}, **kwargs):
     )
 
 
-def voronoiMesh(values, options={}, **kwargs):
+def voronoiMesh(
+    values: Iterable[Any],
+    options: Dict[str, Any] = {},
+    **kwargs: Dict[str, Any],
+) -> PlotSpec:
     """
     Returns a mark that draws a mesh for the cell boundaries of the Voronoi
     tesselation of the points given by the **x** and **y** channels. The
@@ -2220,7 +2485,7 @@ def voronoiMesh(values, options={}, **kwargs):
     )
 
 
-def window(*args):
+def window(*args: Any) -> Dict[str, Any]:
     """
     Given the specified window *options*, returns a corresponding map
     implementation for use with the map transform, allowing the window transform
@@ -2236,7 +2501,7 @@ def window(*args):
     return JSCall("Plot", "window", args)
 
 
-def windowX(*args):
+def windowX(*args: Any) -> Dict[str, Any]:
     """
     Groups data into series using the first channel of *z*, *fill*, or *stroke*
     (if any), then derives new *x*, *x1*, and *x2* channels by computing a moving
@@ -2252,7 +2517,7 @@ def windowX(*args):
     return JSCall("Plot", "windowX", args)
 
 
-def windowY(*args):
+def windowY(*args: Any) -> Dict[str, Any]:
     """
     Groups data into series using the first channel of *z*, *fill*, or *stroke*
     (if any), then derives new *y*, *y1*, and *y2* channels by computing a moving

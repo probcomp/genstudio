@@ -55,7 +55,7 @@ Plot.histogram(normal_100())
 # also accept separate `xs` and `ys` for passing in columnar data (usually the case
 # when working with jax.)
 # %%
-Plot.dot({"x": normal_100(), "y": normal_100()}) + Plot.frame()
+Plot.dot(zip(normal_100(), normal_100())) + Plot.frame()
 
 # %% [markdown]
 # #### One-dimensional heatmap

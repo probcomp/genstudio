@@ -132,7 +132,7 @@ from genstudio.plot_defs import (
     windowX,
     windowY,
 )
-from genstudio.plot_spec import PlotSpec, new
+from genstudio.plot_spec import PlotSpec, new, _deep_merge
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
@@ -402,7 +402,7 @@ def scaled_circle(x, y, r, n=16, curve="catmull-rom-closed", **kwargs):
         (x + r * math.cos(2 * math.pi * i / n), y + r * math.sin(2 * math.pi * i / n))
         for i in range(n)
     ]
-    return line(points, curve=curve, **kwargs)
+    return line(points, {"curve": curve, **kwargs})
 
 
 def constantly(x):
@@ -450,6 +450,7 @@ def histogram(
     mark="rectY",
     thresholds="auto",
     layout={"width": 200, "height": 200, "inset": 0},
+    **plot_opts,
 ):
     """
     Create a histogram plot from the given values.
@@ -472,7 +473,7 @@ def histogram(
      Returns:
       PlotSpec: A plot specification for a histogram with the y-axis representing the count of values in each bin.
     """
-    opts = {"x": {"thresholds": thresholds}, "tip": True}
+    opts = _deep_merge({"x": {"thresholds": thresholds}, "tip": True}, plot_opts)
     if mark == "rectY":
         return rectY(values, binX({"y": "count"}, opts)) + ruleY([0]) + layout
     elif mark == "dot":

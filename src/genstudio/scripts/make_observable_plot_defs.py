@@ -1,6 +1,6 @@
 # %%
 import json
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, Iterable, Optional
 
 import genstudio.util as util
 from genstudio.js_modules import JSCall
@@ -27,14 +27,23 @@ def get_function_def(path: str, func_name: str) -> Optional[str]:
         ),
         None,
     )
+
     if start_index is None:
         return None  # Function not found
+
+    while start_index > 0:
+        line = lines[start_index - 1].strip()
+        if line.startswith("@"):  # This line is a decorator
+            start_index -= 1  # Update the start index to include the decorator
+        else:
+            break
+
     # Find the end of the function by looking for a line that is not indented
     end_index = next(
         (
             i
             for i, line in enumerate(lines[start_index + 1 :], start_index + 1)
-            if not line.startswith((" ", "\t"))
+            if not line.startswith((" ", "\t", ")", "#", '"""'))
         ),
         None,
     )
@@ -54,7 +63,7 @@ def FN_VALUELESS(
 
 
 def FN_MARK(
-    values: Union[Dict[str, Any], List[Any]],
+    values: Iterable[Any],
     options: Dict[str, Any] = {},
     **kwargs: Dict[str, Any],
 ) -> PlotSpec:
@@ -64,7 +73,7 @@ def FN_MARK(
     )
 
 
-def FN_OTHER(*args: Union[Any, List[Any]]) -> Dict[str, Any]:
+def FN_OTHER(*args: Any) -> Dict[str, Any]:
     """DOC"""
     return JSCall("Plot", "FN_OTHER", args)
 
@@ -106,12 +115,15 @@ plot_defs_module = f"""# Generated from version {OBSERVABLE_VERSION} of Observab
 
 from genstudio.js_modules import JSCall
 from genstudio.plot_spec import PlotSpec
+from typing import Any, Dict, Iterable, Union
 
 
 {plot_defs}
 
 """
 plot_defs_module
+
+# %%
 
 with open(util.PARENT_PATH / "plot_defs.py", "w") as f:
     f.write(plot_defs_module)

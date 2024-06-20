@@ -4,17 +4,17 @@ import datetime
 import anywidget
 import traitlets
 from genstudio.util import PARENT_PATH
+from typing import Iterable
 
 
 def to_json(data, _widget):
     def default(obj):
         if hasattr(obj, "to_json"):
             return obj.to_json()
-        if type(obj).__name__ in (
-            "ndarray",
-            "ArrayImpl",
-        ):  # intended to identify numpy.ndarray and jax.numpy.ndarray
+        if hasattr(obj, "tolist"):
             return obj.tolist()
+        if isinstance(obj, Iterable):
+            return [x for x in obj]
         elif isinstance(obj, (datetime.date, datetime.datetime)):
             return {"pyobsplot-type": "datetime", "value": obj.isoformat()}
         else:
