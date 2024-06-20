@@ -4,12 +4,10 @@ import * as d3 from "d3";
 import MarkdownIt from "markdown-it";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import { WidthContext } from "./context";
+import { WidthContext, AUTOGRID_MIN } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper } from "./plot";
 import { flatten, html } from "./utils";
-const { useState, useEffect, useContext } = React
-
-const AUTOGRID_MIN = 165
+const { useState, useEffect, useContext, useMemo } = React
 
 const md = new MarkdownIt({
   html: true,
@@ -54,7 +52,7 @@ const scope = {
     PlotSpec: (x) => new PlotSpec(x),
     MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
     md: (x) => renderMarkdown(x),
-    repeat: (_, i) => data[i % data.length],
+    repeat: (data) => (_, i) => data[i % data.length],
     hiccup,
     AutoGrid,
     flatten
@@ -65,10 +63,11 @@ const scope = {
  * Interpret data recursively, evaluating functions.
  */
 export function interpret(data) {
+
   if (data === null) return null;
   if (Array.isArray(data)) return data.map(interpret);
   if (typeof data === "string" || data instanceof String) return data;
-  if (Object.entries(data).length == 0) return data;
+  if (data.constructor !== Object) return data;
 
   switch (data["pyobsplot-type"]) {
     case "function":
@@ -76,7 +75,8 @@ export function interpret(data) {
       if (!fn) {
         console.error('f not found', data)
       }
-      return fn.call(null, ...interpret(data["args"]));
+      const interpretedArgs = interpret(data.args)
+      return fn.call(null, ...interpretedArgs);
     case "ref":
       return data.name ? scope[data.module][data.name] : scope[data.module]
     case "js":
@@ -154,15 +154,15 @@ function Node({ value }) {
 }
 
 function useCellUnmounted(el) {
-  // for Python Interactive Output in VS Code, detect when this element 
+  // for Python Interactive Output in VS Code, detect when this element
   // is unmounted & save that state on the element itself.
-  // We have to directly read from the ancestor DOM because none of our 
+  // We have to directly read from the ancestor DOM because none of our
   // cell output is preserved across reload.
   useEffect(() => {
     let observer;
     // .output_container is stable across refresh
     const outputContainer = el?.closest(".output_container")
-    // .widgetarea contains all the notebook's cells 
+    // .widgetarea contains all the notebook's cells
     const widgetarea = outputContainer?.closest(".widgetarea")
     if (el && !el.initialized && widgetarea) {
       el.initialized = true;
@@ -210,37 +210,15 @@ function useElementWidth(el) {
 function App() {
   const [el, setEl] = useState();
   const [data, _] = useModelState("data");
+  const interpretedData = useMemo(() => data ? interpret(JSON.parse(data)) : null, [data])
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
-  const value = !unmounted && data ? interpret(JSON.parse(data)) : null;
-  return html`<${WidthContext.Provider} value=${width}>  
+  const value = unmounted ? null : interpretedData;
+  return html`<${WidthContext.Provider} value=${width}>
       <div style=${{ color: '#333' }} ref=${setEl}>
         <${Node} value=${el ? value : null}/>
       </div>
     </>`
 }
 
-const render = createRender(App)
-
-
-const installCSS = () => {
-  // const id = "tailwind-cdn"
-  // const scriptUrl = "https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio";
-  // if (!document.getElementById(id)) {
-  //   const script = document.createElement("script");
-  //   script.id = id;
-  //   script.src = scriptUrl;
-  //   document.head.appendChild(script);
-  // }
-  // const url = "https://cdn.jsdelivr.net/gh/html-first-labs/static-tailwind@759f1d7/dist/tailwind.css"
-  // if (!document.getElementById(id)) {
-  //   const link = document.createElement("link");
-  //   link.id = id;
-  //   link.rel = "stylesheet";
-  //   link.href = url;
-  //   document.head.appendChild(link);
-  // }
-}
-
-export default { render }
-
+export default { render: createRender(App) }

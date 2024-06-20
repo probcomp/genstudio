@@ -9,11 +9,11 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.16.2
 # ---
-
+# ruff: noqa: E402
 # %% slideshow={"slide_type": "none"}
-import random 
+import random
 
-plant_growth = [     
+plant_growth = [
     [
         {
             "stem_length": 0,
@@ -60,7 +60,7 @@ for day in range(1, 21):
 
 
 # %% [markdown] slideshow={"slide_type": "slide"}
-# ### Composable 
+# ### Composable
 # ### Functional / Stateless
 # ### Interactive
 # ### Works in common environments
@@ -84,16 +84,17 @@ plant_growth_described.flatten()
 
 # %% slideshow={"slide_type": "slide"}
 
-Plot.line(plant_growth_described,
-          {"x": "day", "y": "stem_length", "z": "plant", 
-           "stroke": "plant", "tip": True})
+Plot.line(
+    plant_growth_described,
+    {"x": "day", "y": "stem_length", "z": "plant", "stroke": "plant", "tip": True},
+)
 
 # %% slideshow={"slide_type": "slide"}
 
-Plot.get_in([[1, 5, 3, 4, 1],
-              [4, 7, 2, 4, 8],
-              [1, 9, 6, 8, 3]], 
-            [{...: 'day'}, {...: 'plant'}, {'leaves': 'height'}]).flatten()
+Plot.get_in(
+    [[1, 5, 3, 4, 1], [4, 7, 2, 4, 8], [1, 9, 6, 8, 3]],
+    [{...: "day"}, {...: "plant"}, {"leaves": "height"}],
+).flatten()
 
 
 # %% [markdown] slideshow={"slide_type": "slide"}
@@ -105,7 +106,8 @@ Plot.get_in([[1, 5, 3, 4, 1],
 daily_stats = [
     {
         "day": day,
-        "average_stem_length": sum(plant["stem_length"] for plant in plants) / len(plants),
+        "average_stem_length": sum(plant["stem_length"] for plant in plants)
+        / len(plants),
         "min_stem_length": min(plant["stem_length"] for plant in plants),
         "max_stem_length": max(plant["stem_length"] for plant in plants),
     }
@@ -123,12 +125,10 @@ average_line
 average_line + Plot.grid() + Plot.frame()
 
 # %% slideshow={"slide_type": "slide"}
-spread_rects = Plot.barY(daily_stats, {
-    "x": "day",
-    "y1": "min_stem_length",
-    "y2": "max_stem_length",
-    "fillOpacity": 0.2
-})
+spread_rects = Plot.barY(
+    daily_stats,
+    {"x": "day", "y1": "min_stem_length", "y2": "max_stem_length", "fillOpacity": 0.2},
+)
 
 average_line + spread_rects
 
@@ -140,8 +140,7 @@ average_line + spread_rects
 (
     Plot.dot(
         plant_growth_described,
-        {"x": "day", "y": "stem_length", 
-         "facetGrid": "plant", "tip": True},
+        {"x": "day", "y": "stem_length", "facetGrid": "plant", "tip": True},
     )
     + Plot.frame()
 )
@@ -151,16 +150,21 @@ average_line + spread_rects
 
 # %% slideshow={"slide_type": "slide"}
 (
-    Plot.dot(plant_growth_described, 
-             x='day', y='stem_length', facetGrid='plant',
-             filter=Plot.js("(plant) => plant.day <= $state.currentDay"))
-    + Plot.frame()  
+    Plot.dot(
+        plant_growth_described,
+        x="day",
+        y="stem_length",
+        facetGrid="plant",
+        filter=Plot.js("(plant) => plant.day <= $state.currentDay"),
+    )
+    + Plot.frame()
     + Plot.animate("currentDay", plant_growth_described.size("day"), fps=10)
 )
 
 
 # %% slideshow={"slide_type": "slide"}
 import numpy as np
+
 values = np.random.normal(loc=0, scale=1, size=1000)
 
 Plot.histogram(values)
@@ -178,7 +182,7 @@ Plot.histogram(values)
 # - probcomp/genstudio
 # - Observable Plot (observablehq.com/plot)
 # <br/><br/>
-# ### Credits 
+# ### Credits
 # - PyObsplot (github.com/juba/pyobsplot)
 # - AnyWidget (github.com/manzt/anywidget)
 
@@ -204,7 +208,7 @@ Plot.histogram(values)
 #       height: 150px; /* Set the height to limit the fading effect to 150px */
 #       background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,1) 100%);
 #       pointer-events: none;
-#   } 
+#   }
 #   .doc-content {
 #       position: relative;
 #       max-width: none;
@@ -213,7 +217,7 @@ Plot.histogram(values)
 #       overflow: hidden;
 #   }
 #   div.highlight > pre, div.jp-OutputArea-output > pre {
-#       font-size: 18px; 
+#       font-size: 18px;
 #   }
 #   .widget-subarea {
 #    margin: 20px 50px;

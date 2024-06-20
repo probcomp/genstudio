@@ -6,7 +6,8 @@
   "author": "Matthew Huebert <mhuebert@gmail.com>",
   "license": "MIT",
   "devDependencies": {
-    "esbuild": "^0.21.5"
+    "esbuild": "^0.21.5",
+    "pyright": "^1.1.367"
   },
   "dependencies": {
     "@anywidget/react": "^0.0.7",
@@ -17,7 +18,7 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
-  "scripts":{
+  "scripts": {
     "build": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_compiled.js",
     "watch": "npx esbuild --bundle --watch --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_compiled.js",
     "inspect": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --metafile=meta.json --outfile=src/genstudio/js/widget_compiled.js && open https://esbuild.github.io/analyze/"

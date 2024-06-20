@@ -4,7 +4,7 @@ import htm from 'https://esm.sh/htm@3.1.1'
 
 const {useState, useEffect} = React
 const html = htm.bind(React.createElement)
-  
+
   const useCustomMessages = (model) => {
       const [messages, setMessages] = useState([])
       const handleMessage = (message, info) => {
@@ -15,7 +15,7 @@ const html = htm.bind(React.createElement)
       };
       useEffect(() => {
         model.on("msg:custom", handleMessage)
-        return () => model.off("msg:custom", handleMessage)    
+        return () => model.off("msg:custom", handleMessage)
       }, [model])
       return messages
   }
@@ -27,9 +27,9 @@ const html = htm.bind(React.createElement)
         useEffect(() => {
             if (messages.length > 0) {
                 // Send a response to python
-                invoke("_receive_message", messages[messages.length - 1], [])    
+                invoke("_receive_message", messages[messages.length - 1], [])
             }
-            }, 
+            },
         [messages.join()])
         return html`<div>
                     Messages: ${messages.join(', ')}

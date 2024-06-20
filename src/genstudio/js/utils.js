@@ -9,13 +9,13 @@ export const flatten = (data, dimensions) => {
       leaves = dimensions[dimensions.length - 1]['leaves'];
       dimensions = dimensions.slice(0, -1);
     }
-  
+
     const _flat = (data, dim, prefix = null) => {
       if (!dim.length) {
         data = leaves ? { [leaves]: data } : data
         return prefix ? [{ ...prefix, ...data }] : [data];
       }
-  
+
       const results = [];
       const dimName = typeof dim[0] === 'string' ? dim[0] : dim[0].key;
       for (let i = 0; i < data.length; i++) {
@@ -34,4 +34,3 @@ export const flatten = (data, dimensions) => {
     window[varName] = prevValue
     return ret
   }
-  

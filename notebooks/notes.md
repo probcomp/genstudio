@@ -1,6 +1,6 @@
 
 To install a poetry kernel for jupyter labs:
-```bash 
+```bash
 poetry run python -m ipykernel install --user --name genjax
 ```
 

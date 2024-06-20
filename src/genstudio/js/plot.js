@@ -1,8 +1,9 @@
 
 import * as Plot from "@observablehq/plot";
+import * as d3 from "d3";
 import * as React from "react";
-import { WidthContext } from "./context";
-import { binding, html } from "./utils";
+import { WidthContext, AUTOGRID_MIN } from "./context";
+import { binding, flatten, html } from "./utils";
 
 const { useEffect } = React
 const DEFAULT_PLOT_OPTIONS = { inset: 20 };
@@ -16,29 +17,28 @@ export class PlotSpec {
      */
     constructor(spec) {
         this.spec = spec;
-
-        // Compute dimension domains for all marks contained in this plog
-
-        const domains = spec.marks?.reduce((acc, mark) => {
-            for (const [dimensionKey, domain] of Object.entries(mark.domains || {})) {
-                acc[dimensionKey] = acc[dimensionKey]
-                    ? [Math.min(acc[dimensionKey][0], domain[0]), Math.max(acc[dimensionKey][1], domain[1])]
-                    : domain;
-            }
-            return acc;
-        }, {}) || {};
-        for (const [dimensionKey, domainInfo] of Object.entries(domains)) {
-            this.spec[dimensionKey] = { ...this.spec[dimensionKey], domain: domainInfo };
-        }
     }
 }
-
 export class MarkSpec {
     constructor(name, data, options) {
         if (!Plot[name]) {
             throw new Error(`Plot function "${name}" not found.`);
         }
         this.fn = Plot[name];
+
+        options = {...options}
+
+        // handle dimensional data passed in the 1st position
+        if (data.dimensions) {
+            options.dimensions = data.dimensions
+            data = data.value
+        }
+
+        // flatten dimensional data
+        if (options.dimensions) {
+            data = flatten(data, options.dimensions)
+        }
+
         this.data = data;
         this.options = options;
         this.computed = {}
@@ -60,17 +60,6 @@ export class MarkSpec {
 
         // Below is where we add functionality to Observable.Plot by preprocessing
         // the data & options that are passed in.
-
-        // handle dimensional data passed in the 1st position
-        if (data.dimensions) {
-            options.dimensions = data.dimensions
-            data = data.value
-        }
-
-        // flatten dimensional data
-        if (options.dimensions) {
-            data = flatten(data, options.dimensions)
-        }
 
         // handle columnar data in the 1st position
         if (!Array.isArray(data) && !('length' in data)) {
@@ -98,7 +87,6 @@ export class MarkSpec {
             // Calculate columns based on minWidth and containerWidth
             const minWidth = gridOpts.minWidth || AUTOGRID_MIN;
             const columns = gridOpts.columns || Math.floor(width / minWidth);
-            console.log('cols', columns, 'would be', Math.floor(width / minWidth))
             const fx = (key) => index.get(key) % columns;
             const fy = (key) => Math.floor(index.get(key) / columns);
             options.fx = (d) => fx(d[key]);
@@ -110,7 +98,6 @@ export class MarkSpec {
                 dy: 4
             }));
         }
-
         computed.data = data;
         computed.options = options;
         this.computed = computed;
@@ -193,11 +180,11 @@ function $StateView({ $info, $state, set$state }) {
           <div style=${{ fontSize: "14px", display: 'flex', flexDirection: 'column', marginTop: '0.5rem', marginBottom: '0.5rem', gap: '0.5rem' }} key=${key}>
             <label>${label || key} ${$state[key]}</label>
             ${kind === 'animate' ? null : html`<span>${$state[key]}</span>`}
-            <input 
-              type="range" 
-              min=${range[0]} 
+            <input
+              type="range"
+              min=${range[0]}
               max=${range[1] - 1}
-              value=${$state[key] || init || 0} 
+              value=${$state[key] || init || 0}
               onChange=${(e) => handleSliderChange(key, e.target.value)}
               style=${{ outline: 'none' }}
             />
@@ -207,7 +194,6 @@ function $StateView({ $info, $state, set$state }) {
       </div>
     `;
 }
-
 
 export function PlotWrapper({ spec }) {
     const $info = spec.$state || {}
@@ -226,6 +212,6 @@ export function PlotWrapper({ spec }) {
     };
     return html`<div>
                   <${PlotView} spec=${spec} $state=${$state} />
-                  <${$StateView} $state=${$state} set$state=${set$state} $info=${$info} />  
+                  <${$StateView} $state=${$state} set$state=${set$state} $info=${$info} />
                 </div>`
 }

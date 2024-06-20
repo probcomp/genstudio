@@ -1,4 +1,4 @@
-# Gen Studio 
+# Gen Studio
 _Visualization tools for GenJAX._
 
 -----
@@ -14,7 +14,7 @@ Key features:
 
 For runnable examples, refer to `notebooks/plot_examples.py`. Detailed examples of all mark types are available at [Observable Plot](https://observablehq.com/plot/).
 
-## Installation 
+## Installation
 
 GenStudio is available in the same artifact registry as GenJAX. Follow [these instructions](https://github.com/probcomp/genjax?tab=readme-ov-file#quickstart) and replace `genjax` with `genstudio` as the package name.
 

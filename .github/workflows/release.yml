@@ -35,8 +35,8 @@ jobs:
       - name: Install dependencies with Yarn
         run: yarn install --frozen-lockfile --production=false
 
-      - name: Compile the project
-        run: ./compile.sh
+      - name: build the javascript bundle
+        run: yarn build
 
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
