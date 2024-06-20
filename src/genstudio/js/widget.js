@@ -5,7 +5,7 @@ import MarkdownIt from "markdown-it";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { WidthContext, AUTOGRID_MIN } from "./context";
-import { MarkSpec, PlotSpec, PlotWrapper } from "./plot";
+import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
 import { flatten, html } from "./utils";
 const { useState, useEffect, useContext, useMemo } = React
 
