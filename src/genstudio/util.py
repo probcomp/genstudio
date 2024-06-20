@@ -1,9 +1,6 @@
 # %%
 import importlib.util
-import json
 import pathlib
-import re
-from functools import partial
 from timeit import default_timer as timer
 
 
@@ -36,6 +33,9 @@ class benchmark(object):
         print(("%s : " + self.fmt + " seconds") % (self.msg, t))
         self.time = t
 
-PARENT_PATH = pathlib.Path(importlib.util.find_spec("genstudio.util").origin).parent
 
+try:
+    PARENT_PATH = pathlib.Path(importlib.util.find_spec("genstudio.util").origin).parent  # type: ignore
+except AttributeError:
+    raise ImportError("Cannot find the genstudio.util module")
 # %%

@@ -13,7 +13,7 @@
 #     language: python
 #     name: python3
 # ---
-
+# ruff: noqa: E402
 # %%
 # %load_ext autoreload
 # %autoreload 2
@@ -27,6 +27,10 @@ import jax.numpy as jnp
 import jax.random as jrand
 
 
+def normal_100():
+    return np.random.normal(loc=0, scale=1, size=1000)
+
+
 # %% [markdown]
 # ## Approach
 #
@@ -38,14 +42,11 @@ import jax.random as jrand
 # The starting point for seeing what's possible is the [Observable Plot](https://observablehq.com/plot/what-is-plot) website.
 # Plots are composed of **marks**, and you'll want to familiarize yourself with the available marks and how they're created.
 #
-# Generate random data from a normal distribution
-# %%
-def normal_100():
-    return np.random.normal(loc=0, scale=1, size=1000)
-
 # %% [markdown]
 # #### Histogram
 # %%
+
+
 Plot.histogram(normal_100())
 
 # %% [markdown]
@@ -67,7 +68,7 @@ Plot.dot({"x": normal_100(), "y": normal_100()}) + Plot.frame()
 
 # %% [markdown]
 # #### Plot.doc
-# 
+#
 # Plot.doc(Plot.foo) will render a markdown-formatted docstring when available:
 # %%
 Plot.doc(Plot.line)
@@ -84,6 +85,7 @@ circle = Plot.dot([[0, 0]], r=100)
 circle
 
 # %%
+
 circle + Plot.frame() + {"inset": 50}
 
 # %% [markdown]
@@ -93,6 +95,7 @@ circle + Plot.frame() + {"inset": 50}
 # A regression distribution.
 # %%
 key = jrand.PRNGKey(314159)
+
 
 @gen
 def regression(x, coefficients, sigma):
@@ -178,36 +181,61 @@ Plot.dimensions(ys, ["sample", "ys"], leaves="y").flatten()[:10]
 # %%
 import random
 
-bean_data = [[0 for _ in range(8)]]
+# Initialize the bean growth with stem_length and soil_quality as constants for each bean
+bean_growth = [
+    [
+        {
+            "stem_length": 0,
+            "soil_quality": random.uniform(0.7, 1.3),
+            "genetic_disposition": random.uniform(0.8, 1.2),
+        }
+        for _ in range(10)
+    ]
+]
+
 for day in range(1, 21):
-    rained = random.choices([True, False], weights=[1, 3])[
-        0
-    ]  # Decide if it rained with a 1 in 4 chance
-    precipitation = 0 if not random.choice([True, False]) else random.uniform(0.1, 3)
-    min_growth = 0.1 + (precipitation * 0.5)
-    max_growth = 1 + (precipitation * 5)
-    bean_data.append(
-        [height + random.uniform(min_growth, max_growth) for height in bean_data[-1]]
+    weather_event = random.choice(["rain", "no_rain"])
+    rainfall = random.uniform(0.1, 3) if weather_event == "rain" else 0
+    growth_factor = (
+        random.uniform(0.05, 0.15) + (rainfall * random.uniform(0.1, 0.3))
+        if rainfall
+        else random.uniform(0.05, 0.15)
     )
-bean_data
+    today = []
+    for plant in bean_growth[-1]:
+        stem_length = plant["stem_length"]
+        disease_event = (
+            0 if random.random() > 0.02 else -stem_length * random.uniform(0.2, 0.5)
+        )
+        growth = growth_factor * plant["soil_quality"] * plant["genetic_disposition"]
+        noise = random.uniform(-0.3, 0.3)
+        today.append(
+            {**plant, "stem_length": stem_length + disease_event + growth + noise}
+        )
+    bean_growth.append(today)
+
+bean_growth
 
 # %% [markdown]
 # Using `get_in` we've given names to each level of nesting (and leaf values), which we can see in the metadata
 # of the Dimensioned object:
 # %%
-bean_data_dims = Plot.get_in(bean_data, [{...: "day"}, {...: "bean"}, {"leaves": "height"}])
-bean_data_dims
-#%%
+bean_data_dims = Plot.dimensions(bean_growth, ["day", "bean"])
+# %%
 bean_data_dims.flatten()
 
 # %%[markdown]
 # Now that our dimensions and leaf have names, we can pass them as options to `Plot.dot`.
 # Here we'll use the `facetGrid` option to render a separate plot for each bean.
 # %%
-Plot.dot(bean_data_dims, {"x": "day", 
-                          "y": "height", 
-                          "fill": "bean",
-                          "facetGrid": "bean"}) + Plot.frame()
+
+(
+    Plot.dot(
+        Plot.dimensions(bean_growth, ["day", "bean"]),
+        {"x": "day", "y": "stem_length", "fill": "bean", "facetGrid": "bean"},
+    )
+    + Plot.frame()
+)
 
 # %% [markdown]
 # Let's draw a line for each bean to plot its growth over time. The `z` channel splits the data into
@@ -215,7 +243,9 @@ Plot.dot(bean_data_dims, {"x": "day",
 # %%
 (
     Plot.line(
-        bean_data_dims, {"x": "day", "y": "height", "z": "bean", "stroke": "bean"}
+        bean_data_dims, {"x": "day", "y": "stem_length", "z": "bean", "stroke": "bean"}
     )
     + Plot.frame()
 )
+
+# %%

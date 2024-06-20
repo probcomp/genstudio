@@ -1,9 +1,10 @@
 # %%
-# Simple demo of sending a message to an AnyWidget instance and measuring the round trip 
+# Simple demo of sending a message to an AnyWidget instance and measuring the round trip
 # response time.
 
 
 import anywidget
+
 
 class Widget(anywidget.AnyWidget):
     _esm = """
@@ -30,7 +31,7 @@ class Widget(anywidget.AnyWidget):
   export default {render: renderWidget}
   """
 
-    @anywidget.experimental.command
+    @anywidget.experimental.command  # type: ignore
     def ping(self, msg, buffers):
         return "pong", None
 

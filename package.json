@@ -1,0 +1,26 @@
+{
+  "name": "genstudio",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:probcomp/genstudio.git",
+  "author": "Matthew Huebert <mhuebert@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "esbuild": "^0.21.5",
+    "pyright": "^1.1.367"
+  },
+  "dependencies": {
+    "@anywidget/react": "^0.0.7",
+    "@observablehq/plot": "^0.6.15",
+    "d3": "^7.9.0",
+    "htm": "^3.1.1",
+    "markdown-it": "^14.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "scripts": {
+    "build": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_compiled.js",
+    "watch": "npx esbuild --bundle --watch --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_compiled.js",
+    "inspect": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --metafile=meta.json --outfile=src/genstudio/js/widget_compiled.js && open https://esbuild.github.io/analyze/"
+  }
+}

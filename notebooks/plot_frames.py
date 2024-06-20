@@ -19,15 +19,13 @@ from plot_examples import bean_data_dims
         },
     )
     + Plot.frame()
-    
     # add a slider for a $state variable
     # + Plot.slider("currentDay", range=bean_data_dims.size("day"))
-    
     # (OR)
     # animate a $state variable
     + Plot.animate("currentDay", range=bean_data_dims.size("day"))
 )
-    
+
 
 # %%
 
@@ -37,11 +35,7 @@ from plot_examples import bean_data_dims
 (
     Plot.dot(
         bean_data_dims,
-        {
-            "x": "day",
-            "y": "height",
-            "facetGrid": "bean"
-        },
+        {"x": "day", "y": "height", "facetGrid": "bean"},
     )
     + Plot.frame()
 )
