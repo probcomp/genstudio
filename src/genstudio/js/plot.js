@@ -62,7 +62,7 @@ export class MarkSpec {
         // the data & options that are passed in.
 
         // handle columnar data in the 1st position
-        if (!Array.isArray(data) && !('length' in data)) {
+        if (data.constructor === Object && !('length' in data)) {
             let length = null
             for (let [key, value] of Object.entries(data)) {
                 options[key] = value;
@@ -72,7 +72,7 @@ export class MarkSpec {
                 if (length === null) {
                     throw new Error("Invalid columnar data: at least one column must be an array.");
                 }
-                data = { length: value.length }
+                data = { length: length }
             }
 
         }
