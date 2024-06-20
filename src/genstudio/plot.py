@@ -396,6 +396,7 @@ def test_get_in():
 
     print("tests passed")
 
+
 def scaled_circle(x, y, r, n=16, curve="catmull-rom-closed", **kwargs):
     points = [
         (x + r * math.cos(2 * math.pi * i / n), y + r * math.sin(2 * math.pi * i / n))
