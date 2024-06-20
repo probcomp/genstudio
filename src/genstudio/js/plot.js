@@ -6,7 +6,7 @@ import { WidthContext, AUTOGRID_MIN } from "./context";
 import { binding, flatten, html } from "./utils";
 
 const { useEffect } = React
-const DEFAULT_PLOT_OPTIONS = { inset: 20 };
+export const DEFAULT_PLOT_OPTIONS = { inset: 20 };
 
 /**
  * Wrap plot specs so that our node renderer can identify them.
