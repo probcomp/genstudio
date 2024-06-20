@@ -52,7 +52,7 @@ jobs:
       - name: Get current date and time
         id: datetime
         run: |
-          echo "NEXT_VERSION=$(date +'%Y.%m.%d.%H%M.%S')" >> $GITHUB_ENV
+          echo "NEXT_VERSION=$(date +'%Y.%m.%d.%H%M')" >> $GITHUB_ENV
 
       - name: Update version in pyproject.toml
         run: |

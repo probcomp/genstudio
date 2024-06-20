@@ -19,8 +19,8 @@
     "react-dom": "^18.3.1"
   },
   "scripts": {
-    "build": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_compiled.js",
-    "watch": "npx esbuild --bundle --watch --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_compiled.js",
-    "inspect": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --metafile=meta.json --outfile=src/genstudio/js/widget_compiled.js && open https://esbuild.github.io/analyze/"
+    "build": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_build.js",
+    "watch": "npx esbuild --bundle --watch --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_build.js",
+    "inspect": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --metafile=meta.json --outfile=src/genstudio/js/widget_build.js && open https://esbuild.github.io/analyze/"
   }
 }

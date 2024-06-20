@@ -6,6 +6,7 @@ authors = ["Matthew Huebert <me@matt.is>"]
 license = "MIT"
 readme = "README.md"
 packages = [{include = "genstudio", from = "src"}]
+include = ["**/*_build.js"]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
