@@ -221,26 +221,4 @@ function App() {
     </>`
 }
 
-const render = createRender(App)
-
-
-const installCSS = () => {
-  // const id = "tailwind-cdn"
-  // const scriptUrl = "https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio";
-  // if (!document.getElementById(id)) {
-  //   const script = document.createElement("script");
-  //   script.id = id;
-  //   script.src = scriptUrl;
-  //   document.head.appendChild(script);
-  // }
-  // const url = "https://cdn.jsdelivr.net/gh/html-first-labs/static-tailwind@759f1d7/dist/tailwind.css"
-  // if (!document.getElementById(id)) {
-  //   const link = document.createElement("link");
-  //   link.id = id;
-  //   link.rel = "stylesheet";
-  //   link.href = url;
-  //   document.head.appendChild(link);
-  // }
-}
-
-export default { render }
+export default { render: createRender(App) }
