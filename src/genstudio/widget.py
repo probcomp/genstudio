@@ -24,7 +24,7 @@ def to_json(data, _widget):
 
 
 class Widget(anywidget.AnyWidget):
-    _esm = PARENT_PATH / "js/widget_compiled.js"
+    _esm = PARENT_PATH / "js/widget_build.js"
     _css = PARENT_PATH / "widget.css"
     data = traitlets.Any().tag(sync=True, to_json=to_json)
 
