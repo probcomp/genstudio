@@ -1,5 +1,6 @@
 # Gen Studio
 _Visualization tools for GenJAX._
+![GitHub Tag](https://img.shields.io/github/v/tag/probcomp/genstudio?label=genstudio)
 
 -----
 
