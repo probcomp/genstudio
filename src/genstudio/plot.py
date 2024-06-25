@@ -417,7 +417,7 @@ def constantly(x):
     return js(f"()=>{x}")
 
 
-def autoGrid(plotspecs, plot_opts={}, layout_opts={}):
+def Grid(plotspecs, plot_opts={}, layout_opts={}):
     return Hiccup(
         [
             View.AutoGrid,
@@ -430,8 +430,42 @@ def autoGrid(plotspecs, plot_opts={}, layout_opts={}):
     )
 
 
+def Row(*plotspecs, layout_opts={}):
+    return Hiccup(
+        [
+            "div",
+            {
+                "style": {
+                    "display": "flex",
+                    "flexDirection": "row",
+                    "alignItems": "flex-start",
+                    **layout_opts,
+                }
+            },
+            plotspecs,
+        ]
+    )
+
+
+def Column(*plotspecs, layout_opts={}):
+    return Hiccup(
+        [
+            "div",
+            {
+                "style": {
+                    "display": "flex",
+                    "flexDirection": "column",
+                    "alignItems": "flex-start",
+                    **layout_opts,
+                }
+            },
+            *plotspecs,
+        ]
+    )
+
+
 def small_multiples(plotspecs, plot_opts={}, layout_opts={}):
-    return autoGrid(
+    return Grid(
         plotspecs,
         plot_opts={**plot_opts, "smallMultiples": True},
         layout_opts=layout_opts,
@@ -636,6 +670,18 @@ def animate(key, range, fps=5, label=None):
     }
 
 
+def Slider(name, range, label=None, **kwargs):
+    return View.Reactive(
+        {
+            "name": name,
+            "range": [0, range] if isinstance(range, int) else range,
+            "label": label,
+            "kind": "Slider",
+            **kwargs,
+        },
+    )
+
+
 # barX
 # For reference - other options supported by plots
 example_plot_options = {
@@ -679,3 +725,6 @@ def doc(fn):
         )
     else:
         return View.md("No docstring available.")
+
+
+# %%

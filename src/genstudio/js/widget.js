@@ -6,7 +6,8 @@ import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { WidthContext, AUTOGRID_MIN } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
-import { flatten, html } from "./utils";
+import { flatten, html, binding, useCellUnmounted, useElementWidth } from "./utils";
+import { $StateContext } from "./context";
 const { useState, useEffect, useContext, useMemo } = React
 
 const md = new MarkdownIt({
@@ -18,32 +19,14 @@ const md = new MarkdownIt({
 function renderMarkdown(text) {
   return html`<div class='prose' dangerouslySetInnerHTML=${{ __html: md.render(text) }} />`;
 }
-/**
- * Create a new element.
- */
-const hiccup = (tag, props, ...children) => {
-  if (props.constructor !== Object) {
-    children.unshift(props);
-    props = {};
+
+class Reactive {
+  constructor(data) {
+    this.options = data;
   }
-  let baseTag
-  if (typeof tag === 'string') {
-    let id, classes
-    [baseTag, ...classes] = tag.split('.');
-    [baseTag, id] = baseTag.split('#');
+}
 
-    if (id) { props.id = id; }
 
-    if (classes.length > 0) {
-      props.className = `${props.className || ''} ${classes.join(' ')}`.trim();
-    }
-
-  } else {
-    baseTag = tag
-  }
-  children = children.map((child) => html`<${Node} value=${child} />`)
-  return html`<${baseTag} ...${props}>${children}</${tag}>`;
-};
 
 const scope = {
   d3,
@@ -53,44 +36,133 @@ const scope = {
     MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
     md: (x) => renderMarkdown(x),
     repeat: (data) => (_, i) => data[i % data.length],
-    hiccup,
+    Hiccup,
     AutoGrid,
-    flatten
+    flatten,
+    Slider,
+    Reactive: (options) => new Reactive(options)
   }
+}
+
+function Slider({ name, fps, label, range, init }) {
+  const [$state, set$state] = React.useContext($StateContext)
+  const isAnimated = typeof fps === 'number' && fps > 0
+  const [isPlaying, setIsPlaying] = React.useState(isAnimated);
+  console.log("rendering slider")
+
+  React.useEffect(() => {
+      let intervalId;
+      if (isPlaying && isAnimated && fps > 0) {
+          intervalId = setInterval(() => {
+              set$state((prevState) => {
+                  const nextValue = prevState[name] + 1;
+                  if (nextValue < range[1]) {
+                      return { ...prevState, [name]: nextValue };
+                  } else {
+                      return { ...prevState, [name]: range[0] };
+                  }
+              });
+          }, 1000 / fps);
+      }
+      return () => clearInterval(intervalId);
+  }, [isPlaying, fps, name, range, set$state]);
+
+  const handleSliderChange = (value) => {
+      setIsPlaying(false);
+      set$state({ ...$state, [name]: Number(value) });
+  };
+
+  const togglePlayPause = () => {
+      setIsPlaying(!isPlaying);
+  };
+
+  const playIcon = `<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
+  const pauseIcon = `<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`;
+  return html`
+      <div style=${{ fontSize: "14px", display: 'flex', flexDirection: 'column', marginTop: '0.5rem', marginBottom: '0.5rem', gap: '0.5rem' }}>
+          <div style=${{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label>${label}</label>
+              <span>${$state[name]}</span>
+              ${isAnimated ? html`
+                  <div onClick=${togglePlayPause} style=${{ cursor: 'pointer' }} dangerouslySetInnerHTML=${{ __html: isPlaying ? pauseIcon : playIcon }}></div>
+              ` : null}
+
+          </div>
+          <input
+              type="range"
+              min=${range[0]}
+              max=${range[1] - 1}
+              value=${$state[name] || init || 0}
+              onChange=${(e) => handleSliderChange(e.target.value)}
+              style=${{ outline: 'none' }}
+          />
+      </div>
+  `;
+}
+
+const layoutComponents = new Set(['Hiccup', 'Grid', 'Row', 'Column']);
+
+// Function to collect reactive variables from the AST
+function collectReactiveInitialState(ast) {
+  let initialState = {};
+
+  function traverse(node) {
+    if (!node) return;
+    if (typeof node === 'object' && node['pyobsplot-type'] === 'function') {
+      if (node.name === 'Reactive') {
+        const options = node.args[0]
+        const key = options.name
+        initialState[key] = options.init || typeof options.range == 'number' ? options.range : options.range[0]
+      } else if (layoutComponents.has(node.name)) {
+        // Traverse arguments of layout components
+        node.args.forEach(traverse);
+      }
+    } else if (Array.isArray(node)) {
+      // Traverse array elements
+      node.forEach(traverse);
+    }
+  }
+
+  traverse(ast);
+  return initialState;
 }
 
 /**
  * Interpret data recursively, evaluating functions.
  */
-export function interpret(data) {
-
+export function evaluate(data, $state) {
   if (data === null) return null;
-  if (Array.isArray(data)) return data.map(interpret);
+  if (Array.isArray(data)) return data.map(item => evaluate(item, $state));
   if (typeof data === "string" || data instanceof String) return data;
   if (data.constructor !== Object) return data;
 
   switch (data["pyobsplot-type"]) {
     case "function":
-      let fn = data.name ? scope[data.module][data.name] : scope[data.module]
+      let fn = data.name ? scope[data.module][data.name] : scope[data.module];
       if (!fn) {
-        console.error('f not found', data)
+        console.error('f not found', data);
       }
-      const interpretedArgs = interpret(data.args)
+      const interpretedArgs = evaluate(data.args, $state);
+      // Inject $state into layout components
+      if (layoutComponents.has(data.name)) {
+        return fn.call(null, ...interpretedArgs, { $state });
+      }
       return fn.call(null, ...interpretedArgs);
     case "ref":
-      return data.name ? scope[data.module][data.name] : scope[data.module]
+      return data.name ? scope[data.module][data.name] : scope[data.module];
     case "js":
       // Use indirect eval to avoid bundling issues
-      // See https://esbuild.github.io/content-types/#direct-eval
       let indirect_eval = eval;
-      return indirect_eval(data["value"]);
+      // Allow access to $state in js expressions
+      return indirect_eval(`(($state) => { return ${data["value"]} })`)($state);
     case "datetime":
       return new Date(data["value"]);
   }
+
   // recurse into objects
   let ret = {};
   for (const [key, value] of Object.entries(data)) {
-    ret[key] = interpret(value);
+    ret[key] = evaluate(value, $state);
   }
   return ret;
 }
@@ -143,80 +215,80 @@ function AutoGrid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
  */
 function Node({ value }) {
   if (Array.isArray(value)) {
-    return hiccup.apply(null, value);
+    return Hiccup.apply(null, value);
   } else if (value instanceof PlotSpec) {
     return html`<${PlotWrapper} spec=${value.spec}/>`;
   } else if (value instanceof MarkSpec) {
     return Node({ value: new PlotSpec({ marks: [value] }) })
+  } else if (value instanceof Reactive) {
+    return Slider(value.options)
   } else {
     return value
   }
 }
 
-function useCellUnmounted(el) {
-  // for Python Interactive Output in VS Code, detect when this element
-  // is unmounted & save that state on the element itself.
-  // We have to directly read from the ancestor DOM because none of our
-  // cell output is preserved across reload.
-  useEffect(() => {
-    let observer;
-    // .output_container is stable across refresh
-    const outputContainer = el?.closest(".output_container")
-    // .widgetarea contains all the notebook's cells
-    const widgetarea = outputContainer?.closest(".widgetarea")
-    if (el && !el.initialized && widgetarea) {
-      el.initialized = true;
+function Hiccup(tag, props, ...children) {
+  if (props.constructor !== Object) {
+    children.unshift(props);
+    props = {};
+  }
+  let baseTag
+  if (typeof tag === 'string') {
+    let id, classes
+    [baseTag, ...classes] = tag.split('.');
+    [baseTag, id] = baseTag.split('#');
 
-      const mutationCallback = (mutationsList, observer) => {
-        for (let mutation of mutationsList) {
-          if (mutation.type === 'childList' && !widgetarea.contains(outputContainer)) {
-            el.unmounted = true
-            observer.disconnect();
-            break;
-          }
-        }
-      };
-      observer = new MutationObserver(mutationCallback);
-      observer.observe(widgetarea, { childList: true, subtree: true });
+    if (id) { props.id = id; }
+
+    if (classes.length > 0) {
+      props.className = `${props.className || ''} ${classes.join(' ')}`.trim();
     }
-    return () => observer?.disconnect()
-  }, [el]);
-  return el?.unmounted
+
+  } else {
+    baseTag = tag
+  }
+  children = children.map((child, i) => html`<${Node} key=${i} value=${child} />`)
+
+  return baseTag instanceof PlotSpec ?
+    html`<${PlotWrapper} spec=${baseTag.spec}/>` :
+    html`<${baseTag} ...${props}>${children}</${tag}>`;
+};
+
+function useStableState(initialState) {
+  // Create a state using React's useState hook
+  const [state, setState] = useState(initialState);
+
+  // Memoize the state and setState function to create a stable reference
+  // This prevents unnecessary re-renders in child components
+  const stableState = useMemo(() => [state, setState], [state, setState]);
+
+  // Return the memoized state array
+  return stableState;
 }
 
-function useElementWidth(el) {
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const handleResize = () => {
-
-      if (el) {
-        setWidth(el.offsetWidth ? el.offsetWidth : document.body.offsetWidth);
-      }
-    };
-
-    // Set initial width
-    handleResize();
-
-    // Add event listener to update width on resize
-    window.addEventListener('resize', handleResize);
-
-    // Remove event listener on cleanup
-    return () => window.removeEventListener('resize', handleResize);
-  }, [el]);
-
-  return width
+function WithState({data}) {
+  const st = useStableState(collectReactiveInitialState(data))
+  const [$state] = st
+  const interpretedData = useMemo(() => evaluate(data, $state), [data, $state])
+  return html`
+    <${$StateContext.Provider} value=${st}>
+      <${Node} value=${interpretedData} />
+    </${$StateContext.Provider}>
+  `
 }
 
 function App() {
   const [el, setEl] = useState();
   const [data, _] = useModelState("data");
-  const interpretedData = useMemo(() => data ? interpret(JSON.parse(data)) : null, [data])
+  const parsedData = data ? JSON.parse(data) : null
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
-  const value = unmounted ? null : interpretedData;
+  if (!parsedData || unmounted) {
+    return null;
+  }
   return html`<${WidthContext.Provider} value=${width}>
       <div style=${{ color: '#333' }} ref=${setEl}>
-        <${Node} value=${el ? value : null}/>
+        ${el ? html`<${WithState} data=${parsedData}/>` : null}
       </div>
     </>`
 }
