@@ -26,7 +26,8 @@ class Reactive {
   }
 }
 
-
+const playIcon = html`<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
+const pauseIcon = html`<svg viewBox="0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`;
 
 const scope = {
   d3,
@@ -48,44 +49,44 @@ function Slider({ name, fps, label, range, init }) {
   const [$state, set$state] = React.useContext($StateContext)
   const isAnimated = typeof fps === 'number' && fps > 0
   const [isPlaying, setIsPlaying] = React.useState(isAnimated);
-  console.log("rendering slider")
 
   React.useEffect(() => {
+    if (isAnimated) {
       let intervalId;
       if (isPlaying && isAnimated && fps > 0) {
-          intervalId = setInterval(() => {
-              set$state((prevState) => {
-                  const nextValue = prevState[name] + 1;
-                  if (nextValue < range[1]) {
-                      return { ...prevState, [name]: nextValue };
-                  } else {
-                      return { ...prevState, [name]: range[0] };
-                  }
-              });
-          }, 1000 / fps);
+        intervalId = setInterval(() => {
+          set$state((prevState) => {
+            const nextValue = prevState[name] + 1;
+            if (nextValue < range[1]) {
+              return { ...prevState, [name]: nextValue };
+            } else {
+              return { ...prevState, [name]: range[0] };
+            }
+          });
+        }, 1000 / fps);
       }
       return () => clearInterval(intervalId);
-  }, [isPlaying, fps, name, range, set$state]);
+    }
+  }, [isPlaying, fps, name, range]);
 
   const handleSliderChange = (value) => {
-      setIsPlaying(false);
-      set$state({ ...$state, [name]: Number(value) });
+    setIsPlaying(false);
+    set$state((prevState) => {
+      return { ...prevState, [name]: Number(value) };
+    });
   };
 
   const togglePlayPause = () => {
-      setIsPlaying(!isPlaying);
+    setIsPlaying(!isPlaying);
   };
+  const animationControl = isAnimated ? html`<div onClick=${togglePlayPause} style=${{ cursor: 'pointer' }}>${isPlaying ? pauseIcon : playIcon}</div>` : null;
 
-  const playIcon = `<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
-  const pauseIcon = `<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`;
   return html`
       <div style=${{ fontSize: "14px", display: 'flex', flexDirection: 'column', marginTop: '0.5rem', marginBottom: '0.5rem', gap: '0.5rem' }}>
           <div style=${{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <label>${label}</label>
               <span>${$state[name]}</span>
-              ${isAnimated ? html`
-                  <div onClick=${togglePlayPause} style=${{ cursor: 'pointer' }} dangerouslySetInnerHTML=${{ __html: isPlaying ? pauseIcon : playIcon }}></div>
-              ` : null}
+              ${animationControl}
 
           </div>
           <input
@@ -255,18 +256,13 @@ function Hiccup(tag, props, ...children) {
 };
 
 function useStableState(initialState) {
-  // Create a state using React's useState hook
+  // Return a useState whose array identity only changes
+  // when the state has changed
   const [state, setState] = useState(initialState);
-
-  // Memoize the state and setState function to create a stable reference
-  // This prevents unnecessary re-renders in child components
-  const stableState = useMemo(() => [state, setState], [state, setState]);
-
-  // Return the memoized state array
-  return stableState;
+  return useMemo(() => [state, setState], [state, setState]);
 }
 
-function WithState({data}) {
+function WithState({ data }) {
   const st = useStableState(collectReactiveInitialState(data))
   const [$state] = st
   const interpretedData = useMemo(() => evaluate(data, $state), [data, $state])
