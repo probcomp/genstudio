@@ -25,7 +25,7 @@ effect_slider = Plot.Slider("effect", label="Effect", range=[0, 2], step=0.1, in
 # Create three plots with slider interactions
 plot1 = (
     Plot.line(
-        enumerate(walk1),
+        list(enumerate(walk1)),
         {
             "x": Plot.js("d => d[0]"),
             "y": Plot.js("d => d[1] * Math.sin($state.effect * d[0] * 0.1)"),
@@ -38,7 +38,7 @@ plot1 = (
 
 plot2 = (
     Plot.dot(
-        enumerate(walk2),
+        list(enumerate(walk2)),
         {
             "x": Plot.js("d => d[0]"),
             "y": Plot.js("d => d[1] * Math.cos($state.effect * d[0] * 0.1)"),
@@ -52,9 +52,8 @@ plot2 = (
 
 plot3 = (
     Plot.areaY(
-        enumerate(walk3),
+        list(enumerate(walk3)),
         {
-            "x": Plot.js("d => d[0]"),
             "y": Plot.js(
                 "d => d[1] * (1 + 0.5 * Math.sin($state.effect * d[0] * 0.1))"
             ),
@@ -67,8 +66,5 @@ plot3 = (
     + Plot.frame()
 )
 
-# Create the layout
 complex_layout = (plot1 | plot2 | plot3) & (time_slider | effect_slider)
-
-# Display the layout
 complex_layout

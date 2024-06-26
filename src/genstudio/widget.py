@@ -15,11 +15,7 @@ def to_json(data, _widget):
             return obj.tolist()
         if isinstance(obj, Iterable):
             # Check if the iterable might be exhaustible
-            if (
-                hasattr(obj, "__iter__")
-                and not hasattr(obj, "__len__")
-                and not hasattr(obj, "__getitem__")
-            ):
+            if not hasattr(obj, "__len__") and not hasattr(obj, "__getitem__"):
                 print(
                     f"Warning: Potentially exhaustible iterator encountered: {type(obj).__name__}"
                 )
