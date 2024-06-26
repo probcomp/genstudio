@@ -56,12 +56,17 @@ class JSRef(dict):
             # return JSRef(f"{self['module']}.{self['name']}", name)
 
 
-class Hiccup:
+class Hiccup(list):
     """Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
 
-    def __init__(self, contents: List[Any]):
-        self.contents = contents
+    def __init__(self, *args):
+        if len(args) == 0:
+            super().__init__()
+        elif len(args) == 1 and isinstance(args[0], (list, tuple)):
+            super().__init__(args[0])
+        else:
+            super().__init__(args)
 
     def _repr_mimebundle_(self, **kwargs: Any):
         """Renders the Hiccup list as an interactive widget in the JavaScript runtime."""
-        return Widget(self.contents)._repr_mimebundle_(**kwargs)
+        return Widget(self)._repr_mimebundle_(**kwargs)

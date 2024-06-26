@@ -35,75 +35,70 @@ const scope = {
   View: {
     PlotSpec: (x) => new PlotSpec(x),
     MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
-    md: (x) => renderMarkdown(x),
+    md: renderMarkdown,
     repeat: (data) => (_, i) => data[i % data.length],
     Hiccup,
-    AutoGrid,
+    Grid,
     flatten,
     Slider,
     Reactive: (options) => new Reactive(options)
   }
 }
 
-function Slider({ name, fps, label, range, init }) {
-  const [$state, set$state] = React.useContext($StateContext)
+function Slider({ name, fps, label, range, init, step = 1 }) {
+  const [$state, set$state] = useContext($StateContext)
   const isAnimated = typeof fps === 'number' && fps > 0
-  const [isPlaying, setIsPlaying] = React.useState(isAnimated);
+  const [isPlaying, setIsPlaying] = useState(isAnimated);
 
-  React.useEffect(() => {
-    if (isAnimated) {
-      let intervalId;
-      if (isPlaying && isAnimated && fps > 0) {
-        intervalId = setInterval(() => {
-          set$state((prevState) => {
-            const nextValue = prevState[name] + 1;
-            if (nextValue < range[1]) {
-              return { ...prevState, [name]: nextValue };
-            } else {
-              return { ...prevState, [name]: range[0] };
-            }
-          });
-        }, 1000 / fps);
-      }
+  useEffect(() => {
+    if (isAnimated && isPlaying) {
+      const intervalId = setInterval(() => {
+        set$state((prevState) => {
+          const newValue = prevState[name] + step;
+          return {
+            ...prevState,
+            [name]: newValue < range[1] ? newValue : range[0]
+          };
+        });
+      }, 1000 / fps);
       return () => clearInterval(intervalId);
     }
-  }, [isPlaying, fps, name, range]);
+  }, [isPlaying, fps, name, range, step]);
 
   const handleSliderChange = (value) => {
     setIsPlaying(false);
-    set$state((prevState) => {
-      return { ...prevState, [name]: Number(value) };
-    });
+    set$state((prevState) => ({ ...prevState, [name]: Number(value) }));
   };
 
-  const togglePlayPause = () => {
-    setIsPlaying(!isPlaying);
-  };
-  const animationControl = isAnimated ? html`<div onClick=${togglePlayPause} style=${{ cursor: 'pointer' }}>${isPlaying ? pauseIcon : playIcon}</div>` : null;
+  const togglePlayPause = () => setIsPlaying(!isPlaying);
+
+  const animationControl = isAnimated &&
+    html`<div onClick=${togglePlayPause} style=${{ cursor: 'pointer' }}>
+      ${isPlaying ? pauseIcon : playIcon}
+    </div>`;
 
   return html`
-      <div style=${{ fontSize: "14px", display: 'flex', flexDirection: 'column', marginTop: '0.5rem', marginBottom: '0.5rem', gap: '0.5rem' }}>
-          <div style=${{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label>${label}</label>
-              <span>${$state[name]}</span>
-              ${animationControl}
-
-          </div>
-          <input
-              type="range"
-              min=${range[0]}
-              max=${range[1] - 1}
-              value=${$state[name] || init || 0}
-              onChange=${(e) => handleSliderChange(e.target.value)}
-              style=${{ outline: 'none' }}
-          />
+    <div style=${{ fontSize: "14px", display: 'flex', flexDirection: 'column', margin: '0.5rem 0', gap: '0.5rem' }}>
+      <div style=${{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <label>${label}</label>
+        <span>${$state[name]}</span>
+        ${animationControl}
       </div>
+      <input
+        type="range"
+        min=${range[0]}
+        max=${range[1]}
+        step=${step}
+        value=${$state[name] || init || range[0]}
+        onChange=${(e) => handleSliderChange(e.target.value)}
+        style=${{ outline: 'none' }}
+      />
+    </div>
   `;
 }
 
 const layoutComponents = new Set(['Hiccup', 'Grid', 'Row', 'Column']);
 
-// Function to collect reactive variables from the AST
 function collectReactiveInitialState(ast) {
   let initialState = {};
 
@@ -111,15 +106,12 @@ function collectReactiveInitialState(ast) {
     if (!node) return;
     if (typeof node === 'object' && node['pyobsplot-type'] === 'function') {
       if (node.name === 'Reactive') {
-        const options = node.args[0]
-        const key = options.name
-        initialState[key] = options.init || typeof options.range == 'number' ? options.range : options.range[0]
+        const { name, init, range } = node.args[0];
+        initialState[name] = init ?? (typeof range === 'number' ? range : range[0]);
       } else if (layoutComponents.has(node.name)) {
-        // Traverse arguments of layout components
         node.args.forEach(traverse);
       }
     } else if (Array.isArray(node)) {
-      // Traverse array elements
       node.forEach(traverse);
     }
   }
@@ -128,58 +120,40 @@ function collectReactiveInitialState(ast) {
   return initialState;
 }
 
-/**
- * Interpret data recursively, evaluating functions.
- */
 export function evaluate(data, $state) {
-  if (data === null) return null;
+  if (data === null || typeof data !== 'object') return data;
   if (Array.isArray(data)) return data.map(item => evaluate(item, $state));
-  if (typeof data === "string" || data instanceof String) return data;
-  if (data.constructor !== Object) return data;
 
   switch (data["pyobsplot-type"]) {
     case "function":
-      let fn = data.name ? scope[data.module][data.name] : scope[data.module];
+      const fn = data.name ? scope[data.module][data.name] : scope[data.module];
       if (!fn) {
-        console.error('f not found', data);
+        console.error('Function not found', data);
+        return null;
       }
-      const interpretedArgs = evaluate(data.args, $state);
-      // Inject $state into layout components
-      if (layoutComponents.has(data.name)) {
-        return fn.call(null, ...interpretedArgs, { $state });
-      }
-      return fn.call(null, ...interpretedArgs);
+      return fn(...evaluate(data.args, $state));
     case "ref":
       return data.name ? scope[data.module][data.name] : scope[data.module];
     case "js":
-      // Use indirect eval to avoid bundling issues
-      let indirect_eval = eval;
-      // Allow access to $state in js expressions
-      return indirect_eval(`(($state) => { return ${data["value"]} })`)($state);
+      return (new Function('$state', `return ${data.value}`))($state);
     case "datetime":
-      return new Date(data["value"]);
+      return new Date(data.value);
+    default:
+      return Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [key, evaluate(value, $state)])
+      );
   }
-
-  // recurse into objects
-  let ret = {};
-  for (const [key, value] of Object.entries(data)) {
-    ret[key] = evaluate(value, $state);
-  }
-  return ret;
 }
 
-function AutoGrid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
-  // normalizeDomains(PlotSpecs)
+function Grid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
   const containerWidth = useContext(WidthContext);
   const aspectRatio = plotOptions.aspectRatio || 1;
   const minWidth = Math.min(plotOptions.minWidth || AUTOGRID_MIN, containerWidth);
 
-  // Compute the number of columns based on containerWidth and minWidth, no more than the number of specs
   const numColumns = Math.max(Math.min(Math.floor(containerWidth / minWidth), PlotSpecs.length), 1);
   const itemWidth = containerWidth / numColumns;
   const itemHeight = itemWidth / aspectRatio;
 
-  // Merge width and height into defaultPlotOptions
   const mergedPlotOptions = {
     ...DEFAULT_PLOT_OPTIONS,
     width: itemWidth,
@@ -187,53 +161,51 @@ function AutoGrid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
     ...plotOptions
   };
 
-  // Compute the total layout height
   const numRows = Math.ceil(PlotSpecs.length / numColumns);
   const layoutHeight = numRows * itemHeight;
 
-  // Update defaultLayoutOptions with the computed layout height
-  const defaultLayoutOptions = {
+  const mergedLayoutOptions = {
     display: 'grid',
     gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
     gridAutoRows: `${itemHeight}px`,
-    height: `${layoutHeight}px`
+    height: `${layoutHeight}px`,
+    ...layoutOptions
   };
-
-  // Merge default options with provided options
-  const mergedLayoutOptions = { ...defaultLayoutOptions, ...layoutOptions };
 
   return html`
     <div style=${mergedLayoutOptions}>
-      ${PlotSpecs.map(({ spec }, index) => {
-    return html`<${PlotWrapper} key=${index} spec=${{ ...spec, ...mergedPlotOptions }} />`;
+      ${PlotSpecs.map((item, index) => {
+    if (item.spec) {
+      return html`<${PlotWrapper} key=${index} spec=${{ ...item.spec, ...mergedPlotOptions }} />`;
+    } else {
+      return html`<div key=${index} style=${{ width: itemWidth, height: itemHeight }}>${item}</div>`;
+    }
   })}
     </div>
   `;
 }
 
-/**
- * Renders a node. Arrays are parsed as hiccup.
- */
 function Node({ value }) {
   if (Array.isArray(value)) {
-    return Hiccup.apply(null, value);
+    return Hiccup(...value);
   } else if (value instanceof PlotSpec) {
     return html`<${PlotWrapper} spec=${value.spec}/>`;
   } else if (value instanceof MarkSpec) {
-    return Node({ value: new PlotSpec({ marks: [value] }) })
+    return html`<${PlotWrapper} spec=${{ marks: [value] }}/>`;
   } else if (value instanceof Reactive) {
-    return Slider(value.options)
+    return Slider(value.options);
   } else {
-    return value
+    return value;
   }
 }
 
 function Hiccup(tag, props, ...children) {
-  if (props.constructor !== Object) {
+  if (props?.constructor !== Object) {
     children.unshift(props);
     props = {};
   }
-  let baseTag
+
+  let baseTag = tag;
   if (typeof tag === 'string') {
     let id, classes
     [baseTag, ...classes] = tag.split('.');
@@ -244,22 +216,18 @@ function Hiccup(tag, props, ...children) {
     if (classes.length > 0) {
       props.className = `${props.className || ''} ${classes.join(' ')}`.trim();
     }
-
-  } else {
-    baseTag = tag
   }
-  children = children.map((child, i) => html`<${Node} key=${i} value=${child} />`)
 
-  return baseTag instanceof PlotSpec ?
-    html`<${PlotWrapper} spec=${baseTag.spec}/>` :
-    html`<${baseTag} ...${props}>${children}</${tag}>`;
-};
+  return baseTag instanceof PlotSpec
+    ? html`<${PlotWrapper} spec=${baseTag.spec}/>`
+    : html`<${baseTag} ...${props}>
+            ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
+           </>`;
+}
 
 function useStableState(initialState) {
-  // Return a useState whose array identity only changes
-  // when the state has changed
   const [state, setState] = useState(initialState);
-  return useMemo(() => [state, setState], [state, setState]);
+  return useMemo(() => [state, setState], [state]);
 }
 
 function WithState({ data }) {
@@ -269,24 +237,26 @@ function WithState({ data }) {
   return html`
     <${$StateContext.Provider} value=${st}>
       <${Node} value=${interpretedData} />
-    </${$StateContext.Provider}>
+    </>
   `
 }
 
 function App() {
   const [el, setEl] = useState();
-  const [data, _] = useModelState("data");
+  const [data] = useModelState("data");
   const parsedData = data ? JSON.parse(data) : null
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
-  if (!parsedData || unmounted) {
-    return null;
-  }
-  return html`<${WidthContext.Provider} value=${width}>
+
+  if (!parsedData || unmounted) return null;
+
+  return html`
+    <${WidthContext.Provider} value=${width}>
       <div style=${{ color: '#333' }} ref=${setEl}>
-        ${el ? html`<${WithState} data=${parsedData}/>` : null}
+        ${el && html`<${WithState} data=${parsedData}/>`}
       </div>
-    </>`
+    </${WidthContext.Provider}>
+  `;
 }
 
 export default { render: createRender(App) }

@@ -14,7 +14,16 @@ def to_json(data, _widget):
         if hasattr(obj, "tolist"):
             return obj.tolist()
         if isinstance(obj, Iterable):
-            return [x for x in obj]
+            # Check if the iterable might be exhaustible
+            if (
+                hasattr(obj, "__iter__")
+                and not hasattr(obj, "__len__")
+                and not hasattr(obj, "__getitem__")
+            ):
+                print(
+                    f"Warning: Potentially exhaustible iterator encountered: {type(obj).__name__}"
+                )
+            return list(obj)
         elif isinstance(obj, (datetime.date, datetime.datetime)):
             return {"pyobsplot-type": "datetime", "value": obj.isoformat()}
         else:
@@ -30,7 +39,3 @@ class Widget(anywidget.AnyWidget):
 
     def __init__(self, data):
         super().__init__(data=data)
-
-    @anywidget.experimental.command  # type: ignore
-    def ping(self, msg, buffers):
-        return "pong", None

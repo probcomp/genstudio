@@ -132,7 +132,7 @@ from genstudio.plot_defs import (
     windowX,
     windowY,
 )
-from genstudio.plot_spec import PlotSpec, new, _deep_merge
+from genstudio.plot_spec import PlotSpec, new, _deep_merge, Row, Column, Slider
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
@@ -419,48 +419,12 @@ def constantly(x):
 
 def Grid(plotspecs, plot_opts={}, layout_opts={}):
     return Hiccup(
-        [
-            View.AutoGrid,
-            {
-                "specs": plotspecs,
-                "plotOptions": plot_opts,
-                "layoutOptions": layout_opts,
-            },
-        ]
-    )
-
-
-def Row(*plotspecs, layout_opts={}):
-    return Hiccup(
-        [
-            "div",
-            {
-                "style": {
-                    "display": "flex",
-                    "flexDirection": "row",
-                    "alignItems": "flex-start",
-                    **layout_opts,
-                }
-            },
-            plotspecs,
-        ]
-    )
-
-
-def Column(*plotspecs, layout_opts={}):
-    return Hiccup(
-        [
-            "div",
-            {
-                "style": {
-                    "display": "flex",
-                    "flexDirection": "column",
-                    "alignItems": "flex-start",
-                    **layout_opts,
-                }
-            },
-            *plotspecs,
-        ]
+        View.Grid,
+        {
+            "specs": plotspecs,
+            "plotOptions": plot_opts,
+            "layoutOptions": layout_opts,
+        },
     )
 
 
@@ -654,34 +618,6 @@ def margin(*args):
         raise ValueError(f"Invalid number of arguments: {len(args)}")
 
 
-# WIP
-def slider(key, range, label=None):
-    range = [0, range] if isinstance(range, int) else range
-    return {"$state": {key: {"range": range, "label": label or key, "kind": "slider"}}}
-
-
-# WIP
-def animate(key, range, fps=5, label=None):
-    range = [0, range] if isinstance(range, int) else range
-    return {
-        "$state": {
-            key: {"range": range, "label": label or key, "kind": "animate", "fps": fps}
-        }
-    }
-
-
-def Slider(name, range, label=None, **kwargs):
-    return View.Reactive(
-        {
-            "name": name,
-            "range": [0, range] if isinstance(range, int) else range,
-            "label": label,
-            "kind": "Slider",
-            **kwargs,
-        },
-    )
-
-
 # barX
 # For reference - other options supported by plots
 example_plot_options = {
@@ -713,18 +649,28 @@ def doc(fn):
 
     if fn.__doc__:
         name = fn.__name__
-        doc = fn.__doc__
+        doc = fn.__doc__.strip()  # Strip leading/trailing whitespace
+        # Dedent the docstring to avoid unintended code blocks
+        doc = "\n".join(line.strip() for line in doc.split("\n"))
         module = fn.__module__
         module = "Plot" if fn.__module__.endswith("plot_defs") else module
         title = f"<span style='padding-right: 10px;'>{module}.{name}</span>"
         return View.md(
             f"""
 <div class="doc-header">{title}</div>
-<div class="doc-content">{doc}</div>
+<div class="doc-content">
+
+{doc}
+
+</div>
 """
         )
     else:
         return View.md("No docstring available.")
+
+
+def state(name: str) -> Dict[str, str]:
+    return js(f"$state.{name}")
 
 
 # %%

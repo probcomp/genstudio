@@ -150,16 +150,16 @@ average_line + spread_rects
 
 # %% slideshow={"slide_type": "slide"}
 Plot.Column(
-    # (
-    #     Plot.dot(
-    #         plant_growth_described,
-    #         x="day",
-    #         y="stem_length",
-    #         facetGrid="plant",
-    #         filter=Plot.js("(plant) => plant.day <= $state.currentDay"),
-    #     )
-    #     + Plot.frame()
-    # ),
+    (
+        Plot.dot(
+            plant_growth_described,
+            x="day",
+            y="stem_length",
+            facetGrid="plant",
+            filter=Plot.js("(plant) => plant.day <= $state.currentDay"),
+        )
+        + Plot.frame()
+    ),
     Plot.Slider("currentDay", plant_growth_described.size("day"), fps=10),
 )
 
