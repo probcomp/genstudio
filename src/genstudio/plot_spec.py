@@ -1,6 +1,6 @@
 import copy
 from genstudio.widget import Widget
-from genstudio.js_modules import JSRef
+from genstudio.js_modules import JSRef, Hiccup
 from typing import Any, Dict, List, Sequence, Optional, Union
 
 
@@ -10,6 +10,80 @@ SpecInput = Union[
 Mark = Dict[str, Any]
 
 View = JSRef("View")
+
+
+class LayoutItem:
+    def to_json(self) -> Any:
+        return NotImplemented
+
+    def __and__(self, other):
+        return Row(self, other)
+
+    def __rand__(self, other):
+        return Row(other, self)
+
+    def __or__(self, other):
+        return Column(self, other)
+
+    def __ror__(self, other):
+        return Column(other, self)
+
+    def _repr_mimebundle_(self, **kwargs):
+        return Widget(self.to_json())._repr_mimebundle_(**kwargs)
+
+
+class Row(LayoutItem):
+    def __init__(self, *items):
+        self.items = self._flatten_items(items)
+
+    def _flatten_items(self, items):
+        flattened = []
+        for item in items:
+            if isinstance(item, Row):
+                flattened.extend(item.items)
+            else:
+                flattened.append(item)
+        return flattened
+
+    def to_json(self) -> Hiccup:
+        return Hiccup(
+            "div", {"style": {"display": "flex", "flexDirection": "row"}}, *self.items
+        )
+
+
+class Column(LayoutItem):
+    def __init__(self, *items):
+        self.items = self._flatten_items(items)
+
+    def _flatten_items(self, items):
+        flattened = []
+        for item in items:
+            if isinstance(item, Column):
+                flattened.extend(item.items)
+            else:
+                flattened.append(item)
+        return flattened
+
+    def to_json(self) -> Hiccup:
+        return Hiccup(
+            "div",
+            {"style": {"display": "flex", "flexDirection": "column"}},
+            *self.items,
+        )
+
+
+class Slider(LayoutItem):
+    def __init__(self, name, range, label=None, **kwargs):
+        self.config = {
+            "name": name,
+            "range": [0, range] if isinstance(range, int) else range,
+            "label": label,
+            "kind": "Slider",
+            **kwargs,
+        }
+
+    def to_json(self):
+        return View.Reactive(self.config)
 
 
 def _deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
@@ -73,7 +147,7 @@ def _add(
         )
 
 
-class PlotSpec:
+class PlotSpec(LayoutItem):
     """
     Represents a specification for an plot (in Observable Plot).
 
@@ -157,8 +231,8 @@ class PlotSpec:
         self.spec.update(kwargs)
         self.plot().data = self.spec
 
-    def _repr_mimebundle_(self, include=None, exclude=None):
-        return self.plot()._repr_mimebundle_()
+    def _repr_mimebundle_(self, **kwargs):
+        return self.plot()._repr_mimebundle_(**kwargs)
 
     def to_json(self):
         return View.PlotSpec(self.spec)
