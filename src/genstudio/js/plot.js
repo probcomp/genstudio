@@ -6,7 +6,7 @@ import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { binding, flatten, html } from "./utils";
 
 const { useEffect } = React
-export const DEFAULT_PLOT_OPTIONS = { inset: 20 };
+export const DEFAULT_PLOT_OPTIONS = { inset: 10 };
 
 /**
  * Wrap plot specs so that our node renderer can identify them.
@@ -69,16 +69,20 @@ export class MarkSpec {
                 if (Array.isArray(value)) {
                     length = value.length
                 }
-                if (length === null) {
-                    throw new Error("Invalid columnar data: at least one column must be an array.");
-                }
-                data = { length: length }
+            if (length === null) {
+                throw new Error("Invalid columnar data: at least one column must be an array.");
+            }
+            data = {length: length }
             }
 
         }
         // handle facetWrap option (grid) with minWidth consideration
         // see https://github.com/observablehq/plot/pull/892/files
         if (options.facetGrid) {
+            // Check if data is an array of objects
+            if (!Array.isArray(data) || !data.every(item => typeof item === 'object' && item !== null)) {
+                throw new Error("Invalid data format: facetGrid expect an array of objects");
+            }
             const facetGrid = (typeof options.facetGrid === 'string') ? [options.facetGrid, {}] : options.facetGrid;
             const [key, gridOpts] = facetGrid;
             const keys = Array.from(d3.union(data.map((d) => d[key])));

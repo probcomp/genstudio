@@ -4,11 +4,10 @@ import * as d3 from "d3";
 import MarkdownIt from "markdown-it";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import { WidthContext, AUTOGRID_MIN } from "./context";
+import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
 import { flatten, html, binding, useCellUnmounted, useElementWidth } from "./utils";
-import { $StateContext } from "./context";
-const { useState, useEffect, useContext, useMemo } = React
+const { useState, useEffect, useContext, useMemo, useCallback } = React
 
 const md = new MarkdownIt({
   html: true,
@@ -29,6 +28,22 @@ class Reactive {
 const playIcon = html`<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
 const pauseIcon = html`<svg viewBox="0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`;
 
+function Frames(props) {
+  const { state_key, frames } = props
+  const [$state] = useContext($StateContext);
+
+  if (!Array.isArray(frames)) {
+    return html`<div style="color: red;">Error: 'frames' must be an array.</div>`;
+  }
+
+  const index = $state[state_key];
+  if (!Number.isInteger(index) || index < 0 || index >= frames.length) {
+    return html`<div style="color: red;">Error: Invalid index. $state[${state_key}] (${index}) must be a valid index of the frames array (length: ${frames.length}).</div>`;
+  }
+
+  return html`<${Node} value=${frames[index]} />`;
+}
+
 const scope = {
   d3,
   Plot, React, ReactDOM,
@@ -39,59 +54,75 @@ const scope = {
     repeat: (data) => (_, i) => data[i % data.length],
     Hiccup,
     Grid,
+    Row,
+    Column,
     flatten,
     Slider,
+    Frames,
     Reactive: (options) => new Reactive(options)
   }
 }
 
-function Slider({ name, fps, label, range, init, step = 1 }) {
-  const [$state, set$state] = useContext($StateContext)
-  const isAnimated = typeof fps === 'number' && fps > 0
+function firstDefined(...values) {
+  return values.find(value => value !== undefined);
+}
+
+function Slider(options) {
+  const { state_key, fps, label, range, init, step = 1, loop = true } = options;
+  const [$state, set$state] = useContext($StateContext);
+  const availableWidth = useContext(WidthContext);
+  const isAnimated = typeof fps === 'number' && fps > 0;
   const [isPlaying, setIsPlaying] = useState(isAnimated);
+
+  const [minRange, maxRange] = range[0] < range[1] ? range : [range[1], range[0]];
+  const sliderValue = firstDefined($state[state_key], init, minRange);
 
   useEffect(() => {
     if (isAnimated && isPlaying) {
       const intervalId = setInterval(() => {
         set$state((prevState) => {
-          const newValue = prevState[name] + step;
-          return {
-            ...prevState,
-            [name]: newValue < range[1] ? newValue : range[0]
-          };
+          const newValue = prevState[state_key] + step;
+          if (newValue > maxRange) {
+            if (loop) {
+              return { ...prevState, [state_key]: minRange };
+            } else {
+              setIsPlaying(false);
+              return { ...prevState, [state_key]: maxRange };
+            }
+          }
+          return { ...prevState, [state_key]: newValue };
         });
       }, 1000 / fps);
       return () => clearInterval(intervalId);
     }
-  }, [isPlaying, fps, name, range, step]);
+  }, [isPlaying, fps, state_key, minRange, maxRange, step, loop]);
 
-  const handleSliderChange = (value) => {
+  const handleSliderChange = useCallback((value) => {
     setIsPlaying(false);
-    set$state((prevState) => ({ ...prevState, [name]: Number(value) }));
-  };
+    set$state((prevState) => ({ ...prevState, [state_key]: Number(value) }));
+  }, [set$state, state_key]);
 
-  const togglePlayPause = () => setIsPlaying(!isPlaying);
-
-  const animationControl = isAnimated &&
-    html`<div onClick=${togglePlayPause} style=${{ cursor: 'pointer' }}>
-      ${isPlaying ? pauseIcon : playIcon}
-    </div>`;
+  const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
 
   return html`
-    <div style=${{ fontSize: "14px", display: 'flex', flexDirection: 'column', margin: '0.5rem 0', gap: '0.5rem' }}>
+    <div style=${{ fontSize: "14px", display: 'flex', flexDirection: 'column', margin: '0.5rem 0', gap: '0.5rem', width: availableWidth }}>
       <div style=${{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <label>${label}</label>
-        <span>${$state[name]}</span>
-        ${animationControl}
+        <span>${$state[state_key]}</span>
+        ${isAnimated && html`
+          <div onClick=${togglePlayPause} style=${{ cursor: 'pointer' }}>
+            ${isPlaying ? pauseIcon : playIcon}
+          </div>
+        `}
       </div>
       <input
         type="range"
-        min=${range[0]}
-        max=${range[1]}
+        min=${minRange}
+        max=${maxRange}
         step=${step}
-        value=${$state[name] || init || range[0]}
+        value=${sliderValue}
         onChange=${(e) => handleSliderChange(e.target.value)}
-        style=${{ outline: 'none' }}
+        style=${{ outline: 'none', width: '100%' }}
       />
     </div>
   `;
@@ -106,8 +137,8 @@ function collectReactiveInitialState(ast) {
     if (!node) return;
     if (typeof node === 'object' && node['pyobsplot-type'] === 'function') {
       if (node.name === 'Reactive') {
-        const { name, init, range } = node.args[0];
-        initialState[name] = init ?? (typeof range === 'number' ? range : range[0]);
+        const { state_key, init, range } = node.args[0];
+        initialState[state_key] = init ?? (typeof range === 'number' ? range : range[0]);
       } else if (layoutComponents.has(node.name)) {
         node.args.forEach(traverse);
       }
@@ -150,48 +181,86 @@ function Grid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
   const aspectRatio = plotOptions.aspectRatio || 1;
   const minWidth = Math.min(plotOptions.minWidth || AUTOGRID_MIN, containerWidth);
 
-  const numColumns = Math.max(Math.min(Math.floor(containerWidth / minWidth), PlotSpecs.length), 1);
-  const itemWidth = containerWidth / numColumns;
+  // Ensure at least one column, even if containerWidth is less than minWidth
+  const numColumns = Math.max(1, Math.min(Math.floor(containerWidth / minWidth), PlotSpecs.length));
+  const gap = layoutOptions.gap || "10px";
+  const gapSize = parseInt(gap);
+  const availableWidth = Math.max(containerWidth - (numColumns - 1) * gapSize, minWidth);
+  const itemWidth = availableWidth / numColumns;
   const itemHeight = itemWidth / aspectRatio;
 
   const mergedPlotOptions = {
     ...DEFAULT_PLOT_OPTIONS,
+    ...plotOptions,
     width: itemWidth,
-    height: itemHeight,
-    ...plotOptions
+    height: itemHeight
   };
 
   const numRows = Math.ceil(PlotSpecs.length / numColumns);
-  const layoutHeight = numRows * itemHeight;
+  const layoutHeight = numRows * itemHeight + (numRows - 1) * gapSize;
 
   const mergedLayoutOptions = {
     display: 'grid',
+    gap: gap,
     gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
     gridAutoRows: `${itemHeight}px`,
     height: `${layoutHeight}px`,
+    width: `${containerWidth}px`, // Ensure the grid doesn't exceed container width
+    overflowX: 'auto', // Allow horizontal scrolling if needed
     ...layoutOptions
   };
 
   return html`
-    <div style=${mergedLayoutOptions}>
-      ${PlotSpecs.map((item, index) => {
-    if (item.spec) {
-      return html`<${PlotWrapper} key=${index} spec=${{ ...item.spec, ...mergedPlotOptions }} />`;
-    } else {
-      return html`<div key=${index} style=${{ width: itemWidth, height: itemHeight }}>${item}</div>`;
-    }
-  })}
+    <${WidthContext.Provider} value=${itemWidth}>
+      <div style=${mergedLayoutOptions}>
+        ${PlotSpecs.map((item, index) => {
+          if (item.spec) {
+            return html`<${PlotWrapper} key=${index} spec=${{ ...item.spec, ...mergedPlotOptions }} />`;
+          } else {
+            return html`<div key=${index} style=${{ width: itemWidth, height: itemHeight }}>${item}</div>`;
+          }
+        })}
+      </div>
+    </>
+  `;
+}
+
+function Row({children}) {
+  const availableWidth = useContext(WidthContext);
+  const childCount = React.Children.count(children);
+  const childWidth = availableWidth / childCount;
+
+  return html`
+    <div class="layout-row">
+      <${WidthContext.Provider} value=${childWidth}>
+        ${React.Children.map(children, (child, index) => html`
+          <div class="row-item" key=${index}>
+            ${child}
+          </div>
+        `)}
+      </${WidthContext.Provider}>
+    </div>
+  `;
+}
+
+function Column({children}) {
+  return html`
+    <div class="layout-column">
+      ${children}
     </div>
   `;
 }
 
 function Node({ value }) {
+  const availableWidth = useContext(WidthContext);
+
   if (Array.isArray(value)) {
     return Hiccup(...value);
   } else if (value instanceof PlotSpec) {
-    return html`<${PlotWrapper} spec=${value.spec}/>`;
+    const specWithWidth = value.spec.width ? value.spec : { ...value.spec, width: availableWidth };
+    return html`<${PlotWrapper} spec=${specWithWidth}/>`;
   } else if (value instanceof MarkSpec) {
-    return html`<${PlotWrapper} spec=${{ marks: [value] }}/>`;
+    return html`<${PlotWrapper} spec=${{ marks: [value], width: availableWidth }}/>`;
   } else if (value instanceof Reactive) {
     return Slider(value.options);
   } else {
@@ -250,9 +319,11 @@ function App() {
 
   if (!parsedData || unmounted) return null;
 
+  const adjustedWidth = width ? width - 20 : undefined; // Subtract 20px for left and right padding
+
   return html`
-    <${WidthContext.Provider} value=${width}>
-      <div style=${{ color: '#333' }} ref=${setEl}>
+    <${WidthContext.Provider} value=${adjustedWidth}>
+      <div style=${{ color: '#333', 'padding': '5px' }} ref=${setEl}>
         ${el && html`<${WithState} data=${parsedData}/>`}
       </div>
     </${WidthContext.Provider}>
