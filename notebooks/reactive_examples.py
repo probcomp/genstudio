@@ -1,4 +1,3 @@
-# %%
 # %load_ext autoreload
 # %autoreload 2
 import genstudio.plot as Plot
@@ -36,7 +35,7 @@ plot1 = (
     )
     + Plot.frame()
 )
-
+#
 plot2 = (
     Plot.dot(
         list(enumerate(walk2)),
@@ -50,7 +49,7 @@ plot2 = (
     )
     + Plot.frame()
 )
-
+#
 plot3 = (
     Plot.areaY(
         list(enumerate(walk3)),
@@ -70,14 +69,12 @@ plot3 = (
 complex_layout = plot1 | (plot2 & plot3) | time_slider | effect_slider
 complex_layout
 
-# %%
 # Plot.Frames creates an animated plot that cycles through a list of frames.
 # Each frame can be a plot specification or any renderable object.
 
 # Example of a simple animation with default settings:
 Plot.Frames(["a", "b", "c", "d"], fps=2)
 
-# %%
 
 # By default, Plot.Frames automatically renders a slider.
 # The slider's range is inferred from the number of passed-in frames.
@@ -97,7 +94,6 @@ Plot.Frames(["a", "b", "c", "d"], fps=2)
 # In this example, both animations will be controlled by the same slider,
 # cycling through their respective frames in sync.
 
-# %%
 (
     Plot.dot(
         bean_data_dims,
