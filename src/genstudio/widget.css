@@ -10,3 +10,24 @@
     max-width: 400px;
     margin: 10px 0;
 }
+
+.layout-row {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.layout-row > * {
+    flex: 1 1 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.layout-column {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}

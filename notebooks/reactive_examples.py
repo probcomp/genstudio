@@ -2,6 +2,7 @@
 # %load_ext autoreload
 # %autoreload 2
 import genstudio.plot as Plot
+from plot_examples import bean_data_dims
 import random
 
 
@@ -66,5 +67,49 @@ plot3 = (
     + Plot.frame()
 )
 
-complex_layout = (plot1 | plot2 | plot3) & (time_slider | effect_slider)
+complex_layout = plot1 | (plot2 & plot3) | time_slider | effect_slider
 complex_layout
+
+# %%
+# Plot.Frames creates an animated plot that cycles through a list of frames.
+# Each frame can be a plot specification or any renderable object.
+
+# Example of a simple animation with default settings:
+Plot.Frames(["a", "b", "c", "d"], fps=2)
+
+# %%
+
+# By default, Plot.Frames automatically renders a slider.
+# The slider's range is inferred from the number of passed-in frames.
+
+# For more control, you can synchronize multiple Plot.Frames instances
+# with an explicitly created slider. To do this:
+# 1. Give each Plot.Frames instance the same 'key' argument
+# 2. Create a Plot.Slider with that same key
+
+# Example of synchronized animations with custom slider:
+(
+    Plot.Frames([1, 2, 3, 4, 5], key="custom_animation")
+    & Plot.Frames(["A", "B", "C", "D", "E"], key="custom_animation")
+    | Plot.Slider("custom_animation", range=[0, 4], fps=5)
+)
+
+# In this example, both animations will be controlled by the same slider,
+# cycling through their respective frames in sync.
+
+# %%
+(
+    Plot.dot(
+        bean_data_dims,
+        {
+            "x": "day",
+            "y": "stem_length",
+            "fill": "black",
+            "facetGrid": "bean",
+            "filter": Plot.js("(d) => d.day <= $state.currentDay"),
+        },
+    )
+    + Plot.frame()
+    # animate a $state variable
+    | Plot.Slider("currentDay", fps=8, range=bean_data_dims.size("day"))
+)

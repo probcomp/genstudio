@@ -1,6 +1,6 @@
 import copy
 from genstudio.widget import Widget
-from genstudio.js_modules import JSRef, Hiccup
+from genstudio.js_modules import JSRef
 from typing import Any, Dict, List, Sequence, Optional, Union
 
 
@@ -32,6 +32,25 @@ class LayoutItem:
         return Widget(self.to_json())._repr_mimebundle_(**kwargs)
 
 
+class Hiccup(LayoutItem, list):
+    """Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
+
+    def __init__(self, *args):
+        if len(args) == 0:
+            super().__init__()
+        elif len(args) == 1 and isinstance(args[0], (list, tuple)):
+            super().__init__(args[0])
+        else:
+            super().__init__(args)
+
+    def _repr_mimebundle_(self, **kwargs: Any):
+        """Renders the Hiccup list as an interactive widget in the JavaScript runtime."""
+        return Widget(self)._repr_mimebundle_(**kwargs)
+
+    def to_json(self):
+        return self
+
+
 class Row(LayoutItem):
     def __init__(self, *items):
         self.items = self._flatten_items(items)
@@ -46,9 +65,7 @@ class Row(LayoutItem):
         return flattened
 
     def to_json(self) -> Hiccup:
-        return Hiccup(
-            "div", {"style": {"display": "flex", "flexDirection": "row"}}, *self.items
-        )
+        return Hiccup(View.Row, {}, *self.items)
 
 
 class Column(LayoutItem):
@@ -65,17 +82,13 @@ class Column(LayoutItem):
         return flattened
 
     def to_json(self) -> Hiccup:
-        return Hiccup(
-            "div",
-            {"style": {"display": "flex", "flexDirection": "column"}},
-            *self.items,
-        )
+        return Hiccup(View.Column, {}, *self.items)
 
 
 class Slider(LayoutItem):
-    def __init__(self, name, range, label=None, **kwargs):
+    def __init__(self, key, range, label=None, **kwargs):
         self.config = {
-            "name": name,
+            "state_key": key,
             "range": [0, range] if isinstance(range, int) else range,
             "label": label,
             "kind": "Slider",

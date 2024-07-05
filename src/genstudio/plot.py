@@ -2,10 +2,11 @@
 # ruff: noqa: F401
 import json
 import math
+import random
 from typing import Any, Dict, List, Union
 
 import genstudio.plot_defs as plot_defs
-from genstudio.js_modules import Hiccup, JSRef, js
+from genstudio.js_modules import JSRef, js
 from genstudio.plot_defs import (
     area,
     areaX,
@@ -132,7 +133,7 @@ from genstudio.plot_defs import (
     windowX,
     windowY,
 )
-from genstudio.plot_spec import PlotSpec, new, _deep_merge, Row, Column, Slider
+from genstudio.plot_spec import Column, PlotSpec, Row, Slider, _deep_merge, new, Hiccup
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
@@ -674,3 +675,23 @@ def state(name: str) -> Dict[str, str]:
 
 
 # %%
+
+
+def Frames(frames, key=None, **opts):
+    """
+    Create an animated plot that cycles through a list of frames.
+
+    Args:
+        frames (list): A list of plot specifications or renderable objects to animate.
+        **opts: Additional options for the animation, such as fps (frames per second).
+
+    Returns:
+        A Hiccup-style representation of the animated plot.
+    """
+    if key is None:
+        key = f"frame_animation_{random.randint(1, 1000000)}"
+        return Hiccup(View.Frames, {"state_key": key, "frames": frames}) | Slider(
+            key, [0, len(frames) - 1], **opts
+        )
+    else:
+        return Hiccup(View.Frames, {"state_key": key, "frames": frames})
