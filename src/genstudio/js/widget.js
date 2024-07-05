@@ -225,13 +225,13 @@ function Grid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
   `;
 }
 
-function Row({children}) {
+function Row({children, ...props}) {
   const availableWidth = useContext(WidthContext);
   const childCount = React.Children.count(children);
   const childWidth = availableWidth / childCount;
 
   return html`
-    <div class="layout-row">
+    <div ...${props} class="layout-row">
       <${WidthContext.Provider} value=${childWidth}>
         ${React.Children.map(children, (child, index) => html`
           <div class="row-item" key=${index}>
@@ -243,9 +243,9 @@ function Row({children}) {
   `;
 }
 
-function Column({children}) {
+function Column({children, ...props}) {
   return html`
-    <div class="layout-column">
+    <div ...${props} class="layout-column">
       ${children}
     </div>
   `;
