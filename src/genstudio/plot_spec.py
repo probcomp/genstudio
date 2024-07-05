@@ -51,38 +51,34 @@ class Hiccup(LayoutItem, list):
         return self
 
 
+def flatten_layout_items(items, layout_class):
+    flattened = []
+    options = {}
+    for item in items:
+        if isinstance(item, layout_class):
+            flattened.extend(item.items)
+            options.update(item.options)
+        elif isinstance(item, dict):
+            options.update(item)
+        else:
+            flattened.append(item)
+    return flattened, options
+
+
 class Row(LayoutItem):
     def __init__(self, *items):
-        self.items = self._flatten_items(items)
-
-    def _flatten_items(self, items):
-        flattened = []
-        for item in items:
-            if isinstance(item, Row):
-                flattened.extend(item.items)
-            else:
-                flattened.append(item)
-        return flattened
+        self.items, self.options = flatten_layout_items(items, Row)
 
     def to_json(self) -> Hiccup:
-        return Hiccup(View.Row, {}, *self.items)
+        return Hiccup(View.Row, self.options, *self.items)
 
 
 class Column(LayoutItem):
     def __init__(self, *items):
-        self.items = self._flatten_items(items)
-
-    def _flatten_items(self, items):
-        flattened = []
-        for item in items:
-            if isinstance(item, Column):
-                flattened.extend(item.items)
-            else:
-                flattened.append(item)
-        return flattened
+        self.items, self.options = flatten_layout_items(items, Column)
 
     def to_json(self) -> Hiccup:
-        return Hiccup(View.Column, {}, *self.items)
+        return Hiccup(View.Column, self.options, *self.items)
 
 
 class Slider(LayoutItem):

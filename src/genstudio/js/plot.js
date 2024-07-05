@@ -19,6 +19,8 @@ export class PlotSpec {
         this.spec = spec;
     }
 }
+
+
 export class MarkSpec {
     constructor(name, data, options) {
         if (!Plot[name]) {
@@ -26,7 +28,7 @@ export class MarkSpec {
         }
         this.fn = Plot[name];
 
-        options = {...options}
+        options = { ...options }
 
         // handle dimensional data passed in the 1st position
         if (data.dimensions) {
@@ -64,24 +66,24 @@ export class MarkSpec {
         // handle columnar data in the 1st position
         if (data.constructor === Object && !('length' in data)) {
             let length = null
+            data = {... data}
             for (let [key, value] of Object.entries(data)) {
-                options[key] = value;
                 if (Array.isArray(value)) {
+                    options[key] = value;
+                    delete data[key]
                     length = value.length
                 }
-            if (length === null) {
-                throw new Error("Invalid columnar data: at least one column must be an array.");
+                if (length !== null) {
+                    data.length = length
+                }
             }
-            data = {length: length }
-            }
-
         }
         // handle facetWrap option (grid) with minWidth consideration
         // see https://github.com/observablehq/plot/pull/892/files
         if (options.facetGrid) {
             // Check if data is an array of objects
             if (!Array.isArray(data) || !data.every(item => typeof item === 'object' && item !== null)) {
-                throw new Error("Invalid data format: facetGrid expect an array of objects");
+                throw new Error("Invalid data format: facetGrid expects an array of objects");
             }
             const facetGrid = (typeof options.facetGrid === 'string') ? [options.facetGrid, {}] : options.facetGrid;
             const [key, gridOpts] = facetGrid;
@@ -109,13 +111,17 @@ export class MarkSpec {
     }
 }
 
+function someObject(obj) {
+    return Object.keys(obj).length === 0 ? null : obj;
+}
+
 export function readMark(mark, width) {
 
     if (!(mark instanceof MarkSpec)) {
         return mark;
     }
     let { fn, data, options, plotOptions, extraMarks } = mark.compute(width);
-    mark = fn(data, options);
+    mark = someObject(options) ? fn(data, options) : fn(data)
     mark.plotOptions = plotOptions;
     return [mark, ...extraMarks]
 }
