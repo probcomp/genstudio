@@ -7,6 +7,8 @@ import * as ReactDOM from "react-dom";
 import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
 import { flatten, html, binding, useCellUnmounted, useElementWidth } from "./utils";
+import * as htmlToImage from 'html-to-image';
+
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 
 const md = new MarkdownIt({
@@ -316,13 +318,36 @@ function App() {
   const parsedData = data ? JSON.parse(data) : null
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
+  const [imageRequests] = useModelState("image_requests");
+  const [images, setImages] = useModelState("images");
 
   if (!parsedData || unmounted) return null;
 
   const adjustedWidth = width ? width - 20 : undefined; // Subtract 20px for left and right padding
 
+  useEffect(() => {
+    if (!el) return;
+
+    imageRequests.forEach(async (format) => {
+      if (images[format]) {
+        return;
+      }
+
+      let imageData;
+      if (format === 'png') {
+        imageData = await htmlToImage.toPng(el);
+      } else if (format === 'jpeg') {
+        imageData = await htmlToImage.toJpeg(el);
+      } else if (format === 'svg') {
+        imageData = await htmlToImage.toSvg(el);
+      }
+
+      setImages({...images, [format]: imageData});
+    });
+  }, [el, imageRequests, images]);
+
   return html`
-    <${WidthContext.Provider} value=${adjustedWidth}>
+    <${WidthContext.Provider} class='genstudio-container' value=${adjustedWidth}>
       <div style=${{ color: '#333', 'padding': '5px' }} ref=${setEl}>
         ${el && html`<${WithState} data=${parsedData}/>`}
       </div>

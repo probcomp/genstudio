@@ -42,6 +42,16 @@ class LayoutItem:
             self._widget = Widget(self.to_json())
         return self._widget
 
+    def save_image(self, path, callback=None):
+        """
+        Save the widget as an image.
+
+        Args:
+            path (str): The path where the image will be saved.
+            callback (callable, optional): A function to call after the image is saved.
+        """
+        return self.widget().save_image(path, callback)
+
 
 class Hiccup(LayoutItem, list):
     """Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
@@ -54,10 +64,6 @@ class Hiccup(LayoutItem, list):
             list.__init__(self, args[0])
         else:
             list.__init__(self, args)
-
-    def _repr_mimebundle_(self, **kwargs: Any):
-        """Renders the Hiccup list as an interactive widget in the JavaScript runtime."""
-        return Widget(self)._repr_mimebundle_(**kwargs)
 
     def to_json(self):
         return self

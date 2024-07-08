@@ -31,3 +31,7 @@
     flex-direction: column;
     gap: 10px;
 }
+
+.genstudio-container > * {
+    background-color: white;
+}
