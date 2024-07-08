@@ -13,6 +13,9 @@ View = JSRef("View")
 
 
 class LayoutItem:
+    def __init__(self):
+        self._widget: Optional[Widget] = None
+
     def to_json(self) -> Any:
         return NotImplemented
 
@@ -29,19 +32,28 @@ class LayoutItem:
         return Column(other, self)
 
     def _repr_mimebundle_(self, **kwargs):
-        return Widget(self.to_json())._repr_mimebundle_(**kwargs)
+        return self.widget()._repr_mimebundle_(**kwargs)
+
+    def widget(self) -> Widget:
+        """
+        Lazily generate & cache the widget for this LayoutItem.
+        """
+        if self._widget is None:
+            self._widget = Widget(self.to_json())
+        return self._widget
 
 
 class Hiccup(LayoutItem, list):
     """Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
 
     def __init__(self, *args):
+        LayoutItem.__init__(self)
         if len(args) == 0:
-            super().__init__()
+            list.__init__(self)
         elif len(args) == 1 and isinstance(args[0], (list, tuple)):
-            super().__init__(args[0])
+            list.__init__(self, args[0])
         else:
-            super().__init__(args)
+            list.__init__(self, args)
 
     def _repr_mimebundle_(self, **kwargs: Any):
         """Renders the Hiccup list as an interactive widget in the JavaScript runtime."""
@@ -67,6 +79,7 @@ def flatten_layout_items(items, layout_class):
 
 class Row(LayoutItem):
     def __init__(self, *items):
+        super().__init__()
         self.items, self.options = flatten_layout_items(items, Row)
 
     def to_json(self) -> Hiccup:
@@ -75,6 +88,7 @@ class Row(LayoutItem):
 
 class Column(LayoutItem):
     def __init__(self, *items):
+        super().__init__()
         self.items, self.options = flatten_layout_items(items, Column)
 
     def to_json(self) -> Hiccup:
@@ -173,6 +187,7 @@ class PlotSpec(LayoutItem):
     """
 
     def __init__(self, *specs: SpecInput, **kwargs: Any) -> None:
+        super().__init__()
         marks: List[Mark] = []
         self.spec: Dict[str, Any] = {"marks": []}
         if specs:
@@ -180,7 +195,6 @@ class PlotSpec(LayoutItem):
         if kwargs:
             _add_dict(self.spec, marks, kwargs)
         self.spec["marks"] = marks
-        self._plot: Optional[Widget] = None
 
     def __add__(self, to_add: SpecInput) -> "PlotSpec":
         """
@@ -198,14 +212,6 @@ class PlotSpec(LayoutItem):
         spec["marks"] = marks
         return PlotSpec(spec)
 
-    def plot(self) -> Widget:
-        """
-        Lazily generate & cache the widget for this PlotSpec.
-        """
-        if self._plot is None:
-            self._plot = Widget(View.PlotSpec(self.spec))
-        return self._plot
-
     def reset(self, *specs: SpecInput, **kwargs: Any) -> None:
         """
         Reset this PlotSpec's options and marks to those from the given specs.
@@ -217,7 +223,7 @@ class PlotSpec(LayoutItem):
             **kwargs: Additional options to reset.
         """
         self.spec = PlotSpec(*specs, **kwargs).spec
-        self.plot().data = self.spec
+        self.widget().data = self.spec
 
     def update(
         self, *to_add: SpecInput, marks: Optional[List[Mark]] = None, **kwargs: Any
@@ -238,10 +244,7 @@ class PlotSpec(LayoutItem):
         if marks is not None:
             self.spec["marks"] = marks
         self.spec.update(kwargs)
-        self.plot().data = self.spec
-
-    def _repr_mimebundle_(self, **kwargs):
-        return self.plot()._repr_mimebundle_(**kwargs)
+        self.widget().data = self.spec
 
     def to_json(self):
         return View.PlotSpec(self.spec)
