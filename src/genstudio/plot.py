@@ -398,9 +398,25 @@ def test_get_in():
     print("tests passed")
 
 
-def scaled_circle(x, y, r, n=16, curve="catmull-rom-closed", **kwargs):
+def scaled_circle(xy, y=None, r=None, n=16, curve="catmull-rom-closed", **kwargs):
+    if isinstance(xy, (list, tuple)):
+        if len(xy) != 2:
+            raise ValueError("If passing a list or tuple for x, it must be [x, y]")
+        xy, y = xy
+        if isinstance(y, (int, float)):
+            r, y = y, None
+
+    if not isinstance(xy, (int, float)):
+        raise TypeError("x must be a number or a list/tuple of two numbers")
+
+    if not isinstance(y, (int, float)):
+        raise TypeError("y must be a number")
+
+    if not isinstance(r, (int, float)) or r <= 0:
+        raise ValueError("r must be a positive number")
+
     points = [
-        (x + r * math.cos(2 * math.pi * i / n), y + r * math.sin(2 * math.pi * i / n))
+        [xy + r * math.cos(2 * math.pi * i / n), y + r * math.sin(2 * math.pi * i / n)]
         for i in range(n)
     ]
     return line(points, {"curve": curve, **kwargs})
