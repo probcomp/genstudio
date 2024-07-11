@@ -1,15 +1,14 @@
 # %%
-import base64
 import json
 import datetime
 import anywidget
 import traitlets
 from genstudio.util import PARENT_PATH
 from typing import Iterable
-from IPython.display import display
+import uuid
 
 
-def to_json(data, _widget):
+def to_json(data):
     def default(obj):
         if hasattr(obj, "to_json"):
             return obj.to_json()
@@ -30,48 +29,75 @@ def to_json(data, _widget):
     return json.dumps(data, default=default)
 
 
+def _generate_html(data, id):
+    serialized_data = to_json(data)
+
+    # Read and inline the JS and CSS files
+    with open(PARENT_PATH / "js/widget_build.js", "r") as js_file:
+        js_content = js_file.read()
+    with open(PARENT_PATH / "widget.css", "r") as css_file:
+        css_content = css_file.read()
+
+    html_content = f"""
+    <style>{css_content}</style>
+    <div id="{id}"></div>
+
+    <!-- TODO: When public, replace inline scripts and styles with CDN links for better performance -->
+    <script type="module">
+        {js_content}
+
+        const data = {serialized_data};
+        const container = document.getElementById('{id}');
+        renderData(container, data);
+    </script>
+    """
+
+    return html_content
+
+
+class HTML:
+    def __init__(self, data):
+        self.data = data
+        self.id = f"genstudio-widget-{uuid.uuid4().hex}"
+
+    def _repr_mimebundle_(self, **kwargs):
+        html_content = _generate_html(self.data, self.id)
+        return {"text/html": html_content}, {}
+
+
 class Widget(anywidget.AnyWidget):
     _esm = PARENT_PATH / "js/widget_build.js"
     _css = PARENT_PATH / "widget.css"
-    data = traitlets.Any().tag(sync=True, to_json=to_json)
-    image_requests = traitlets.List(traitlets.Unicode()).tag(sync=True)
-    images = traitlets.Dict().tag(sync=True)
-    _displayed = False
-
-    def ensure_displayed(self):
-        """Ensure the widget is displayed in the output."""
-        if not self._displayed:
-            display(self)
-            self._displayed = True
+    data = traitlets.Any().tag(sync=True, to_json=lambda x, _: to_json(x))
 
     def __init__(self, data):
         super().__init__()
         self.data = data
-        self.observe(self._on_images_change, names="images")
-        self._pending_saves = {}
 
-    def save_image(self, path, callback=None):
-        self.ensure_displayed()
-        format = path.split(".")[-1].lower()
-        if format not in ["png", "jpeg", "svg"]:
-            raise ValueError(f"Unsupported format: {format}")
-
-        if format not in self.image_requests:
-            self.image_requests = self.image_requests + [format]
-        self._pending_saves[format] = (path, callback)
-
-    def _on_images_change(self, change):
-        for format, (path, callback) in list(self._pending_saves.items()):
-            if format in change.new:
-                self._save_image(format, path, callback)
-                del self._pending_saves[format]
-
-    def _save_image(self, format, path, callback):
-        with open(path, "wb") as f:
-            f.write(base64.b64decode(self.images[format].split(",")[1]))
-        if callback:
-            callback(path)
-
-    def _repr_mimebundle_(self, **kwargs):
-        self._displayed = True
+    def _repr_mimebundle_(self, **kwargs):  # type: ignore
         return super()._repr_mimebundle_(**kwargs)
+
+    def as_html(self):
+        """Return an HTML representation of the widget."""
+        return HTML(self.data)
+
+
+def save_html(data, path):
+    id = f"genstudio-widget-{uuid.uuid4().hex}"
+    html_content = _generate_html(data, id)
+
+    full_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>GenStudio Widget</title>
+    </head>
+    <body>
+        {html_content}
+    </body>
+    </html>
+    """
+
+    with open(path, "w") as f:
+        f.write(full_html)

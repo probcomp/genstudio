@@ -1,5 +1,5 @@
 import copy
-from genstudio.widget import Widget
+from genstudio.widget import Widget, HTML
 from genstudio.js_modules import JSRef
 from typing import Any, Dict, List, Sequence, Optional, Union
 
@@ -14,6 +14,7 @@ View = JSRef("View")
 
 class LayoutItem:
     def __init__(self):
+        self._html: Optional[HTML] = None
         self._widget: Optional[Widget] = None
 
     def to_json(self) -> Any:
@@ -32,7 +33,15 @@ class LayoutItem:
         return Column(other, self)
 
     def _repr_mimebundle_(self, **kwargs):
-        return self.widget()._repr_mimebundle_(**kwargs)
+        return self.html()._repr_mimebundle_(**kwargs)
+
+    def html(self) -> HTML:
+        """
+        Lazily generate & cache the HTML for this LayoutItem.
+        """
+        if self._html is None:
+            self._html = HTML(self.to_json())
+        return self._html
 
     def widget(self) -> Widget:
         """
@@ -42,15 +51,8 @@ class LayoutItem:
             self._widget = Widget(self.to_json())
         return self._widget
 
-    def save_image(self, path, callback=None):
-        """
-        Save the widget as an image.
-
-        Args:
-            path (str): The path where the image will be saved.
-            callback (callable, optional): A function to call after the image is saved.
-        """
-        return self.widget().save_image(path, callback)
+    def as_html(self):
+        return self.widget().as_html()
 
 
 class Hiccup(LayoutItem, list):
