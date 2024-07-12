@@ -592,9 +592,9 @@ def domain(xd, yd=None):
 
 
 def color_map(mappings):
-    return {
-        "color": {"domain": list(mappings.keys()), "range": list(mappings.values())}
-    }
+    # these will be merged & so are composable. in plot.js they are
+    # converted to a {color: {domain: [...], range: [...]}} object.
+    return {"color_map": mappings}
 
 
 def margin(*args):
