@@ -168,12 +168,5 @@ export function PlotWrapper({ spec }) {
     const [$state, set$state] = React.useContext($StateContext)
     const width = React.useContext(WidthContext)
     spec = prepareSpec(spec, width)
-
-    spec = {
-        width: width,
-        ...spec,
-        ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
-        marks: marks
-    };
     return html`<${PlotView} spec=${spec} $state=${$state} />`
 }
