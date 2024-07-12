@@ -45,11 +45,11 @@ def test_plotspec_add():
 def test_plotspec_plot():
     ps = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
     assert ps.spec["width"] == 100
-    plot = ps.plot()
+    plot = ps.widget()
     assert isinstance(plot, Widget)
 
     # Check plot is cached
-    plot2 = ps.plot()
+    plot2 = ps.widget()
     assert plot is plot2
 
 
