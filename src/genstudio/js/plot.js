@@ -141,10 +141,34 @@ export function PlotView({ spec, $state, width }) {
     `
 }
 
+function prepareSpec(spec, width) {
+    // handle marks
+    const marks = spec.marks.flatMap((m) => readMark(m, width))
+    spec = {...spec,
+            ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
+            width: width,
+            marks: marks
+    }
+    // handle color_map
+    if (spec.color_map) {
+        const [domain, range] = [Object.keys(spec.color_map), Object.values(spec.color_map)];
+        spec.color = spec.color
+            ? {
+                ...spec.color,
+                domain: [...(spec.color.domain || []), ...domain],
+                range: [...(spec.color.range || []), ...range]
+              }
+            : { domain, range };
+        delete spec.color_map;
+    }
+    return spec
+}
+
 export function PlotWrapper({ spec }) {
     const [$state, set$state] = React.useContext($StateContext)
     const width = React.useContext(WidthContext)
-    const marks = spec.marks.flatMap((m) => readMark(m, width))
+    spec = prepareSpec(spec, width)
+
     spec = {
         width: width,
         ...spec,
