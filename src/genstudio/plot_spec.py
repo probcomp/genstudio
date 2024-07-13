@@ -125,9 +125,7 @@ def _deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
     return dict1
 
 
-def _add_list(
-    spec: Dict[str, Any], marks: List[Mark], to_add: Sequence[SpecInput]
-) -> None:
+def _add_list(spec: Dict[str, Any], marks: List[Mark], to_add: Sequence[Any]) -> None:
     # mutates spec & marks, returns nothing
     for new_spec in to_add:
         if isinstance(new_spec, dict):
@@ -155,7 +153,7 @@ def _add_dict(spec: Dict[str, Any], marks: List[Mark], to_add: Dict[str, Any]) -
 def _add(
     spec: Dict[str, Any],
     marks: List[Mark],
-    to_add: Union[SpecInput, Sequence[SpecInput]],
+    to_add: Any,
 ) -> None:
     # mutates spec & marks, returns nothing
     if isinstance(to_add, (list, tuple)):
@@ -196,7 +194,7 @@ class PlotSpec(LayoutItem):
             _add_dict(self.spec, marks, kwargs)
         self.spec["marks"] = marks
 
-    def __add__(self, to_add: SpecInput) -> "PlotSpec":
+    def __add__(self, to_add: Any) -> "PlotSpec":
         """
         Combine this PlotSpec with another PlotSpec, list of marks, or dict of options.
 

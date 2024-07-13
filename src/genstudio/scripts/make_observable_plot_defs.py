@@ -55,9 +55,7 @@ def get_function_def(path: str, func_name: str) -> Optional[str]:
 # Templates for inclusion in output
 
 
-def FN_VALUELESS(
-    options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]
-) -> Dict[str, Any]:
+def FN_VALUELESS(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
     """DOC"""
     return JSCall("Plot", "FN_VALUELESS", [{**options, **kwargs}])
 
@@ -65,7 +63,7 @@ def FN_VALUELESS(
 def FN_MARK(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """DOC"""
     return PlotSpec(
