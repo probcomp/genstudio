@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterable
 def area(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new area mark with the given *data* and *options*. The area mark is
@@ -23,7 +23,7 @@ def area(
 def areaX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new vertically-oriented area mark for the given *data* and
@@ -63,7 +63,7 @@ def areaX(
 def areaY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new horizontally-oriented area mark for the given *data* and
@@ -103,7 +103,7 @@ def areaY(
 def arrow(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new arrow mark for the given *data* and *options*, drawing
@@ -123,7 +123,7 @@ def arrow(
 def auto(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new mark whose implementation is chosen dynamically to best
@@ -143,7 +143,7 @@ def auto(
 def autoSpec(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a fully-specified *options* object for the auto mark, with nothing
@@ -166,7 +166,7 @@ def autoSpec(
 def axisFx(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new compound axis mark to document the visual encoding of the
@@ -197,7 +197,7 @@ def axisFx(
 def axisFy(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new compound axis mark to document the visual encoding of the
@@ -228,7 +228,7 @@ def axisFy(
 def axisX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new compound axis mark to document the visual encoding of the
@@ -261,7 +261,7 @@ def axisX(
 def axisY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new compound axis mark to document the visual encoding of the
@@ -293,7 +293,7 @@ def axisY(
 def barX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new horizontal bar mark for the given *data* and *options*; the
@@ -340,7 +340,7 @@ def barX(
 def barY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new vertical bar mark for the given *data* and *options*; the
@@ -490,7 +490,7 @@ def binY(*args: Any) -> Dict[str, Any]:
 def bollinger(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Given the specified bollinger *options*, returns a corresponding map
@@ -512,7 +512,7 @@ def bollinger(
 def bollingerX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new vertically-oriented bollinger mark for the given *data* and
@@ -530,7 +530,7 @@ def bollingerX(
 def bollingerY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new horizontally-oriented bollinger mark for the given *data* and
@@ -548,7 +548,7 @@ def bollingerY(
 def boxX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a box mark that draws horizontal boxplots where **x** is quantitative
@@ -575,7 +575,7 @@ def boxX(
 def boxY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a box mark that draws vertical boxplots where **y** is quantitative
@@ -602,7 +602,7 @@ def boxY(
 def cell(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a rectangular cell mark for the given *data* and *options*. Along
@@ -628,7 +628,7 @@ def cell(
 def cellX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like cell, but **x** defaults to the zero-based index [0, 1, 2, …], and if
@@ -648,7 +648,7 @@ def cellX(
 def cellY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like cell, but **y** defaults to the zero-based index [0, 1, 2, …], and if
@@ -680,7 +680,7 @@ def centroid(*args: Any) -> Dict[str, Any]:
 def circle(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like dot, except that the **symbol** option is set to *circle*.
@@ -693,7 +693,7 @@ def circle(
 def cluster(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Shorthand for the tree mark using [d3.cluster][1] as the **treeLayout**
@@ -729,7 +729,7 @@ def column(*args: Any) -> Dict[str, Any]:
 def contour(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new contour mark, which creates contour polygons from spatial
@@ -766,7 +766,7 @@ def contour(
 def crosshair(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new crosshair mark for the given *data* and *options*, drawing
@@ -784,7 +784,7 @@ def crosshair(
 def crosshairX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like crosshair, but uses the pointerX transform: the determination of the
@@ -801,7 +801,7 @@ def crosshairX(
 def crosshairY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like crosshair, but uses the pointerY transform: the determination of the
@@ -818,7 +818,7 @@ def crosshairY(
 def delaunayLink(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a mark that draws links for each edge of the Delaunay triangulation
@@ -839,7 +839,7 @@ def delaunayLink(
 def delaunayMesh(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a mark that draws a mesh of the Delaunay triangulation of the points
@@ -860,7 +860,7 @@ def delaunayMesh(
 def density(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a mark that draws contours representing the estimated density of the
@@ -880,7 +880,7 @@ def density(
 def differenceY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new vertical difference mark for the given the specified *data* and
@@ -927,7 +927,7 @@ def dodgeY(*args: Any) -> Dict[str, Any]:
 def dot(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new dot mark for the given *data* and *options* that draws circles,
@@ -953,7 +953,7 @@ def dot(
 def dotX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like dot, except that **x** defaults to the identity function, assuming that
@@ -972,7 +972,7 @@ def dotX(
 def dotY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like dot, except that **y** defaults to the identity function, assuming that
@@ -1045,7 +1045,7 @@ def formatWeekday(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "formatWeekday", args)
 
 
-def frame(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def frame(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
     """
     Draws a rectangle around the plot’s frame, or if an **anchor** is given, a
     line on the given side. Useful for visual separation of facets, or in
@@ -1057,7 +1057,7 @@ def frame(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, A
 def geo(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new geo mark with the given *data* and *options*. The **geometry**
@@ -1092,7 +1092,7 @@ def geoCentroid(*args: Any) -> Dict[str, Any]:
 def graticule(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new geo mark whose *data* is a 10° global graticule. (For use with
@@ -1106,7 +1106,7 @@ def graticule(
     )
 
 
-def gridFx(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def gridFx(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
     """
     Returns a new horizontally-positioned ruleX mark (a vertical line, |) that
     renders a grid for the *fx* scale. The *data* defaults to the *fx* scale’s
@@ -1116,7 +1116,7 @@ def gridFx(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, 
     return JSCall("Plot", "gridFx", [{**options, **kwargs}])
 
 
-def gridFy(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def gridFy(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
     """
     Returns a new vertically-positioned ruleY mark (a horizontal line, —) that
     renders a grid for the *fy* scale. The *data* defaults to the *fy* scale’s
@@ -1126,7 +1126,7 @@ def gridFy(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, 
     return JSCall("Plot", "gridFy", [{**options, **kwargs}])
 
 
-def gridX(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def gridX(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
     """
     Returns a new horizontally-positioned ruleX mark (a vertical line, |) that
     renders a grid for the *x* scale. The *data* defaults to tick values sampled
@@ -1136,7 +1136,7 @@ def gridX(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, A
     return JSCall("Plot", "gridX", [{**options, **kwargs}])
 
 
-def gridY(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def gridY(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
     """
     Returns a new vertically-positioned ruleY mark (a horizontal line, —) that
     renders a grid for the *y* scale. The *data* defaults to tick values sampled
@@ -1260,7 +1260,7 @@ def groupZ(*args: Any) -> Dict[str, Any]:
 def hexagon(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like dot, except that the **symbol** option is set to *hexagon*.
@@ -1301,7 +1301,7 @@ def hexbin(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "hexbin", args)
 
 
-def hexgrid(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def hexgrid(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
     """
     The hexgrid decoration mark complements the hexbin transform, showing the
     outlines of all hexagons spanning the frame with a default **stroke** of
@@ -1327,7 +1327,7 @@ def hexgrid(options: Dict[str, Any] = {}, **kwargs: Dict[str, Any]) -> Dict[str,
 def hull(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a mark that draws a convex hull around the points given by the **x**
@@ -1346,7 +1346,7 @@ def hull(
 def image(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new image mark for the given *data* and *options* that draws images
@@ -1391,7 +1391,7 @@ def initializer(*args: Any) -> Dict[str, Any]:
 def interpolatorBarycentric(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Constructs a Delaunay triangulation of the samples, and then for each pixel
@@ -1418,7 +1418,7 @@ def interpolatorBarycentric(
 def interpolatorRandomWalk(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     For each pixel in the raster grid, initiates a random walk, stopping when
@@ -1452,7 +1452,7 @@ def legend(*args: Any) -> Dict[str, Any]:
 def line(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new line mark for the given *data* and *options* by connecting
@@ -1488,7 +1488,7 @@ def line(
 def lineX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like line, except that **x** defaults to the identity function assuming that
@@ -1516,7 +1516,7 @@ def lineX(
 def lineY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like line, except **y** defaults to the identity function and assumes that
@@ -1545,7 +1545,7 @@ def lineY(
 def linearRegressionX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like linearRegressionY, but where *x* is the dependent variable and *y* is
@@ -1561,7 +1561,7 @@ def linearRegressionX(
 def linearRegressionY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a mark that draws [linear regression][1] lines with confidence bands,
@@ -1593,7 +1593,7 @@ def linearRegressionY(
 def link(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new link mark for the given *data* and *options*, drawing line
@@ -1763,7 +1763,7 @@ def pointerY(*args: Any) -> Dict[str, Any]:
 def raster(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a raster mark which renders a raster image from spatial samples. If
@@ -1800,7 +1800,7 @@ def raster(
 def rect(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a rect mark for the given *data* and *options*. The rectangle extends
@@ -1830,7 +1830,7 @@ def rect(
 def rectX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like rect, but if neither **x1** nor **x2** is specified, an implicit stackX
@@ -1851,7 +1851,7 @@ def rectX(
 def rectY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like rect, but if neither **y1** nor **y2** is specified, apply an implicit
@@ -1880,7 +1880,7 @@ def reverse(*args: Any) -> Dict[str, Any]:
 def ruleX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new horizontally-positioned ruleX mark (a vertical line, |) for the
@@ -1910,7 +1910,7 @@ def ruleX(
 def ruleY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new vertically-positioned ruleY mark (a horizontal line, —) for the
@@ -2053,7 +2053,7 @@ def sort(*args: Any) -> Dict[str, Any]:
 def sphere(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new geo mark whose *data* is the outline of the sphere on the
@@ -2067,7 +2067,7 @@ def sphere(
 def spike(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like vector, but with default *options* suitable for drawing a spike map. For
@@ -2147,7 +2147,7 @@ def stackY2(*args: Any) -> Dict[str, Any]:
 def text(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new text mark for the given *data* and *options*. The **text**
@@ -2180,7 +2180,7 @@ def text(
 def textX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like text, but **x** defaults to the identity function, assuming that *data*
@@ -2202,7 +2202,7 @@ def textX(
 def textY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like text, but **y** defaults to the identity function, assuming that *data*
@@ -2224,7 +2224,7 @@ def textY(
 def tickX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new horizontally-positioned tickX mark (a vertical line, |) for the
@@ -2247,7 +2247,7 @@ def tickX(
 def tickY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new vertically-positioned tickY mark (a horizontal line, —) for the
@@ -2270,7 +2270,7 @@ def tickY(
 def tip(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new tip mark for the given *data* and *options*.
@@ -2307,7 +2307,7 @@ def transform(*args: Any) -> Dict[str, Any]:
 def tree(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a compound tree mark, with a link to display edges from parent to
@@ -2397,7 +2397,7 @@ def valueof(*args: Any) -> Dict[str, Any]:
 def vector(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new vector mark for the given *data* and *options*. For example, to
@@ -2419,7 +2419,7 @@ def vector(
 def vectorX(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like vector, but **x** instead defaults to the identity function and **y**
@@ -2434,7 +2434,7 @@ def vectorX(
 def vectorY(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Like vector, but **y** instead defaults to the identity function and **x**
@@ -2449,7 +2449,7 @@ def vectorY(
 def voronoi(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a mark that draws polygons for each cell of the Voronoi tesselation
@@ -2466,7 +2466,7 @@ def voronoi(
 def voronoiMesh(
     values: Iterable[Any],
     options: Dict[str, Any] = {},
-    **kwargs: Dict[str, Any],
+    **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a mark that draws a mesh for the cell boundaries of the Voronoi
