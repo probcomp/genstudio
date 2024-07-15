@@ -1,8 +1,9 @@
 import copy
-from genstudio.widget import Widget, HTML
-from genstudio.js_modules import JSRef
-from typing import Any, Dict, List, Sequence, Optional, Union
+import os
+from typing import Any, Dict, List, Optional, Sequence, Union
 
+from genstudio.js_modules import JSRef
+from genstudio.widget import HTML, Widget
 
 SpecInput = Union[
     "PlotSpec", Sequence[Union["PlotSpec", Dict[str, Any]]], Dict[str, Any]
@@ -51,8 +52,17 @@ class LayoutItem:
             self._widget = Widget(self.to_json())
         return self._widget
 
-    def as_html(self):
-        return self.widget().as_html()
+    def save(self, path):
+        # Parse the file extension
+        extension = os.path.splitext(path)[1]
+        extension = extension.lower()
+
+        if extension == ".html":
+            self.html().save(path)
+        else:
+            raise ValueError(
+                f"Unsupported file extension: {extension}. Use .html for saving."
+            )
 
 
 class Hiccup(LayoutItem, list):

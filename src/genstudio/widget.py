@@ -1,11 +1,12 @@
-# %%
-import json
 import datetime
+import json
+import uuid
+from typing import Iterable
+
 import anywidget
 import traitlets
+
 from genstudio.util import PARENT_PATH
-from typing import Iterable
-import uuid
 
 
 def to_json(data):
@@ -29,7 +30,7 @@ def to_json(data):
     return json.dumps(data, default=default)
 
 
-def _generate_html(data, id):
+def html_snippet(data, id):
     serialized_data = to_json(data)
 
     # Read and inline the JS and CSS files
@@ -41,13 +42,10 @@ def _generate_html(data, id):
     html_content = f"""
     <style>{css_content}</style>
     <div id="{id}"></div>
-
-    <!-- TODO: When public, replace inline scripts and styles with CDN links for better performance -->
     <script type="module">
         {js_content}
-
-        const data = {serialized_data};
         const container = document.getElementById('{id}');
+        const data = {serialized_data};
         renderData(container, data);
     </script>
     """
@@ -55,13 +53,37 @@ def _generate_html(data, id):
     return html_content
 
 
+def html_standalone(data, id):
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>GenStudio Widget</title>
+    </head>
+    <body>
+        {html_snippet(data, id)}
+    </body>
+    </html>
+    """
+
+
+def save_html(data, id, path):
+    html = html_standalone(data, id)
+    with open(path, "w") as f:
+        f.write(html)
+
+
 class HTML:
     def __init__(self, data):
         self.data = data
         self.id = f"genstudio-widget-{uuid.uuid4().hex}"
 
+    def save(self, path):
+        save_html(self.data, self.id, path)
+
     def _repr_mimebundle_(self, **kwargs):
-        html_content = _generate_html(self.data, self.id)
+        html_content = html_snippet(self.data, self.id)
         return {"text/html": html_content}, {}
 
 
@@ -77,27 +99,6 @@ class Widget(anywidget.AnyWidget):
     def _repr_mimebundle_(self, **kwargs):  # type: ignore
         return super()._repr_mimebundle_(**kwargs)
 
-    def as_html(self):
+    def html(self):
         """Return an HTML representation of the widget."""
         return HTML(self.data)
-
-
-def save_html(data, path):
-    id = f"genstudio-widget-{uuid.uuid4().hex}"
-    html_content = _generate_html(data, id)
-
-    full_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>GenStudio Widget</title>
-    </head>
-    <body>
-        {html_content}
-    </body>
-    </html>
-    """
-
-    with open(path, "w") as f:
-        f.write(full_html)
