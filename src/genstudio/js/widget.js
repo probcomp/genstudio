@@ -336,15 +336,8 @@ function AnyWidgetApp() {
   addCSSLink(tachyons_css)
   const [data] = useModelState("data");
   const parsedData = data ? JSON.parse(data) : null
-  const [exportRef, setExportRef] = useState();
 
-  useImageExport(exportRef);
-
-  return html`
-    <div ref=${setExportRef}>
-      <${AppWithData} data=${parsedData} />
-    </div>
-  `;
+  return html`<${AppWithData} data=${parsedData} />`;
 }
 
 function HTMLApp(props) {

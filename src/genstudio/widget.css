@@ -1,6 +1,4 @@
-body {
-    color: #333333;
-}
+
 .doc-header {
     display: block;
     gap: 10px;
@@ -37,4 +35,5 @@ body {
 
 .genstudio-container > * {
     background-color: white;
+    color: #333333;
 }
