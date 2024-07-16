@@ -16,6 +16,7 @@ numpy = "^1.26.4"
 jax = "^0.4.25"
 penzai = "^0.1.1"
 jaxlib = "^0.4.28"
+html2image = "^2.0.4.3"
 
 [tool.poetry.group.dev.dependencies]
 seaborn = "^0.13.2"
