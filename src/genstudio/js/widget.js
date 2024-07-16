@@ -438,20 +438,20 @@ function addCSSLink(url) {
 
 }
 
-const renderData = (element, data) => {
+export const renderData = (element, data) => {
   addCSSLink(tachyons_css);
   const root = ReactDOM.createRoot(element);
   root.render(React.createElement(HTMLApp, { data }));
 };
 
-const renderJSON = (element, jsonString) => {
+export const renderJSON = (element, jsonString) => {
   addCSSLink(tachyons_css);
   const root = ReactDOM.createRoot(element);
   const data = JSON.parse(jsonString);
   root.render(React.createElement(HTMLApp, { data }));
 };
 
-const renderJSONViewer = (element) => {
+export const renderJSONViewer = (element) => {
   addCSSLink(tachyons_css);
   const root = ReactDOM.createRoot(element);
   root.render(React.createElement(JSONViewer));
