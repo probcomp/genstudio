@@ -67,6 +67,7 @@ plot3 = (
 )
 
 complex_layout = plot1 | (plot2 & plot3) | time_slider | effect_slider
+
 complex_layout
 
 # Plot.Frames creates an animated plot that cycles through a list of frames.

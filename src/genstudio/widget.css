@@ -1,3 +1,4 @@
+
 .doc-header {
     display: block;
     gap: 10px;
@@ -30,4 +31,9 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.genstudio-container > * {
+    background-color: white;
+    color: #333333;
 }

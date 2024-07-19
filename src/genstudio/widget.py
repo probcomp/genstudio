@@ -1,13 +1,16 @@
-# %%
-import json
 import datetime
-import anywidget
-import traitlets
-from genstudio.util import PARENT_PATH
+import json
+
 from typing import Iterable
 
+import anywidget
+import traitlets
 
-def to_json(data, _widget):
+
+from genstudio.util import PARENT_PATH
+
+
+def to_json(data):
     def default(obj):
         if hasattr(obj, "to_json"):
             return obj.to_json()
@@ -31,7 +34,11 @@ def to_json(data, _widget):
 class Widget(anywidget.AnyWidget):
     _esm = PARENT_PATH / "js/widget_build.js"
     _css = PARENT_PATH / "widget.css"
-    data = traitlets.Any().tag(sync=True, to_json=to_json)
+    data = traitlets.Any().tag(sync=True, to_json=lambda x, _: to_json(x))
 
     def __init__(self, data):
-        super().__init__(data=data)
+        super().__init__()
+        self.data = data
+
+    def _repr_mimebundle_(self, **kwargs):  # type: ignore
+        return super()._repr_mimebundle_(**kwargs)

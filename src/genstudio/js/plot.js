@@ -1,7 +1,4 @@
-
-import * as Plot from "@observablehq/plot";
-import * as d3 from "d3";
-import * as React from "react";
+import {Plot, d3, React} from "./imports"
 import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { binding, flatten, html } from "./utils";
 

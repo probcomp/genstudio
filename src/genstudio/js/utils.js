@@ -1,5 +1,4 @@
-import htm from "htm";
-import * as React from "react";
+import {React, htm} from "./imports"
 const { useState, useEffect } = React
 
 export const html = htm.bind(React.createElement)

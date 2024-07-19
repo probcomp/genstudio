@@ -1,38 +1,102 @@
 import copy
-from genstudio.widget import Widget
+import uuid
+from typing import Any, Sequence, TypeAlias, Union
+
+from html2image import Html2Image
+from PIL import Image
+
 from genstudio.js_modules import JSRef
-from typing import Any, Dict, List, Sequence, Optional, Union
+from genstudio.util import PARENT_PATH
+from genstudio.widget import Widget, to_json
 
-
-SpecInput = Union[
-    "PlotSpec", Sequence[Union["PlotSpec", Dict[str, Any]]], Dict[str, Any]
+SpecInput: TypeAlias = Union[
+    "PlotSpec", Sequence[Union["PlotSpec", dict[str, Any]]], dict[str, Any]
 ]
-Mark = Dict[str, Any]
+
+Mark = dict[str, Any]
 
 View = JSRef("View")
 
 
-class LayoutItem:
-    def __init__(self):
-        self._widget: Optional[Widget] = None
+def html_snippet(data, id=None):
+    id = id or f"genstudio-widget-{uuid.uuid4().hex}"
+    serialized_data = to_json(data)
 
-    def to_json(self) -> Any:
-        return NotImplemented
+    # Read and inline the JS and CSS files
+    with open(PARENT_PATH / "js/widget_build.js", "r") as js_file:
+        js_content = js_file.read()
+    with open(PARENT_PATH / "widget.css", "r") as css_file:
+        css_content = css_file.read()
 
-    def __and__(self, other):
-        return Row(self, other)
+    html_content = f"""
+    <style>{css_content}</style>
+    <div id="{id}"></div>
+    <script type="module">
+        {js_content}
+        const container = document.getElementById('{id}');
+        const data = {serialized_data};
+        renderData(container, data);
+    </script>
+    """
 
-    def __rand__(self, other):
-        return Row(other, self)
+    return html_content
 
-    def __or__(self, other):
-        return Column(self, other)
 
-    def __ror__(self, other):
-        return Column(other, self)
+def html_standalone(data, id=None):
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>GenStudio Widget</title>
+    </head>
+    <body>
+        {html_snippet(data, id)}
+    </body>
+    </html>
+    """
+
+
+class HTML:
+    def __init__(self, data):
+        self.data = data
+        self.id = f"genstudio-widget-{uuid.uuid4().hex}"
 
     def _repr_mimebundle_(self, **kwargs):
-        return self.widget()._repr_mimebundle_(**kwargs)
+        html_content = html_snippet(self.data, self.id)
+        return {"text/html": html_content}, {}
+
+
+class LayoutItem:
+    def __init__(self):
+        self._html: HTML | None = None
+        self._widget: Widget | None = None
+
+    def to_json(self) -> dict[str, Any]:
+        raise NotImplementedError("Subclasses must implement to_json method")
+
+    def __and__(self, other: "LayoutItem") -> "Row":
+        return Row(self, other)
+
+    def __rand__(self, other: "LayoutItem") -> "Row":
+        return Row(other, self)
+
+    def __or__(self, other: "LayoutItem") -> "Column":
+        return Column(self, other)
+
+    def __ror__(self, other: "LayoutItem") -> "Column":
+        return Column(other, self)
+
+    def _repr_mimebundle_(self, **kwargs: Any) -> tuple[dict[str, str], dict[str, Any]]:
+        return self.html()._repr_mimebundle_(**kwargs)
+
+    def html(self) -> HTML:
+        """
+        Lazily generate & cache the HTML for this LayoutItem.
+        """
+        if self._html is None:
+            self._html = HTML(self.to_json())
+        return self._html
 
     def widget(self) -> Widget:
         """
@@ -42,30 +106,45 @@ class LayoutItem:
             self._widget = Widget(self.to_json())
         return self._widget
 
+    def save_html(self, path: str) -> None:
+        with open(path, "w") as f:
+            f.write(html_standalone(self.to_json()))
+        print(f"HTML saved to {path}")
 
-class Hiccup(LayoutItem, list):
+    def save_image(self, path, width=500, height=1000):
+        # Save image using headless browser
+        hti = Html2Image()
+        hti.size = (width, height)
+        hti.screenshot(html_str=html_standalone(self.to_json()), save_as=path)
+        # Crop transparent regions
+        img = Image.open(path)
+        content = img.getbbox()
+        img = img.crop(content)
+        img.save(path)
+        print(f"Image saved to {path}")
+
+
+class Hiccup(LayoutItem):
     """Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
 
-    def __init__(self, *args):
+    def __init__(self, *args: Any) -> None:
         LayoutItem.__init__(self)
         if len(args) == 0:
-            list.__init__(self)
+            self.data: list[Any] | tuple[Any, ...] | None = None
         elif len(args) == 1 and isinstance(args[0], (list, tuple)):
-            list.__init__(self, args[0])
+            self.data = args[0]
         else:
-            list.__init__(self, args)
+            self.data = args
 
-    def _repr_mimebundle_(self, **kwargs: Any):
-        """Renders the Hiccup list as an interactive widget in the JavaScript runtime."""
-        return Widget(self)._repr_mimebundle_(**kwargs)
-
-    def to_json(self):
-        return self
+    def to_json(self) -> Any:
+        return self.data
 
 
-def flatten_layout_items(items, layout_class):
-    flattened = []
-    options = {}
+def flatten_layout_items(
+    items: Sequence[Any], layout_class: type
+) -> tuple[list[Any], dict[str, Any]]:
+    flattened: list[Any] = []
+    options: dict[str, Any] = {}
     for item in items:
         if isinstance(item, layout_class):
             flattened.extend(item.items)
@@ -78,26 +157,32 @@ def flatten_layout_items(items, layout_class):
 
 
 class Row(LayoutItem):
-    def __init__(self, *items):
+    def __init__(self, *items: Any):
         super().__init__()
         self.items, self.options = flatten_layout_items(items, Row)
 
-    def to_json(self) -> Hiccup:
+    def to_json(self) -> Any:
         return Hiccup(View.Row, self.options, *self.items)
 
 
 class Column(LayoutItem):
-    def __init__(self, *items):
+    def __init__(self, *items: Any):
         super().__init__()
         self.items, self.options = flatten_layout_items(items, Column)
 
-    def to_json(self) -> Hiccup:
+    def to_json(self) -> Any:
         return Hiccup(View.Column, self.options, *self.items)
 
 
 class Slider(LayoutItem):
-    def __init__(self, key, range, label=None, **kwargs):
-        self.config = {
+    def __init__(
+        self,
+        key: str,
+        range: int | Sequence[int],
+        label: str | None = None,
+        **kwargs: Any,
+    ):
+        self.config: dict[str, Any] = {
             "state_key": key,
             "range": [0, range] if isinstance(range, int) else range,
             "label": label,
@@ -105,11 +190,11 @@ class Slider(LayoutItem):
             **kwargs,
         }
 
-    def to_json(self):
+    def to_json(self) -> Any:
         return View.Reactive(self.config)
 
 
-def _deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
+def _deep_merge(dict1: dict[str, Any], dict2: dict[str, Any]) -> dict[str, Any]:
     """
     Recursively merge two dictionaries. Mutates dict1.
     Values in dict2 overwrite values in dict1. If both values are dictionaries, recursively merge them.
@@ -125,7 +210,7 @@ def _deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
     return dict1
 
 
-def _add_list(spec: Dict[str, Any], marks: List[Mark], to_add: Sequence[Any]) -> None:
+def _add_list(spec: dict[str, Any], marks: list[Mark], to_add: Sequence[Any]) -> None:
     # mutates spec & marks, returns nothing
     for new_spec in to_add:
         if isinstance(new_spec, dict):
@@ -138,7 +223,7 @@ def _add_list(spec: Dict[str, Any], marks: List[Mark], to_add: Sequence[Any]) ->
             raise ValueError(f"Invalid plot specification: {new_spec}")
 
 
-def _add_dict(spec: Dict[str, Any], marks: List[Mark], to_add: Dict[str, Any]) -> None:
+def _add_dict(spec: dict[str, Any], marks: list[Mark], to_add: dict[str, Any]) -> None:
     # mutates spec & marks, returns nothing
     if "pyobsplot-type" in to_add:
         marks.append(to_add)
@@ -151,8 +236,8 @@ def _add_dict(spec: Dict[str, Any], marks: List[Mark], to_add: Dict[str, Any]) -
 
 
 def _add(
-    spec: Dict[str, Any],
-    marks: List[Mark],
+    spec: dict[str, Any],
+    marks: list[Mark],
     to_add: Any,
 ) -> None:
     # mutates spec & marks, returns nothing
@@ -186,8 +271,8 @@ class PlotSpec(LayoutItem):
 
     def __init__(self, *specs: SpecInput, **kwargs: Any) -> None:
         super().__init__()
-        marks: List[Mark] = []
-        self.spec: Dict[str, Any] = {"marks": []}
+        marks: list[Mark] = []
+        self.spec: dict[str, Any] = {"marks": []}
         if specs:
             _add_list(self.spec, marks, specs)
         if kwargs:
@@ -224,7 +309,7 @@ class PlotSpec(LayoutItem):
         self.widget().data = self.spec
 
     def update(
-        self, *to_add: SpecInput, marks: Optional[List[Mark]] = None, **kwargs: Any
+        self, *to_add: SpecInput, marks: list[Mark] | None = None, **kwargs: Any
     ) -> None:
         """
         Update this PlotSpec's options and marks in-place.
@@ -244,10 +329,10 @@ class PlotSpec(LayoutItem):
         self.spec.update(kwargs)
         self.widget().data = self.spec
 
-    def to_json(self):
+    def to_json(self) -> Any:
         return View.PlotSpec(self.spec)
 
 
-def new(*specs, **kwargs):
+def new(*specs: Any, **kwargs: Any) -> PlotSpec:
     """Create a new PlotSpec from the given specs and options."""
     return PlotSpec(*specs, **kwargs)

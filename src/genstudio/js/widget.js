@@ -1,12 +1,10 @@
-import { createRender, useModelState } from "@anywidget/react";
-import * as Plot from "@observablehq/plot";
-import * as d3 from "d3";
-import MarkdownIt from "markdown-it";
-import * as React from "react";
-import * as ReactDOM from "react-dom";
 import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
 import { flatten, html, binding, useCellUnmounted, useElementWidth } from "./utils";
+import { AnyWidgetReact, Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
+
+const { createRender, useModelState } = AnyWidgetReact
+
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 
 const md = new MarkdownIt({
@@ -16,7 +14,7 @@ const md = new MarkdownIt({
 });
 
 function renderMarkdown(text) {
-  return html`<div class='prose' dangerouslySetInnerHTML=${{ __html: md.render(text) }} />`;
+  return html`<div className='prose' dangerouslySetInnerHTML=${{ __html: md.render(text) }} />`;
 }
 
 class Reactive {
@@ -33,12 +31,12 @@ function Frames(props) {
   const [$state] = useContext($StateContext);
 
   if (!Array.isArray(frames)) {
-    return html`<div style="color: red;">Error: 'frames' must be an array.</div>`;
+    return html`<div className="red">Error: 'frames' must be an array.</div>`;
   }
 
   const index = $state[state_key];
   if (!Number.isInteger(index) || index < 0 || index >= frames.length) {
-    return html`<div style="color: red;">Error: Invalid index. $state[${state_key}] (${index}) must be a valid index of the frames array (length: ${frames.length}).</div>`;
+    return html`<div className="red">Error: Invalid index. $state[${state_key}] (${index}) must be a valid index of the frames array (length: ${frames.length}).</div>`;
   }
 
   return html`<${Node} value=${frames[index]} />`;
@@ -105,12 +103,14 @@ function Slider(options) {
   const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
 
   return html`
-    <div style=${{ fontSize: "14px", display: 'flex', flexDirection: 'column', margin: '0.5rem 0', gap: '0.5rem', width: availableWidth }}>
-      <div style=${{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <label>${label}</label>
-        <span>${$state[state_key]}</span>
+    <div className="f1 flex flex-column mv2 gap2" style=${{ width: availableWidth }}>
+      <div className="flex items-center justify-between">
+        <span className="flex g2">
+          <label>${label}${label ? ':' : ''}</label>
+          <span>${$state[state_key]}</span>
+        </span>
         ${isAnimated && html`
-          <div onClick=${togglePlayPause} style=${{ cursor: 'pointer' }}>
+          <div onClick=${togglePlayPause} className="pointer">
             ${isPlaying ? pauseIcon : playIcon}
           </div>
         `}
@@ -122,7 +122,7 @@ function Slider(options) {
         step=${step}
         value=${sliderValue}
         onChange=${(e) => handleSliderChange(e.target.value)}
-        style=${{ outline: 'none', width: '100%' }}
+        className="w-100 outline-0"
       />
     </div>
   `;
@@ -231,10 +231,10 @@ function Row({children, ...props}) {
   const childWidth = availableWidth / childCount;
 
   return html`
-    <div ...${props} class="layout-row">
+    <div ...${props} className="layout-row">
       <${WidthContext.Provider} value=${childWidth}>
         ${React.Children.map(children, (child, index) => html`
-          <div class="row-item" key=${index}>
+          <div className="row-item" key=${index}>
             ${child}
           </div>
         `)}
@@ -245,7 +245,7 @@ function Row({children, ...props}) {
 
 function Column({children, ...props}) {
   return html`
-    <div ...${props} class="layout-column">
+    <div ...${props} className="layout-column">
       ${children}
     </div>
   `;
@@ -310,24 +310,156 @@ function WithState({ data }) {
   `
 }
 
-function App() {
+function AppWithData({ data }) {
   const [el, setEl] = useState();
-  const [data] = useModelState("data");
-  const parsedData = data ? JSON.parse(data) : null
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
 
-  if (!parsedData || unmounted) return null;
+  useEffect(() => {}, [el]);
+
+  if (!data || unmounted) {
+    return null;
+  }
 
   const adjustedWidth = width ? width - 20 : undefined; // Subtract 20px for left and right padding
 
   return html`
     <${WidthContext.Provider} value=${adjustedWidth}>
-      <div style=${{ color: '#333', 'padding': '5px' }} ref=${setEl}>
-        ${el && html`<${WithState} data=${parsedData}/>`}
+      <div className="genstudio-container p3" ref=${setEl}>
+        ${el && html`<${WithState} data=${data}/>`}
       </div>
     </${WidthContext.Provider}>
   `;
 }
 
-export default { render: createRender(App) }
+function AnyWidgetApp() {
+  addCSSLink(tachyons_css)
+  const [data] = useModelState("data");
+  const parsedData = data ? JSON.parse(data) : null
+
+  return html`<${AppWithData} data=${parsedData} />`;
+}
+
+function HTMLApp(props) {
+  return html`
+    <div className="bg-white">
+      <${AppWithData} ...${props} />
+    </div>
+  `;
+}
+
+function JSONViewer() {
+  const [data, setData] = useState(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleChange = (e) => {
+    e.preventDefault();
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0]);
+    }
+  };
+
+  const handleFile = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const jsonData = JSON.parse(e.target.result);
+        setData(jsonData);
+      } catch (error) {
+        console.error("Error parsing JSON file:", error);
+        alert("Error parsing JSON file. Please ensure it's a valid JSON.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  return html`
+    <div className="pa3">
+      <div
+        className=${`ba b--dashed br3 pa5 tc ${dragActive ? 'b--blue' : 'b--black-20'}`}
+        onDragEnter=${handleDrag}
+        onDragLeave=${handleDrag}
+        onDragOver=${handleDrag}
+        onDrop=${handleDrop}
+      >
+        <label htmlFor="file-upload" className="f5 link dim br-pill ph3 pv2 mb2 dib white bg-dark-blue pointer">
+          Choose a JSON file
+        </label>
+        <input
+          type="file"
+          id="file-upload"
+          accept=".json"
+          onChange=${handleChange}
+          style=${{ display: 'none' }}
+        />
+        <p className="f6 black-60">or drag and drop a JSON file here</p>
+      </div>
+      ${data && html`
+        <div className="mt4">
+          <h2 className="f4 mb3">Loaded JSON Data:</h2>
+          <${AppWithData} data=${data} />
+        </div>
+      `}
+    </div>
+  `;
+}
+
+const tachyons_css = "https://cdn.jsdelivr.net/gh/tachyons-css/tachyons@6b8c744afadaf506cb12f9a539b47f9b412ed500/css/tachyons.css"
+
+function addCSSLink(url) {
+
+  const linkId = 'tachyons-css';
+  if (!document.getElementById(linkId)) {
+    const link = document.createElement('link');
+    link.id = linkId;
+    link.rel = 'stylesheet';
+    link.href = url;
+    document.head.appendChild(link);
+  }
+
+}
+
+export const renderData = (element, data) => {
+  addCSSLink(tachyons_css);
+  const root = ReactDOM.createRoot(element);
+  root.render(React.createElement(HTMLApp, { data }));
+};
+
+export const renderJSON = (element, jsonString) => {
+  addCSSLink(tachyons_css);
+  const root = ReactDOM.createRoot(element);
+  const data = JSON.parse(jsonString);
+  root.render(React.createElement(HTMLApp, { data }));
+};
+
+export const renderJSONViewer = (element) => {
+  addCSSLink(tachyons_css);
+  const root = ReactDOM.createRoot(element);
+  root.render(React.createElement(JSONViewer));
+};
+
+export default {
+  render: createRender(AnyWidgetApp),
+  renderData,
+  renderJSON,
+  renderJSONViewer
+}
