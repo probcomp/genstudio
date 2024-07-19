@@ -444,7 +444,16 @@ export const renderData = (element, data) => {
   root.render(React.createElement(HTMLApp, { data }));
 };
 
+
+const estimateJSONSize = (jsonString) => {
+  const estimatedSizeInKB = (jsonString.length / 1024).toFixed(2);
+  return estimatedSizeInKB < 1000 ?
+    `${estimatedSizeInKB} KB` :
+    `${(estimatedSizeInKB / 1024).toFixed(2)} MB`;
+};
+
 export const renderJSON = (element, jsonString) => {
+  console.log(`Loading plot data: ${estimateJSONSize(jsonString)}`);
   addCSSLink(tachyons_css);
   const root = ReactDOM.createRoot(element);
   const data = JSON.parse(jsonString);

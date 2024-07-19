@@ -128,8 +128,11 @@ export function PlotView({ spec, $state, width }) {
     const ref = React.useCallback(setParent)
     useEffect(() => {
         if (parent) {
-            const plot = binding("$state", $state, () => Plot.plot(spec))
-            parent.appendChild(plot)
+            const startTime = performance.now();
+            const plot = binding("$state", $state, () => Plot.plot(spec));
+            const endTime = performance.now();
+            plot.setAttribute('data-render-time-ms', `${endTime - startTime}`);
+            parent.appendChild(plot);
             return () => parent.removeChild(plot)
         }
     }, [spec, parent, width])
