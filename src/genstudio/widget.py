@@ -58,5 +58,7 @@ class Widget(anywidget.AnyWidget):
     def callback(
         self, params: dict[str, Any], buffers: list[bytes]
     ) -> tuple[str, list[bytes]]:
-        print(f"Received callback with id: {params['id']}")
-        return f"Callback {id} processed", buffers
+        f = self.callbacks[params["id"]]
+        if f is not None:
+            f(params)
+        return f"Callback {id} processed", []

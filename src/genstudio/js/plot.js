@@ -146,7 +146,6 @@ function prepareSpec(spec, availableWidth) {
     const marks = spec.marks.flatMap((m) => readMark(m, availableWidth))
     spec = {...spec,
             ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
-            width: availableWidth,
             marks: marks
     }
     // handle color_map

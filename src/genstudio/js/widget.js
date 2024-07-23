@@ -151,7 +151,7 @@ function collectReactiveInitialState(ast) {
   return initialState;
 }
 
-function processCallback(key, value, experimental) {
+function initCallback(key, value, experimental) {
   if (key.startsWith('on') && value && value.type === 'callback') {
     if (experimental) {
       return (e) => experimental.invoke("callback", {id: value.id, event: e.event});
@@ -184,7 +184,7 @@ export function evaluate(data, $state, experimental) {
       return Object.fromEntries(
         Object.entries(data).map(([key, value]) => [
           key,
-          processCallback(key, evaluate(value, $state, experimental), experimental)
+          initCallback(key, evaluate(value, $state, experimental), experimental)
         ])
       );
   }
@@ -345,6 +345,21 @@ function AppWithData({ data, experimental }) {
   `;
 }
 
+function AnyWidgetApp() {
+  addCSSLink(tachyons_css)
+  const [data] = useModelState("data");
+  const parsedData = data ? JSON.parse(data) : null
+  const experimental = useExperimental();
+  return html`<${AppWithData} data=${parsedData} experimental=${experimental} />`;
+}
+
+function HTMLApp(props) {
+  return html`
+    <div className="bg-white">
+      <${AppWithData} ...${props} />
+    </div>
+  `;
+}
 
 function JSONViewer() {
   const [data, setData] = useState(null);
@@ -436,14 +451,6 @@ function addCSSLink(url) {
 
 }
 
-function HTMLApp(props) {
-  return html`
-    <div className="bg-white">
-      <${AppWithData} ...${props} />
-    </div>
-  `;
-}
-
 export const renderData = (element, data) => {
   addCSSLink(tachyons_css);
   const root = ReactDOM.createRoot(element);
@@ -471,14 +478,6 @@ export const renderJSONViewer = (element) => {
   const root = ReactDOM.createRoot(element);
   root.render(React.createElement(JSONViewer));
 };
-
-function AnyWidgetApp() {
-  addCSSLink(tachyons_css)
-  const [data] = useModelState("data");
-  const parsedData = data ? JSON.parse(data) : null
-  const experimental = useExperimental();
-  return html`<${AppWithData} data=${parsedData} experimental=${experimental} />`;
-}
 
 export default {
   render: createRender(AnyWidgetApp),

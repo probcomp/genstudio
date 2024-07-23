@@ -20,7 +20,7 @@ hiccup = html(
             "div#red.box",
             {
                 "style": {"backgroundColor": "red"},
-                "onClick": lambda: on_click({"id": "red"}),
+                "onClick": lambda _: on_click({"id": "red"}),
             },
             "Red",
         ],
@@ -28,7 +28,8 @@ hiccup = html(
             "div#blue.box",
             {
                 "style": {"backgroundColor": "blue"},
-                "onClick": lambda: on_click({"id": "blue"}),
+                "onClick": lambda _: on_click({"id": "blue"}),
+                "onMouseEnter": lambda _: print("mouseenter blue"),
             },
             "Blue",
         ],
@@ -36,7 +37,7 @@ hiccup = html(
             "div#green.box",
             {
                 "style": {"backgroundColor": "green"},
-                "onClick": lambda: on_click({"id": "green"}),
+                "onClick": lambda _: on_click({"id": "green"}),
             },
             "Green",
         ],
