@@ -160,24 +160,8 @@ class Hiccup(LayoutItem):
         else:
             self.data = args
 
-    def _process_callbacks(self, data):
-        def process_item(item):
-            if isinstance(item, dict) and "onClick" in item:
-                callback_id = str(uuid.uuid4())
-                self.callbacks[callback_id] = item["onClick"]
-                return {**item, "onClick": {"type": "callback", "id": callback_id}}
-            elif isinstance(item, (list, tuple)):
-                return [process_item(subitem) for subitem in item]
-            return item
-
-        return process_item(data)
-
     def to_json(self) -> Any:
-        return self._process_callbacks(self.data)
-
-    def handle_callback(self, callback_id, *args):
-        if callback_id in self.callbacks:
-            self.callbacks[callback_id](*args)
+        return self.data
 
 
 def flatten_layout_items(
