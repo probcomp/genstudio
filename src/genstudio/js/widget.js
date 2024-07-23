@@ -154,7 +154,7 @@ function collectReactiveInitialState(ast) {
 function initCallback(key, value, experimental) {
   if (key.startsWith('on') && value && value.type === 'callback') {
     if (experimental) {
-      return (e) => experimental.invoke("callback", serializeEvent(e))
+      return (e) => experimental.invoke("callback", {id: value.id, event: serializeEvent(e)})
     } else {
       return undefined;
     }

@@ -1,7 +1,7 @@
 # %load_ext autoreload
 # %autoreload 2
 import genstudio.plot as Plot
-from plot_examples import bean_data_dims
+from walkthrough import bean_data_dims
 import random
 
 

@@ -115,10 +115,27 @@ export function serializeEvent(e) {
       type: 'submit',
       formData: Object.fromEntries(new FormData(e.target))
     };
-  } else if (e instanceof InputEvent || e instanceof ChangeEvent) {
+  } else if (e instanceof InputEvent) {
     return {
       type: 'input',
       value: e.target.value
+    };
+  } else if (React.isValidElement(e) && e.type === 'SyntheticEvent') {
+    // Handle React's SyntheticEvent
+    const nativeEvent = e.nativeEvent;
+    return {
+      type: 'react',
+      reactEventType: e.type,
+      nativeEventType: nativeEvent.type,
+      target: {
+        id: e.target.id,
+        name: e.target.name,
+        value: e.target.value
+      },
+      // Include other relevant properties from SyntheticEvent
+      altKey: e.altKey,
+      ctrlKey: e.ctrlKey,
+      shiftKey: e.shiftKey
     };
   } else {
     // For other event types, include basic information

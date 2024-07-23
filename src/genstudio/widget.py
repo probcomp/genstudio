@@ -60,5 +60,5 @@ class Widget(anywidget.AnyWidget):
     ) -> tuple[str, list[bytes]]:
         f = self.callbacks[params["id"]]
         if f is not None:
-            f(params)
-        return f"Callback {id} processed", []
+            f(params["event"])
+        return "ok", []
