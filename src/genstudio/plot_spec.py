@@ -71,6 +71,13 @@ class LayoutItem:
     def __init__(self):
         self._html: HTML | None = None
         self._widget: Widget | None = None
+        self._display_preference = "html"
+
+    def display_as(self, display_preference) -> "LayoutItem":
+        if display_preference not in ["html", "widget"]:
+            raise ValueError("display_pref must be either 'html' or 'widget'")
+        self._display_preference = display_preference
+        return self
 
     def to_json(self) -> dict[str, Any]:
         raise NotImplementedError("Subclasses must implement to_json method")
@@ -87,8 +94,11 @@ class LayoutItem:
     def __ror__(self, other: "LayoutItem") -> "Column":
         return Column(other, self)
 
-    def _repr_mimebundle_(self, **kwargs: Any) -> tuple[dict[str, str], dict[str, Any]]:
-        return self.html()._repr_mimebundle_(**kwargs)
+    def _repr_mimebundle_(self, **kwargs: Any) -> Any:
+        if self._display_preference == "widget":
+            return self.widget()._repr_mimebundle_(**kwargs)
+        else:
+            return self.html()._repr_mimebundle_(**kwargs)
 
     def html(self) -> HTML:
         """
@@ -122,6 +132,17 @@ class LayoutItem:
         img = img.crop(content)
         img.save(path)
         print(f"Image saved to {path}")
+
+    def reset(self, other: "LayoutItem") -> None:
+        """
+        Render a new LayoutItem to this LayoutItem's widget.
+
+        Args:
+            new_item: A LayoutItem to reset to.
+        """
+        new_data = other.to_json()
+        self.widget().data = new_data
+        self.html().data = new_data
 
 
 class Hiccup(LayoutItem):
@@ -182,6 +203,7 @@ class Slider(LayoutItem):
         label: str | None = None,
         **kwargs: Any,
     ):
+        super().__init__()
         self.config: dict[str, Any] = {
             "state_key": key,
             "range": [0, range] if isinstance(range, int) else range,
@@ -294,40 +316,6 @@ class PlotSpec(LayoutItem):
         _add(spec, marks, to_add)
         spec["marks"] = marks
         return PlotSpec(spec)
-
-    def reset(self, *specs: SpecInput, **kwargs: Any) -> None:
-        """
-        Reset this PlotSpec's options and marks to those from the given specs.
-
-        Reuses the existing plot widget.
-
-        Args:
-            *specs: PlotSpecs, lists of marks, or dicts of plot options to reset to.
-            **kwargs: Additional options to reset.
-        """
-        self.spec = PlotSpec(*specs, **kwargs).spec
-        self.widget().data = self.spec
-
-    def update(
-        self, *to_add: SpecInput, marks: list[Mark] | None = None, **kwargs: Any
-    ) -> None:
-        """
-        Update this PlotSpec's options and marks in-place.
-
-        Reuses the existing plot widget.
-
-        Args:
-            *specs: PlotSpecs, lists of marks, or dicts of plot options to update with.
-            marks (list, optional): List of marks to replace existing marks with.
-                If provided, overwrites rather than adds to existing marks.
-            **kwargs: Additional options to update.
-        """
-        if to_add:
-            _add(self.spec, self.spec["marks"], to_add)
-        if marks is not None:
-            self.spec["marks"] = marks
-        self.spec.update(kwargs)
-        self.widget().data = self.spec
 
     def to_json(self) -> Any:
         return View.PlotSpec(self.spec)

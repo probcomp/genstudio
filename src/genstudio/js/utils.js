@@ -88,3 +88,43 @@ export function useElementWidth(el) {
 
   return width
 }
+
+export function serializeEvent(e) {
+  if (e instanceof MouseEvent) {
+    return {
+      type: 'mouse',
+      clientX: e.clientX,
+      clientY: e.clientY,
+      button: e.button,
+      altKey: e.altKey,
+      ctrlKey: e.ctrlKey,
+      shiftKey: e.shiftKey
+    };
+  } else if (e instanceof KeyboardEvent) {
+    return {
+      type: 'keyboard',
+      key: e.key,
+      code: e.code,
+      altKey: e.altKey,
+      ctrlKey: e.ctrlKey,
+      shiftKey: e.shiftKey
+    };
+  } else if (e instanceof SubmitEvent) {
+    e.preventDefault(); // Cancel form submit event by default
+    return {
+      type: 'submit',
+      formData: Object.fromEntries(new FormData(e.target))
+    };
+  } else if (e instanceof InputEvent || e instanceof ChangeEvent) {
+    return {
+      type: 'input',
+      value: e.target.value
+    };
+  } else {
+    // For other event types, include basic information
+    return {
+      type: e.type,
+      target: e.target.id || e.target.name || undefined
+    };
+  }
+}
