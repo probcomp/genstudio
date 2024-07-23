@@ -1,6 +1,6 @@
 import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
-import { flatten, html, binding, useCellUnmounted, useElementWidth } from "./utils";
+import { flatten, html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
 import { AnyWidgetReact, Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
 
 const { createRender, useModelState, useExperimental } = AnyWidgetReact
@@ -154,7 +154,7 @@ function collectReactiveInitialState(ast) {
 function initCallback(key, value, experimental) {
   if (key.startsWith('on') && value && value.type === 'callback') {
     if (experimental) {
-      return (e) => experimental.invoke("callback", {id: value.id, event: e.event});
+      return (e) => experimental.invoke("callback", serializeEvent(e))
     } else {
       return undefined;
     }
