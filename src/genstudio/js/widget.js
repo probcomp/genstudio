@@ -1,9 +1,9 @@
 import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
-import { flatten, html, binding, useCellUnmounted, useElementWidth } from "./utils";
+import { flatten, html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
 import { AnyWidgetReact, Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
 
-const { createRender, useModelState } = AnyWidgetReact
+const { createRender, useModelState, useExperimental } = AnyWidgetReact
 
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 
@@ -151,9 +151,20 @@ function collectReactiveInitialState(ast) {
   return initialState;
 }
 
-export function evaluate(data, $state) {
+function initCallback(key, value, experimental) {
+  if (key.startsWith('on') && value && value.type === 'callback') {
+    if (experimental) {
+      return (e) => experimental.invoke("callback", serializeEvent(e))
+    } else {
+      return undefined;
+    }
+  }
+  return value;
+}
+
+export function evaluate(data, $state, experimental) {
   if (data === null || typeof data !== 'object') return data;
-  if (Array.isArray(data)) return data.map(item => evaluate(item, $state));
+  if (Array.isArray(data)) return data.map(item => evaluate(item, $state, experimental));
 
   switch (data["pyobsplot-type"]) {
     case "function":
@@ -162,7 +173,7 @@ export function evaluate(data, $state) {
         console.error('Function not found', data);
         return null;
       }
-      return fn(...evaluate(data.args, $state));
+      return fn(...evaluate(data.args, $state, experimental));
     case "ref":
       return data.name ? scope[data.module][data.name] : scope[data.module];
     case "js":
@@ -171,7 +182,10 @@ export function evaluate(data, $state) {
       return new Date(data.value);
     default:
       return Object.fromEntries(
-        Object.entries(data).map(([key, value]) => [key, evaluate(value, $state)])
+        Object.entries(data).map(([key, value]) => [
+          key,
+          initCallback(key, evaluate(value, $state, experimental), experimental)
+        ])
       );
   }
 }
@@ -299,10 +313,10 @@ function useStableState(initialState) {
   return useMemo(() => [state, setState], [state]);
 }
 
-function WithState({ data }) {
+function WithState({ data, experimental }) {
   const st = useStableState(collectReactiveInitialState(data))
   const [$state] = st
-  const interpretedData = useMemo(() => evaluate(data, $state), [data, $state])
+  const interpretedData = useMemo(() => evaluate(data, $state, experimental), [data, $state, experimental])
   return html`
     <${$StateContext.Provider} value=${st}>
       <${Node} value=${interpretedData} />
@@ -310,12 +324,11 @@ function WithState({ data }) {
   `
 }
 
-function AppWithData({ data }) {
+function AppWithData({ data, experimental }) {
   const [el, setEl] = useState();
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
 
-  useEffect(() => {}, [el]);
 
   if (!data || unmounted) {
     return null;
@@ -326,7 +339,7 @@ function AppWithData({ data }) {
   return html`
     <${WidthContext.Provider} value=${adjustedWidth}>
       <div className="genstudio-container p3" ref=${setEl}>
-        ${el && html`<${WithState} data=${data}/>`}
+        ${el && html`<${WithState} data=${data} experimental=${experimental}/>`}
       </div>
     </${WidthContext.Provider}>
   `;
@@ -336,8 +349,8 @@ function AnyWidgetApp() {
   addCSSLink(tachyons_css)
   const [data] = useModelState("data");
   const parsedData = data ? JSON.parse(data) : null
-
-  return html`<${AppWithData} data=${parsedData} />`;
+  const experimental = useExperimental();
+  return html`<${AppWithData} data=${parsedData} experimental=${experimental} />`;
 }
 
 function HTMLApp(props) {
