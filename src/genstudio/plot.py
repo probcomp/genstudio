@@ -7,7 +7,7 @@ import random
 from typing import Any, Dict, List, Union
 
 import genstudio.plot_defs as plot_defs
-from genstudio.js_modules import JSRef, js
+from genstudio.js_modules import JSCall, JSRef, js
 from genstudio.plot_defs import (
     area,
     areaX,
@@ -399,12 +399,14 @@ def test_get_in():
     print("tests passed")
 
 
-def scaled_circle(x, y, r, n=16, curve="catmull-rom-closed", **kwargs):
-    points = [
-        [x + r * math.cos(2 * math.pi * i / n), y + r * math.sin(2 * math.pi * i / n)]
-        for i in range(n)
-    ]
-    return line(points, {"curve": curve, **kwargs})
+def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
+    return PlotSpec(
+        JSCall("View", "MarkSpec", ["ellipse", values, {**options, **kwargs}])
+    )
+
+
+def scaled_circle(x, y, r, **kwargs):
+    return ellipse([[x, y]], r=r, **kwargs)
 
 
 def constantly(x):
@@ -484,11 +486,11 @@ def frame(options={}, **kwargs):
     return plot_defs.frame({"stroke": "#dddddd", **options, **kwargs})
 
 
-def ruleY(values, options: Dict[str, Any] = {}, **kwargs):
+def ruleY(values, options: dict[str, Any] = {}, **kwargs):
     return plot_defs.ruleY(values or [0], options, **kwargs)
 
 
-def ruleX(values, options: Dict[str, Any] = {}, **kwargs):
+def ruleX(values, options: dict[str, Any] = {}, **kwargs):
     return plot_defs.ruleX(values or [0], options, **kwargs)
 
 
@@ -671,7 +673,7 @@ def doc(fn):
         return View.md("No docstring available.")
 
 
-def state(name: str) -> Dict[str, str]:
+def state(name: str) -> dict[str, str]:
     return js(f"$state.{name}")
 
 

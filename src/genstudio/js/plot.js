@@ -1,7 +1,9 @@
 import {Plot, d3, React} from "./imports"
 import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { binding, flatten, html } from "./utils";
+import {ellipse} from "./ellipse"
 
+const Marks = {...Plot, ellipse: ellipse}
 const { useEffect } = React
 export const DEFAULT_PLOT_OPTIONS = { inset: 10 };
 
@@ -20,10 +22,10 @@ export class PlotSpec {
 
 export class MarkSpec {
     constructor(name, data, options) {
-        if (!Plot[name]) {
+        if (!Marks[name]) {
             throw new Error(`Plot function "${name}" not found.`);
         }
-        this.fn = Plot[name];
+        this.fn = Marks[name];
 
         options = { ...options }
 
