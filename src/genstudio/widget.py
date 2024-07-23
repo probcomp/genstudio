@@ -1,7 +1,7 @@
 import datetime
 import json
 
-from typing import Iterable
+from typing import Any, Iterable
 
 import anywidget
 import traitlets
@@ -44,6 +44,8 @@ class Widget(anywidget.AnyWidget):
         return super()._repr_mimebundle_(**kwargs)
 
     @anywidget.experimental.command  # type: ignore
-    def callback(self, id: str, buffers: list[bytes]) -> tuple[str, list[bytes]]:
-        print(f"Received callback with id: {id}")
+    def callback(
+        self, params: dict[str, Any], buffers: list[bytes]
+    ) -> tuple[str, list[bytes]]:
+        print(f"Received callback with id: {params['id']}")
         return f"Callback {id} processed", buffers

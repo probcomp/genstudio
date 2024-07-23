@@ -148,6 +148,8 @@ class LayoutItem:
 class Hiccup(LayoutItem):
     """Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
 
+    # TODO
+    # extract callbacks within to_json?
     def __init__(self, *args: Any) -> None:
         LayoutItem.__init__(self)
         self.callbacks = {}

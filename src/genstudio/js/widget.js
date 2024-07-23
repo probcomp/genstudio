@@ -3,7 +3,7 @@ import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
 import { flatten, html, binding, useCellUnmounted, useElementWidth } from "./utils";
 import { AnyWidgetReact, Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
 
-const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact
+const { createRender, useModelState, useExperimental } = AnyWidgetReact
 
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 
@@ -151,24 +151,15 @@ function collectReactiveInitialState(ast) {
   return initialState;
 }
 
-function processCallbacks(element, experimental) {
-  if (Array.isArray(element)) {
-    return element.map(item => processCallbacks(item, experimental));
-  } else if (typeof element === 'object' && element !== null) {
-    const newElement = { ...element };
-    for (const [key, value] of Object.entries(element)) {
-      if (key === 'onClick' && value && value.type === 'callback') {
-        newElement[key] = async (...args) => {
-          let [response] = await experimental.invoke("callback", value.id);
-          console.log(response);
-        };
-      } else {
-        newElement[key] = processCallbacks(value, experimental);
-      }
+function processCallback(key, value, experimental) {
+  if (key.startsWith('on') && value && value.type === 'callback') {
+    if (experimental) {
+      return (e) => experimental.invoke("callback", {id: value.id, event: e.event});
+    } else {
+      return undefined;
     }
-    return newElement;
   }
-  return element;
+  return value;
 }
 
 export function evaluate(data, $state, experimental) {
@@ -190,10 +181,12 @@ export function evaluate(data, $state, experimental) {
     case "datetime":
       return new Date(data.value);
     default:
-      const evaluatedData = Object.fromEntries(
-        Object.entries(data).map(([key, value]) => [key, evaluate(value, $state, experimental)])
+      return Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [
+          key,
+          processCallback(key, evaluate(value, $state, experimental), experimental)
+        ])
       );
-      return processCallbacks(evaluatedData, experimental);
   }
 }
 
@@ -331,13 +324,11 @@ function WithState({ data, experimental }) {
   `
 }
 
-function AppWithData({ data }) {
+function AppWithData({ data, experimental }) {
   const [el, setEl] = useState();
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
-  const experimental = useExperimental();
 
-  useEffect(() => {}, [el]);
 
   if (!data || unmounted) {
     return null;
@@ -354,21 +345,6 @@ function AppWithData({ data }) {
   `;
 }
 
-function AnyWidgetApp() {
-  addCSSLink(tachyons_css)
-  const [data] = useModelState("data");
-  const parsedData = data ? JSON.parse(data) : null
-
-  return html`<${AppWithData} data=${parsedData} />`;
-}
-
-function HTMLApp(props) {
-  return html`
-    <div className="bg-white">
-      <${AppWithData} ...${props} />
-    </div>
-  `;
-}
 
 function JSONViewer() {
   const [data, setData] = useState(null);
@@ -460,6 +436,14 @@ function addCSSLink(url) {
 
 }
 
+function HTMLApp(props) {
+  return html`
+    <div className="bg-white">
+      <${AppWithData} ...${props} />
+    </div>
+  `;
+}
+
 export const renderData = (element, data) => {
   addCSSLink(tachyons_css);
   const root = ReactDOM.createRoot(element);
@@ -487,6 +471,14 @@ export const renderJSONViewer = (element) => {
   const root = ReactDOM.createRoot(element);
   root.render(React.createElement(JSONViewer));
 };
+
+function AnyWidgetApp() {
+  addCSSLink(tachyons_css)
+  const [data] = useModelState("data");
+  const parsedData = data ? JSON.parse(data) : null
+  const experimental = useExperimental();
+  return html`<${AppWithData} data=${parsedData} experimental=${experimental} />`;
+}
 
 export default {
   render: createRender(AnyWidgetApp),
