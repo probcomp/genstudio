@@ -3,7 +3,7 @@ import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
 import { flatten, html, binding, useCellUnmounted, useElementWidth } from "./utils";
 import { AnyWidgetReact, Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
 
-const { createRender, useModelState } = AnyWidgetReact
+const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact
 
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 
@@ -151,9 +151,29 @@ function collectReactiveInitialState(ast) {
   return initialState;
 }
 
-export function evaluate(data, $state) {
+function processCallbacks(element, experimental) {
+  if (Array.isArray(element)) {
+    return element.map(item => processCallbacks(item, experimental));
+  } else if (typeof element === 'object' && element !== null) {
+    const newElement = { ...element };
+    for (const [key, value] of Object.entries(element)) {
+      if (key === 'onClick' && value && value.type === 'callback') {
+        newElement[key] = async (...args) => {
+          let [response] = await experimental.invoke("callback", value.id);
+          console.log(response);
+        };
+      } else {
+        newElement[key] = processCallbacks(value, experimental);
+      }
+    }
+    return newElement;
+  }
+  return element;
+}
+
+export function evaluate(data, $state, experimental) {
   if (data === null || typeof data !== 'object') return data;
-  if (Array.isArray(data)) return data.map(item => evaluate(item, $state));
+  if (Array.isArray(data)) return data.map(item => evaluate(item, $state, experimental));
 
   switch (data["pyobsplot-type"]) {
     case "function":
@@ -162,7 +182,7 @@ export function evaluate(data, $state) {
         console.error('Function not found', data);
         return null;
       }
-      return fn(...evaluate(data.args, $state));
+      return fn(...evaluate(data.args, $state, experimental));
     case "ref":
       return data.name ? scope[data.module][data.name] : scope[data.module];
     case "js":
@@ -170,9 +190,10 @@ export function evaluate(data, $state) {
     case "datetime":
       return new Date(data.value);
     default:
-      return Object.fromEntries(
-        Object.entries(data).map(([key, value]) => [key, evaluate(value, $state)])
+      const evaluatedData = Object.fromEntries(
+        Object.entries(data).map(([key, value]) => [key, evaluate(value, $state, experimental)])
       );
+      return processCallbacks(evaluatedData, experimental);
   }
 }
 
@@ -299,10 +320,10 @@ function useStableState(initialState) {
   return useMemo(() => [state, setState], [state]);
 }
 
-function WithState({ data }) {
+function WithState({ data, experimental }) {
   const st = useStableState(collectReactiveInitialState(data))
   const [$state] = st
-  const interpretedData = useMemo(() => evaluate(data, $state), [data, $state])
+  const interpretedData = useMemo(() => evaluate(data, $state, experimental), [data, $state, experimental])
   return html`
     <${$StateContext.Provider} value=${st}>
       <${Node} value=${interpretedData} />
@@ -314,6 +335,7 @@ function AppWithData({ data }) {
   const [el, setEl] = useState();
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
+  const experimental = useExperimental();
 
   useEffect(() => {}, [el]);
 
@@ -326,7 +348,7 @@ function AppWithData({ data }) {
   return html`
     <${WidthContext.Provider} value=${adjustedWidth}>
       <div className="genstudio-container p3" ref=${setEl}>
-        ${el && html`<${WithState} data=${data}/>`}
+        ${el && html`<${WithState} data=${data} experimental=${experimental}/>`}
       </div>
     </${WidthContext.Provider}>
   `;

@@ -141,12 +141,12 @@ export function PlotView({ spec, $state, width }) {
     `
 }
 
-function prepareSpec(spec, width) {
+function prepareSpec(spec, availableWidth) {
     // handle marks
-    const marks = spec.marks.flatMap((m) => readMark(m, width))
+    const marks = spec.marks.flatMap((m) => readMark(m, availableWidth))
     spec = {...spec,
             ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
-            width: width,
+            width: availableWidth,
             marks: marks
     }
     // handle color_map
@@ -166,7 +166,7 @@ function prepareSpec(spec, width) {
 
 export function PlotWrapper({ spec }) {
     const [$state, set$state] = React.useContext($StateContext)
-    const width = React.useContext(WidthContext)
-    spec = prepareSpec(spec, width)
+    const availableWidth = React.useContext(WidthContext)
+    spec = prepareSpec(spec, spec.width ?? availableWidth)
     return html`<${PlotView} spec=${spec} $state=${$state} />`
 }

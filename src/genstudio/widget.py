@@ -42,3 +42,8 @@ class Widget(anywidget.AnyWidget):
 
     def _repr_mimebundle_(self, **kwargs):  # type: ignore
         return super()._repr_mimebundle_(**kwargs)
+
+    @anywidget.experimental.command  # type: ignore
+    def callback(self, id: str, buffers: list[bytes]) -> tuple[str, list[bytes]]:
+        print(f"Received callback with id: {id}")
+        return f"Callback {id} processed", buffers
