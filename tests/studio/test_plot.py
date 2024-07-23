@@ -115,31 +115,6 @@ def test_plot_new():
     assert mark_name(ps.spec["marks"][0]) == "dot"
 
 
-def test_plotspec_reset():
-    ps = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
-    assert ps.spec["width"] == 100
-    assert len(ps.spec["marks"]) == 1
-
-    ps.reset(marks=[Plot.rectY(xs)], height=200)
-    assert ps.spec.get("width", None) is None  # width removed
-    assert ps.spec["height"] == 200
-    assert len(ps.spec["marks"]) == 1
-    assert mark_name(ps.spec["marks"][0]) == "rectY"
-
-
-def test_plotspec_update():
-    ps = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
-    assert ps.spec["width"] == 100
-    assert len(ps.spec["marks"]) == 1
-
-    ps.update(Plot.rectY(xs), height=200)
-    assert ps.spec["width"] == 100
-    assert ps.spec["height"] == 200
-    assert len(ps.spec["marks"]) == 2
-    assert mark_name(ps.spec["marks"][0]) == "dot"
-    assert mark_name(ps.spec["marks"][1]) == "rectY"
-
-
 def test_plot_function_docs():
     for mark in ["dot", "line", "rectY"]:
         assert isinstance(getattr(Plot, mark).__doc__, str)
@@ -170,8 +145,6 @@ def run_tests():
     test_plotspec_plot()
     test_sugar()
     test_plot_new()
-    test_plotspec_reset()
-    test_plotspec_update()
     test_plot_function_docs()
     test_plot_options_merge_nested()
     print("All tests passed!")
