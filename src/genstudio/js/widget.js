@@ -177,7 +177,7 @@ export function evaluate(data, $state, experimental) {
     case "ref":
       return data.name ? scope[data.module][data.name] : scope[data.module];
     case "js":
-      return (new Function('$state', `return ${data.value}`))($state);
+      return (new Function('$state', 'd3', 'Plot', `return ${data.value}`))($state, d3, Plot);
     case "datetime":
       return new Date(data.value);
     default:
