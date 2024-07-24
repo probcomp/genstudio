@@ -5,7 +5,7 @@ html = Plot.Hiccup
 
 #
 def on_click(event):
-    print(f"Clicked on: {event['id']}")
+    print(f"Clicked on: {event['id']} at x position {event["clientX"]}")
 
 
 #
@@ -20,16 +20,17 @@ hiccup = html(
             "div#red.box",
             {
                 "style": {"backgroundColor": "red"},
-                "onClick": lambda _: on_click({"id": "red"}),
+                "onClick": lambda e: on_click({"id": "red", **e}),
+                "onMouseMove": Plot.js("(e) => e.target.innerHTML = e.clientX"),
             },
             "Red",
         ],
         [
             "div#blue.box",
             {
-                "style": {"backgroundColor": "blue"},
-                "onClick": lambda _: on_click({"id": "blue"}),
-                "onMouseEnter": lambda _: print("mouseenter blue"),
+                "style": {"backgroundColor": "lightblue"},
+                "onClick": lambda e: on_click({"id": "blue", **e}),
+                "onMouseMove": Plot.js("(e) => e.target.innerHTML = e.clientX"),
             },
             "Blue",
         ],
@@ -37,7 +38,8 @@ hiccup = html(
             "div#green.box",
             {
                 "style": {"backgroundColor": "green"},
-                "onClick": lambda _: on_click({"id": "green"}),
+                "onClick": lambda e: on_click({"id": "green", **e}),
+                "onMouseMove": Plot.js("(e) => e.target.innerHTML = e.clientX"),
             },
             "Green",
         ],

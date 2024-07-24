@@ -90,6 +90,8 @@ export function useElementWidth(el) {
 }
 
 export function serializeEvent(e) {
+  e = e.nativeEvent || e;
+
   if (e instanceof MouseEvent) {
     return {
       type: 'mouse',
@@ -119,23 +121,6 @@ export function serializeEvent(e) {
     return {
       type: 'input',
       value: e.target.value
-    };
-  } else if (React.isValidElement(e) && e.type === 'SyntheticEvent') {
-    // Handle React's SyntheticEvent
-    const nativeEvent = e.nativeEvent;
-    return {
-      type: 'react',
-      reactEventType: e.type,
-      nativeEventType: nativeEvent.type,
-      target: {
-        id: e.target.id,
-        name: e.target.name,
-        value: e.target.value
-      },
-      // Include other relevant properties from SyntheticEvent
-      altKey: e.altKey,
-      ctrlKey: e.ctrlKey,
-      shiftKey: e.shiftKey
     };
   } else {
     // For other event types, include basic information

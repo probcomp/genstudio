@@ -17,6 +17,7 @@ jax = "^0.4.25"
 penzai = "^0.1.1"
 jaxlib = "^0.4.28"
 html2image = "^2.0.4.3"
+pillow = "^10.4.0"
 
 [tool.poetry.group.dev.dependencies]
 seaborn = "^0.13.2"
