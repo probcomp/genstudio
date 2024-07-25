@@ -6,7 +6,7 @@ from html2image import Html2Image
 from PIL import Image
 
 from genstudio.js_modules import JSRef
-from genstudio.util import PARENT_PATH
+from genstudio.util import PARENT_PATH, CONFIG
 from genstudio.widget import Widget, to_json
 
 SpecInput: TypeAlias = Union[
@@ -71,12 +71,12 @@ class LayoutItem:
     def __init__(self):
         self._html: HTML | None = None
         self._widget: Widget | None = None
-        self._display_preference = "html"
+        self._display_as = None
 
-    def display_as(self, display_preference) -> "LayoutItem":
-        if display_preference not in ["html", "widget"]:
+    def display_as(self, display_as) -> "LayoutItem":
+        if display_as not in ["html", "widget"]:
             raise ValueError("display_pref must be either 'html' or 'widget'")
-        self._display_preference = display_preference
+        self._display_as = display_as
         return self
 
     def to_json(self) -> dict[str, Any]:
@@ -95,7 +95,8 @@ class LayoutItem:
         return Column(other, self)
 
     def _repr_mimebundle_(self, **kwargs: Any) -> Any:
-        if self._display_preference == "widget":
+        display_as = self._display_as or CONFIG["display_as"]
+        if display_as == "widget":
             return self.widget()._repr_mimebundle_(**kwargs)
         else:
             return self.html()._repr_mimebundle_(**kwargs)
@@ -140,6 +141,11 @@ class LayoutItem:
         Args:
             new_item: A LayoutItem to reset to.
         """
+        display_as = self._display_as or CONFIG["display_as"]
+        if display_as != "widget":
+            print(
+                "Warning: Resetting a non-widget LayoutItem. This will not update the display."
+            )
         new_data = other.to_json()
         self.widget().data = new_data
         self.html().data = new_data

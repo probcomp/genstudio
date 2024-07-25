@@ -3,6 +3,23 @@ import importlib.util
 import pathlib
 from timeit import default_timer as timer
 
+from typing import TypedDict, Literal, Union
+
+
+class Config(TypedDict):
+    display_as: Literal["widget", "html"]
+
+
+CONFIG: Config = {"display_as": "widget"}
+
+
+def configure(options: dict) -> None:
+    CONFIG.update(options)
+
+
+def get_config(k: str) -> Union[str, None]:
+    return CONFIG.get(k)
+
 
 class benchmark(object):
     """
