@@ -308,20 +308,25 @@ function Hiccup(tag, props, ...children) {
            </>`;
 }
 
-function useStableState(initialState) {
-  const [state, setState] = useState(initialState);
+function useStateWithDeps(initialState, deps) {
+  const [state, setState] = useState(() => initialState);
+
+  useEffect(() => {
+    setState(initialState);
+  }, deps);
+
   return useMemo(() => [state, setState], [state]);
 }
 
 function WithState({ data, experimental }) {
-  const st = useStableState(collectReactiveInitialState(data))
-  const [$state] = st
-  const interpretedData = useMemo(() => evaluate(data, $state, experimental), [data, $state, experimental])
+  const st = useStateWithDeps(() => collectReactiveInitialState(data), [data]);
+  const [$state] = st;
+  const interpretedData = useMemo(() => evaluate(data, $state, experimental), [data, $state, experimental]);
   return html`
     <${$StateContext.Provider} value=${st}>
       <${Node} value=${interpretedData} />
     </>
-  `
+  `;
 }
 
 function AppWithData({ data, experimental }) {

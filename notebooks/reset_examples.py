@@ -49,3 +49,13 @@ future = asyncio.ensure_future(animate_dots(ANIMATION_DURATION))
 print(f"Animation scheduled for {ANIMATION_DURATION} seconds")
 print("To stop the animation early, use: future.cancel()")
 print("Use the slider to adjust the frequency of the wave")
+
+# Reset a blank plot with a Plot.Frames
+
+(p := Plot.new().display_as("widget"))
+
+p.reset(
+    Plot.Frames(
+        [Plot.dot([[i, 10]]) + Plot.domain([0, 20], [10, 10]) for i in range(20)], fps=5
+    )
+)
