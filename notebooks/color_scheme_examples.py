@@ -26,27 +26,19 @@ data = list(zip(x, y, v))
     }
 )
 
-
+# Use d3 color scales directly - pick from here https://observablehq.com/@d3/color-schemes
 ys = np.linspace(0, 1, 10)
-#
 (
     Plot.dot(
-        [[0, y] for y in ys],
-        r=6,
-        # uses scale specified by Plot
-        fill=Plot.js("(d, i) => i % 3"),
-    )
-    + {"color": {"type": "linear", "scheme": "Viridis"}}
-    + Plot.dot(
         [[1, y] for y in ys],
         r=6,
-        # use a d3 scale directly
+        # for any linear d3 scale
         fill=Plot.js("(d) => d3.interpolateSpectral(d[1])"),
     )
     + Plot.dot(
         [[2, y] for y in ys],
         r=6,
-        # use a d3 scale directly
+        # for any categorical d3 scale (NOTE: this can be tricky, the indexes don't always start at 0)
         fill=Plot.js("(d, i) => d3.schemeObservable10[i % 10]"),
     )
 )
