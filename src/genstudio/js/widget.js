@@ -302,9 +302,11 @@ function Hiccup(tag, props, ...children) {
 
   return baseTag instanceof PlotSpec
     ? html`<${PlotWrapper} spec=${baseTag.spec}/>`
-    : html`<${baseTag} ...${props}>
-            ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
-           </>`;
+    : children.length > 0
+      ? html`<${baseTag} ...${props}>
+          ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
+        </>`
+      : html`<${baseTag} ...${props} />`;
 }
 
 function useStateWithDeps(initialState, deps) {

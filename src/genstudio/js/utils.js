@@ -92,41 +92,76 @@ export function useElementWidth(el) {
 export function serializeEvent(e) {
   e = e.nativeEvent || e;
 
-  if (e instanceof MouseEvent) {
-    return {
-      type: 'mouse',
-      clientX: e.clientX,
-      clientY: e.clientY,
-      button: e.button,
-      altKey: e.altKey,
-      ctrlKey: e.ctrlKey,
-      shiftKey: e.shiftKey
-    };
-  } else if (e instanceof KeyboardEvent) {
-    return {
-      type: 'keyboard',
-      key: e.key,
-      code: e.code,
-      altKey: e.altKey,
-      ctrlKey: e.ctrlKey,
-      shiftKey: e.shiftKey
-    };
-  } else if (e instanceof SubmitEvent) {
-    e.preventDefault(); // Cancel form submit event by default
-    return {
-      type: 'submit',
-      formData: Object.fromEntries(new FormData(e.target))
-    };
-  } else if (e instanceof InputEvent) {
-    return {
-      type: 'input',
-      value: e.target.value
-    };
-  } else {
-    // For other event types, include basic information
-    return {
-      type: e.type,
-      target: e.target.id || e.target.name || undefined
-    };
+  const baseEventData = {
+    type: e.type,
+    altKey: e.altKey,
+    ctrlKey: e.ctrlKey,
+    shiftKey: e.shiftKey
+  };
+
+  switch (e.type) {
+    case 'mousedown':
+    case 'mouseup':
+    case 'mousemove':
+    case 'click':
+      return {
+        ...baseEventData,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        button: e.button
+      };
+    case 'keydown':
+    case 'keyup':
+    case 'keypress':
+      return {
+        ...baseEventData,
+        key: e.key,
+        code: e.code
+      };
+    case 'submit':
+      e.preventDefault(); // Cancel form submit event by default
+      return {
+        ...baseEventData,
+        formData: Object.fromEntries(new FormData(e.target))
+      };
+    case 'input':
+    case 'change':
+      if (e.target.type === 'checkbox' || e.target.type === 'radio') {
+        return {
+          ...baseEventData,
+          checked: e.target.checked,
+          value: e.target.value
+        };
+      } else if (e.target.type === 'select-one' || e.target.type === 'select-multiple') {
+        return {
+          ...baseEventData,
+          value: Array.from(e.target.selectedOptions, option => option.value)
+        };
+      } else if (e.target.type === 'file') {
+        return {
+          ...baseEventData,
+          files: Array.from(e.target.files, file => ({
+            name: file.name,
+            type: file.type,
+            size: file.size
+          }))
+        };
+      } else {
+        return {
+          ...baseEventData,
+          value: e.target.value
+        };
+      }
+    case 'focus':
+    case 'blur':
+      return {
+        ...baseEventData,
+        target: e.target.id || e.target.name || undefined
+      };
+    default:
+      return {
+        ...baseEventData,
+        target: e.target.id || e.target.name || undefined
+      };
   }
 }
