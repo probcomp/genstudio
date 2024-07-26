@@ -1,5 +1,7 @@
 import genstudio.plot as Plot
 
+Plot.configure({"display_as": "html"})
+
 # Plot ellipses + dots + rects + rules to see how measurements align
 data = [[0, 0], [1, 1], [2, 2]]
 #

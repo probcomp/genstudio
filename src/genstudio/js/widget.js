@@ -2,10 +2,12 @@ import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
 import { flatten, html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
 import { AnyWidgetReact, Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
-
 const { createRender, useModelState, useExperimental } = AnyWidgetReact
-
 const { useState, useEffect, useContext, useMemo, useCallback } = React
+
+const TACHYONS_CSS_URL = "https://cdn.jsdelivr.net/gh/tachyons-css/tachyons@6b8c744afadaf506cb12f9a539b47f9b412ed500/css/tachyons.css"
+const DEFAULT_GRID_GAP = "10px"
+export const CONTAINER_PADDING = 10;
 
 const md = new MarkdownIt({
   html: true,
@@ -61,7 +63,7 @@ const scope = {
   }
 }
 
-function firstDefined(...values) {
+function getFirstDefinedValue(...values) {
   return values.find(value => value !== undefined);
 }
 
@@ -73,7 +75,7 @@ function Slider(options) {
   const [isPlaying, setIsPlaying] = useState(isAnimated);
 
   const [minRange, maxRange] = range[0] < range[1] ? range : [range[1], range[0]];
-  const sliderValue = firstDefined($state[state_key], init, minRange);
+  const sliderValue = getFirstDefinedValue($state[state_key], init, minRange);
 
   useEffect(() => {
     if (isAnimated && isPlaying) {
@@ -151,53 +153,50 @@ function collectReactiveInitialState(ast) {
   return initialState;
 }
 
-function initCallback(key, value, experimental) {
-  if (key.startsWith('on') && value && value.type === 'callback') {
-    if (experimental) {
-      return (e) => experimental.invoke("callback", {id: value.id, event: serializeEvent(e)})
-    } else {
-      return undefined;
-    }
-  }
-  return value;
-}
+export function evaluate(ast, $state, experimental) {
+  if (ast === null || typeof ast !== 'object') return ast;
+  if (Array.isArray(ast)) return ast.map(item => evaluate(item, $state, experimental));
 
-export function evaluate(data, $state, experimental) {
-  if (data === null || typeof data !== 'object') return data;
-  if (Array.isArray(data)) return data.map(item => evaluate(item, $state, experimental));
-
-  switch (data["pyobsplot-type"]) {
+  switch (ast["pyobsplot-type"]) {
     case "function":
-      const fn = data.name ? scope[data.module][data.name] : scope[data.module];
+      const fn = ast.name ? scope[ast.module][ast.name] : scope[ast.module];
       if (!fn) {
-        console.error('Function not found', data);
+        console.error('Function not found', ast);
         return null;
       }
-      return fn(...evaluate(data.args, $state, experimental));
+      return fn(...evaluate(ast.args, $state, experimental));
     case "ref":
-      return data.name ? scope[data.module][data.name] : scope[data.module];
+      return ast.name ? scope[ast.module][ast.name] : scope[ast.module];
     case "js":
-      return (new Function('$state', 'd3', 'Plot', `return ${data.value}`))($state, d3, Plot);
+      return (new Function('$state', 'd3', 'Plot', `return ${ast.value}`))($state, d3, Plot);
     case "datetime":
-      return new Date(data.value);
+      return new Date(ast.value);
     default:
+
+      if (ast.__type__ === "cached") {
+        return experimental.model.get("data_cache")[ast.id];
+      }
+      if (ast.__type__ === "callback") {
+        if (experimental) {
+          return (e) => experimental.invoke("handle_callback", {id: ast.id, event: serializeEvent(e)})
+        } else {
+          return undefined;
+        }
+      }
       return Object.fromEntries(
-        Object.entries(data).map(([key, value]) => [
-          key,
-          initCallback(key, evaluate(value, $state, experimental), experimental)
-        ])
+        Object.entries(ast).map(([key, ast]) => [key, evaluate(ast, $state, experimental)])
       );
   }
 }
 
-function Grid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
+function Grid({ specs: plotSpecs, plotOptions, layoutOptions }) {
   const containerWidth = useContext(WidthContext);
   const aspectRatio = plotOptions.aspectRatio || 1;
   const minWidth = Math.min(plotOptions.minWidth || AUTOGRID_MIN, containerWidth);
 
   // Ensure at least one column, even if containerWidth is less than minWidth
-  const numColumns = Math.max(1, Math.min(Math.floor(containerWidth / minWidth), PlotSpecs.length));
-  const gap = layoutOptions.gap || "10px";
+  const numColumns = Math.max(1, Math.min(Math.floor(containerWidth / minWidth), plotSpecs.length));
+  const gap = layoutOptions.gap || DEFAULT_GRID_GAP;
   const gapSize = parseInt(gap);
   const availableWidth = Math.max(containerWidth - (numColumns - 1) * gapSize, minWidth);
   const itemWidth = availableWidth / numColumns;
@@ -210,7 +209,7 @@ function Grid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
     height: itemHeight
   };
 
-  const numRows = Math.ceil(PlotSpecs.length / numColumns);
+  const numRows = Math.ceil(plotSpecs.length / numColumns);
   const layoutHeight = numRows * itemHeight + (numRows - 1) * gapSize;
 
   const mergedLayoutOptions = {
@@ -227,7 +226,7 @@ function Grid({ specs: PlotSpecs, plotOptions, layoutOptions }) {
   return html`
     <${WidthContext.Provider} value=${itemWidth}>
       <div style=${mergedLayoutOptions}>
-        ${PlotSpecs.map((item, index) => {
+        ${plotSpecs.map((item, index) => {
           if (item.spec) {
             return html`<${PlotWrapper} key=${index} spec=${{ ...item.spec, ...mergedPlotOptions }} />`;
           } else {
@@ -318,56 +317,56 @@ function useStateWithDeps(initialState, deps) {
   return useMemo(() => [state, setState], [state]);
 }
 
-function WithState({ data, experimental }) {
-  const st = useStateWithDeps(() => collectReactiveInitialState(data), [data]);
-  const [$state] = st;
-  const interpretedData = useMemo(() => evaluate(data, $state, experimental), [data, $state, experimental]);
+function StateProvider({ ast, experimental }) {
+  const stateArray = useStateWithDeps(() => collectReactiveInitialState(ast), [ast]);
+  const [$state] = stateArray;
+  const interpretedData = useMemo(() => evaluate(ast, $state, experimental), [ast, $state, experimental]);
   return html`
-    <${$StateContext.Provider} value=${st}>
+    <${$StateContext.Provider} value=${stateArray}>
       <${Node} value=${interpretedData} />
     </>
   `;
 }
 
-function AppWithData({ data, experimental }) {
+function ASTView({ ast, experimental }) {
   const [el, setEl] = useState();
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
 
 
-  if (!data || unmounted) {
+  if (!ast || unmounted) {
     return null;
   }
 
-  const adjustedWidth = width ? width - 20 : undefined; // Subtract 20px for left and right padding
+  const adjustedWidth = width ? width - CONTAINER_PADDING : undefined;
 
   return html`
     <${WidthContext.Provider} value=${adjustedWidth}>
-      <div className="genstudio-container p3" ref=${setEl}>
-        ${el && html`<${WithState} data=${data} experimental=${experimental}/>`}
+      <div className="genstudio-container" style=${{"padding": CONTAINER_PADDING}} ref=${setEl}>
+        ${el && html`<${StateProvider} ast=${ast} experimental=${experimental}/>`}
       </div>
     </${WidthContext.Provider}>
   `;
 }
 
 function AnyWidgetApp() {
-  addCSSLink(tachyons_css)
-  const [data] = useModelState("data");
-  const parsedData = data ? JSON.parse(data) : null
+  addCSSLink(TACHYONS_CSS_URL)
+  const [astJSON] = useModelState("ast");
+  const ast = astJSON ? JSON.parse(astJSON) : null
   const experimental = useExperimental();
-  return html`<${AppWithData} data=${parsedData} experimental=${experimental} />`;
+  return html`<${ASTView} ast=${ast} experimental=${experimental} />`;
 }
 
 function HTMLApp(props) {
   return html`
     <div className="bg-white">
-      <${AppWithData} ...${props} />
+      <${ASTView} ...${props} />
     </div>
   `;
 }
 
 function JSONViewer() {
-  const [data, setData] = useState(null);
+  const [ast, setAST] = useState(null);
   const [dragActive, setDragActive] = useState(false);
 
   const handleDrag = (e) => {
@@ -401,7 +400,7 @@ function JSONViewer() {
     reader.onload = (e) => {
       try {
         const jsonData = JSON.parse(e.target.result);
-        setData(jsonData);
+        setAST(jsonData);
       } catch (error) {
         console.error("Error parsing JSON file:", error);
         alert("Error parsing JSON file. Please ensure it's a valid JSON.");
@@ -431,17 +430,15 @@ function JSONViewer() {
         />
         <p className="f6 black-60">or drag and drop a JSON file here</p>
       </div>
-      ${data && html`
+      ${ast && html`
         <div className="mt4">
           <h2 className="f4 mb3">Loaded JSON Data:</h2>
-          <${AppWithData} data=${data} />
+          <${ASTView} ast=${ast} />
         </div>
       `}
     </div>
   `;
 }
-
-const tachyons_css = "https://cdn.jsdelivr.net/gh/tachyons-css/tachyons@6b8c744afadaf506cb12f9a539b47f9b412ed500/css/tachyons.css"
 
 function addCSSLink(url) {
 
@@ -456,10 +453,10 @@ function addCSSLink(url) {
 
 }
 
-export const renderData = (element, data) => {
-  addCSSLink(tachyons_css);
+export const renderAST = (element, ast) => {
+  addCSSLink(TACHYONS_CSS_URL);
   const root = ReactDOM.createRoot(element);
-  root.render(React.createElement(HTMLApp, { data }));
+  root.render(React.createElement(HTMLApp, { ast }));
 };
 
 
@@ -471,22 +468,22 @@ const estimateJSONSize = (jsonString) => {
 };
 
 export const renderJSON = (element, jsonString) => {
-  console.log(`Loading plot data: ${estimateJSONSize(jsonString)}`);
-  addCSSLink(tachyons_css);
+  console.log(`Loading ast json: ${estimateJSONSize(jsonString)}`);
+  addCSSLink(TACHYONS_CSS_URL);
   const root = ReactDOM.createRoot(element);
-  const data = JSON.parse(jsonString);
-  root.render(React.createElement(HTMLApp, { data }));
+  const ast = JSON.parse(jsonString);
+  root.render(React.createElement(HTMLApp, { ast }));
 };
 
 export const renderJSONViewer = (element) => {
-  addCSSLink(tachyons_css);
+  addCSSLink(TACHYONS_CSS_URL);
   const root = ReactDOM.createRoot(element);
   root.render(React.createElement(JSONViewer));
 };
 
 export default {
   render: createRender(AnyWidgetApp),
-  renderData,
+  renderAST,
   renderJSON,
   renderJSONViewer
 }

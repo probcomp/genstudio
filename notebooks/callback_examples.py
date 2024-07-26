@@ -18,7 +18,7 @@ hiccup = html(
     [
         "div.interactive-area",
         [
-            "div#red.box",
+            "div#red.box.p2",
             {
                 "style": {"backgroundColor": "red"},
                 "onClick": lambda e: on_click({"id": "red", **e}),
@@ -27,7 +27,7 @@ hiccup = html(
             "Red",
         ],
         [
-            "div#blue.box",
+            "div#blue.box.p2",
             {
                 "style": {"backgroundColor": "lightblue"},
                 "onClick": lambda e: on_click({"id": "blue", **e}),
@@ -36,7 +36,7 @@ hiccup = html(
             "Blue",
         ],
         [
-            "div#green.box",
+            "div#green.box.p2",
             {
                 "style": {"backgroundColor": "green"},
                 "onClick": lambda e: on_click({"id": "green", **e}),
@@ -53,7 +53,7 @@ hiccup = html(
         ],
     ],
 )
-
+#
 hiccup
 
 

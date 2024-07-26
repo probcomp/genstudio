@@ -136,6 +136,7 @@ from genstudio.plot_defs import (
 from genstudio.layout import Column, Row, Slider, Hiccup
 from genstudio.plot_spec import PlotSpec, new
 from genstudio.util import configure, deep_merge
+from genstudio.widget import cache
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.

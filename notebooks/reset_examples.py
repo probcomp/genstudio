@@ -10,8 +10,10 @@ ANIMATION_DURATION = 10  # seconds
 NUM_DOTS = 75
 
 # Create initial plot with domain
-p = (Plot.dot([[0, 0]] * NUM_DOTS) + Plot.domain([0, 10], [-1, 1])).display_as("widget")
-display(p)
+p1 = (Plot.dot([[0, 0]] * NUM_DOTS) + Plot.domain([0, 10], [-1, 1])).display_as(
+    "widget"
+)
+display(p1)
 
 # Create a slider widget for frequency control
 frequency_slider = widgets.FloatSlider(
@@ -35,7 +37,7 @@ async def animate_dots(duration):
         # Update dot positions
         dot_positions = list(zip(x_values, y_values))
         new_plot = Plot.dot(dot_positions) + Plot.domain([0, 10], [-1, 1])
-        p.reset(new_plot)
+        p1.reset(new_plot)
 
         # Wait for next frame (60 FPS)
         await asyncio.sleep(1 / 60)
@@ -52,10 +54,14 @@ print("Use the slider to adjust the frequency of the wave")
 
 # Reset a blank plot with a Plot.Frames
 
-(p := Plot.new().display_as("widget"))
+(p2 := Plot.new())
 
-p.reset(
+p2.reset(
     Plot.Frames(
-        [Plot.dot([[i, 10]]) + Plot.domain([0, 20], [10, 10]) for i in range(20)], fps=5
+        [
+            Plot.dot([[i, 10]]) + Plot.domain([0, 20], [10, 10]) + {"height": 100}
+            for i in range(20)
+        ],
+        fps=5,
     )
 )

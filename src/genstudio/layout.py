@@ -11,9 +11,9 @@ from genstudio.widget import Widget, to_json
 View = JSRef("View")
 
 
-def html_snippet(data, id=None):
+def html_snippet(ast, id=None):
     id = id or f"genstudio-widget-{uuid.uuid4().hex}"
-    serialized_data = to_json(data)
+    serialized_ast = to_json(ast)
 
     # Read and inline the JS and CSS files
     with open(PARENT_PATH / "js/widget_build.js", "r") as js_file:
@@ -27,15 +27,15 @@ def html_snippet(data, id=None):
     <script type="module">
         {js_content}
         const container = document.getElementById('{id}');
-        const data = {serialized_data};
-        renderData(container, data);
+        const ast = {serialized_ast};
+        renderAST(container, ast);
     </script>
     """
 
     return html_content
 
 
-def html_standalone(data, id=None):
+def html_standalone(ast, id=None):
     return f"""
     <!DOCTYPE html>
     <html>
@@ -44,19 +44,19 @@ def html_standalone(data, id=None):
         <title>GenStudio Widget</title>
     </head>
     <body>
-        {html_snippet(data, id)}
+        {html_snippet(ast, id)}
     </body>
     </html>
     """
 
 
 class HTML:
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, ast):
+        self.ast = ast
         self.id = f"genstudio-widget-{uuid.uuid4().hex}"
 
     def _repr_mimebundle_(self, **kwargs):
-        html_content = html_snippet(self.data, self.id)
+        html_content = html_snippet(self.ast, self.id)
         return {"text/html": html_content}, {}
 
 
@@ -139,9 +139,9 @@ class LayoutItem:
             print(
                 "Warning: Resetting a non-widget LayoutItem. This will not update the display."
             )
-        new_data = other.to_json()
-        self.widget().data = new_data
-        self.html().data = new_data
+        new_ast = other.to_json()
+        self.widget().ast = new_ast
+        self.html().ast = new_ast
 
 
 class Hiccup(LayoutItem):
@@ -150,14 +150,14 @@ class Hiccup(LayoutItem):
     def __init__(self, *args: Any) -> None:
         LayoutItem.__init__(self)
         if len(args) == 0:
-            self.data: list[Any] | tuple[Any, ...] | None = None
+            self.child: list[Any] | tuple[Any, ...] | None = None
         elif len(args) == 1 and isinstance(args[0], (list, tuple)):
-            self.data = args[0]
+            self.child = args[0]
         else:
-            self.data = args
+            self.child = args
 
     def to_json(self) -> Any:
-        return self.data
+        return self.child
 
 
 def flatten_layout_items(

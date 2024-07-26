@@ -2,17 +2,32 @@ import datetime
 import json
 import uuid
 
-from typing import Any, Iterable
+from typing import Any, Iterable, Callable, Dict
 
 import anywidget
 import traitlets
 
-
 from genstudio.util import PARENT_PATH
+
+
+class Cached:
+    def __init__(self, data):
+        self.data = data
+
+
+def cache(data):
+    return Cached(data)
 
 
 def to_json(data, widget=None):
     def default(obj):
+        if isinstance(obj, Cached):
+            if widget is not None:
+                id = str(uuid.uuid4())
+                widget.data_cache[id] = obj.data
+                return {"__type__": "cached", "id": id}
+            else:
+                return obj.data
         if hasattr(obj, "to_json"):
             return obj.to_json()
         if hasattr(obj, "tolist"):
@@ -37,28 +52,30 @@ def to_json(data, widget=None):
 def callback_to_json(f, widget):
     if widget is not None:
         id = str(uuid.uuid4())
-        widget.callbacks[id] = f
-        return {"type": "callback", "id": id}
+        widget.callback_registry[id] = f
+        return {"__type__": "callback", "id": id}
 
 
 class Widget(anywidget.AnyWidget):
     _esm = PARENT_PATH / "js/widget_build.js"
     _css = PARENT_PATH / "widget.css"
-    callbacks = {}
-    data = traitlets.Any().tag(sync=True, to_json=to_json)
+    callback_registry: Dict[str, Callable] = {}
+    ast = traitlets.Any().tag(sync=True, to_json=to_json)
+    data_cache = traitlets.Dict().tag(sync=True)
 
-    def __init__(self, data):
+    def __init__(self, ast: Any):
         super().__init__()
-        self.data = data
+        self.ast = ast
+        self.data_cache = {}
 
     def _repr_mimebundle_(self, **kwargs):  # type: ignore
         return super()._repr_mimebundle_(**kwargs)
 
     @anywidget.experimental.command  # type: ignore
-    def callback(
+    def handle_callback(
         self, params: dict[str, Any], buffers: list[bytes]
     ) -> tuple[str, list[bytes]]:
-        f = self.callbacks[params["id"]]
+        f = self.callback_registry[params["id"]]
         if f is not None:
             f(params["event"])
         return "ok", []
