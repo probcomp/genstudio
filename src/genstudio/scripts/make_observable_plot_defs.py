@@ -112,7 +112,7 @@ plot_defs = "\n\n\n".join(
 plot_defs_module = f"""# Generated from version {OBSERVABLE_VERSION} of Observable Plot
 
 from genstudio.js_modules import JSCall
-from genstudio.plot_spec import PlotSpec
+from genstudio.layout import PlotSpec
 from typing import Any, Dict, Iterable, Union
 
 

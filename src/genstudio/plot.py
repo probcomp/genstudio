@@ -1,10 +1,9 @@
 # %%
 # ruff: noqa: F401
-import collections.abc
+import copy
 import json
-import math
 import random
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, TypeAlias, Sequence
 
 import genstudio.plot_defs as plot_defs
 from genstudio.js_modules import JSCall, JSRef, js
@@ -134,8 +133,9 @@ from genstudio.plot_defs import (
     windowX,
     windowY,
 )
-from genstudio.plot_spec import Column, PlotSpec, Row, Slider, _deep_merge, new, Hiccup
-from genstudio.util import configure
+from genstudio.layout import Column, Row, Slider, Hiccup
+from genstudio.plot_spec import PlotSpec, new
+from genstudio.util import configure, deep_merge
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
@@ -476,7 +476,7 @@ def histogram(
      Returns:
       PlotSpec: A plot specification for a histogram with the y-axis representing the count of values in each bin.
     """
-    opts = _deep_merge({"x": {"thresholds": thresholds}, "tip": True}, plot_opts)
+    opts = deep_merge({"x": {"thresholds": thresholds}, "tip": True}, plot_opts)
     if mark == "rectY":
         return rectY(values, binX({"y": "count"}, opts)) + ruleY([0]) + layout
     elif mark == "dot":
