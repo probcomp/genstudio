@@ -153,39 +153,39 @@ function collectReactiveInitialState(ast) {
   return initialState;
 }
 
-export function evaluate(ast, $state, experimental) {
-  if (ast === null || typeof ast !== 'object') return ast;
-  if (Array.isArray(ast)) return ast.map(item => evaluate(item, $state, experimental));
+export function evaluate(node, cache, $state, experimental) {
+  if (node === null || typeof node !== 'object') return node;
+  if (Array.isArray(node)) return node.map(item => evaluate(item, cache, $state, experimental));
 
-  switch (ast["pyobsplot-type"]) {
+  switch (node["pyobsplot-type"]) {
     case "function":
-      const fn = ast.name ? scope[ast.module][ast.name] : scope[ast.module];
+      const fn = node.name ? scope[node.module][node.name] : scope[node.module];
       if (!fn) {
-        console.error('Function not found', ast);
+        console.error('Function not found', node);
         return null;
       }
-      return fn(...evaluate(ast.args, $state, experimental));
+      return fn(...evaluate(node.args, cache, $state, experimental));
     case "ref":
-      return ast.name ? scope[ast.module][ast.name] : scope[ast.module];
+      return node.name ? scope[node.module][node.name] : scope[node.module];
     case "js":
-      return (new Function('$state', 'd3', 'Plot', `return ${ast.value}`))($state, d3, Plot);
+      return (new Function('$state', 'd3', 'Plot', `return ${node.value}`))($state, d3, Plot);
     case "datetime":
-      return new Date(ast.value);
+      return new Date(node.value);
     default:
-
-      if (ast.__type__ === "cached") {
-        return experimental.model.get("data_cache")[ast.id];
+      switch (node.__type__) {
+        case "cached":
+          return cache[node.id];
+        case "callback":
+          if (experimental) {
+            return (e) => experimental.invoke("handle_callback", {id: node.id, event: serializeEvent(e)});
+          } else {
+            return undefined;
+          }
+        default:
+          return Object.fromEntries(
+            Object.entries(node).map(([key, value]) => [key, evaluate(value, cache, $state, experimental)])
+          );
       }
-      if (ast.__type__ === "callback") {
-        if (experimental) {
-          return (e) => experimental.invoke("handle_callback", {id: ast.id, event: serializeEvent(e)})
-        } else {
-          return undefined;
-        }
-      }
-      return Object.fromEntries(
-        Object.entries(ast).map(([key, ast]) => [key, evaluate(ast, $state, experimental)])
-      );
   }
 }
 
@@ -317,24 +317,31 @@ function useStateWithDeps(initialState, deps) {
   return useMemo(() => [state, setState], [state]);
 }
 
-function StateProvider({ ast, experimental }) {
+function StateProvider({ ast, cache, experimental }) {
   const stateArray = useStateWithDeps(() => collectReactiveInitialState(ast), [ast]);
   const [$state] = stateArray;
-  const interpretedData = useMemo(() => evaluate(ast, $state, experimental), [ast, $state, experimental]);
+  const data = useMemo(() => {
+    cache = Object.fromEntries(
+      Object.entries(cache).map(([key, entry]) => [
+        key,
+        entry.static ? entry.value : evaluate(entry.value, {}, $state, experimental)
+      ]))
+    return evaluate(ast, cache, $state, experimental)
+
+  }, [ast, cache, $state, experimental]);
   return html`
     <${$StateContext.Provider} value=${stateArray}>
-      <${Node} value=${interpretedData} />
+      <${Node} value=${data} />
     </>
   `;
 }
 
-function ASTView({ ast, experimental }) {
+function RenderData(data) {
   const [el, setEl] = useState();
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
 
-
-  if (!ast || unmounted) {
+  if (!data || unmounted) {
     return null;
   }
 
@@ -343,7 +350,7 @@ function ASTView({ ast, experimental }) {
   return html`
     <${WidthContext.Provider} value=${adjustedWidth}>
       <div className="genstudio-container" style=${{"padding": CONTAINER_PADDING}} ref=${setEl}>
-        ${el && html`<${StateProvider} ast=${ast} experimental=${experimental}/>`}
+        ${el && html`<${StateProvider} ...${data}/>`}
       </div>
     </${WidthContext.Provider}>
   `;
@@ -351,22 +358,22 @@ function ASTView({ ast, experimental }) {
 
 function AnyWidgetApp() {
   addCSSLink(TACHYONS_CSS_URL)
-  const [astJSON] = useModelState("ast");
-  const ast = astJSON ? JSON.parse(astJSON) : null
+  let [data] = useModelState("data");
+  data = data ? JSON.parse(data) : null
   const experimental = useExperimental();
-  return html`<${ASTView} ast=${ast} experimental=${experimental} />`;
+  return html`<${RenderData} ...${{...data, experimental}} />`;
 }
 
-function HTMLApp(props) {
+function HTMLApp(data) {
   return html`
     <div className="bg-white">
-      <${ASTView} ...${props} />
+      <${RenderData} ...${data}/>
     </div>
   `;
 }
 
 function JSONViewer() {
-  const [ast, setAST] = useState(null);
+  const [data, setData] = useState(null);
   const [dragActive, setDragActive] = useState(false);
 
   const handleDrag = (e) => {
@@ -400,7 +407,7 @@ function JSONViewer() {
     reader.onload = (e) => {
       try {
         const jsonData = JSON.parse(e.target.result);
-        setAST(jsonData);
+        setData(jsonData);
       } catch (error) {
         console.error("Error parsing JSON file:", error);
         alert("Error parsing JSON file. Please ensure it's a valid JSON.");
@@ -430,10 +437,10 @@ function JSONViewer() {
         />
         <p className="f6 black-60">or drag and drop a JSON file here</p>
       </div>
-      ${ast && html`
+      ${data && html`
         <div className="mt4">
           <h2 className="f4 mb3">Loaded JSON Data:</h2>
-          <${ASTView} ast=${ast} />
+          <${RenderData} ...${data} />
         </div>
       `}
     </div>
@@ -450,13 +457,12 @@ function addCSSLink(url) {
     link.href = url;
     document.head.appendChild(link);
   }
-
 }
 
-export const renderAST = (element, ast) => {
+export const renderData = (element, data) => {
   addCSSLink(TACHYONS_CSS_URL);
   const root = ReactDOM.createRoot(element);
-  root.render(React.createElement(HTMLApp, { ast }));
+  root.render(React.createElement(HTMLApp, data));
 };
 
 
@@ -468,11 +474,10 @@ const estimateJSONSize = (jsonString) => {
 };
 
 export const renderJSON = (element, jsonString) => {
-  console.log(`Loading ast json: ${estimateJSONSize(jsonString)}`);
   addCSSLink(TACHYONS_CSS_URL);
   const root = ReactDOM.createRoot(element);
-  const ast = JSON.parse(jsonString);
-  root.render(React.createElement(HTMLApp, { ast }));
+  const data = JSON.parse(jsonString);
+  root.render(React.createElement(HTMLApp, data));
 };
 
 export const renderJSONViewer = (element) => {
@@ -483,7 +488,7 @@ export const renderJSONViewer = (element) => {
 
 export default {
   render: createRender(AnyWidgetApp),
-  renderAST,
+  renderData,
   renderJSON,
   renderJSONViewer
 }

@@ -10,26 +10,49 @@ import traitlets
 from genstudio.util import PARENT_PATH
 
 
+class Cache:
+    def __init__(self):
+        self.cache = {}
+
+    def add(self, obj):
+        id = str(uuid.uuid4())
+        self.cache[id] = obj
+        return id
+
+    def get(self, id):
+        return self.cache.get(id)
+
+    def for_json(self):
+        return {
+            id: {"value": obj.data, "static": obj.static}
+            for id, obj in self.cache.items()
+        }
+
+
 class Cached:
-    def __init__(self, data):
+    def __init__(self, data, static):
         self.data = data
+        self.static = static
 
 
-def cache(data):
-    return Cached(data)
+def cache(data, static=True):
+    return Cached(data, static=static)
 
 
-def to_json(data, widget=None):
+def to_json(data, widget=None, cache=None):
     def default(obj):
         if isinstance(obj, Cached):
-            if widget is not None:
-                id = str(uuid.uuid4())
-                widget.data_cache[id] = obj.data
+            if cache is not None:
+                for cache_id, cache_obj in cache.cache.items():
+                    if cache_obj is obj:
+                        return {"__type__": "cached", "id": cache_id}
+
+                id = cache.add(obj)
                 return {"__type__": "cached", "id": id}
             else:
                 return obj.data
-        if hasattr(obj, "to_json"):
-            return obj.to_json()
+        if hasattr(obj, "for_json"):
+            return obj.for_json()
         if hasattr(obj, "tolist"):
             return obj.tolist()
         if isinstance(obj, Iterable):
@@ -42,31 +65,37 @@ def to_json(data, widget=None):
         elif isinstance(obj, (datetime.date, datetime.datetime)):
             return {"pyobsplot-type": "datetime", "value": obj.isoformat()}
         elif callable(obj):
-            return callback_to_json(obj, widget)
+            return callback_for_json(obj, widget)
         else:
             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
     return json.dumps(data, default=default)
 
 
-def callback_to_json(f, widget):
+def callback_for_json(f, widget):
     if widget is not None:
         id = str(uuid.uuid4())
         widget.callback_registry[id] = f
         return {"__type__": "callback", "id": id}
 
 
+def to_json_with_cache(data, widget=None):
+    cache = Cache()
+    return to_json({"ast": data, "cache": cache}, widget=widget, cache=cache)
+
+
 class Widget(anywidget.AnyWidget):
     _esm = PARENT_PATH / "js/widget_build.js"
     _css = PARENT_PATH / "widget.css"
     callback_registry: Dict[str, Callable] = {}
-    ast = traitlets.Any().tag(sync=True, to_json=to_json)
-    data_cache = traitlets.Dict().tag(sync=True)
+    data = traitlets.Any().tag(sync=True, to_json=to_json_with_cache)
 
     def __init__(self, ast: Any):
         super().__init__()
-        self.ast = ast
-        self.data_cache = {}
+        self.data = ast
+
+    def set_ast(self, ast: Any):
+        self.data = ast
 
     def _repr_mimebundle_(self, **kwargs):  # type: ignore
         return super()._repr_mimebundle_(**kwargs)

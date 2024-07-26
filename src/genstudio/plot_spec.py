@@ -94,7 +94,7 @@ class PlotSpec(LayoutItem):
         spec["marks"] = marks
         return PlotSpec(spec)
 
-    def to_json(self) -> Any:
+    def for_json(self) -> Any:
         return View.PlotSpec(self.spec)
 
 

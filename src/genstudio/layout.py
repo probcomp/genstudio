@@ -6,14 +6,14 @@ from PIL import Image
 
 from genstudio.js_modules import JSRef
 from genstudio.util import PARENT_PATH, CONFIG
-from genstudio.widget import Widget, to_json
+from genstudio.widget import Widget, to_json_with_cache
 
 View = JSRef("View")
 
 
 def html_snippet(ast, id=None):
     id = id or f"genstudio-widget-{uuid.uuid4().hex}"
-    serialized_ast = to_json(ast)
+    data = to_json_with_cache(ast)
 
     # Read and inline the JS and CSS files
     with open(PARENT_PATH / "js/widget_build.js", "r") as js_file:
@@ -27,8 +27,8 @@ def html_snippet(ast, id=None):
     <script type="module">
         {js_content}
         const container = document.getElementById('{id}');
-        const ast = {serialized_ast};
-        renderAST(container, ast);
+        const data = {data};
+        renderData(container, data);
     </script>
     """
 
@@ -55,6 +55,9 @@ class HTML:
         self.ast = ast
         self.id = f"genstudio-widget-{uuid.uuid4().hex}"
 
+    def set_ast(self, ast):
+        self.ast = ast
+
     def _repr_mimebundle_(self, **kwargs):
         html_content = html_snippet(self.ast, self.id)
         return {"text/html": html_content}, {}
@@ -72,8 +75,8 @@ class LayoutItem:
         self._display_as = display_as
         return self
 
-    def to_json(self) -> dict[str, Any]:
-        raise NotImplementedError("Subclasses must implement to_json method")
+    def for_json(self) -> dict[str, Any]:
+        raise NotImplementedError("Subclasses must implement for_json method")
 
     def __and__(self, other: "LayoutItem") -> "Row":
         return Row(self, other)
@@ -99,7 +102,7 @@ class LayoutItem:
         Lazily generate & cache the HTML for this LayoutItem.
         """
         if self._html is None:
-            self._html = HTML(self.to_json())
+            self._html = HTML(self.for_json())
         return self._html
 
     def widget(self) -> Widget:
@@ -107,19 +110,19 @@ class LayoutItem:
         Lazily generate & cache the widget for this LayoutItem.
         """
         if self._widget is None:
-            self._widget = Widget(self.to_json())
+            self._widget = Widget(self.for_json())
         return self._widget
 
     def save_html(self, path: str) -> None:
         with open(path, "w") as f:
-            f.write(html_standalone(self.to_json()))
+            f.write(html_standalone(self.for_json()))
         print(f"HTML saved to {path}")
 
     def save_image(self, path, width=500, height=1000):
         # Save image using headless browser
         hti = Html2Image()
         hti.size = (width, height)
-        hti.screenshot(html_str=html_standalone(self.to_json()), save_as=path)
+        hti.screenshot(html_str=html_standalone(self.for_json()), save_as=path)
         # Crop transparent regions
         img = Image.open(path)
         content = img.getbbox()
@@ -139,9 +142,9 @@ class LayoutItem:
             print(
                 "Warning: Resetting a non-widget LayoutItem. This will not update the display."
             )
-        new_ast = other.to_json()
-        self.widget().ast = new_ast
-        self.html().ast = new_ast
+        new_ast = other.for_json()
+        self.widget().set_ast(new_ast)
+        self.html().set_ast(new_ast)
 
 
 class Hiccup(LayoutItem):
@@ -156,7 +159,7 @@ class Hiccup(LayoutItem):
         else:
             self.child = args
 
-    def to_json(self) -> Any:
+    def for_json(self) -> Any:
         return self.child
 
 
@@ -181,7 +184,7 @@ class Row(LayoutItem):
         super().__init__()
         self.items, self.options = flatten_layout_items(items, Row)
 
-    def to_json(self) -> Any:
+    def for_json(self) -> Any:
         return Hiccup(View.Row, self.options, *self.items)
 
 
@@ -190,7 +193,7 @@ class Column(LayoutItem):
         super().__init__()
         self.items, self.options = flatten_layout_items(items, Column)
 
-    def to_json(self) -> Any:
+    def for_json(self) -> Any:
         return Hiccup(View.Column, self.options, *self.items)
 
 
@@ -211,5 +214,5 @@ class Slider(LayoutItem):
             **kwargs,
         }
 
-    def to_json(self) -> Any:
+    def for_json(self) -> Any:
         return View.Reactive(self.config)

@@ -225,7 +225,7 @@ class Dimensioned:
 
         return _flatten(self.value, dimensions)
 
-    def to_json(self):
+    def for_json(self):
         return {"value": self.value, "dimensions": self.dimensions}
 
 
