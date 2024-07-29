@@ -3,7 +3,7 @@
 import copy
 import json
 import random
-from typing import Any, Dict, List, Union, TypeAlias, Sequence
+from typing import Any, Dict, List, Union, TypeAlias, Sequence, Literal
 
 import genstudio.plot_defs as plot_defs
 from genstudio.js_modules import JSCall, JSRef, js
@@ -451,11 +451,11 @@ dot.__doc__ = plot_defs.dot.__doc__
 
 def histogram(
     values,
-    mark="rectY",
+    mark: Literal["rectY", "dot"] = "rectY",
     thresholds="auto",
     layout={"width": 200, "height": 200, "inset": 0},
     **plot_opts,
-):
+) -> PlotSpec:
     """
     Create a histogram plot from the given values.
 

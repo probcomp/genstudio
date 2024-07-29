@@ -309,10 +309,11 @@ function Hiccup(tag, props, ...children) {
       : html`<${baseTag} ...${props} />`;
 }
 
-function useStateWithDeps(initialState, deps) {
+function useStateWithDeps(initialStateFunction, deps) {
+  // useState, recomputes initial state when deps change
   const [state, setState] = useState(null);
   useEffect(() => {
-    setState(initialState);
+    setState(initialStateFunction);
   }, deps);
 
   return useMemo(() => [state, setState], [state]);
