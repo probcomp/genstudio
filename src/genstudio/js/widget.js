@@ -362,7 +362,13 @@ function RenderData(data) {
 function AnyWidgetApp() {
   addCSSLink(TACHYONS_CSS_URL)
   let [data] = useModelState("data");
-  data = data ? JSON.parse(data) : null
+  try {
+    data = data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error("Error parsing JSON:", data);
+    console.error(error);
+    return html`<div className="red">JSON parsing error (see console)</div>`;
+  }
   const experimental = useExperimental();
   return html`<${RenderData} ...${{...data, experimental}} />`;
 }

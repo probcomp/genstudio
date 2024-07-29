@@ -1,5 +1,5 @@
 import datetime
-import json
+import orjson
 import uuid
 
 from typing import Any, Iterable, Callable, Dict
@@ -40,7 +40,7 @@ def to_json(data, widget=None, cache=None):
     def default(obj):
         if isinstance(obj, CachedObject):
             if cache is not None:
-                return cache.add(obj)
+                return cache.entry(obj)
             else:
                 return obj.value
         if hasattr(obj, "for_json"):
@@ -61,7 +61,7 @@ def to_json(data, widget=None, cache=None):
         else:
             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
-    return json.dumps(data, default=default)
+    return orjson.dumps(data, default=default).decode("utf-8")
 
 
 def callback_for_json(f, widget):

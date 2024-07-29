@@ -18,6 +18,7 @@ penzai = "^0.1.1"
 jaxlib = "^0.4.28"
 html2image = "^2.0.4.3"
 pillow = "^10.4.0"
+orjson = "^3.10.6"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.4"
