@@ -7,7 +7,7 @@ from typing import Any, Iterable, Callable, Dict
 import anywidget
 import traitlets
 
-from genstudio.util import PARENT_PATH
+from genstudio.util import PARENT_PATH, CONFIG
 
 
 class Cache:
@@ -73,7 +73,7 @@ def callback_for_json(f, widget):
 
 def to_json_with_cache(data, widget=None):
     cache = Cache()
-    return to_json({"ast": data, "cache": cache}, widget=widget, cache=cache)
+    return to_json({"ast": data, "cache": cache, **CONFIG}, widget=widget, cache=cache)
 
 
 class Widget(anywidget.AnyWidget):

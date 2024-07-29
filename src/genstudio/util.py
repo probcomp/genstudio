@@ -9,9 +9,10 @@ from typing import TypedDict, Literal, Union, Any
 
 class Config(TypedDict):
     display_as: Literal["widget", "html"]
+    dev: bool
 
 
-CONFIG: Config = {"display_as": "widget"}
+CONFIG: Config = {"display_as": "widget", "dev": False}
 
 
 def configure(options: dict) -> None:

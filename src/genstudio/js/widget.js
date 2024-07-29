@@ -355,7 +355,7 @@ function DataViewer(data) {
     <div className="genstudio-container" style=${{ "padding": CONTAINER_PADDING }} ref=${setEl}>
       ${el && html`<${StateProvider} ...${data}/>`}
     </div>
-    ${data.size && html`<div className="f1 p3">${data.size}</div>`}
+    ${data.size && data.dev && html`<div className="f1 p3">${data.size}</div>`}
     </${WidthContext.Provider}>
   `;
 }
