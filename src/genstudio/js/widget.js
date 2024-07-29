@@ -310,8 +310,7 @@ function Hiccup(tag, props, ...children) {
 }
 
 function useStateWithDeps(initialState, deps) {
-  const [state, setState] = useState(() => initialState);
-
+  const [state, setState] = useState(null);
   useEffect(() => {
     setState(initialState);
   }, deps);
@@ -323,6 +322,7 @@ function StateProvider({ ast, cache, experimental }) {
   const stateArray = useStateWithDeps(() => collectReactiveInitialState(ast), [ast]);
   const [$state] = stateArray;
   const data = useMemo(() => {
+    if (!$state) return;
     cache = Object.fromEntries(
       Object.entries(cache).map(([key, entry]) => [
         key,

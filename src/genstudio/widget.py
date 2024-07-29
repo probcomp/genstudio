@@ -14,43 +14,35 @@ class Cache:
     def __init__(self):
         self.cache = {}
 
-    def add(self, obj):
-        id = str(uuid.uuid4())
-        self.cache[id] = obj
-        return id
-
-    def get(self, id):
-        return self.cache.get(id)
+    def entry(self, obj):
+        self.cache[obj.id] = obj
+        return {"__type__": "cached", "id": obj.id}
 
     def for_json(self):
         return {
-            id: {"value": obj.data, "static": obj.static}
+            id: {"value": obj.value, "static": obj.static}
             for id, obj in self.cache.items()
         }
 
 
-class Cached:
-    def __init__(self, data, static):
-        self.data = data
+class CachedObject:
+    def __init__(self, value, static):
+        self.id = str(uuid.uuid1())
+        self.value = value
         self.static = static
 
 
-def cache(data, static=True):
-    return Cached(data, static=static)
+def cache(value, static=True):
+    return CachedObject(value, static=static)
 
 
 def to_json(data, widget=None, cache=None):
     def default(obj):
-        if isinstance(obj, Cached):
+        if isinstance(obj, CachedObject):
             if cache is not None:
-                for cache_id, cache_obj in cache.cache.items():
-                    if cache_obj is obj:
-                        return {"__type__": "cached", "id": cache_id}
-
-                id = cache.add(obj)
-                return {"__type__": "cached", "id": id}
+                return cache.add(obj)
             else:
-                return obj.data
+                return obj.value
         if hasattr(obj, "for_json"):
             return obj.for_json()
         if hasattr(obj, "tolist"):
