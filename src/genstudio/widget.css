@@ -33,6 +33,10 @@
     gap: 10px;
 }
 
+.genstudio-container {
+    background-color: white;
+}
+
 .genstudio-container > * {
     background-color: white;
     color: #333333;

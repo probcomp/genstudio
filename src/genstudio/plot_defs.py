@@ -1,12 +1,11 @@
 # Generated from version 0.6.14 of Observable Plot
-
 from genstudio.js_modules import JSCall
 from genstudio.plot_spec import PlotSpec
-from typing import Any, Dict, Iterable
+from typing import Any, Dict
 
 
 def area(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -21,7 +20,7 @@ def area(
 
 
 def areaX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -61,7 +60,7 @@ def areaX(
 
 
 def areaY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -101,7 +100,7 @@ def areaY(
 
 
 def arrow(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -121,7 +120,7 @@ def arrow(
 
 
 def auto(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -141,7 +140,7 @@ def auto(
 
 
 def autoSpec(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -164,7 +163,7 @@ def autoSpec(
 
 
 def axisFx(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -195,7 +194,7 @@ def axisFx(
 
 
 def axisFy(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -226,7 +225,7 @@ def axisFy(
 
 
 def axisX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -259,7 +258,7 @@ def axisX(
 
 
 def axisY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -291,7 +290,7 @@ def axisY(
 
 
 def barX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -338,7 +337,7 @@ def barX(
 
 
 def barY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -488,7 +487,7 @@ def binY(*args: Any) -> Dict[str, Any]:
 
 
 def bollinger(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -510,7 +509,7 @@ def bollinger(
 
 
 def bollingerX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -528,7 +527,7 @@ def bollingerX(
 
 
 def bollingerY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -546,7 +545,7 @@ def bollingerY(
 
 
 def boxX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -573,7 +572,7 @@ def boxX(
 
 
 def boxY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -600,7 +599,7 @@ def boxY(
 
 
 def cell(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -626,7 +625,7 @@ def cell(
 
 
 def cellX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -646,7 +645,7 @@ def cellX(
 
 
 def cellY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -678,7 +677,7 @@ def centroid(*args: Any) -> Dict[str, Any]:
 
 
 def circle(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -691,7 +690,7 @@ def circle(
 
 
 def cluster(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -727,7 +726,7 @@ def column(*args: Any) -> Dict[str, Any]:
 
 
 def contour(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -764,7 +763,7 @@ def contour(
 
 
 def crosshair(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -782,7 +781,7 @@ def crosshair(
 
 
 def crosshairX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -799,7 +798,7 @@ def crosshairX(
 
 
 def crosshairY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -816,7 +815,7 @@ def crosshairY(
 
 
 def delaunayLink(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -837,7 +836,7 @@ def delaunayLink(
 
 
 def delaunayMesh(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -858,7 +857,7 @@ def delaunayMesh(
 
 
 def density(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -878,7 +877,7 @@ def density(
 
 
 def differenceY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -925,7 +924,7 @@ def dodgeY(*args: Any) -> Dict[str, Any]:
 
 
 def dot(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -951,7 +950,7 @@ def dot(
 
 
 def dotX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -970,7 +969,7 @@ def dotX(
 
 
 def dotY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1055,7 +1054,7 @@ def frame(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
 
 
 def geo(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1090,7 +1089,7 @@ def geoCentroid(*args: Any) -> Dict[str, Any]:
 
 
 def graticule(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1258,7 +1257,7 @@ def groupZ(*args: Any) -> Dict[str, Any]:
 
 
 def hexagon(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1325,7 +1324,7 @@ def hexgrid(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
 
 
 def hull(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1344,7 +1343,7 @@ def hull(
 
 
 def image(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1389,7 +1388,7 @@ def initializer(*args: Any) -> Dict[str, Any]:
 
 
 def interpolatorBarycentric(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1416,7 +1415,7 @@ def interpolatorBarycentric(
 
 
 def interpolatorRandomWalk(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1450,7 +1449,7 @@ def legend(*args: Any) -> Dict[str, Any]:
 
 
 def line(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1486,7 +1485,7 @@ def line(
 
 
 def lineX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1514,7 +1513,7 @@ def lineX(
 
 
 def lineY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1543,7 +1542,7 @@ def lineY(
 
 
 def linearRegressionX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1559,7 +1558,7 @@ def linearRegressionX(
 
 
 def linearRegressionY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1591,7 +1590,7 @@ def linearRegressionY(
 
 
 def link(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1761,7 +1760,7 @@ def pointerY(*args: Any) -> Dict[str, Any]:
 
 
 def raster(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1798,7 +1797,7 @@ def raster(
 
 
 def rect(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1828,7 +1827,7 @@ def rect(
 
 
 def rectX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1849,7 +1848,7 @@ def rectX(
 
 
 def rectY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1878,7 +1877,7 @@ def reverse(*args: Any) -> Dict[str, Any]:
 
 
 def ruleX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1908,7 +1907,7 @@ def ruleX(
 
 
 def ruleY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2051,7 +2050,7 @@ def sort(*args: Any) -> Dict[str, Any]:
 
 
 def sphere(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2065,7 +2064,7 @@ def sphere(
 
 
 def spike(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2145,7 +2144,7 @@ def stackY2(*args: Any) -> Dict[str, Any]:
 
 
 def text(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2178,7 +2177,7 @@ def text(
 
 
 def textX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2200,7 +2199,7 @@ def textX(
 
 
 def textY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2222,7 +2221,7 @@ def textY(
 
 
 def tickX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2245,7 +2244,7 @@ def tickX(
 
 
 def tickY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2268,7 +2267,7 @@ def tickY(
 
 
 def tip(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2305,7 +2304,7 @@ def transform(*args: Any) -> Dict[str, Any]:
 
 
 def tree(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2395,7 +2394,7 @@ def valueof(*args: Any) -> Dict[str, Any]:
 
 
 def vector(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2417,7 +2416,7 @@ def vector(
 
 
 def vectorX(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2432,7 +2431,7 @@ def vectorX(
 
 
 def vectorY(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2447,7 +2446,7 @@ def vectorY(
 
 
 def voronoi(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2464,7 +2463,7 @@ def voronoi(
 
 
 def voronoiMesh(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:

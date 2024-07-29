@@ -1,6 +1,6 @@
 # %%
 import json
-from typing import Dict, Any, Iterable, Optional
+from typing import Dict, Any, Optional
 
 import genstudio.util as util
 from genstudio.js_modules import JSCall
@@ -61,7 +61,7 @@ def FN_VALUELESS(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
 
 
 def FN_MARK(
-    values: Iterable[Any],
+    values: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -112,7 +112,7 @@ plot_defs = "\n\n\n".join(
 plot_defs_module = f"""# Generated from version {OBSERVABLE_VERSION} of Observable Plot
 
 from genstudio.js_modules import JSCall
-from genstudio.layout import PlotSpec
+from genstudio.plot_spec import PlotSpec
 from typing import Any, Dict, Iterable, Union
 
 

@@ -339,7 +339,7 @@ function StateProvider({ ast, cache, experimental }) {
   `;
 }
 
-function RenderData(data) {
+function DataViewer(data) {
   const [el, setEl] = useState();
   const width = useElementWidth(el)
   const unmounted = useCellUnmounted(el?.parentNode);
@@ -352,36 +352,60 @@ function RenderData(data) {
 
   return html`
     <${WidthContext.Provider} value=${adjustedWidth}>
-      <div className="genstudio-container" style=${{"padding": CONTAINER_PADDING}} ref=${setEl}>
-        ${el && html`<${StateProvider} ...${data}/>`}
-      </div>
+    <div className="genstudio-container" style=${{ "padding": CONTAINER_PADDING }} ref=${setEl}>
+      ${el && html`<${StateProvider} ...${data}/>`}
+    </div>
+    ${data.size && html`<div className="f1 p3">${data.size}</div>`}
     </${WidthContext.Provider}>
   `;
 }
 
-function AnyWidgetApp() {
-  addCSSLink(TACHYONS_CSS_URL)
-  let [data] = useModelState("data");
-  try {
-    data = data ? JSON.parse(data) : null;
-  } catch (error) {
-    console.error("Error parsing JSON:", data);
-    console.error(error);
-    return html`<div className="red">JSON parsing error (see console)</div>`;
+function estimateJSONSize(jsonString) {
+  if (!jsonString) return '0 B';
+
+  // Use TextEncoder to get accurate byte size for UTF-8 encoded string
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(jsonString).length;
+
+  // Convert bytes to KB or MB
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  } else if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(2)} KB`;
+  } else {
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
-  const experimental = useExperimental();
-  return html`<${RenderData} ...${{...data, experimental}} />`;
 }
 
-function HTMLApp(data) {
-  return html`
-    <div className="bg-white">
-      <${RenderData} ...${data}/>
-    </div>
-  `;
+
+
+function Viewer({ jsonString, ...data }) {
+  const parsedData = useMemo(() => {
+    if (jsonString) {
+      try {
+        return {...data, size: estimateJSONSize(jsonString), ...JSON.parse(jsonString)};
+      } catch (error) {
+        console.error("Error parsing JSON:", error);
+        return null;
+      }
+    }
+    return data;
+  }, [jsonString]);
+  return html`<${DataViewer} ...${parsedData} />`;
 }
 
-function JSONViewer() {
+function parseJSON(jsonString) {
+  if (jsonString === null) return null;
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    console.error("Error parsing JSON:", jsonString);
+    console.error(error);
+    return error;
+  }
+}
+
+function FileViewer() {
   const [data, setData] = useState(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -414,12 +438,14 @@ function JSONViewer() {
   const handleFile = (file) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      try {
-        const jsonData = JSON.parse(e.target.result);
-        setData(jsonData);
-      } catch (error) {
-        console.error("Error parsing JSON file:", error);
+      const data = parseJSON(e.target.result);
+      if (data instanceof Error) {
         alert("Error parsing JSON file. Please ensure it's a valid JSON.");
+      } else {
+        setData({
+          ...data,
+          size: estimateJSONSize(e.target.result)
+        });
       }
     };
     reader.readAsText(file);
@@ -449,7 +475,7 @@ function JSONViewer() {
       ${data && html`
         <div className="mt4">
           <h2 className="f4 mb3">Loaded JSON Data:</h2>
-          <${RenderData} ...${data} />
+          <${Viewer} ...${data} />
         </div>
       `}
     </div>
@@ -457,7 +483,6 @@ function JSONViewer() {
 }
 
 function addCSSLink(url) {
-
   const linkId = 'tachyons-css';
   if (!document.getElementById(linkId)) {
     const link = document.createElement('link');
@@ -468,36 +493,31 @@ function addCSSLink(url) {
   }
 }
 
+function AnyWidgetApp() {
+  addCSSLink(TACHYONS_CSS_URL)
+  let [jsonString] = useModelState("data");
+  const experimental = useExperimental();
+  return html`<${Viewer} jsonString=${jsonString} experimental=${experimental} />`;
+}
+
 export const renderData = (element, data) => {
   addCSSLink(TACHYONS_CSS_URL);
   const root = ReactDOM.createRoot(element);
-  root.render(React.createElement(HTMLApp, data));
+  if (typeof data === 'string') {
+    root.render(html`<${Viewer} jsonString=${data} />`);
+  } else {
+    root.render(html`<${Viewer} ...${data} />`);
+  }
 };
 
-
-const estimateJSONSize = (jsonString) => {
-  const estimatedSizeInKB = (jsonString.length / 1024).toFixed(2);
-  return estimatedSizeInKB < 1000 ?
-    `${estimatedSizeInKB} KB` :
-    `${(estimatedSizeInKB / 1024).toFixed(2)} MB`;
-};
-
-export const renderJSON = (element, jsonString) => {
+export const renderFile = (element) => {
   addCSSLink(TACHYONS_CSS_URL);
   const root = ReactDOM.createRoot(element);
-  const data = JSON.parse(jsonString);
-  root.render(React.createElement(HTMLApp, data));
-};
-
-export const renderJSONViewer = (element) => {
-  addCSSLink(TACHYONS_CSS_URL);
-  const root = ReactDOM.createRoot(element);
-  root.render(React.createElement(JSONViewer));
+  root.render(html`<${FileViewer} />`);
 };
 
 export default {
   render: createRender(AnyWidgetApp),
   renderData,
-  renderJSON,
-  renderJSONViewer
+  renderFile
 }
