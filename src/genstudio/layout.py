@@ -25,14 +25,14 @@ def html_snippet(ast, id=None):
     <style>{css_content}</style>
     <div class="bg-white p3" id="{id}"></div>
 
-    <script id="data-{id}" type="application/json">
+    <script type="application/json">
         {data}
     </script>
 
     <script type="module">
         {js_content}
         const container = document.getElementById('{id}');
-        const jsonString = document.getElementById('data-{id}').textContent;
+        const jsonString = container.nextElementSibling.textContent;
         renderData(container, {{jsonString}});
     </script>
     """
