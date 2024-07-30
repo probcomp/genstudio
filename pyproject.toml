@@ -20,6 +20,7 @@ pillow = "^10.4.0"
 orjson = "^3.10.6"
 
 [tool.poetry.group.dev.dependencies]
+jaxlib = "^0.4.24"
 ipykernel = "^6.29.4"
 watchfiles = "^0.21.0"
 genjax = {version = "0.3.1.post258.dev0+b103dee7", source = "gcp"}
