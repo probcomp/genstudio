@@ -80,7 +80,7 @@ class LayoutItem:
         self._display_as = display_as
         return self
 
-    def for_json(self) -> dict[str, Any]:
+    def for_json(self, cache=None, widget=None) -> dict[str, Any]:
         raise NotImplementedError("Subclasses must implement for_json method")
 
     def __and__(self, other: "LayoutItem") -> "Row":
@@ -115,7 +115,7 @@ class LayoutItem:
         Lazily generate & cache the widget for this LayoutItem.
         """
         if self._widget is None:
-            self._widget = Widget(self.for_json())
+            self._widget = Widget(self)
         return self._widget
 
     def save_html(self, path: str) -> None:
@@ -164,7 +164,7 @@ class Hiccup(LayoutItem):
         else:
             self.child = args
 
-    def for_json(self) -> Any:
+    def for_json(self, cache=None, widget=None) -> Any:
         return self.child
 
 
@@ -189,7 +189,7 @@ class Row(LayoutItem):
         super().__init__()
         self.items, self.options = flatten_layout_items(items, Row)
 
-    def for_json(self) -> Any:
+    def for_json(self, cache=None, widget=None) -> Any:
         return Hiccup(View.Row, self.options, *self.items)
 
 
@@ -198,7 +198,7 @@ class Column(LayoutItem):
         super().__init__()
         self.items, self.options = flatten_layout_items(items, Column)
 
-    def for_json(self) -> Any:
+    def for_json(self, cache=None, widget=None) -> Any:
         return Hiccup(View.Column, self.options, *self.items)
 
 
@@ -219,5 +219,27 @@ class Slider(LayoutItem):
             **kwargs,
         }
 
-    def for_json(self) -> Any:
+    def for_json(self, cache=None, widget=None) -> Any:
         return View.Reactive(self.config)
+
+
+class CachedObject(LayoutItem):
+    def __init__(self, value, static):
+        self.id = str(uuid.uuid1())
+        self.value = value
+        self.static = static
+
+    def for_json(self, cache=None, widget=None):
+        if cache is None:
+            return self.value
+        cache.add(self.id, self.value, static=self.static, widget=widget)
+        return cache.entry(self.id)
+
+    def _repr_mimebundle_(self, **kwargs: Any) -> Any:
+        if hasattr(self.value, "_repr_mimebundle_"):
+            return self.value._repr_mimebundle_(**kwargs)
+        return super()._repr_mimebundle_(**kwargs)
+
+
+def cache(value, static=False):
+    return CachedObject(value, static=static)

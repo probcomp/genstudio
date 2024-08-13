@@ -1,67 +1,49 @@
 from genstudio.layout import LayoutItem, View
+from genstudio.js_modules import JSCall
 from typing import TypeAlias, Union, Sequence, Any
-from genstudio.util import deep_merge
+import uuid
 
 SpecInput: TypeAlias = Union[
-    "PlotSpec", Sequence[Union["PlotSpec", dict[str, Any]]], dict[str, Any]
+    "PlotSpec",
+    "MarkSpec",
+    Sequence[Union["PlotSpec", "MarkSpec", dict[str, Any]]],
+    dict[str, Any],
 ]
 
 Mark = dict[str, Any]
 
 
-def _add_list(spec: dict[str, Any], marks: list[Mark], to_add: Sequence[Any]) -> None:
-    # mutates spec & marks, returns nothing
-    for new_spec in to_add:
-        if isinstance(new_spec, dict):
-            _add_dict(spec, marks, new_spec)
-        elif isinstance(new_spec, PlotSpec):
-            _add_dict(spec, marks, new_spec.spec)
-        elif isinstance(new_spec, (list, tuple)):
-            _add_list(spec, marks, new_spec)
-        else:
-            raise ValueError(f"Invalid plot specification: {new_spec}")
+class MarkSpec:
+    def __init__(self, name, data, options):
+        self.id = str(uuid.uuid4())
+        self.ast = JSCall("View", "MarkSpec", [name, data, options])
+
+    def for_json(self, cache=None, **kwargs) -> Any:
+        if cache is None:
+            return self.ast
+        cache.add(self.id, self.ast, cache=cache, **kwargs)
+        return cache.entry(self.id)
 
 
-def _add_dict(spec: dict[str, Any], marks: list[Mark], to_add: dict[str, Any]) -> None:
-    # mutates spec & marks, returns nothing
-    if "pyobsplot-type" in to_add:
-        marks.append(to_add)
-    else:
-        deep_merge(spec, to_add)
-        new_marks = to_add.get("marks", None)
-        if new_marks:
-            spec["marks"] = marks
-            _add_list(spec, marks, new_marks)
-
-
-def _add(
-    spec: dict[str, Any],
-    marks: list[Mark],
-    to_add: Any,
-) -> None:
-    # mutates spec & marks, returns nothing
-    if isinstance(to_add, (list, tuple)):
-        _add_list(spec, marks, to_add)
-    elif isinstance(to_add, dict):
-        _add_dict(spec, marks, to_add)
-    elif isinstance(to_add, PlotSpec):
-        _add_dict(spec, marks, to_add.spec)
-    else:
-        raise TypeError(
-            f"Unsupported operand type(s) for +: 'PlotSpec' and '{type(to_add).__name__}'"
+def flatten_layers(layers: Sequence[Any]) -> list[Any]:
+    """
+    Merge layers into a flat structure.
+    """
+    return [
+        item
+        for layer in layers
+        for item in (
+            flatten_layers(layer) if isinstance(layer, (list, tuple)) else [layer]
         )
+    ]
 
 
 class PlotSpec(LayoutItem):
     """
-    Represents a specification for an plot (in Observable Plot).
+    Represents a specification for a plot (in Observable Plot).
 
-    PlotSpecs can be composed using the + operator. When combined, marks accumulate
-    and plot options are merged. Lists of marks or dicts of plot options can also be
-    added directly to a PlotSpec.
-
-    IPython plot widgets are created lazily when the spec is viewed in a notebook,
-    and then cached for efficiency.
+    PlotSpecs can be composed using the + operator. When combined, layers accumulate.
+    Lists of marks or dicts of plot options can also be added directly to a PlotSpec.
 
     Args:
         *specs: PlotSpecs, lists of marks, or dicts of plot options to initialize with.
@@ -70,15 +52,11 @@ class PlotSpec(LayoutItem):
 
     def __init__(self, *specs: SpecInput, **kwargs: Any) -> None:
         super().__init__()
-        marks: list[Mark] = []
-        self.spec: dict[str, Any] = {"marks": []}
-        if specs:
-            _add_list(self.spec, marks, specs)
+        self.layers: list[dict[str, Any]] = flatten_layers(specs)
         if kwargs:
-            _add_dict(self.spec, marks, kwargs)
-        self.spec["marks"] = marks
+            self.layers.append(kwargs)
 
-    def __add__(self, to_add: Any) -> "PlotSpec":
+    def __add__(self, *to_add: Any) -> "PlotSpec":
         """
         Combine this PlotSpec with another PlotSpec, list of marks, or dict of options.
 
@@ -86,16 +64,19 @@ class PlotSpec(LayoutItem):
             to_add: The PlotSpec, list of marks, or dict of options to add.
 
         Returns:
-            A new PlotSpec with the combined marks and options.
+            A new PlotSpec with the combined layers.
         """
-        spec = self.spec.copy()
-        marks = spec["marks"].copy()
-        _add(spec, marks, to_add)
-        spec["marks"] = marks
-        return PlotSpec(spec)
+        new_spec = PlotSpec()
+        new_spec.layers = self.layers + flatten_layers(to_add)
+        return new_spec
 
-    def for_json(self) -> Any:
-        return View.PlotSpec(self.spec)
+    def __radd__(self, to_add: Any) -> "PlotSpec":
+        new_spec = PlotSpec()
+        new_spec.layers = flatten_layers(to_add) + self.layers
+        return new_spec
+
+    def for_json(self, cache=None, widget=None) -> Any:
+        return View.PlotSpec({"layers": self.layers})
 
 
 def new(*specs: Any, **kwargs: Any) -> PlotSpec:

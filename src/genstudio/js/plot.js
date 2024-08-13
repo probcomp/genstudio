@@ -7,18 +7,56 @@ const Marks = {...Plot, ellipse: ellipse}
 const { useEffect } = React
 export const DEFAULT_PLOT_OPTIONS = { inset: 10 };
 
-/**
- * Wrap plot specs so that our node renderer can identify them.
- */
-export class PlotSpec {
-    /**
-     * Create a new plot spec.
-     */
-    constructor(spec) {
-        this.spec = spec;
-    }
+
+export function PlotWrapper(props) {
+    let {spec} = props
+    const [$state, set$state] = React.useContext($StateContext)
+    const availableWidth = React.useContext(WidthContext)
+    spec = prepareSpec(spec, spec.width ?? availableWidth)
+    return html`<${PlotView} spec=${spec} $state=${$state} />`
 }
 
+function deepMergeLayers(target, source) {
+  if (!source || typeof source !== 'object') return target;
+
+  return Object.keys(source).reduce((result, key) => {
+    if (key === 'marks') {
+      result[key] = [...result[key], ...source[key]];
+    } else if (source[key] && typeof source[key] === 'object' && key in result) {
+      result[key] = deepMergeLayers(result[key], source[key]);
+    } else {
+      result[key] = source[key];
+    }
+    return result;
+  }, { ...target });
+}
+
+function mergePlotLayers(layers) {
+    console.log("merge", layers)
+  return layers.reduce((mergedSpec, layer) => {
+    if (layer instanceof MarkSpec) {
+      mergedSpec.marks.push(layer);
+      return mergedSpec;
+    } else if (layer instanceof PlotSpec) {
+        console.log("PlotSpec layers", layer.layers)
+      return deepMergeLayers(mergedSpec, mergePlotLayers(layer.layers));
+    } else {
+      return deepMergeLayers(mergedSpec, layer);
+    }
+  }, {"marks": []});
+}
+
+export class PlotSpec {
+    constructor({layers}) {
+        this.layers = layers;
+        console.log("layers", layers)
+    }
+
+    render() {
+        console.log("render layers", this.layers)
+        return html`<${PlotWrapper} spec=${mergePlotLayers(this.layers)}/>`;
+    }
+}
 
 export class MarkSpec {
     constructor(name, data, options) {
@@ -43,6 +81,10 @@ export class MarkSpec {
         this.data = data;
         this.options = options;
         this.computed = {}
+    }
+
+    render() {
+        return html`<${PlotWrapper} spec=${{ marks: [this] }}/>`;
     }
 
     compute(width) {
@@ -163,11 +205,4 @@ function prepareSpec(spec, availableWidth) {
         delete spec.color_map;
     }
     return spec
-}
-
-export function PlotWrapper({ spec }) {
-    const [$state, set$state] = React.useContext($StateContext)
-    const availableWidth = React.useContext(WidthContext)
-    spec = prepareSpec(spec, spec.width ?? availableWidth)
-    return html`<${PlotView} spec=${spec} $state=${$state} />`
 }

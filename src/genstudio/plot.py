@@ -133,10 +133,9 @@ from genstudio.plot_defs import (
     windowX,
     windowY,
 )
-from genstudio.layout import Column, Row, Slider, Hiccup
-from genstudio.plot_spec import PlotSpec, new
+from genstudio.layout import Column, Row, Slider, Hiccup, cache
+from genstudio.plot_spec import PlotSpec, MarkSpec, new
 from genstudio.util import configure, deep_merge
-from genstudio.widget import cache
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
@@ -225,7 +224,7 @@ class Dimensioned:
 
         return _flatten(self.value, dimensions)
 
-    def for_json(self):
+    def for_json(self, widget=None):
         return {"value": self.value, "dimensions": self.dimensions}
 
 
@@ -402,9 +401,7 @@ def test_get_in():
 
 
 def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["ellipse", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("ellipse", values, {**options, **kwargs}))
 
 
 def scaled_circle(x, y, r, **kwargs):

@@ -23,6 +23,10 @@ class Reactive {
   constructor(data) {
     this.options = data;
   }
+
+  render() {
+    return Slider(this.options);
+  }
 }
 
 const playIcon = html`<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
@@ -264,18 +268,12 @@ function Column({children, ...props}) {
   `;
 }
 
-function Node({ value }) {
-  const availableWidth = useContext(WidthContext);
 
+function Node({ value }) {
   if (Array.isArray(value)) {
     return Hiccup(...value);
-  } else if (value instanceof PlotSpec) {
-    const specWithWidth = value.spec.width ? value.spec : { ...value.spec, width: availableWidth };
-    return html`<${PlotWrapper} spec=${specWithWidth}/>`;
-  } else if (value instanceof MarkSpec) {
-    return html`<${PlotWrapper} spec=${{ marks: [value], width: availableWidth }}/>`;
-  } else if (value instanceof Reactive) {
-    return Slider(value.options);
+  } else if (typeof value === 'object' && value !== null && 'render' in value) {
+    return value.render();
   } else {
     return value;
   }
@@ -301,7 +299,7 @@ function Hiccup(tag, props, ...children) {
   }
 
   return baseTag instanceof PlotSpec
-    ? html`<${PlotWrapper} spec=${baseTag.spec}/>`
+    ? baseTag.render()
     : children.length > 0
       ? html`<${baseTag} ...${props}>
           ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}

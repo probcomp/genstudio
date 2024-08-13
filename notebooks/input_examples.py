@@ -1,6 +1,6 @@
 import genstudio.plot as Plot
 
-p = Plot.new()
+p = Plot.new().display_as("widget")
 params = {"q": 1}
 
 

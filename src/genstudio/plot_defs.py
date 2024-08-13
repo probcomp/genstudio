@@ -1,6 +1,6 @@
 # Generated from version 0.6.14 of Observable Plot
 from genstudio.js_modules import JSCall
-from genstudio.plot_spec import PlotSpec
+from genstudio.plot_spec import MarkSpec, PlotSpec
 from typing import Any, Dict
 
 
@@ -16,7 +16,7 @@ def area(
     where the baseline and topline share *x* values, or areaX for a vertical
     orientation where the baseline and topline share *y* values.
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["area", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("area", values, {**options, **kwargs}))
 
 
 def areaX(
@@ -54,9 +54,7 @@ def areaX(
     channels. When any of these channels are used, setting an explicit **z**
     channel (possibly to null) is strongly recommended.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["areaX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("areaX", values, {**options, **kwargs}))
 
 
 def areaY(
@@ -94,9 +92,7 @@ def areaY(
     channels. When any of these channels are used, setting an explicit **z**
     channel (possibly to null) is strongly recommended.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["areaY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("areaY", values, {**options, **kwargs}))
 
 
 def arrow(
@@ -114,9 +110,7 @@ def arrow(
     Plot.arrow(inequality, {x1: "POP_1980", y1: "R90_10_1980", x2: "POP_2015", y2: "R90_10_2015", bend: true})
     ```
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["arrow", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("arrow", values, {**options, **kwargs}))
 
 
 def auto(
@@ -136,7 +130,7 @@ def auto(
     Plot.auto(penguins, {x: "body_mass_g"})
     ```
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["auto", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("auto", values, {**options, **kwargs}))
 
 
 def autoSpec(
@@ -157,9 +151,7 @@ def autoSpec(
     the returned object will have **y** set to {value: null, reduce: *count*} and
     **mark** set to *bar*, telling you that a histogram will be rendered.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["autoSpec", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("autoSpec", values, {**options, **kwargs}))
 
 
 def axisFx(
@@ -188,9 +180,7 @@ def axisFx(
     the margin or shorten the labels, say by using the **textOverflow** and
     **lineWidth** options to clip, or using the **tickRotate** option to rotate.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["axisFx", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("axisFx", values, {**options, **kwargs}))
 
 
 def axisFy(
@@ -219,9 +209,7 @@ def axisFy(
     the margin or shorten the labels, say by using the **textOverflow** and
     **lineWidth** options to clip.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["axisFy", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("axisFy", values, {**options, **kwargs}))
 
 
 def axisX(
@@ -252,9 +240,7 @@ def axisX(
     **textOverflow** and **lineWidth** options to clip; or use the **tickRotate**
     option to rotate.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["axisX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("axisX", values, {**options, **kwargs}))
 
 
 def axisY(
@@ -284,9 +270,7 @@ def axisY(
     **transform** *y*-scale option to show thousands or millions; or use the
     **textOverflow** and **lineWidth** options to clip.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["axisY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("axisY", values, {**options, **kwargs}))
 
 
 def barX(
@@ -333,7 +317,7 @@ def barX(
     Plot.barX([4, 9, 24, 46, 66, 7])
     ```
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["barX", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("barX", values, {**options, **kwargs}))
 
 
 def barY(
@@ -379,7 +363,7 @@ def barY(
     Plot.barY([4, 9, 24, 46, 66, 7])
     ```
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["barY", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("barY", values, {**options, **kwargs}))
 
 
 def bin(*args: Any) -> Dict[str, Any]:
@@ -503,9 +487,7 @@ def bollinger(
 
     Here the *k* option defaults to zero instead of two.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["bollinger", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("bollinger", values, {**options, **kwargs}))
 
 
 def bollingerX(
@@ -521,9 +503,7 @@ def bollingerX(
     when data is an array of numbers [*x*₀, *x*₁, *x*₂, …]. If the *y* option is
     not specified, it defaults to [0, 1, 2, …].
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["bollingerX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("bollingerX", values, {**options, **kwargs}))
 
 
 def bollingerY(
@@ -539,9 +519,7 @@ def bollingerY(
     when data is an array of numbers [*y*₀, *y*₁, *y*₂, …]. If the *x* option is
     not specified, it defaults to [0, 1, 2, …].
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["bollingerY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("bollingerY", values, {**options, **kwargs}))
 
 
 def boxX(
@@ -568,7 +546,7 @@ def boxX(
     - **strokeOpacity** - the stroke opacity of the rule, tick, and dot; defaults to 1
     - **strokeWidth** - the stroke width of the tick; defaults to 2
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["boxX", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("boxX", values, {**options, **kwargs}))
 
 
 def boxY(
@@ -595,7 +573,7 @@ def boxY(
     - **strokeOpacity** - the stroke opacity of the rule, tick, and dot; defaults to 1
     - **strokeWidth** - the stroke width of the tick; defaults to 2
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["boxY", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("boxY", values, {**options, **kwargs}))
 
 
 def cell(
@@ -621,7 +599,7 @@ def cell(
     temporal), use a barX mark; if only **y** is quantitative, use a barY mark;
     if both are quantitative, use a rect mark.
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["cell", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("cell", values, {**options, **kwargs}))
 
 
 def cellX(
@@ -639,9 +617,7 @@ def cellX(
     Plot.cellX(values)
     ```
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["cellX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("cellX", values, {**options, **kwargs}))
 
 
 def cellY(
@@ -659,9 +635,7 @@ def cellY(
     Plot.cellY(values)
     ```
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["cellY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("cellY", values, {**options, **kwargs}))
 
 
 def centroid(*args: Any) -> Dict[str, Any]:
@@ -684,9 +658,7 @@ def circle(
     """
     Like dot, except that the **symbol** option is set to *circle*.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["circle", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("circle", values, {**options, **kwargs}))
 
 
 def cluster(
@@ -704,9 +676,7 @@ def cluster(
 
     [1]: https://d3js.org/d3-hierarchy/cluster
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["cluster", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("cluster", values, {**options, **kwargs}))
 
 
 def column(*args: Any) -> Dict[str, Any]:
@@ -757,9 +727,7 @@ def contour(
     mark’s channels are not evaluated on the initial *data* but rather on the
     generated contour multipolygons.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["contour", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("contour", values, {**options, **kwargs}))
 
 
 def crosshair(
@@ -775,9 +743,7 @@ def crosshair(
     axes. If either **x** or **y** is not specified, the crosshair will be
     one-dimensional.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["crosshair", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("crosshair", values, {**options, **kwargs}))
 
 
 def crosshairX(
@@ -792,9 +758,7 @@ def crosshairX(
     as time in a time-series chart, or the aggregated dimension when grouping or
     binning.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["crosshairX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("crosshairX", values, {**options, **kwargs}))
 
 
 def crosshairY(
@@ -809,9 +773,7 @@ def crosshairY(
     as time in a time-series chart, or the aggregated dimension when grouping or
     binning.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["crosshairY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("crosshairY", values, {**options, **kwargs}))
 
 
 def delaunayLink(
@@ -830,9 +792,7 @@ def delaunayLink(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Delaunay triangulation for each group.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["delaunayLink", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("delaunayLink", values, {**options, **kwargs}))
 
 
 def delaunayMesh(
@@ -851,9 +811,7 @@ def delaunayMesh(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Delaunay triangulation for each group.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["delaunayMesh", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("delaunayMesh", values, {**options, **kwargs}))
 
 
 def density(
@@ -871,9 +829,7 @@ def density(
     constructed with values representing the density threshold value of each
     contour.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["density", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("density", values, {**options, **kwargs}))
 
 
 def differenceY(
@@ -892,9 +848,7 @@ def differenceY(
     and is clipped by the area extending from the comparison to the bottom of the
     frame.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["differenceY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("differenceY", values, {**options, **kwargs}))
 
 
 def dodgeX(*args: Any) -> Dict[str, Any]:
@@ -946,7 +900,7 @@ def dot(
     Dots are sorted by descending radius **r** by default to mitigate
     overplotting; set the **sort** option to null to draw them in input order.
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["dot", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("dot", values, {**options, **kwargs}))
 
 
 def dotX(
@@ -965,7 +919,7 @@ def dotX(
     If an **interval** is specified, such as *day*, **y** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["dotX", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("dotX", values, {**options, **kwargs}))
 
 
 def dotY(
@@ -984,7 +938,7 @@ def dotY(
     If an **interval** is specified, such as *day*, **x** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["dotY", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("dotY", values, {**options, **kwargs}))
 
 
 def filter(*args: Any) -> Dict[str, Any]:
@@ -1074,7 +1028,7 @@ def geo(
     data is *data*.geometries; if *data* is some other GeoJSON object, then the
     mark’s data is the single-element array [*data*].
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["geo", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("geo", values, {**options, **kwargs}))
 
 
 def geoCentroid(*args: Any) -> Dict[str, Any]:
@@ -1100,9 +1054,7 @@ def graticule(
 
     [1]: https://d3js.org/d3-geo/shape#geoGraticule
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["graticule", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("graticule", values, {**options, **kwargs}))
 
 
 def gridFx(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
@@ -1264,9 +1216,7 @@ def hexagon(
     """
     Like dot, except that the **symbol** option is set to *hexagon*.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["hexagon", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("hexagon", values, {**options, **kwargs}))
 
 
 def hexbin(*args: Any) -> Dict[str, Any]:
@@ -1339,7 +1289,7 @@ def hull(
     separate hull for each group. If **z** is not specified, it defaults to the
     **fill** channel, if any, or the **stroke** channel, if any.
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["hull", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("hull", values, {**options, **kwargs}))
 
 
 def image(
@@ -1362,9 +1312,7 @@ def image(
     *y₁*], [*x₂*, *y₂*], …] such that **x** = [*x₀*, *x₁*, *x₂*, …] and **y** =
     [*y₀*, *y₁*, *y₂*, …].
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["image", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("image", values, {**options, **kwargs}))
 
 
 def initializer(*args: Any) -> Dict[str, Any]:
@@ -1405,13 +1353,7 @@ def interpolatorBarycentric(
     [1]: https://en.wikipedia.org/wiki/Barycentric_coordinate_system
     [2]: https://d3js.org/d3-random#randomLcg
     """
-    return PlotSpec(
-        JSCall(
-            "View",
-            "MarkSpec",
-            ["interpolatorBarycentric", values, {**options, **kwargs}],
-        )
-    )
+    return PlotSpec(MarkSpec("interpolatorBarycentric", values, {**options, **kwargs}))
 
 
 def interpolatorRandomWalk(
@@ -1429,13 +1371,7 @@ def interpolatorRandomWalk(
 
     [1]: https://www.cs.cmu.edu/~kmcrane/Projects/MonteCarloGeometryProcessing/index.html
     """
-    return PlotSpec(
-        JSCall(
-            "View",
-            "MarkSpec",
-            ["interpolatorRandomWalk", values, {**options, **kwargs}],
-        )
-    )
+    return PlotSpec(MarkSpec("interpolatorRandomWalk", values, {**options, **kwargs}))
 
 
 def legend(*args: Any) -> Dict[str, Any]:
@@ -1481,7 +1417,7 @@ def line(
     channels. When any of these channels are used, setting an explicit **z**
     channel (possibly to null) is strongly recommended.
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["line", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("line", values, {**options, **kwargs}))
 
 
 def lineX(
@@ -1507,9 +1443,7 @@ def lineX(
     Plot.lineX(observations, {y: "date", x: "temperature", interval: "day"})
     ```
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["lineX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("lineX", values, {**options, **kwargs}))
 
 
 def lineY(
@@ -1536,9 +1470,7 @@ def lineY(
     Plot.lineY(observations, {x: "date", y: "temperature", interval: "day"})
     ```
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["lineY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("lineY", values, {**options, **kwargs}))
 
 
 def linearRegressionX(
@@ -1552,9 +1484,7 @@ def linearRegressionX(
     for example when visualizing a time-series where time goes up↑; use
     linearRegressionY instead if time goes right→.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["linearRegressionX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("linearRegressionX", values, {**options, **kwargs}))
 
 
 def linearRegressionY(
@@ -1584,9 +1514,7 @@ def linearRegressionY(
     [3]: https://observablehq.com/@toja/linear-regression-with-confidence-bands
     [4]: https://stats.stackexchange.com/questions/101318/understanding-shape-and-calculation-of-confidence-bands-in-linear-regression
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["linearRegressionY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("linearRegressionY", values, {**options, **kwargs}))
 
 
 def link(
@@ -1608,7 +1536,7 @@ def link(
     will render links as geodesics; to draw a straight line instead, use the
     *linear* **curve**.
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["link", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("link", values, {**options, **kwargs}))
 
 
 def map(*args: Any) -> Dict[str, Any]:
@@ -1791,9 +1719,7 @@ def raster(
     **value** is a function of *x* and *y*), you must specify all of **x1**,
     **x2**, **y1**, and **y2** to define the raster domain.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["raster", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("raster", values, {**options, **kwargs}))
 
 
 def rect(
@@ -1823,7 +1749,7 @@ def rect(
     Both *x* and *y* should be quantitative or temporal; otherwise, use a bar or
     cell mark.
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["rect", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("rect", values, {**options, **kwargs}))
 
 
 def rectX(
@@ -1842,9 +1768,7 @@ def rectX(
     Plot.rectX(olympians, Plot.binY({x: "count"}, {y: "height"}))
     ```
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["rectX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("rectX", values, {**options, **kwargs}))
 
 
 def rectY(
@@ -1863,9 +1787,7 @@ def rectY(
     Plot.rectY(olympians, Plot.binX({y: "count"}, {x: "weight"}))
     ```
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["rectY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("rectY", values, {**options, **kwargs}))
 
 
 def reverse(*args: Any) -> Dict[str, Any]:
@@ -1901,9 +1823,7 @@ def ruleX(
 
     If *y* represents ordinal values, use a tickX mark instead.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["ruleX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("ruleX", values, {**options, **kwargs}))
 
 
 def ruleY(
@@ -1932,9 +1852,7 @@ def ruleY(
 
     If *x* represents ordinal values, use a tickY mark instead.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["ruleY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("ruleY", values, {**options, **kwargs}))
 
 
 def scale(*args: Any) -> Dict[str, Any]:
@@ -2058,9 +1976,7 @@ def sphere(
     Returns a new geo mark whose *data* is the outline of the sphere on the
     projection’s plane. (For use with a spherical **projection** only.)
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["sphere", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("sphere", values, {**options, **kwargs}))
 
 
 def spike(
@@ -2076,9 +1992,7 @@ def spike(
     Plot.spike(cities, {x: "longitude", y: "latitude", stroke: "red", length: "population"})
     ```
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["spike", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("spike", values, {**options, **kwargs}))
 
 
 def stackX(*args: Any) -> Dict[str, Any]:
@@ -2173,7 +2087,7 @@ def text(
     [3]: https://d3js.org/d3-format
     [4]: https://d3js.org/d3-time-format
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["text", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("text", values, {**options, **kwargs}))
 
 
 def textX(
@@ -2193,9 +2107,7 @@ def textX(
     If an **interval** is specified, such as *day*, **y** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["textX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("textX", values, {**options, **kwargs}))
 
 
 def textY(
@@ -2215,9 +2127,7 @@ def textY(
     If an **interval** is specified, such as *day*, **x** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["textY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("textY", values, {**options, **kwargs}))
 
 
 def tickX(
@@ -2238,9 +2148,7 @@ def tickX(
 
     If *y* represents quantitative or temporal values, use a ruleX mark instead.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["tickX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("tickX", values, {**options, **kwargs}))
 
 
 def tickY(
@@ -2261,9 +2169,7 @@ def tickY(
 
     If *x* represents quantitative or temporal values, use a ruleY mark instead.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["tickY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("tickY", values, {**options, **kwargs}))
 
 
 def tip(
@@ -2280,7 +2186,7 @@ def tip(
     *y₁*], [*x₂*, *y₂*], …] such that **x** = [*x₀*, *x₁*, *x₂*, …] and **y** =
     [*y₀*, *y₁*, *y₂*, …].
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["tip", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("tip", values, {**options, **kwargs}))
 
 
 def transform(*args: Any) -> Dict[str, Any]:
@@ -2320,7 +2226,7 @@ def tree(
 
     [1]: https://d3js.org/d3-hierarchy/tree
     """
-    return PlotSpec(JSCall("View", "MarkSpec", ["tree", values, {**options, **kwargs}]))
+    return PlotSpec(MarkSpec("tree", values, {**options, **kwargs}))
 
 
 def treeLink(*args: Any) -> Dict[str, Any]:
@@ -2410,9 +2316,7 @@ def vector(
     **y** default to accessors assuming that *data* contains tuples [[*x₀*,
     *y₀*], [*x₁*, *y₁*], [*x₂*, *y₂*], …]
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["vector", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("vector", values, {**options, **kwargs}))
 
 
 def vectorX(
@@ -2425,9 +2329,7 @@ def vectorX(
     defaults to null, assuming that *data* is an array of numbers [*x₀*, *x₁*,
     *x₂*, …].
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["vectorX", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("vectorX", values, {**options, **kwargs}))
 
 
 def vectorY(
@@ -2440,9 +2342,7 @@ def vectorY(
     defaults to null, assuming that *data* is an array of numbers [*y₀*, *y₁*,
     *y₂*, …].
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["vectorY", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("vectorY", values, {**options, **kwargs}))
 
 
 def voronoi(
@@ -2457,9 +2357,7 @@ def voronoi(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Voronoi tesselation for each group.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["voronoi", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("voronoi", values, {**options, **kwargs}))
 
 
 def voronoiMesh(
@@ -2479,9 +2377,7 @@ def voronoiMesh(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Voronoi tesselation for each group.
     """
-    return PlotSpec(
-        JSCall("View", "MarkSpec", ["voronoiMesh", values, {**options, **kwargs}])
-    )
+    return PlotSpec(MarkSpec("voronoiMesh", values, {**options, **kwargs}))
 
 
 def window(*args: Any) -> Dict[str, Any]:

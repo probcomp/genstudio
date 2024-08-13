@@ -14,37 +14,28 @@ class Cache:
     def __init__(self):
         self.cache = {}
 
-    def entry(self, obj):
-        self.cache[obj.id] = obj
-        return {"__type__": "cached", "id": obj.id}
+    def has(self, id):
+        return id in self.cache
 
-    def for_json(self):
+    def add(self, id, value, static=False, **kwargs):
+        # immediately serialize value so that nested cached values are
+        # discovered during the initial data traversal
+        self.cache[id] = (orjson.Fragment(to_json(value, **kwargs)), static)
+
+    def entry(self, id):
+        return {"__type__": "cached", "id": id}
+
+    def for_json(self, widget=None, cache=None):
         return {
-            id: {"value": obj.value, "static": obj.static}
-            for id, obj in self.cache.items()
+            id: {"value": value, "static": static}
+            for id, (value, static) in self.cache.items()
         }
-
-
-class CachedObject:
-    def __init__(self, value, static):
-        self.id = str(uuid.uuid1())
-        self.value = value
-        self.static = static
-
-
-def cache(value, static=True):
-    return CachedObject(value, static=static)
 
 
 def to_json(data, widget=None, cache=None):
     def default(obj):
-        if isinstance(obj, CachedObject):
-            if cache is not None:
-                return cache.entry(obj)
-            else:
-                return obj.value
         if hasattr(obj, "for_json"):
-            return obj.for_json()
+            return obj.for_json(cache=cache, widget=widget)
         if hasattr(obj, "tolist"):
             return obj.tolist()
         if isinstance(obj, Iterable):
@@ -57,18 +48,15 @@ def to_json(data, widget=None, cache=None):
         elif isinstance(obj, (datetime.date, datetime.datetime)):
             return {"pyobsplot-type": "datetime", "value": obj.isoformat()}
         elif callable(obj):
-            return callback_for_json(obj, widget)
+            if widget is not None:
+                id = str(uuid.uuid4())
+                widget.callback_registry[id] = obj
+                return {"__type__": "callback", "id": id}
+            return None
         else:
             raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
     return orjson.dumps(data, default=default).decode("utf-8")
-
-
-def callback_for_json(f, widget):
-    if widget is not None:
-        id = str(uuid.uuid4())
-        widget.callback_registry[id] = f
-        return {"__type__": "callback", "id": id}
 
 
 def to_json_with_cache(data, widget=None):
