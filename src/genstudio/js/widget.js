@@ -1,4 +1,4 @@
-import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
+import { $StateContext, WidthContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
 import { flatten, html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
 import { AnyWidgetReact, Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
@@ -141,7 +141,7 @@ function collectReactiveInitialState(ast) {
 
   function traverse(node) {
     if (!node) return;
-    if (typeof node === 'object' && node['pyobsplot-type'] === 'function') {
+    if (typeof node === 'object' && node['__type__'] === 'function') {
       if (node.name === 'Reactive') {
         const { state_key, init, range } = node.args[0];
         initialState[state_key] = init ?? (typeof range === 'number' ? range : range[0]);
@@ -161,7 +161,7 @@ export function evaluate(node, cache, $state, experimental) {
   if (node === null || typeof node !== 'object') return node;
   if (Array.isArray(node)) return node.map(item => evaluate(item, cache, $state, experimental));
 
-  switch (node["pyobsplot-type"]) {
+  switch (node["__type__"]) {
     case "function":
       const fn = node.name ? scope[node.module][node.name] : scope[node.module];
       if (!fn) {
@@ -175,68 +175,46 @@ export function evaluate(node, cache, $state, experimental) {
       return (new Function('$state', 'd3', 'Plot', `return ${node.value}`))($state, d3, Plot);
     case "datetime":
       return new Date(node.value);
-    default:
-      switch (node.__type__) {
-        case "cached":
-          return cache[node.id];
-        case "callback":
-          if (experimental) {
-            return (e) => experimental.invoke("handle_callback", {id: node.id, event: serializeEvent(e)});
-          } else {
-            return undefined;
-          }
-        default:
-          return Object.fromEntries(
-            Object.entries(node).map(([key, value]) => [key, evaluate(value, cache, $state, experimental)])
-          );
+    case "cached":
+      return cache[node.id];
+    case "callback":
+      if (experimental) {
+        return (e) => experimental.invoke("handle_callback", {id: node.id, event: serializeEvent(e)});
+      } else {
+        return undefined;
       }
+    default:
+      return Object.fromEntries(
+        Object.entries(node).map(([key, value]) => [key, evaluate(value, cache, $state, experimental)])
+      );
   }
 }
-
-function Grid({ specs: plotSpecs, plotOptions, layoutOptions }) {
-  const containerWidth = useContext(WidthContext);
-  const aspectRatio = plotOptions.aspectRatio || 1;
-  const minWidth = Math.min(plotOptions.minWidth || AUTOGRID_MIN, containerWidth);
-
-  // Ensure at least one column, even if containerWidth is less than minWidth
-  const numColumns = Math.max(1, Math.min(Math.floor(containerWidth / minWidth), plotSpecs.length));
-  const gap = layoutOptions.gap || DEFAULT_GRID_GAP;
+function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEFAULT_GRID_GAP, aspectRatio = 1 }) {
+  const availableWidth = useContext(WidthContext);
+  const effectiveMinWidth = Math.min(minWidth, availableWidth);
   const gapSize = parseInt(gap);
-  const availableWidth = Math.max(containerWidth - (numColumns - 1) * gapSize, minWidth);
-  const itemWidth = availableWidth / numColumns;
+
+  const numColumns = Math.max(1, Math.min(Math.floor(availableWidth / effectiveMinWidth), children.length));
+  const itemWidth = (availableWidth - (numColumns - 1) * gapSize) / numColumns;
   const itemHeight = itemWidth / aspectRatio;
-
-  const mergedPlotOptions = {
-    ...DEFAULT_PLOT_OPTIONS,
-    ...plotOptions,
-    width: itemWidth,
-    height: itemHeight
-  };
-
-  const numRows = Math.ceil(plotSpecs.length / numColumns);
+  const numRows = Math.ceil(children.length / numColumns);
   const layoutHeight = numRows * itemHeight + (numRows - 1) * gapSize;
 
-  const mergedLayoutOptions = {
+  const containerStyle = {
     display: 'grid',
-    gap: gap,
+    gap,
     gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
     gridAutoRows: `${itemHeight}px`,
     height: `${layoutHeight}px`,
-    width: `${containerWidth}px`, // Ensure the grid doesn't exceed container width
-    overflowX: 'auto', // Allow horizontal scrolling if needed
-    ...layoutOptions
+    width: `${availableWidth}px`,
+    overflowX: 'auto',
+    ...style
   };
 
   return html`
     <${WidthContext.Provider} value=${itemWidth}>
-      <div style=${mergedLayoutOptions}>
-        ${plotSpecs.map((item, index) => {
-          if (item.spec) {
-            return html`<${PlotWrapper} key=${index} spec=${{ ...item.spec, ...mergedPlotOptions }} />`;
-          } else {
-            return html`<div key=${index} style=${{ width: itemWidth, height: itemHeight }}>${item}</div>`;
-          }
-        })}
+      <div style=${containerStyle}>
+        ${children.map((item, index) => html`<div key=${index} style=${{ width: itemWidth }}>${item}</div>`)}
       </div>
     </>
   `;
@@ -320,16 +298,15 @@ function useStateWithDeps(initialStateFunction, deps) {
 function StateProvider({ ast, cache, experimental }) {
   const stateArray = useStateWithDeps(() => collectReactiveInitialState(ast), [ast]);
   const [$state] = stateArray;
-  const data = useMemo(() => {
-    if (!$state) return;
-    cache = Object.fromEntries(
-      Object.entries(cache).map(([key, entry]) => [
-        key,
-        entry.static ? entry.value : evaluate(entry.value, {}, $state, experimental)
-      ]))
-    return evaluate(ast, cache, $state, experimental)
 
+  const [data, setData] = useState();
+  useEffect(() => {
+    if ($state) {
+      setData(evaluate(ast, evaluate(cache, {}, $state, experimental), $state, experimental))
+    }
   }, [ast, cache, $state, experimental]);
+
+  if (!data) return;
   return html`
     <${$StateContext.Provider} value=${stateArray}>
       <${Node} value=${data} />
@@ -339,10 +316,11 @@ function StateProvider({ ast, cache, experimental }) {
 
 function DataViewer(data) {
   const [el, setEl] = useState();
+  const elRef = useCallback((element) => element && setEl(element), [setEl])
   const width = useElementWidth(el)
-  const unmounted = useCellUnmounted(el?.parentNode);
+  const isUnmounted = useCellUnmounted(el?.parentNode);
 
-  if (!data || unmounted) {
+  if (isUnmounted || !data) {
     return null;
   }
 
@@ -350,10 +328,10 @@ function DataViewer(data) {
 
   return html`
     <${WidthContext.Provider} value=${adjustedWidth}>
-    <div className="genstudio-container" style=${{ "padding": CONTAINER_PADDING }} ref=${setEl}>
-      ${el && html`<${StateProvider} ...${data}/>`}
-    </div>
-    ${data.size && data.dev && html`<div className="f1 p3">${data.size}</div>`}
+      <div className="genstudio-container" style=${{ "padding": CONTAINER_PADDING }} ref=${elRef}>
+        ${el && html`<${StateProvider} ...${data}/>`}
+      </div>
+      ${data.size && data.dev && html`<div className="f1 p3">${data.size}</div>`}
     </${WidthContext.Provider}>
   `;
 }

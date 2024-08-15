@@ -55,9 +55,11 @@ def get_function_def(path: str, func_name: str) -> Optional[str]:
 # Templates for inclusion in output
 
 
-def FN_VALUELESS(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
+def FN_MARK_WITHOUT_DATA(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
     """DOC"""
-    return JSCall("Plot", "FN_VALUELESS", [{**options, **kwargs}])
+    return PlotSpec(
+        {"marks": [JSCall("Plot", "FN_MARK_WITHOUT_DATA", [{**options, **kwargs}])]}
+    )
 
 
 def FN_MARK(
@@ -76,7 +78,7 @@ def FN_OTHER(*args: Any) -> Dict[str, Any]:
 
 sources: Dict[str, Optional[str]] = {
     name: get_function_def("scripts/make_observable_plot_defs.py", name)
-    for name in ["FN_VALUELESS", "FN_MARK", "FN_OTHER"]
+    for name in ["FN_MARK_WITHOUT_DATA", "FN_MARK", "FN_OTHER"]
 }
 
 
@@ -85,7 +87,7 @@ def def_source(name: str, meta: Dict[str, Any]) -> str:
     doc = meta.get("doc")
     variant: Optional[str] = None
     if name in ["hexgrid", "grid", "gridX", "gridY", "gridFx", "gridFy", "frame"]:
-        variant = "FN_VALUELESS"
+        variant = "FN_MARK_WITHOUT_DATA"
     elif kind == "marks":
         variant = "FN_MARK"
     else:

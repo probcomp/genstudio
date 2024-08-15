@@ -18,35 +18,37 @@ class MarkSpec:
         self.id = str(uuid.uuid4())
         self.ast = JSCall("View", "MarkSpec", [name, data, options])
 
-    def for_json(self, cache=None, **kwargs) -> Any:
-        if cache is None:
-            return self.ast
-        cache.add(self.id, self.ast, cache=cache, **kwargs)
-        return cache.entry(self.id)
+    def cache_id(self):
+        return self.id
+
+    def for_json(self) -> Any:
+        return self.ast
 
 
 def flatten_layers(layers: Sequence[Any]) -> list[Any]:
     """
-    Merge layers into a flat structure.
+    Merge layers into a flat structure, including PlotSpec instances.
     """
-    return [
-        item
-        for layer in layers
-        for item in (
-            flatten_layers(layer) if isinstance(layer, (list, tuple)) else [layer]
-        )
-    ]
+    flattened = []
+    for layer in layers:
+        if isinstance(layer, (list, tuple)):
+            flattened.extend(flatten_layers(layer))
+        elif isinstance(layer, PlotSpec):
+            flattened.extend(layer.layers)
+        else:
+            flattened.append(layer)
+    return flattened
 
 
 class PlotSpec(LayoutItem):
     """
     Represents a specification for a plot (in Observable Plot).
 
-    PlotSpecs can be composed using the + operator. When combined, layers accumulate.
+    PlotSpec can be composed using the + operator. When combined, layers accumulate.
     Lists of marks or dicts of plot options can also be added directly to a PlotSpec.
 
     Args:
-        *specs: PlotSpecs, lists of marks, or dicts of plot options to initialize with.
+        *specs: PlotSpec, lists of marks, or dicts of plot options to initialize with.
         **kwargs: Additional plot options passed as keyword arguments.
     """
 
@@ -70,12 +72,12 @@ class PlotSpec(LayoutItem):
         new_spec.layers = self.layers + flatten_layers(to_add)
         return new_spec
 
-    def __radd__(self, to_add: Any) -> "PlotSpec":
+    def __radd__(self, *to_add: Any) -> "PlotSpec":
         new_spec = PlotSpec()
         new_spec.layers = flatten_layers(to_add) + self.layers
         return new_spec
 
-    def for_json(self, cache=None, widget=None) -> Any:
+    def for_json(self) -> Any:
         return View.PlotSpec({"layers": self.layers})
 
 

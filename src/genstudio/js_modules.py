@@ -10,7 +10,7 @@ class JSCall(dict):
             print("not a list", type(args))
             raise TypeError("args must be a list")
         super().__init__(
-            {"pyobsplot-type": "function", "module": module, "name": name, "args": args}
+            {"__type__": "function", "module": module, "name": name, "args": args}
         )
 
     def _repr_mimebundle_(self, **kwargs: Any):
@@ -24,7 +24,7 @@ def js_ref(module: str, name: str) -> "JSRef":
 
 def js(txt: str) -> Dict[str, str]:
     """Represents raw JavaScript code to be evaluated."""
-    return {"pyobsplot-type": "js", "value": txt}
+    return {"__type__": "js", "value": txt}
 
 
 class JSRef(dict):
@@ -39,7 +39,7 @@ class JSRef(dict):
     ):
         self.__name__ = name or label
         self.__doc__ = doc
-        super().__init__({"pyobsplot-type": "ref", "module": module, "name": name})
+        super().__init__({"__type__": "ref", "module": module, "name": name})
 
     def __call__(self, *args: Any) -> Any:
         """Invokes the wrapped JavaScript function in the runtime with the provided arguments."""

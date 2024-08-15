@@ -2,151 +2,198 @@
 
 import genstudio.plot as Plot
 from genstudio.widget import Widget
-
+from genstudio.plot_spec import PlotSpec, MarkSpec
+from genstudio.js_modules import JSCall
 
 xs = [1, 2, 3, 4, 5]
 ys = [2, 3, 2, 1, 8]
 
 
-def test_plotspec_init():
+def test_PlotSpec_init():
     ps = Plot.new()
-    assert ps.spec == {"marks": []}
+    assert isinstance(ps, PlotSpec)
+    assert len(ps.layers) == 0
 
     ps = Plot.dot({"x": xs, "y": ys})
-    assert len(ps.spec["marks"]) == 1
-    assert "pyobsplot-type" in ps.spec["marks"][0]
+    assert len(ps.layers) == 1
+    assert isinstance(ps.layers[0], MarkSpec)
 
     ps = Plot.new(width=100)
-    assert ps.spec == {"marks": [], "width": 100}
+    assert len(ps.layers) == 1
+    assert ps.layers[0] == {"width": 100}
+
+    # Test multiple arguments
+    ps = Plot.new(
+        Plot.dot({"x": xs, "y": ys}), Plot.line({"x": xs, "y": ys}), width=100
+    )
+    assert len(ps.layers) == 3
+    assert isinstance(ps.layers[0], MarkSpec)
+    assert isinstance(ps.layers[1], MarkSpec)
+    assert ps.layers[2] == {"width": 100}
 
 
-def test_plotspec_add():
+def test_PlotSpec_add():
     ps1 = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
     ps2 = Plot.new(Plot.line({"x": xs, "y": ys}), height=200)
 
     ps3 = ps1 + ps2
-    assert len(ps3.spec["marks"]) == 2
-    assert ps3.spec["width"] == 100
-    assert ps3.spec["height"] == 200
+    assert len(ps3.layers) == 4  # dot, width, line, height
+    assert {"width": 100} in ps3.layers
+    assert {"height": 200} in ps3.layers
 
     ps4 = ps1 + Plot.text("foo")
-    assert len(ps4.spec["marks"]) == 2
+    assert len(ps4.layers) == 3  # dot, width, text
 
     ps5 = ps1 + {"color": "red"}
-    assert ps5.spec["color"] == "red"
+    assert {"color": "red"} in ps5.layers
 
-    try:
-        ps1 + "invalid"  # type: ignore
-        assert False, "Expected TypeError"
-    except TypeError:
-        pass
+    # Test right addition
+    ps6 = {"color": "blue"} + ps1
+    assert {"color": "blue"} in ps6.layers
+    assert ps6.layers[0] == {"color": "blue"}
 
 
-def test_plotspec_plot():
+def test_PlotSpec_widget():
     ps = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
-    assert ps.spec["width"] == 100
     plot = ps.widget()
     assert isinstance(plot, Widget)
-
-    # Check plot is cached
-    plot2 = ps.widget()
-    assert plot is plot2
 
 
 def test_sugar():
     ps = Plot.new() + Plot.grid_x()
-    assert ps.spec["x"]["grid"] is True
+    assert {"x": {"grid": True}} in ps.layers
 
     ps = Plot.new() + Plot.grid()
-    assert ps.spec["grid"] is True
+    assert {"grid": True} in ps.layers
 
     ps = Plot.new() + Plot.color_legend()
-    assert ps.spec["color"]["legend"] is True
+    assert {"color": {"legend": True}} in ps.layers
 
     ps = Plot.new() + Plot.clip()
-    assert ps.spec["clip"] is True
+    assert {"clip": True} in ps.layers
 
-    ps = Plot.new() + Plot.aspect_ratio(0.5)
-    assert ps.spec["aspectRatio"] == 0.5
+    ps = Plot.new() + Plot.title("My Plot")
+    assert {"title": "My Plot"} in ps.layers
+
+    ps = Plot.new() + Plot.subtitle("Subtitle")
+    assert {"subtitle": "Subtitle"} in ps.layers
+
+    ps = Plot.new() + Plot.caption("Caption")
+    assert {"caption": "Caption"} in ps.layers
+
+    ps = Plot.new() + Plot.width(500)
+    assert {"width": 500} in ps.layers
+
+    ps = Plot.new() + Plot.height(300)
+    assert {"height": 300} in ps.layers
+
+    ps = Plot.new() + Plot.size(400)
+    assert {"width": 400, "height": 400} in ps.layers
+
+    ps = Plot.new() + Plot.size(400, 300)
+    assert {"width": 400, "height": 300} in ps.layers
+
+    ps = Plot.new() + Plot.aspect_ratio(1.5)
+    assert {"aspectRatio": 1.5} in ps.layers
+
+    ps = Plot.new() + Plot.inset(10)
+    assert {"inset": 10} in ps.layers
 
     ps = Plot.new() + Plot.color_scheme("blues")
-    assert ps.spec["color"]["scheme"] == "blues"
+    assert {"color": {"scheme": "blues"}} in ps.layers
 
     ps = Plot.new() + Plot.domainX([0, 10])
-    assert ps.spec["x"]["domain"] == [0, 10]
+    assert {"x": {"domain": [0, 10]}} in ps.layers
 
-    ps = Plot.new() + Plot.domainY([0, 20])
-    assert ps.spec["y"]["domain"] == [0, 20]
+    ps = Plot.new() + Plot.domainY([0, 10])
+    assert {"y": {"domain": [0, 10]}} in ps.layers
 
-    ps = Plot.new() + Plot.domain([0, 10], [0, 20])
-    assert ps.spec["x"]["domain"] == [0, 10]
-    assert ps.spec["y"]["domain"] == [0, 20]
+    ps = Plot.new() + Plot.domain([0, 10], [0, 5])
+    assert {"x": {"domain": [0, 10]}, "y": {"domain": [0, 5]}} in ps.layers
+
+    ps = Plot.new() + Plot.color_map({"A": "red", "B": "blue"})
+    assert {"color_map": {"A": "red", "B": "blue"}} in ps.layers
 
     ps = Plot.new() + Plot.margin(10)
-    assert ps.spec["margin"] == 10
+    assert {"margin": 10} in ps.layers
 
     ps = Plot.new() + Plot.margin(10, 20)
-    assert ps.spec["marginTop"] == 10
-    assert ps.spec["marginBottom"] == 10
-    assert ps.spec["marginLeft"] == 20
-    assert ps.spec["marginRight"] == 20
+    assert {
+        "marginTop": 10,
+        "marginBottom": 10,
+        "marginLeft": 20,
+        "marginRight": 20,
+    } in ps.layers
 
     ps = Plot.new() + Plot.margin(10, 20, 30)
-    assert ps.spec["marginTop"] == 10
-    assert ps.spec["marginLeft"] == 20
-    assert ps.spec["marginRight"] == 20
-    assert ps.spec["marginBottom"] == 30
+    assert {
+        "marginTop": 10,
+        "marginLeft": 20,
+        "marginRight": 20,
+        "marginBottom": 30,
+    } in ps.layers
 
     ps = Plot.new() + Plot.margin(10, 20, 30, 40)
-    assert ps.spec["marginTop"] == 10
-    assert ps.spec["marginRight"] == 20
-    assert ps.spec["marginBottom"] == 30
-    assert ps.spec["marginLeft"] == 40
-
-
-def mark_name(mark):
-    return mark["args"][0]
+    assert {
+        "marginTop": 10,
+        "marginRight": 20,
+        "marginBottom": 30,
+        "marginLeft": 40,
+    } in ps.layers
 
 
 def test_plot_new():
     ps = Plot.new(Plot.dot({"x": xs, "y": ys}))
-    assert isinstance(ps, Plot.PlotSpec)
-    assert len(ps.spec["marks"]) == 1
-    assert mark_name(ps.spec["marks"][0]) == "dot"
+    assert isinstance(ps, PlotSpec)
+    assert len(ps.layers) == 1
+    assert isinstance(ps.layers[0], MarkSpec)
 
 
 def test_plot_function_docs():
-    for mark in ["dot", "line", "rectY"]:
+    for mark in ["dot", "line", "rectY", "area", "barX", "barY", "text"]:
         assert isinstance(getattr(Plot, mark).__doc__, str)
 
 
-def test_plot_options_merge_nested():
-    options1 = {"width": 500, "style": {"color": "red", "border": {"width": 2}}}
-    options2 = {"height": 400, "style": {"border": {"color": "blue"}}}
+def test_plot_options_merge():
+    options1 = {"width": 500, "color": {"scheme": "reds"}}
+    options2 = {"height": 400, "color": {"legend": True}}
 
-    # Create a new plot with merged options
     ps = Plot.new() + options1 + options2
 
-    # Check that the plot spec has the merged options
-    assert ps.spec["width"] == 500
-    assert ps.spec["height"] == 400
-    assert ps.spec["style"]["color"] == "red"
-    assert ps.spec["style"]["border"]["width"] == 2
-    assert ps.spec["style"]["border"]["color"] == "blue"
+    assert options1 in ps.layers
+    assert options2 in ps.layers
 
     # Ensure the original options dictionaries are not mutated
-    assert options1 == {"width": 500, "style": {"color": "red", "border": {"width": 2}}}
-    assert options2 == {"height": 400, "style": {"border": {"color": "blue"}}}
+    assert options1 == {"width": 500, "color": {"scheme": "reds"}}
+    assert options2 == {"height": 400, "color": {"legend": True}}
+
+
+def test_mark_spec():
+    ms = MarkSpec("dot", {"x": xs, "y": ys}, {"fill": "red"})
+    assert isinstance(ms.id, str)
+    assert isinstance(ms.ast, JSCall)
+    assert ms.cache_id() == ms.id
+    assert ms.for_json() == ms.ast
+
+
+def test_plot_spec_for_json():
+    ps = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
+    json_data = ps.for_json()
+    assert isinstance(json_data, JSCall)
+    assert json_data["module"] == "View"
+    assert json_data["name"] == "PlotSpec"
 
 
 def run_tests():
-    test_plotspec_init()
-    test_plotspec_add()
-    test_plotspec_plot()
+    test_PlotSpec_init()
+    test_PlotSpec_add()
+    test_PlotSpec_widget()
     test_sugar()
     test_plot_new()
     test_plot_function_docs()
-    test_plot_options_merge_nested()
+    test_plot_options_merge()
+    test_mark_spec()
+    test_plot_spec_for_json()
     print("All tests passed!")
 
 

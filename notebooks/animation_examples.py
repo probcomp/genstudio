@@ -66,9 +66,7 @@ plot3 = (
     + Plot.frame()
 )
 
-complex_layout = plot1 | (plot2 & plot3) | time_slider | effect_slider
-
-complex_layout
+(complex_layout := plot1 | (plot2 & plot3) | time_slider | effect_slider)
 
 # Plot.Frames creates an animated plot that cycles through a list of frames.
 # Each frame can be a plot specification or any renderable object.

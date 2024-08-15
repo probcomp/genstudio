@@ -69,21 +69,12 @@ export function useCellUnmounted(el) {
 export function useElementWidth(el) {
   const [width, setWidth] = useState(0);
   useEffect(() => {
-    const handleResize = () => {
-
-      if (el) {
-        setWidth(el.offsetWidth ? el.offsetWidth : document.body.offsetWidth);
-      }
-    };
-
-    // Set initial width
-    handleResize();
-
-    // Add event listener to update width on resize
-    window.addEventListener('resize', handleResize);
-
-    // Remove event listener on cleanup
-    return () => window.removeEventListener('resize', handleResize);
+    if (el) {
+      const handleResize = () => setWidth(el.offsetWidth ? el.offsetWidth : document.body.offsetWidth);
+      handleResize();
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
   }, [el]);
 
   return width

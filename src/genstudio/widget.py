@@ -14,28 +14,25 @@ class Cache:
     def __init__(self):
         self.cache = {}
 
-    def has(self, id):
-        return id in self.cache
-
-    def add(self, id, value, static=False, **kwargs):
-        # immediately serialize value so that nested cached values are
-        # discovered during the initial data traversal
-        self.cache[id] = (orjson.Fragment(to_json(value, **kwargs)), static)
-
-    def entry(self, id):
+    def entry(self, id, value, **kwargs):
+        if id not in self.cache:
+            # perform to_json conversion for cache entries immediately
+            self.cache[id] = orjson.Fragment(to_json(value, **kwargs))
         return {"__type__": "cached", "id": id}
 
-    def for_json(self, widget=None, cache=None):
-        return {
-            id: {"value": value, "static": static}
-            for id, (value, static) in self.cache.items()
-        }
+    def for_json(self):
+        return self.cache
 
 
 def to_json(data, widget=None, cache=None):
     def default(obj):
+        if hasattr(obj, "cache_id"):
+            if cache is not None:
+                return cache.entry(
+                    obj.cache_id(), obj.for_json(), widget=widget, cache=cache
+                )
         if hasattr(obj, "for_json"):
-            return obj.for_json(cache=cache, widget=widget)
+            return obj.for_json()
         if hasattr(obj, "tolist"):
             return obj.tolist()
         if isinstance(obj, Iterable):
@@ -46,7 +43,7 @@ def to_json(data, widget=None, cache=None):
                 )
             return list(obj)
         elif isinstance(obj, (datetime.date, datetime.datetime)):
-            return {"pyobsplot-type": "datetime", "value": obj.isoformat()}
+            return {"__type__": "datetime", "value": obj.isoformat()}
         elif callable(obj):
             if widget is not None:
                 id = str(uuid.uuid4())

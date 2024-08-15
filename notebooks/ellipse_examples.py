@@ -1,6 +1,6 @@
 import genstudio.plot as Plot
 
-Plot.configure({"display_as": "html"})
+Plot.configure({"display_as": "widget"})
 
 # Plot ellipses + dots + rects + rules to see how measurements align
 data = [[0, 0], [1, 1], [2, 2]]
@@ -38,7 +38,6 @@ data = [
         opacity=0.5,
         tip=True,
     )
-    + Plot.aspect_ratio(1)
 )
 
 # Keep scaled_circle but implement on top of ellipse

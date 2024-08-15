@@ -998,13 +998,13 @@ def formatWeekday(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "formatWeekday", args)
 
 
-def frame(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
+def frame(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
     """
     Draws a rectangle around the plot’s frame, or if an **anchor** is given, a
     line on the given side. Useful for visual separation of facets, or in
     conjunction with axes and grids to fill the frame’s background.
     """
-    return JSCall("Plot", "frame", [{**options, **kwargs}])
+    return PlotSpec({"marks": [JSCall("Plot", "frame", [{**options, **kwargs}])]})
 
 
 def geo(
@@ -1057,44 +1057,44 @@ def graticule(
     return PlotSpec(MarkSpec("graticule", values, {**options, **kwargs}))
 
 
-def gridFx(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
+def gridFx(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
     """
     Returns a new horizontally-positioned ruleX mark (a vertical line, |) that
     renders a grid for the *fx* scale. The *data* defaults to the *fx* scale’s
     domain; if desired, specify the *data* explicitly, or use the **ticks**
     option.
     """
-    return JSCall("Plot", "gridFx", [{**options, **kwargs}])
+    return PlotSpec({"marks": [JSCall("Plot", "gridFx", [{**options, **kwargs}])]})
 
 
-def gridFy(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
+def gridFy(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
     """
     Returns a new vertically-positioned ruleY mark (a horizontal line, —) that
     renders a grid for the *fy* scale. The *data* defaults to the *fy* scale’s
     domain; if desired, specify the *data* explicitly, or use the **ticks**
     option.
     """
-    return JSCall("Plot", "gridFy", [{**options, **kwargs}])
+    return PlotSpec({"marks": [JSCall("Plot", "gridFy", [{**options, **kwargs}])]})
 
 
-def gridX(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
+def gridX(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
     """
     Returns a new horizontally-positioned ruleX mark (a vertical line, |) that
     renders a grid for the *x* scale. The *data* defaults to tick values sampled
     from the *x* scale’s domain; if desired, specify the *data* explicitly, or
     use one of the **ticks**, **tickSpacing**, or **interval** options.
     """
-    return JSCall("Plot", "gridX", [{**options, **kwargs}])
+    return PlotSpec({"marks": [JSCall("Plot", "gridX", [{**options, **kwargs}])]})
 
 
-def gridY(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
+def gridY(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
     """
     Returns a new vertically-positioned ruleY mark (a horizontal line, —) that
     renders a grid for the *y* scale. The *data* defaults to tick values sampled
     from the *y* scale’s domain; if desired, specify the *data* explicitly, or
     use one of the **ticks**, **tickSpacing**, or **interval** options.
     """
-    return JSCall("Plot", "gridY", [{**options, **kwargs}])
+    return PlotSpec({"marks": [JSCall("Plot", "gridY", [{**options, **kwargs}])]})
 
 
 def group(*args: Any) -> Dict[str, Any]:
@@ -1250,7 +1250,7 @@ def hexbin(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "hexbin", args)
 
 
-def hexgrid(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
+def hexgrid(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
     """
     The hexgrid decoration mark complements the hexbin transform, showing the
     outlines of all hexagons spanning the frame with a default **stroke** of
@@ -1270,7 +1270,7 @@ def hexgrid(options: Dict[str, Any] = {}, **kwargs: Any) -> Dict[str, Any]:
     the hexbin transform. The grid is clipped by the frame. This is a stroke-only
     mark, and **fill** is not supported; to fill the frame, use the frame mark.
     """
-    return JSCall("Plot", "hexgrid", [{**options, **kwargs}])
+    return PlotSpec({"marks": [JSCall("Plot", "hexgrid", [{**options, **kwargs}])]})
 
 
 def hull(

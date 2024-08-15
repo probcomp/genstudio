@@ -224,7 +224,7 @@ class Dimensioned:
 
         return _flatten(self.value, dimensions)
 
-    def for_json(self, widget=None):
+    def for_json(self):
         return {"value": self.value, "dimensions": self.dimensions}
 
 
@@ -420,23 +420,19 @@ def constantly(x):
     return js(f"()=>{x}")
 
 
-def Grid(plotspecs, plot_opts={}, layout_opts={}):
+def Grid(PlotSpec, plot_opts={}, layout_opts={}):
     return Hiccup(
         View.Grid,
         {
-            "specs": plotspecs,
+            "specs": PlotSpec,
             "plotOptions": plot_opts,
             "layoutOptions": layout_opts,
         },
     )
 
 
-def small_multiples(plotspecs, plot_opts={}, layout_opts={}):
-    return Grid(
-        plotspecs,
-        plot_opts={**plot_opts, "smallMultiples": True},
-        layout_opts=layout_opts,
-    )
+def small_multiples(PlotSpec, **options):
+    return Grid(PlotSpec, **options)
 
 
 def dot(values, options={}, **kwargs):
@@ -505,7 +501,7 @@ def identity():
     return js("(x) => x")
 
 
-# The following convenience dicts can be added directly to PlotSpecs to declare additional behaviour.
+# The following convenience dicts can be added directly to PlotSpec to declare additional behaviour.
 
 
 def grid_y():

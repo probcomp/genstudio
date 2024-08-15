@@ -5,14 +5,17 @@ import {ellipse} from "./ellipse"
 
 const Marks = {...Plot, ellipse: ellipse}
 const { useEffect } = React
-export const DEFAULT_PLOT_OPTIONS = { inset: 10 };
+export const DEFAULT_PLOT_OPTIONS = { inset: 10, aspectRatio: 1 };
 
 
-export function PlotWrapper(props) {
-    let {spec} = props
+export function PlotWrapper({spec}) {
     const [$state, set$state] = React.useContext($StateContext)
     const availableWidth = React.useContext(WidthContext)
     spec = prepareSpec(spec, spec.width ?? availableWidth)
+    // if (!spec.height && !spec.aspectRatio){
+    //     spec.height = spec.width
+    // }
+    // spec.height = spec.height ?? spec.width / (spec.aspectRatio ?? 2)
     return html`<${PlotView} spec=${spec} $state=${$state} />`
 }
 
@@ -31,30 +34,24 @@ function deepMergeLayers(target, source) {
   }, { ...target });
 }
 
-function mergePlotLayers(layers) {
-    console.log("merge", layers)
+function mergePlotSpec(layers) {
   return layers.reduce((mergedSpec, layer) => {
     if (layer instanceof MarkSpec) {
       mergedSpec.marks.push(layer);
       return mergedSpec;
-    } else if (layer instanceof PlotSpec) {
-        console.log("PlotSpec layers", layer.layers)
-      return deepMergeLayers(mergedSpec, mergePlotLayers(layer.layers));
     } else {
-      return deepMergeLayers(mergedSpec, layer);
+      return deepMergeLayers(mergedSpec, layer.spec || layer);
     }
   }, {"marks": []});
 }
 
 export class PlotSpec {
     constructor({layers}) {
-        this.layers = layers;
-        console.log("layers", layers)
+        this.spec = mergePlotSpec(layers);
     }
 
     render() {
-        console.log("render layers", this.layers)
-        return html`<${PlotWrapper} spec=${mergePlotLayers(this.layers)}/>`;
+        return html`<${PlotWrapper} spec=${this.spec}/>`;
     }
 }
 
@@ -186,7 +183,7 @@ export function PlotView({ spec, $state, width }) {
 }
 
 function prepareSpec(spec, availableWidth) {
-    // handle marks
+    spec.width = spec.width ?? availableWidth;
     const marks = spec.marks.flatMap((m) => readMark(m, availableWidth))
     spec = {...spec,
             ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
