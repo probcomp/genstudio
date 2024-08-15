@@ -56,7 +56,7 @@ def to_json(data, widget=None, cache=None):
     return orjson.dumps(data, default=default).decode("utf-8")
 
 
-def to_json_with_cache(data, widget=None):
+def to_json_with_cache(data: Any, widget: "Widget | None" = None):
     cache = Cache()
     return to_json({"ast": data, "cache": cache, **CONFIG}, widget=widget, cache=cache)
 

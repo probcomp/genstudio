@@ -37,6 +37,7 @@ venvPath = "."
 venv = ".venv"
 include = ["src", "tests"]
 exclude = ["notebooks"]
+typeCheckingMode = "standard"
 reportUnusedExpression = false
 
 [build-system]

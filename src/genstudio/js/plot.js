@@ -5,16 +5,17 @@ import {ellipse} from "./ellipse"
 
 const Marks = {...Plot, ellipse: ellipse}
 const { useEffect } = React
-export const DEFAULT_PLOT_OPTIONS = { inset: 10, aspectRatio: 1 };
+export const DEFAULT_PLOT_OPTIONS = { inset: 10 };
+const DEFAULT_ASPECT_RATIO = 1.5
 
 
 export function PlotWrapper({spec}) {
     const [$state, set$state] = React.useContext($StateContext)
     const availableWidth = React.useContext(WidthContext)
     spec = prepareSpec(spec, spec.width ?? availableWidth)
-    // if (!spec.height && !spec.aspectRatio){
-    //     spec.height = spec.width
-    // }
+    if (!spec.height && !spec.aspectRatio){
+        spec.height = spec.width / DEFAULT_ASPECT_RATIO
+    }
     // spec.height = spec.height ?? spec.width / (spec.aspectRatio ?? 2)
     return html`<${PlotView} spec=${spec} $state=${$state} />`
 }
