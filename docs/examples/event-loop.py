@@ -5,6 +5,9 @@ import time
 import numpy as np
 import ipywidgets as widgets
 
+# %% [markdown]
+# - [ipywidgets](uplight?match=from...display&style=color:pink)
+# - [import numpy](uplight)
 # This guide shows how to create interactive, animated plots using Python's asyncio with GenStudio.
 # Note: Interactive elements only work in a live Python/Jupyter environment.
 

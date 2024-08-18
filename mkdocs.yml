@@ -26,5 +26,5 @@ plugins:
 extra_css:
   - stylesheets/custom.css
 extra_javascript:
-  - docs.js
+  - uplight.js
 # poetry run ipython kernel install --user --name=genstudio

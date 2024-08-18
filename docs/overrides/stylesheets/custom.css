@@ -21,7 +21,9 @@ body .jupyter-wrapper .jp-Notebook {
         border: none;
     }
 }
-
+.md-typeset code {
+    font-size: 1em;
+}
 .md-content {
     .md-typeset h2 {
         margin-top: 0.6rem;

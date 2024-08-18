@@ -122,13 +122,13 @@ function findMatches(text, pattern, debug = false) {
 }
 
 // Apply highlights to the text
-function applyHighlights(text, matches, styles) {
+function applyHighlights(text, matches) {
     let result = '';
     let lastIndex = 0;
 
-    for (let [start, end, styleString] of matches) {
+    for (let [start, end, styleString, matchId] of matches) {
         result += text.slice(lastIndex, start);
-        result += `<span style="${styles}">`;
+        result += `<span style="${styleString}" data-match-id="${matchId}">`;
         result += text.slice(start, end);
         result += '</span>';
         lastIndex = end;
@@ -138,16 +138,118 @@ function applyHighlights(text, matches, styles) {
     return result;
 }
 
+// Add this at the top of the file
+const Observable10Colors = [
+    "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
+    "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab"
+];
 
-// Apply highlighting when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', function() {
-    highlightText({
-        source: 'from IPython.display import display',
-        styles: 'color: green; fontWeight: bold;'
+function processLinksAndHighlight() {
+    console.log('Starting processLinksAndHighlight');
+
+    const elements = document.querySelectorAll('pre, a[href^="uplight"]');
+    console.log('Found elements:', elements.length);
+
+    const preMap = new Map();
+    let currentPre = null;
+
+    elements.forEach(element => {
+        if (element.tagName === 'PRE') {
+            currentPre = element;
+            preMap.set(currentPre, []);
+        } else if (element.tagName === 'A' && currentPre) {
+            preMap.get(currentPre).push(element);
+        }
     });
+
+    console.log('Number of pre elements with matches:', preMap.size);
+
+    // Process each pre element
+    preMap.forEach((links, preElement) => {
+        console.log('Processing pre element:', preElement);
+        let text = preElement.textContent;
+        let allMatches = [];
+
+        links.forEach((link, index) => {
+            const url = new URL(link.href);
+            let pattern = url.searchParams.get('match');
+            if (!pattern) {
+                pattern = link.textContent;
+            }
+            const colorIndex = index % Observable10Colors.length;
+            const color = Observable10Colors[colorIndex];
+            const style = `color: ${color}; font-weight: bold; background-color: ${color}20;`;
+            console.log('Link pattern:', pattern, 'style:', style);
+
+            const matches = findMatches(text, pattern);
+            console.log('Matches found:', matches.length);
+            const matchId = `match-${index}-${Math.random().toString(36).substr(2, 9)}`;
+            allMatches.push(...matches.map(match => [...match, style, matchId]));
+
+            // Replace link with span
+            const span = document.createElement('span');
+            span.textContent = link.textContent;
+            span.style.cssText = style;
+            span.dataset.matchId = matchId;
+            link.parentNode.replaceChild(span, link);
+        });
+
+        // Only apply highlights if there are matches
+        if (allMatches.length > 0) {
+            console.log('Applying highlights to pre element');
+            const highlightedText = applyHighlights(text, allMatches);
+            preElement.innerHTML = `<code>${highlightedText}</code>`;
+        } else {
+            console.log('No matches found for this pre element');
+        }
+    });
+
+    console.log('Finished processLinksAndHighlight');
+}
+
+// Add this function after processLinksAndHighlight
+function addHoverEffect() {
+    function setBackgroundColorWithOpacity(element, color, opacity) {
+        const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/);
+        if (rgbaMatch) {
+            const [, r, g, b] = rgbaMatch;
+            element.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        } else {
+            console.warn('Color format not recognized:', color);
+        }
+    }
+
+    document.addEventListener('mouseover', (event) => {
+        const target = event.target;
+        if (target.dataset.matchId) {
+            const matchId = target.dataset.matchId;
+            const color = target.style.color;
+            const elements = document.querySelectorAll(`[data-match-id="${matchId}"]`);
+            elements.forEach(el => {
+                setBackgroundColorWithOpacity(el, color, 0.25);
+            });
+        }
+    });
+
+    document.addEventListener('mouseout', (event) => {
+        const target = event.target;
+        if (target.dataset.matchId) {
+            const matchId = target.dataset.matchId;
+            const color = target.style.color;
+            const elements = document.querySelectorAll(`[data-match-id="${matchId}"]`);
+            elements.forEach(el => {
+                setBackgroundColorWithOpacity(el, color, 0.125);
+            });
+        }
+    });
+}
+
+// Modify the DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded event fired');
+    processLinksAndHighlight();
+    addHoverEffect();
 });
-
-
 
 // Test suite
 function runTests() {
