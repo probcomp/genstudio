@@ -7,29 +7,46 @@ import {
   applyTransform
 } from "./plot_style";
 
-export const first = (x) => (x ? x[0] : undefined);
-export const second = (x) => (x ? x[1] : undefined);
-export function maybeTuple(x, y) {
-  return x === undefined && y === undefined ? [first, second] : [x, y];
-}
 export function maybeNumberChannel(value, defaultValue) {
   if (value === undefined) value = defaultValue;
   return value === null || typeof value === "number" ? [undefined, value] : [value, undefined];
 }
 
-const defaults = {
-  ariaLabel: "ellipse",
-  fill: "currentColor",
-  stroke: "none"
-};
+export function maybeTuple(...args) {
+  if (args.length === 0) {
+    throw new Error("maybeTuple requires at least one argument");
+  }
+
+  return args.map((arg, index) =>
+    arg === undefined ? (x => x ? x[index] : undefined) : arg
+  );
+}
 
 export class Ellipse extends Plot.Mark {
+  /**
+   * Creates an Ellipse mark.
+   * @param {Object|Array[]} data - The data for the ellipses. Can be:
+   *   - An object with columnar data for channels (x, y, rx, ry, rotate)
+   *   - An array of arrays, each inner array in one of these formats:
+   *     [x, y, r]
+   *     [x, y, rx, ry]
+   *     [x, y, rx, ry, rotation]
+   *   Where:
+   *     - x, y: center coordinates
+   *     - r: radius (used for both rx and ry if specified)
+   *     - rx, ry: x and y radii respectively
+   *     - rotation: rotation in degrees (optional)
+   * @param {Object} options - Additional options for customizing the ellipses
+   */
   constructor(data, options = {}) {
     let { x, y, rx, ry, r, rotate } = options;
+    x = x || (d => d?.[0]);
+    y = y || (d => d?.[1]);
+    ry = ry || rx || r || (d => d ? (d[3] || d[2]) : undefined);
+    rx = rx || r || (d => d?.[2]);
+    rotate = rotate || (d => d?.[4] || 0);
 
-    [x, y] = maybeTuple(x, y)
-    rx = r ?? rx
-    ry = ry ?? rx
+    console.log(options)
 
     super(data, {
       x: { value: x, scale: "x" },
@@ -39,7 +56,11 @@ export class Ellipse extends Plot.Mark {
       rotate: {value: rotate, optional: true}
     },
       options,
-      defaults);
+      {
+        ariaLabel: "ellipse",
+        fill: "currentColor",
+        stroke: "none"
+      });
   }
 
   render(index, scales, channels, dimensions, context) {

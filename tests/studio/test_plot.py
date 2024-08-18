@@ -60,13 +60,10 @@ def test_PlotSpec_widget():
 
 
 def test_sugar():
-    ps = Plot.new() + Plot.grid_x()
-    assert {"x": {"grid": True}} in ps.layers
-
     ps = Plot.new() + Plot.grid()
     assert {"grid": True} in ps.layers
 
-    ps = Plot.new() + Plot.color_legend()
+    ps = Plot.new() + Plot.colorLegend()
     assert {"color": {"legend": True}} in ps.layers
 
     ps = Plot.new() + Plot.clip()

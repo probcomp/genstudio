@@ -26,6 +26,10 @@ watchfiles = "^0.21.0"
 genjax = {version = "0.3.1.post258.dev0+b103dee7", source = "gcp"}
 jupyter-client = "^8.6.2"
 nbformat = "^5.10.4"
+mkdocs = "^1.6.0"
+mkdocs-jupyter = "^0.24.8"
+mkdocs-terminal = "^4.4.0"
+mkdocs-material = "^9.5.31"
 
 [[tool.poetry.source]]
 name = "gcp"
@@ -39,6 +43,7 @@ include = ["src", "tests"]
 exclude = ["notebooks"]
 typeCheckingMode = "standard"
 reportUnusedExpression = false
+reportFunctionMemberAccess = false
 
 [build-system]
 requires = ["poetry-core"]

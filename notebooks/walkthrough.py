@@ -29,8 +29,8 @@ import jax.random as jrand
 Plot.configure({"display_as": "widget"})
 
 
-def normal_100():
-    return np.random.normal(loc=0, scale=1, size=1000)
+def normal(size=1000):
+    return np.random.normal(loc=0, scale=1, size=size)
 
 
 # %% [markdown]
@@ -49,7 +49,7 @@ def normal_100():
 # %%
 
 
-Plot.histogram(normal_100())
+Plot.histogram(normal())
 
 # %% [markdown]
 # #### Scatter and Line plots
@@ -57,13 +57,13 @@ Plot.histogram(normal_100())
 # also accept separate `xs` and `ys` for passing in columnar data (usually the case
 # when working with jax.)
 # %%
-Plot.dot(list(zip(normal_100(), normal_100()))) + Plot.frame()
+Plot.dot(list(zip(normal(), normal()))) + Plot.frame()
 
 # %% [markdown]
 # #### One-dimensional heatmap
 # %%
 (
-    Plot.rect(normal_100(), Plot.binX({"fill": "count"}))
+    Plot.rect(normal(), Plot.binX({"fill": "count"}))
     + Plot.color_scheme("YlGnBu")
     + {"height": 75}
 )

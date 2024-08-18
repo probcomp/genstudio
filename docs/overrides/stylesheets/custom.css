@@ -1,0 +1,46 @@
+body .jupyter-wrapper .jp-Notebook {
+    padding: 0;
+
+    .jp-Cell .jp-CodeCell {
+
+        .jp-InputPrompt,
+        .jp-OutputPrompt {
+            display: none;
+        }
+
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .jp-InputCollapser,
+    .jp-OutputCollapser {
+        display: none;
+    }
+
+    .jp-InputArea-editor {
+        border: none;
+    }
+}
+
+.md-content {
+    .md-typeset h2 {
+        margin-top: 0.6rem;
+    }
+
+    a:not(.md-icon) {
+        text-decoration: none;
+        background-image: linear-gradient(transparent calc(100% - 3px), color-mix(in srgb, var(--md-accent-fg-color) 20%, transparent) 3px);
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+        background-position: 0 100%;
+        transition: background-color 0.3s;
+    }
+
+    a:hover {
+        background-image: linear-gradient(transparent calc(100% - 3px), color-mix(in srgb, var(--md-accent-fg-color) 50%, transparent) 3px);
+    }
+}
+
+.md-header .md-header__source {
+    width: 120px;
+}

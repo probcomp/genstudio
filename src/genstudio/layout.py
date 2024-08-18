@@ -83,16 +83,16 @@ class LayoutItem:
     def for_json(self) -> dict[str, Any]:
         raise NotImplementedError("Subclasses must implement for_json method")
 
-    def __and__(self, other: "LayoutItem") -> "Row":
+    def __and__(self, other: Any) -> "Row":
         return Row(self, other)
 
-    def __rand__(self, other: "LayoutItem") -> "Row":
+    def __rand__(self, other: Any) -> "Row":
         return Row(other, self)
 
-    def __or__(self, other: "LayoutItem") -> "Column":
+    def __or__(self, other: Any) -> "Column":
         return Column(self, other)
 
-    def __ror__(self, other: "LayoutItem") -> "Column":
+    def __ror__(self, other: Any) -> "Column":
         return Column(other, self)
 
     def _repr_mimebundle_(self, **kwargs: Any) -> Any:
@@ -206,7 +206,7 @@ class Slider(LayoutItem):
     def __init__(
         self,
         key: str,
-        range: int | Sequence[int],
+        range: int | Sequence[float | int],
         label: str | None = None,
         **kwargs: Any,
     ):

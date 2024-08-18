@@ -1,0 +1,30 @@
+site_name: GenStudio
+site_url: https://studio.gen.dev
+repo_url: https://github.com/probcomp/genstudio
+theme:
+  name: material
+  custom_dir: docs/overrides
+  features:
+    - navigation.tracking
+    - navigation.indexes
+    - toc.follow
+    - toc.integrate
+nav:
+  - Home: index.py
+  - User Guide: user-guide.py
+  - More Examples:
+    - Python Event Loop: examples/event-loop.py
+plugins:
+  - search
+  - mkdocs-jupyter:
+      include: ["*.py"]
+      execute: true
+      kernel_name: genstudio
+      # no_input: True
+      include_requirejs: true
+      include_source: True
+extra_css:
+  - stylesheets/custom.css
+extra_javascript:
+  - docs.js
+# poetry run ipython kernel install --user --name=genstudio

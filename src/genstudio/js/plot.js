@@ -13,9 +13,9 @@ export function PlotWrapper({spec}) {
     const [$state, set$state] = React.useContext($StateContext)
     const availableWidth = React.useContext(WidthContext)
     spec = prepareSpec(spec, spec.width ?? availableWidth)
-    if (!spec.height && !spec.aspectRatio){
-        spec.height = spec.width / DEFAULT_ASPECT_RATIO
-    }
+    // if (!spec.height && !spec.aspectRatio){
+    //     spec.height = spec.width / DEFAULT_ASPECT_RATIO
+    // }
     // spec.height = spec.height ?? spec.width / (spec.aspectRatio ?? 2)
     return html`<${PlotView} spec=${spec} $state=${$state} />`
 }
@@ -174,17 +174,18 @@ export function PlotView({ spec, $state, width }) {
             const plot = binding("$state", $state, () => Plot.plot(spec));
             const endTime = performance.now();
             plot.setAttribute('data-render-time-ms', `${endTime - startTime}`);
-            parent.appendChild(plot);
-            return () => parent.removeChild(plot)
+            parent.appendChild(plot)
+
+            return () => parent.removeChild(plot);
         }
     }, [spec, parent, width])
     return html`
-      <div ref=${ref}></div>
+      <div className='relative' ref=${ref}></div>
     `
 }
 
 function prepareSpec(spec, availableWidth) {
-    spec.width = spec.width ?? availableWidth;
+    if (!spec.height) spec.width = spec.width ?? availableWidth;
     const marks = spec.marks.flatMap((m) => readMark(m, availableWidth))
     spec = {...spec,
             ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),

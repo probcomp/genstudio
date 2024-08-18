@@ -137,6 +137,7 @@ from genstudio.layout import Column, Row, Slider, Hiccup, cache
 from genstudio.plot_spec import PlotSpec, MarkSpec, new
 from genstudio.util import configure, deep_merge
 
+
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
 #
@@ -156,6 +157,7 @@ from genstudio.util import configure, deep_merge
 d3 = JSRef("d3")
 Math = JSRef("Math")
 View = JSRef("View")
+html = Hiccup
 
 
 def repeat(data):
@@ -442,10 +444,12 @@ def dot(values, options={}, **kwargs):
 dot.__doc__ = plot_defs.dot.__doc__
 
 
-def histogram(
+def Histogram(
     values,
-    mark: Literal["rectY", "dot"] = "rectY",
-    thresholds="auto",
+    thresholds=None,
+    interval=None,
+    domain=None,
+    cumulative=False,
     layout={"width": 200, "height": 200, "inset": 0},
     **plot_opts,
 ) -> PlotSpec:
@@ -470,11 +474,20 @@ def histogram(
      Returns:
       PlotSpec: A plot specification for a histogram with the y-axis representing the count of values in each bin.
     """
-    opts = deep_merge({"x": {"thresholds": thresholds}, "tip": True}, plot_opts)
-    if mark == "rectY":
-        return rectY(values, binX({"y": "count"}, opts)) + ruleY([0]) + layout
-    elif mark == "dot":
-        return dot(values, binX({"r": "count"}, opts))
+    bin_options = {"x": {}, "tip": True, **plot_opts}
+    for option, value in [
+        ("thresholds", thresholds),
+        ("interval", interval),
+        ("domain", domain),
+    ]:
+        if value is not None:
+            bin_options["x"][option] = value
+    if cumulative:
+        bin_options["y"] = {"cumulative": True}
+    return rectY(values, binX({"y": "count"}, bin_options)) + ruleY([0]) + layout
+
+
+histogram = Histogram  # Alias for backwards compatibility
 
 
 def frame(options={}, **kwargs):
@@ -501,23 +514,25 @@ def identity():
     return js("(x) => x")
 
 
+identity.for_json = lambda: identity()  # allow bare Plot.identity
+
+
 # The following convenience dicts can be added directly to PlotSpec to declare additional behaviour.
 
 
-def grid_y():
-    return {"y": {"grid": True}}
+def grid(x=True, y=True):
+    return {"grid": x and y} if x == y else {"x": {"grid": x}, "y": {"grid": y}}
 
 
-def grid_x():
-    return {"x": {"grid": True}}
+def hideAxis(x=True, y=True):
+    return {k: {"axis": None} for k in ["x", "y"] if locals()[k]}
 
 
-def grid():
-    return {"grid": True}
-
-
-def color_legend():
+def colorLegend():
     return {"color": {"legend": True}}
+
+
+color_legend = colorLegend
 
 
 def clip():
@@ -548,17 +563,23 @@ def size(size, height=None):
     return {"width": size, "height": height or size}
 
 
-def aspect_ratio(r):
+def aspectRatio(r):
     return {"aspectRatio": r}
+
+
+aspect_ratio = aspectRatio
 
 
 def inset(i):
     return {"inset": i}
 
 
-def color_scheme(name):
+def colorScheme(name):
     # See https://observablehq.com/plot/features/scales#color-scales
     return {"color": {"scheme": name}}
+
+
+color_scheme = colorScheme
 
 
 def domainX(d):
@@ -573,10 +594,13 @@ def domain(xd, yd=None):
     return {"x": {"domain": xd}, "y": {"domain": yd or xd}}
 
 
-def color_map(mappings):
+def colorMap(mappings):
     # these will be merged & so are composable. in plot.js they are
     # converted to a {color: {domain: [...], range: [...]}} object.
     return {"color_map": mappings}
+
+
+color_map = colorMap
 
 
 def margin(*args):
@@ -687,7 +711,7 @@ def Frames(frames, key=None, **opts):
         A Hiccup-style representation of the animated plot.
     """
     if key is None:
-        key = f"frame_animation_{random.randint(1, 1000000)}"
+        key = "frame"
         return Hiccup(View.Frames, {"state_key": key, "frames": frames}) | Slider(
             key, [0, len(frames) - 1], **opts
         )
