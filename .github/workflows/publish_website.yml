@@ -1,0 +1,45 @@
+name: Publish website
+
+on:
+  push:
+    branches:
+      - docs
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  actions: read
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+      with:
+        version: 1.8.3
+    - name: Install Python dependencies
+      run: poetry install
+    - name: Build docs site
+      run: poetry run mkdocs build
+    - name: Create website artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: website
+        path: ./site
+  publish:
+    permissions:
+        contents: read
+        id-token: write
+    needs: prepare
+    uses: probcomp/gen-website-private/.github/workflows/publish_private_website.yml@main
+    with:
+      artifact: website
+      subdomain: studio
