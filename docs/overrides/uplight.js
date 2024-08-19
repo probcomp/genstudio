@@ -188,7 +188,6 @@ function processLinksAndHighlight(targetElement) {
             const direction = url.searchParams.get('dir') || 'up';
             const patterns = (url.searchParams.get('match') || element.textContent).split(',');
             const matchId = `match-${index}-${Math.random().toString(36).substr(2, 9)}`;
-            console.log(url.searchParams)
             log(patterns)
             linkMap.set(element, { direction, patterns, index, matchId });
             colorMap.set(matchId, colorIndex);
@@ -286,14 +285,11 @@ function processLinksAndHighlight(targetElement) {
 
         // Only apply highlights if there are matches
         if (allMatches.length > 0) {
-            const highlightedText = applyHighlights(text, allMatches);
-            preElement.innerHTML = `<code class="uplight-code">${highlightedText}</code>`;
+            preElement.innerHTML = applyHighlights(text, allMatches);
         } else {
             log('No matches found for this pre element');
         }
     });
-
-    log('Finished processLinksAndHighlight');
 }
 
 function addHoverEffect(targetElement) {

@@ -1,3 +1,12 @@
+body {
+
+    .md-container,
+    .md-header__title {
+        --md-text-font-family: "Georgia", "Times New Roman", serif;
+        font-family: var(--md-text-font-family);
+    }
+}
+
 body .jupyter-wrapper .jp-Notebook {
     padding: 0;
 
@@ -21,9 +30,11 @@ body .jupyter-wrapper .jp-Notebook {
         border: none;
     }
 }
-.md-typeset code {
-    font-size: 1em;
+
+.md-typeset pre {
+    font-size: 13px;
 }
+
 .md-content {
     .md-typeset h2 {
         margin-top: 0.6rem;
@@ -47,7 +58,28 @@ body .jupyter-wrapper .jp-Notebook {
     width: 120px;
 }
 
-.uplight-reference, .uplight-highlight {
+.uplight-reference,
+.uplight-highlight {
     cursor: crosshair;
 
+}
+
+.md-nav {
+    .md-nav__title {
+        display: none;
+    }
+}
+
+.md-content {
+    p, ul, ol, dl, table {
+        max-width: 42em;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        max-width: 42em;
+    }
+
+    blockquote {
+        max-width: 40em;
+    }
 }
