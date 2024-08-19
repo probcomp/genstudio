@@ -46,3 +46,8 @@ body .jupyter-wrapper .jp-Notebook {
 .md-header .md-header__source {
     width: 120px;
 }
+
+.uplight-reference, .uplight-highlight {
+    cursor: crosshair;
+
+}

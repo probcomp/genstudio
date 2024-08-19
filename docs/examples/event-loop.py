@@ -3,60 +3,86 @@ from IPython.display import display
 import asyncio
 import time
 import numpy as np
-import ipywidgets as widgets
+
+Plot.configure({"display_as": "widget"})
 
 # %% [markdown]
-# - [ipywidgets](uplight?match=from...display&style=color:pink)
-# - [import numpy](uplight)
-# This guide shows how to create interactive, animated plots using Python's asyncio with GenStudio.
-# Note: Interactive elements only work in a live Python/Jupyter environment.
 
-# Basic Animation Setup
-# Let's animate dots moving in a sine wave:
+# This guide demonstrates how to create Python-controlled animations using GenStudio plots, the `.reset` method, and interactive sliders.
 
-ANIMATION_DURATION = 10  # seconds
-NUM_DOTS = 75
+# First, a simple sine wave plot:
 
-# Initial plot with domain
-p1 = (Plot.dot([[0, 0]] * NUM_DOTS) + Plot.domain([0, 10], [-1, 1])).display_as(
-    "widget"
+# %%
+x = np.linspace(0, 10, 100)
+basic_plot = (
+    Plot.line(list(zip(x, np.sin(x))))
+    + Plot.domain([0, 10], [-1, 1])
+    + Plot.height(200)
 )
-display(p1)
+basic_plot
+# %% [markdown]
 
-# Frequency control slider
-frequency_slider = widgets.FloatSlider(
-    value=1.0,
-    min=0.1,
-    max=5.0,
-    step=0.1,
-    description="Frequency:",
-    continuous_update=True,
-)
-display(frequency_slider)
+# Now, let's animate it:
+
+# %%
 
 
-# Animation Function
-async def animate_dots(duration):
+async def animate(duration=5):
     start_time = time.time()
-    x_values = np.linspace(0, 10, NUM_DOTS)
     while time.time() - start_time < duration:
-        y_values = np.sin(frequency_slider.value * (x_values + time.time()))
-        dot_positions = list(zip(x_values, y_values))
-        new_plot = Plot.dot(dot_positions) + Plot.domain([0, 10], [-1, 1])
-        p1.reset(new_plot)
-        await asyncio.sleep(1 / 60)  # 60 FPS
+        t = time.time() - start_time
+        y = np.sin(x + t)
+        basic_plot.reset(
+            Plot.line(list(zip(x, y)))
+            + Plot.domain([0, 10], [-1, 1])
+            + Plot.height(200)
+        )
+        await asyncio.sleep(1 / 30)  # 30 FPS
 
 
-# Run the Animation
-future = asyncio.ensure_future(animate_dots(ANIMATION_DURATION))
+future = asyncio.ensure_future(animate())
 
-print(f"Animation running for {ANIMATION_DURATION} seconds")
-print("To stop early: future.cancel()")
-print("Adjust frequency with the slider")
+# %% [markdown]
 
-# Key Concepts:
-# 1. Asynchronous Programming: Using async/await for non-blocking animations.
-# 2. Widget Integration: Real-time interaction via frequency_slider.
-# 3. Plot Updates: Updating plot each frame with p1.reset().
-# 4. Frame Rate Control: asyncio.sleep(1/60) maintains 60 FPS.
-# 5. Asyncio Scheduling: asyncio.ensure_future() manages the animation task.
+# We use the [reset method](uplight?match=basic_plot.reset) of a plot to update its content in-place, inside an [async function](uplight?match=async+def) containing a `while` loop, using [sleep](uplight?match=asyncio.sleep(...\)) to control the frame rate. To avoid interference with Jupyter comms, we use [ensure_future](uplight?match=asyncio.ensure_future(...\)) to run the function in a new thread.
+
+
+# Let's make it interactive, using [ipywidgets](uplight?dir=down&match=import...as+widgets,/widgets.FloatSlider/) sliders to control frequency and amplitude:
+
+# %%
+import ipywidgets as widgets
+
+interactive_plot = (
+    Plot.line(list(zip(x, np.sin(x))))
+    + Plot.domain([0, 10], [-2, 2])
+    + Plot.height(200)
+)
+frequency_slider = widgets.FloatSlider(
+    value=1.0, min=0.1, max=5.0, step=0.1, description="Frequency:"
+)
+amplitude_slider = widgets.FloatSlider(
+    value=1.0, min=0.1, max=2.0, step=0.1, description="Amplitude:"
+)
+# %% [markdown]
+
+# Now, in our animation loop we [use the slider values](uplight?dir=down&match=/\w%2B_slider\.value/) to compute the y value:
+
+# %%
+
+
+async def interactive_animate(duration=10):
+    start_time = time.time()
+    while time.time() - start_time < duration:
+        t = time.time() - start_time
+        y = amplitude_slider.value * np.sin(frequency_slider.value * (x + t))
+        interactive_plot.reset(
+            Plot.line(list(zip(x, y)))
+            + Plot.domain([0, 10], [-2, 2])
+            + Plot.height(200)
+        )
+        await asyncio.sleep(1 / 30)
+
+
+display(interactive_plot)
+display(frequency_slider, amplitude_slider)
+future = asyncio.ensure_future(interactive_animate())

@@ -45,6 +45,9 @@ typeCheckingMode = "standard"
 reportUnusedExpression = false
 reportFunctionMemberAccess = false
 
+[tool.ruff]
+ignore = ["E402"]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

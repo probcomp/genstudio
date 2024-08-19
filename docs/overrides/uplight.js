@@ -1,43 +1,34 @@
 /*
-Pattern Matching Rules for Syntax Highlighting
+Uplight: Flexible Syntax Highlighting for Documentation
 
-This script implements a flexible pattern matching algorithm for syntax highlighting.
-The following rules define how patterns are matched against text:
+Usage:
+1. Include this script in your HTML.
+2. Call `uplight({ target: 'body', debug: true })` to apply highlighting.
+3. Use `<a href="uplight?match=pattern">` links in your documentation to define highlight patterns.
+   These links will automatically apply to the nearest `<pre>` block above them.
 
-1. Match literal characters exactly.
-   Example: `abc` matches `abc`, but not `abd` or `abcd`.
+Key Features:
+- Automatically associates highlight patterns with the nearest code block.
+- Supports flexible pattern matching with wildcards.
+- Provides interactive hover effects for highlighted code.
 
-2. `...` acts as a wildcard, matching any sequence of characters (including none).
-   Example: `a...e` matches `abcde`, `ae`, `a123e`, etc.
-
-3. Wildcards can appear anywhere in the pattern.
-   Example: `go...()` matches `goSomewhere()`, `goToMars()`, `go()`, etc.
-
-4. Ensure proper bracket nesting. When a wildcard is encountered, maintain a bracket depth counter.
-   Only accept a closing bracket when the counter returns to 0.
-   Example: `func(...)` matches `func(a, (b, c))`, `func(x)`, `func(a, [b, {c: d}])`, etc.
-
-5. Handle strings. Ignore them within wildcards (i.e., in a wildcard once in a string, skip to the end of the string before continuing)
-
-Additional Examples:
-- `f(..., x)` matches `f(a, b, c, x)`, `f(x)`, `f((a, b), x)`, but not `f(a, b, c, y)`.
-- `a...c...e` matches `abcdcde`, `ace`, `a123c456e`, etc.
-- `if (...) {...}` matches `if (x > 0) {doSomething();}`, `if (true) {}`, etc.
-- `"..."` matches any string content, including empty strings: `""`, `"hello"`, `"a\"b"`, etc.
-- `[...]` matches any array content: `[]`, `[1, 2, 3]`, `[[a], {b: c}]`, etc.
-
-Note: The pattern matching is sensitive to brackets, quotes, and escapes to ensure correct matching in complex scenarios.
-
+For detailed pattern syntax and behavior, see the documentation in the matchWildcard function.
 */
 
-console.log("Loading custom JavaScript for syntax highlighting...");
+const Observable10Colors = [
+    "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
+    "#d4af37", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab"
+];
+
+let debug = false;
+const log = (...args) => debug && console.log(...args);
 
 // Utility function
 function escapeRegExp(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// Core functionality
+// Core highlighting functionality
 function highlightText({ source, styles }) {
     const preElements = document.getElementsByTagName('pre');
     for (let preElement of preElements) {
@@ -51,6 +42,23 @@ function highlightText({ source, styles }) {
 
 // Function to handle wildcard matching
 function matchWildcard(text, startIndex, nextLiteral) {
+    /*
+    Wildcard Matching Rules:
+    1. '...' matches any sequence of characters, including none.
+    2. Proper bracket nesting is ensured using a depth counter.
+    3. Strings are handled by skipping to the end once encountered within a wildcard.
+    4. Escaped characters and quotes within strings are properly handled.
+
+    Examples:
+    - 'func(...)' matches 'func(a, (b, c))', 'func(x)', 'func(a, [b, {c: d}])', etc.
+    - 'a...c...e' matches 'abcdcde', 'ace', 'a123c456e', etc.
+    - 'if (...) {...}' matches 'if (x > 0) {doSomething();}', 'if (true) {}', etc.
+    - '"..."' matches any string content, including empty strings.
+    - '[...]' matches any array content.
+
+    Note: This function is sensitive to brackets, quotes, and escapes to ensure correct matching in complex scenarios.
+    */
+
     let index = startIndex;
     let bracketDepth = 0;
     let inString = null;
@@ -76,167 +84,247 @@ function matchWildcard(text, startIndex, nextLiteral) {
     }
     return index;
 }
+// Find all matches of a pattern in the text
+function findMatches(text, pattern) {
+    const isRegex = pattern.startsWith('/') && pattern.endsWith('/');
+    if (isRegex) {
+        return findRegexMatches(text, pattern.slice(1, -1));
+    }
 
-// Pattern matching state machine
-function findMatches(text, pattern, debug = false) {
-    const matches = [];
-    const debugLog = debug ? [] : null;
-    let patternIndex = 0;
-    let textIndex = 0;
-    let matchStart = 0;
+    let matches = [];
+    let currentPosition = 0;
 
-    const log = (msg) => debug && debugLog.push(msg);
+    while (currentPosition < text.length) {
+        const match = findSingleMatch(text, pattern, currentPosition);
 
-    log(`Starting match: text="${text}", pattern="${pattern}"`);
-
-    while (textIndex < text.length) {
-        log(`Current state: textIndex=${textIndex}, patternIndex=${patternIndex}`);
-        if (pattern[patternIndex] === '.' && pattern[patternIndex + 1] === '.' && pattern[patternIndex + 2] === '.') {
-            const nextLiteral = pattern[patternIndex + 3] || '';
-            const startIndex = textIndex;
-            textIndex = matchWildcard(text, textIndex, nextLiteral);
-            patternIndex += 3;
-            log(`Wildcard matched: ${text.slice(startIndex, textIndex)}`);
-        } else if (text[textIndex] === pattern[patternIndex]) {
-            if (patternIndex === 0) matchStart = textIndex;
-            textIndex++;
-            patternIndex++;
-            log(`Matched character at ${textIndex - 1}`);
+        if (match) {
+            const [matchStart, matchEnd] = match;
+            matches.push([matchStart, matchEnd]);
+            currentPosition = matchEnd;
         } else {
-            log(`Mismatch at ${textIndex}, moving to next character`);
-            textIndex++;
-            patternIndex = 0;
-            matchStart = textIndex;
-        }
-
-        if (patternIndex === pattern.length) {
-            matches.push([matchStart, textIndex]);
-            log(`Match found: ${text.slice(matchStart, textIndex)}`);
-            patternIndex = 0;
-            matchStart = textIndex;
+            currentPosition++;
         }
     }
 
-    log(`Finished matching. Found ${matches.length} matches.`);
-    return debug ? { matches, log: debugLog.join('\n') } : matches;
+    return matches;
 }
 
-// Apply highlights to the text
+// New function to find regex matches
+function findRegexMatches(text, pattern) {
+    const regex = new RegExp(pattern, 'g');
+    let matches = [];
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+        matches.push([match.index, regex.lastIndex]);
+    }
+
+    return matches;
+}
+
+// Find a single match of the pattern starting from a given position
+function findSingleMatch(text, pattern, startPosition) {
+    let patternPosition = 0;
+    let textPosition = startPosition;
+    let matchStart = startPosition;
+
+    while (textPosition < text.length && patternPosition < pattern.length) {
+        if (pattern.substr(patternPosition, 3) === '...') {
+            // Handle wildcard
+            const nextCharacter = pattern[patternPosition + 3] || '';
+            textPosition = matchWildcard(text, textPosition, nextCharacter);
+            patternPosition += 3;
+        } else if (text[textPosition] === pattern[patternPosition]) {
+            // Characters match, move to next
+            textPosition++;
+            patternPosition++;
+        } else {
+            // No match found
+            return null;
+        }
+    }
+
+    // Check if we've matched the entire pattern
+    if (patternPosition === pattern.length) {
+        return [matchStart, textPosition];
+    }
+
+    return null;
+}
+
+
 function applyHighlights(text, matches) {
-    let result = '';
-    let lastIndex = 0;
+    // Sort matches in reverse order based on their start index
+    matches.sort((a, b) => b[0] - a[0]);
 
-    for (let [start, end, styleString, matchId] of matches) {
-        result += text.slice(lastIndex, start);
-        result += `<span style="${styleString}" data-match-id="${matchId}">`;
-        result += text.slice(start, end);
-        result += '</span>';
-        lastIndex = end;
-    }
+    return matches.reduce((result, [start, end, styleString, matchId]) => {
+        const beforeMatch = result.slice(0, start);
+        const matchContent = result.slice(start, end);
+        const afterMatch = result.slice(end);
 
-    result += text.slice(lastIndex);
-    return result;
+        return beforeMatch +
+               `<span class="uplight-highlight" style="${styleString}" data-match-id="${matchId}">` +
+               matchContent +
+               '</span>' +
+               afterMatch;
+    }, text);
 }
 
-// Add this at the top of the file
-const Observable10Colors = [
-    "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
-    "#edc949", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab"
-];
+function processLinksAndHighlight(targetElement) {
 
-function processLinksAndHighlight() {
-    console.log('Starting processLinksAndHighlight');
-
-    const elements = document.querySelectorAll('pre, a[href^="uplight"]');
-    console.log('Found elements:', elements.length);
+    const elements = targetElement.querySelectorAll('pre, a[href^="uplight"]');
 
     const preMap = new Map();
-    let currentPre = null;
+    const linkMap = new Map();
+    const colorMap = new Map();
+    let colorIndex = 0;
 
-    elements.forEach(element => {
+    // First pass: Process all pre elements and links
+    elements.forEach((element, index) => {
         if (element.tagName === 'PRE') {
-            currentPre = element;
-            preMap.set(currentPre, []);
-        } else if (element.tagName === 'A' && currentPre) {
-            preMap.get(currentPre).push(element);
+            preMap.set(element, []);
+        } else if (element.tagName === 'A') {
+            const url = new URL(element.href);
+            const direction = url.searchParams.get('dir') || 'up';
+            const patterns = (url.searchParams.get('match') || element.textContent).split(',');
+            const matchId = `match-${index}-${Math.random().toString(36).substr(2, 9)}`;
+            console.log(url.searchParams)
+            log(patterns)
+            linkMap.set(element, { direction, patterns, index, matchId });
+            colorMap.set(matchId, colorIndex);
+            colorIndex = (colorIndex + 1) % Observable10Colors.length;
         }
     });
 
-    console.log('Number of pre elements with matches:', preMap.size);
+    // Second pass: Process links and find matches in pre elements
+    linkMap.forEach((linkData, linkElement) => {
+        const { direction, patterns, index, matchId } = linkData;
+        const searchForMatch = (preElement) => {
+            const text = preElement.textContent;
+            let allMatches = [];
+            patterns.forEach(pattern => {
+                const matches = findMatches(text, pattern);
+                allMatches.push(...matches.map(match => [...match, matchId]));
+            });
+            return allMatches.length > 0 ? allMatches : null;
+        };
+
+        let matchingPres = [];
+        if (direction === 'all') {
+            preMap.forEach((_, preElement) => {
+                const matches = searchForMatch(preElement);
+                if (matches) {
+                    matchingPres.push(preElement);
+                }
+            });
+        } else if (direction === 'up') {
+            for (let i = index - 1; i >= 0; i--) {
+                if (elements[i].tagName === 'PRE') {
+                    const matches = searchForMatch(elements[i]);
+                    if (matches) {
+                        matchingPres.push(elements[i]);
+                        break;
+                    }
+                }
+            }
+        } else {
+            for (let i = index + 1; i < elements.length; i++) {
+                if (elements[i].tagName === 'PRE') {
+                    const matches = searchForMatch(elements[i]);
+                    if (matches) {
+                        matchingPres.push(elements[i]);
+                        break;
+                    }
+                }
+            }
+        }
+
+        matchingPres.forEach(matchingPre => {
+            const matches = searchForMatch(matchingPre);
+            if (matches) {
+                preMap.get(matchingPre).push(...matches);
+            }
+        });
+    });
+
+    // Remove preMaps that don't have any matches
+    for (const [preElement, matches] of preMap.entries()) {
+        if (matches.length === 0) {
+            preMap.delete(preElement);
+        }
+    }
+
+    log(preMap);
+
+    // Process links
+    linkMap.forEach((linkData, linkElement) => {
+        const { matchId } = linkData;
+        const colorIndex = colorMap.get(matchId);
+        const color = Observable10Colors[colorIndex];
+        const style = `color: ${color}; font-weight: bold; background-color: ${color}20;`;
+
+        const span = document.createElement('span');
+        span.textContent = linkElement.textContent;
+        span.style.cssText = style;
+        span.dataset.matchId = matchId;
+        span.classList.add('uplight-reference');
+        linkElement.parentNode.replaceChild(span, linkElement);
+    });
 
     // Process each pre element
-    preMap.forEach((links, preElement) => {
-        console.log('Processing pre element:', preElement);
+    preMap.forEach((matches, preElement) => {
         let text = preElement.textContent;
         let allMatches = [];
 
-        links.forEach((link, index) => {
-            const url = new URL(link.href);
-            let pattern = url.searchParams.get('match');
-            if (!pattern) {
-                pattern = link.textContent;
-            }
-            const colorIndex = index % Observable10Colors.length;
+        matches.forEach(match => {
+            const [start, end, matchId] = match;
+            const colorIndex = colorMap.get(matchId);
             const color = Observable10Colors[colorIndex];
             const style = `color: ${color}; font-weight: bold; background-color: ${color}20;`;
-            console.log('Link pattern:', pattern, 'style:', style);
-
-            const matches = findMatches(text, pattern);
-            console.log('Matches found:', matches.length);
-            const matchId = `match-${index}-${Math.random().toString(36).substr(2, 9)}`;
-            allMatches.push(...matches.map(match => [...match, style, matchId]));
-
-            // Replace link with span
-            const span = document.createElement('span');
-            span.textContent = link.textContent;
-            span.style.cssText = style;
-            span.dataset.matchId = matchId;
-            link.parentNode.replaceChild(span, link);
+            allMatches.push([start, end, style, matchId]);
         });
 
         // Only apply highlights if there are matches
         if (allMatches.length > 0) {
-            console.log('Applying highlights to pre element');
             const highlightedText = applyHighlights(text, allMatches);
-            preElement.innerHTML = `<code>${highlightedText}</code>`;
+            preElement.innerHTML = `<code class="uplight-code">${highlightedText}</code>`;
         } else {
-            console.log('No matches found for this pre element');
+            log('No matches found for this pre element');
         }
     });
 
-    console.log('Finished processLinksAndHighlight');
+    log('Finished processLinksAndHighlight');
 }
 
-// Add this function after processLinksAndHighlight
-function addHoverEffect() {
+function addHoverEffect(targetElement) {
     function setBackgroundColorWithOpacity(element, color, opacity) {
         const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/);
         if (rgbaMatch) {
             const [, r, g, b] = rgbaMatch;
             element.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
         } else {
-            console.warn('Color format not recognized:', color);
+            log('Color format not recognized:', color);
         }
     }
 
-    document.addEventListener('mouseover', (event) => {
+    targetElement.addEventListener('mouseover', (event) => {
         const target = event.target;
         if (target.dataset.matchId) {
             const matchId = target.dataset.matchId;
             const color = target.style.color;
-            const elements = document.querySelectorAll(`[data-match-id="${matchId}"]`);
+            const elements = targetElement.querySelectorAll(`[data-match-id="${matchId}"]`);
             elements.forEach(el => {
                 setBackgroundColorWithOpacity(el, color, 0.25);
             });
         }
     });
 
-    document.addEventListener('mouseout', (event) => {
+    targetElement.addEventListener('mouseout', (event) => {
         const target = event.target;
         if (target.dataset.matchId) {
             const matchId = target.dataset.matchId;
             const color = target.style.color;
-            const elements = document.querySelectorAll(`[data-match-id="${matchId}"]`);
+            const elements = targetElement.querySelectorAll(`[data-match-id="${matchId}"]`);
             elements.forEach(el => {
                 setBackgroundColorWithOpacity(el, color, 0.125);
             });
@@ -244,16 +332,30 @@ function addHoverEffect() {
     });
 }
 
+function uplight({
+    target = 'body',
+    debugMode = false
+}) {
+    debug = debugMode;
+    const targetElement = typeof target === 'string' ? document.querySelector(target) : target;
+
+    if (!targetElement) {
+        console.error(`Uplight: Target element not found - ${target}`);
+        return;
+    }
+
+    processLinksAndHighlight(targetElement);
+    addHoverEffect(targetElement);
+}
+
 // Modify the DOMContentLoaded event listener
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOMContentLoaded event fired');
-    processLinksAndHighlight();
-    addHoverEffect();
+document.addEventListener('DOMContentLoaded', function () {
+    uplight({ target: 'body', debugMode: true });
 });
 
 // Test suite
 function runTests() {
-    console.log("Running tests for syntax highlighting functions...");
+    log("Running tests for Uplight highlighting functions...");
 
     const testCases = [
         { input: "go(a, b)", pattern: "go(...)", name: "Simple go(...) match", expected: ["go(a, b)"] },
@@ -269,40 +371,43 @@ function runTests() {
         { input: "if (x > 0) {doSomething();}", pattern: "if (...) {...}", name: "if statement", expected: ["if (x > 0) {doSomething();}"] },
         { input: "\"hello\"", pattern: "...", name: "String content", expected: ["\"hello\""] },
         { input: "[1, 2, 3]", pattern: "[...]", name: "Array content", expected: ["[1, 2, 3]"] },
+        { input: "func(a, b)", pattern: "/func\\(.*?\\)/", name: "Regex match", expected: ["func(a, b)"] },
     ];
 
     let passedTests = 0;
     let failedTests = 0;
 
     testCases.forEach(({ input, pattern, name, expected }) => {
-        console.log(`\nTest: ${name}`);
-        console.log(`Pattern: ${pattern}`);
-        console.log(`Input: ${input}`);
-        console.log(`Expected: ${JSON.stringify(expected)}`);
-
+        log(`\nTest: ${name}`);
+        log(`Pattern: ${pattern}`);
+        log(`Input: ${input}`);
+        log(`Expected: ${JSON.stringify(expected)}`);
+        const debugMode = debug
         try {
-            const result = findMatches(input, pattern, true);
-            const actualMatches = result.matches.map(([start, end]) => input.slice(start, end));
+
+            const result = findMatches(input, pattern);
+            const actualMatches = result.map(([start, end]) => input.slice(start, end));
             const passed = JSON.stringify(actualMatches) === JSON.stringify(expected);
 
             if (!passed) {
-                console.log("Test failed. Debug information:");
-                console.log(`Actual: ${JSON.stringify(actualMatches)}`);
-                console.log("\nDetailed matching process:");
-                console.log(result.log);
+                debug = true;
+                log("Test failed. Debug information:");
+                log(`Actual: ${JSON.stringify(actualMatches)}`);
                 failedTests++;
             } else {
-                console.log("Test passed.");
+                log("Test passed.");
                 passedTests++;
             }
         } catch (error) {
-            console.log(`Test threw an error: ${error.message}`);
-            console.log(error.stack);
+            log(`Test threw an error: ${error.message}`);
+            log(error.stack);
             failedTests++;
+        } finally {
+            debug = false;
         }
     });
 
-    console.log(`\nTest summary: ${passedTests} passed, ${failedTests} failed`);
+    log(`\nTest summary: ${passedTests} passed, ${failedTests} failed`);
 }
 
 // Run tests
