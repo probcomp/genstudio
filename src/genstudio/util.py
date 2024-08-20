@@ -4,19 +4,20 @@ import importlib.util
 import pathlib
 from timeit import default_timer as timer
 
-from typing import TypedDict, Literal, Union, Any
+from typing import TypedDict, Literal, Union, Any, cast
 
 
 class Config(TypedDict):
     display_as: Literal["widget", "html"]
     dev: bool
+    defaults: dict[Any, Any]
 
 
-CONFIG: Config = {"display_as": "widget", "dev": False}
+CONFIG: Config = {"display_as": "widget", "dev": False, "defaults": {}}
 
 
-def configure(options: dict) -> None:
-    CONFIG.update(options)
+def configure(options: dict[str, Any] = {}, **kwargs: Any) -> None:
+    CONFIG.update(cast(Config, {**options, **kwargs}))
 
 
 def get_config(k: str) -> Union[str, None]:

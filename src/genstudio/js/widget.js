@@ -189,6 +189,7 @@ export function evaluate(node, cache, $state, experimental) {
       );
   }
 }
+
 function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEFAULT_GRID_GAP, aspectRatio = 1 }) {
   const availableWidth = useContext(WidthContext);
   const effectiveMinWidth = Math.min(minWidth, availableWidth);
@@ -214,7 +215,9 @@ function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEFAULT_GR
   return html`
     <${WidthContext.Provider} value=${itemWidth}>
       <div style=${containerStyle}>
-        ${children.map((item, index) => html`<div key=${index} style=${{ width: itemWidth }}>${item}</div>`)}
+        ${children.map((value, index) => html`<${Node} key=${index}
+                                                       style=${{ width: itemWidth }}
+                                                       value=${value}/>`)}
       </div>
     </>
   `;

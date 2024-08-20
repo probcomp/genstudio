@@ -422,19 +422,15 @@ def constantly(x):
     return js(f"()=>{x}")
 
 
-def Grid(PlotSpec, plot_opts={}, layout_opts={}):
+def Grid(*children, **opts):
     return Hiccup(
         View.Grid,
-        {
-            "specs": PlotSpec,
-            "plotOptions": plot_opts,
-            "layoutOptions": layout_opts,
-        },
+        {"children": children, **opts},
     )
 
 
-def small_multiples(PlotSpec, **options):
-    return Grid(PlotSpec, **options)
+def small_multiples(*specs, **options):
+    return Grid(*specs, **options)
 
 
 def dot(values, options={}, **kwargs):
@@ -524,8 +520,10 @@ def grid(x=True, y=True):
     return {"grid": x and y} if x == y else {"x": {"grid": x}, "y": {"grid": y}}
 
 
-def hideAxis(x=True, y=True):
-    return {k: {"axis": None} for k in ["x", "y"] if locals()[k]}
+def hideAxis(x=None, y=None):
+    if x is None and y is None:
+        return {"axis": None}
+    return {k: {"axis": None} for k in ["x", "y"] if locals()[k] is not None}
 
 
 def colorLegend():

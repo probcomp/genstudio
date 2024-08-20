@@ -23,6 +23,13 @@ plugins:
       # no_input: True
       include_requirejs: true
       include_source: True
+      remove_tag_config:
+        remove_cell_tags:
+          - hide
+        remove_input_tags:
+          - hide_source
+        remove_all_outputs_tags:
+          - hide_output
 extra_css:
   - stylesheets/custom.css
 extra_javascript:

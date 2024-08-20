@@ -17,7 +17,7 @@ For detailed pattern syntax and behavior, see the documentation in the matchWild
 
 const Observable10Colors = [
     "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
-    "#d4af37", "#af7aa1", "#ff9da7", "#9c755f", "#bab0ab"
+    "#d4af37", "#af7aa1", "#ff9da7", "#9c755f", "#9a908b"
 ];
 
 let debug = false;
@@ -116,7 +116,16 @@ function findRegexMatches(text, pattern) {
     let match;
 
     while ((match = regex.exec(text)) !== null) {
-        matches.push([match.index, regex.lastIndex]);
+        if (match.length > 1) {
+            // If there are capture groups, use the first one
+            const captureGroup = match[1];
+            const start = match.index + match[0].indexOf(captureGroup);
+            const end = start + captureGroup.length;
+            matches.push([start, end]);
+        } else {
+            // If no capture groups, use the whole match
+            matches.push([match.index, regex.lastIndex]);
+        }
     }
 
     return matches;
@@ -163,7 +172,7 @@ function applyHighlights(text, matches) {
         const afterMatch = result.slice(end);
 
         return beforeMatch +
-               `<span class="uplight-highlight" style="${styleString}" data-match-id="${matchId}">` +
+               `<span class="uplight-code" style="${styleString}" data-match-id="${matchId}">` +
                matchContent +
                '</span>' +
                afterMatch;
@@ -192,6 +201,10 @@ function processLinksAndHighlight(targetElement) {
             linkMap.set(element, { direction, patterns, index, matchId });
             colorMap.set(matchId, colorIndex);
             colorIndex = (colorIndex + 1) % Observable10Colors.length;
+            // Add click event listener to prevent default behavior
+            element.addEventListener('click', (event) => {
+                event.preventDefault();
+            });
         }
     });
 
@@ -258,16 +271,10 @@ function processLinksAndHighlight(targetElement) {
     // Process links
     linkMap.forEach((linkData, linkElement) => {
         const { matchId } = linkData;
-        const colorIndex = colorMap.get(matchId);
-        const color = Observable10Colors[colorIndex];
-        const style = `color: ${color}; font-weight: bold; background-color: ${color}20;`;
-
-        const span = document.createElement('span');
-        span.textContent = linkElement.textContent;
-        span.style.cssText = style;
-        span.dataset.matchId = matchId;
-        span.classList.add('uplight-reference');
-        linkElement.parentNode.replaceChild(span, linkElement);
+        const color = Observable10Colors[colorMap.get(matchId)];
+        linkElement.dataset.matchId = matchId;
+        linkElement.classList.add('uplight-link');
+        linkElement.style.setProperty('--uplight-color', color);
     });
 
     // Process each pre element
@@ -279,7 +286,7 @@ function processLinksAndHighlight(targetElement) {
             const [start, end, matchId] = match;
             const colorIndex = colorMap.get(matchId);
             const color = Observable10Colors[colorIndex];
-            const style = `color: ${color}; font-weight: bold; background-color: ${color}20;`;
+            const style = `--uplight-color: ${color};`;
             allMatches.push([start, end, style, matchId]);
         });
 
@@ -293,24 +300,13 @@ function processLinksAndHighlight(targetElement) {
 }
 
 function addHoverEffect(targetElement) {
-    function setBackgroundColorWithOpacity(element, color, opacity) {
-        const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*[\d.]+)?\)/);
-        if (rgbaMatch) {
-            const [, r, g, b] = rgbaMatch;
-            element.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-        } else {
-            log('Color format not recognized:', color);
-        }
-    }
-
     targetElement.addEventListener('mouseover', (event) => {
         const target = event.target;
         if (target.dataset.matchId) {
             const matchId = target.dataset.matchId;
-            const color = target.style.color;
             const elements = targetElement.querySelectorAll(`[data-match-id="${matchId}"]`);
             elements.forEach(el => {
-                setBackgroundColorWithOpacity(el, color, 0.25);
+                el.classList.add('uplight-hover');
             });
         }
     });
@@ -319,10 +315,9 @@ function addHoverEffect(targetElement) {
         const target = event.target;
         if (target.dataset.matchId) {
             const matchId = target.dataset.matchId;
-            const color = target.style.color;
             const elements = targetElement.querySelectorAll(`[data-match-id="${matchId}"]`);
             elements.forEach(el => {
-                setBackgroundColorWithOpacity(el, color, 0.125);
+                el.classList.remove('uplight-hover');
             });
         }
     });

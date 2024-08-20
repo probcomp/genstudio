@@ -4,11 +4,17 @@ import asyncio
 import time
 import numpy as np
 
-Plot.configure({"display_as": "widget"})
-
 # %% [markdown]
 
 # This guide demonstrates how to create Python-controlled animations using GenStudio plots, the `.reset` method, and interactive sliders.
+
+# GenStudio plots can be displayed as "widgets" or "html". In order for python<>javascript communication to work, we must use its "widget" mode.
+
+# %%
+
+Plot.configure({"display_as": "widget"})
+
+# %% [markdown]
 
 # First, a simple sine wave plot:
 

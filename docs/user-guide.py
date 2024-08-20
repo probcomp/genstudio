@@ -4,53 +4,66 @@
 
 # %%
 import genstudio.plot as Plot
-import random
 
 # %% [markdown]
-# ## Your first plot
 
-# Let's start with a simple line plot:
+# Let's start with a simple line plot. First, we'll define our dataset:
 
 # %%
 
-simple_line_data = [[1, 1], [2, 4], [1.5, 7], [3, 10], [2, 13], [4, 15]]
-Plot.line(simple_line_data) + {"width": 300, "height": 200} + Plot.frame()
+six_points = [[1, 1], [2, 4], [1.5, 7], [3, 10], [2, 13], [4, 15]]
 
 # %% [markdown]
-# This creates a basic line plot with three points. We've added a width of 300 pixels and a frame around the plot for better visibility.
 
-# %% [markdown]
-# ## Layering Marks and Options
-
-# GenStudio allows you to layer multiple marks and add options to your plots using the `+` operator. For example:
+# This `six_points` is a list of `[x, y]` coordinates. Now, let's create a line plot using this data:
 
 # %%
-(
-    Plot.line(simple_line_data, {"stroke": "pink", "strokeWidth": 10})
-    + Plot.dot(simple_line_data, {"fill": "purple"})
-    + {"width": 300, "height": 200}
-    + Plot.frame()
-)
+
+Plot.line(six_points)
 
 # %% [markdown]
-# In this example, we've layered a dot plot and a line plot, then added plot options for width and height, and finally added a frame.
+# This creates a basic line plot with six points.
 
 # %% [markdown]
 # ## Understanding Marks
 
 # In GenStudio (and Observable Plot), [marks](https://observablehq.com/plot/marks) are the basic visual elements used to represent data. The `line` we just used is one type of mark. Other common marks include `dot` for scatter plots, `bar` for bar charts, and `text` for adding labels.
 
-# Each mark type has its own set of properties that control its appearance and behavior. For example, with `line`, we can control the stroke color, line width, and curve type.
+# Each mark type has its own set of properties that control its appearance and behavior. For example, with `line`, we can control the stroke, stroke width, and curve:
+
+# %%
+
+Plot.line(
+    six_points,
+    {
+        "stroke": "steelblue",  # Set the line color
+        "strokeWidth": 3,  # Set the line thickness
+        "curve": "natural",  # Set the curve type
+    },
+)
+
+# %% [markdown]
 
 # To learn more, refer to the [marks documentation](https://observablehq.com/plot/marks).
 
+# ## Layering Marks and Options
+
+# We can layer multiple marks and add options to plots using the [+](uplight?dir=down&match=%2B) operator. For example, below we'll layer a dot plot with a line plot, then add a frame.
+
+# %%
+(
+    Plot.line(six_points, {"stroke": "pink", "strokeWidth": 10})
+    + Plot.dot(six_points, {"fill": "purple"})
+    + Plot.frame()
+)
+
+# %% [markdown]
+
 # ## Specifying Data and Channels
 
-# Channels are how we map our data to visual properties of the mark. For many marks, `x` and `y` are the primary channels, but others like `color`, `size`, or `opacity` are also common.
+# Channels are how we map our data to visual properties of the mark. For many marks, `x` and `y` are the primary channels, but others like `color`, `size`, or `opacity` are also common. We typically specify our _data_ and _channels_ separately.
 
-# Let's look at a few ways to specify data and channels:
-
-# Using a list of objects
+# Say we have a list of objects:
 # %%
 
 object_data = [
@@ -63,18 +76,14 @@ object_data = [
 ]
 
 # %% [markdown]
-# In addition to our list of objects, we need to pass a dictionary of options which indicate how to read the channel from a given data point.
+# A mark takes [data](uplight?dir=down&match=object_data) followed by an options dictionary, which specifies how [channel names](uplight?dir=down&match="x","y","stroke","strokeWidth","r","fill") get their values.
+#
+# There are several ways to specify channel values in Observable Plot:
 
-# %%
-Plot.dot(object_data, {"x": "X", "y": "Y", "fill": "CATEGORY"}) + {
-    "width": 300,
-    "height": 200,
-}
-
-# %% [markdown]
-# In this example, we're using a list of objects for our data. In the second argument (the options object), we map each channel to a key in our data objects. For instance, `"x": "X"` tells the plot to use the "X" property of each data object for the x-coordinate of each point.
-
-# We can also use functions to derive channel values:
+# 1. A [string](uplight?dir=down&match="X","Y","CATEGORY") is used to specify a property name in the data object. If it matches, that property's value is used. Otherwise, it's treated as a literal value.
+# 2. A [function](uplight?dir=down&match=Plot.js(...\)) will receive two arguments, `(data, index)`, and should return the desired value for the channel. We use `Plot.js` to insert a JavaScript source string - this function is evaluated within the rendering environment, and not in python.
+# 3. An [array](uplight?dir=down&match=[...]) provides explicit values for each data point.
+# 4. [Other values](uplight?dir=down&match=8,None) will be used as a constant for all data points.
 
 # %%
 Plot.dot(
@@ -82,29 +91,12 @@ Plot.dot(
     {
         "x": "X",
         "y": "Y",
-        "r": Plot.js("(d, i) => (i + 1) * 3"),  # radius increases with index
-        "fill": "CATEGORY",
+        "stroke": Plot.js("(data, index) => data.CATEGORY"),
+        "strokeWidth": [1, 2, 3, 4, 5, 6],
+        "r": 8,
+        "fill": None,
     },
-) + {"width": 300, "height": 200}
-
-# %% [markdown]
-# Here, we're using a JavaScript function for the "r" (radius) channel. This function receives two arguments:
-# - `d`: the current data point (one of the objects in our `data` list)
-# - `i`: the index of the current data point
-#
-# The function should return the value for that channel for the given data point. In this case, we're making the radius increase with the index. We use `Plot.js` to write JavaScript code inline.
-
-# %% [markdown]
-# We can also use separate lists for each channel (columnar data):
-
-# %%
-x = [1, 2, 1.5, 3, 2, 4]
-y = [1, 4, 7, 10, 13, 15]
-
-Plot.line({"x": x, "y": y, "strokeWidth": 2, "stroke": "blue"}) + {
-    "width": 300,
-    "height": 200,
-}
+)
 
 
 # %% [markdown]
@@ -125,7 +117,7 @@ histogram_data = [1, 2, 2, 3, 3, 3, 4, 4, 5]
 Plot.histogram(histogram_data)
 
 # %% [markdown]
-# You can customize the number of bins:
+# You can customize the [number of bins](uplight?dir=down&match=thresholds=5):
 
 # %%
 Plot.histogram(histogram_data, thresholds=5)
@@ -140,13 +132,10 @@ Plot.histogram(histogram_data, thresholds=5)
 # - Separate `rx` and `ry` values for an ellipse with different horizontal and vertical radii
 # - An optional rotation angle in degrees
 
-# The data for ellipses can be provided in several formats:
-# - An object with columnar data for channels (x, y, rx, ry, rotate)
-# - An array of arrays, each inner array in one of these formats:
+# In addition to the usual channel notation, data for ellipses can be provided as an array of arrays, each inner array in one of these formats:
 #   [x, y, r]
 #   [x, y, rx, ry]
 #   [x, y, rx, ry, rotation]
-# - A list of objects containing properties for each ellipse
 
 # Here's an example demonstrating different ways to specify ellipses:
 
@@ -165,7 +154,6 @@ ellipse_data = [
         {"fill": "red", "opacity": 0.5},
     )
     + Plot.domain([0, 7])
-    + {"height": 200}
     + Plot.aspectRatio(1)
 )
 
@@ -175,6 +163,7 @@ ellipse_data = [
 # Here's another example using a list of objects to specify ellipses:
 
 # %%
+import random
 
 ellipse_object_data = [
     {
@@ -191,7 +180,6 @@ ellipse_object_data = [
         {"x": "X", "y": "Y", "r": "SIZE", "opacity": 0.7, "fill": "purple"},
     )
     + Plot.domain([0, 4])
-    + {"width": 300}
     + Plot.aspectRatio(1)
 )
 
@@ -224,7 +212,7 @@ ellipse_object_data = [
 # %% [markdown]
 # ### Custom color interpolation
 
-# You can also create custom color scales by specifying a range and an interpolation function:
+# You can also create custom color scales by specifying a range and an [interpolation function](uplight?dir=down&match=Plot.js(...)):
 
 # %%
 (
@@ -276,8 +264,6 @@ categorical_data = [
     Plot.dot(categorical_data, {"x": "value", "y": "category", "fill": "category"})
     + Plot.colorMap({"A": "red", "B": "blue", "C": "green", "D": "orange"})
     + Plot.colorLegend()
-    + Plot.width(400)
-    + Plot.height(200)
 )
 
 # %% [markdown]
@@ -290,38 +276,25 @@ categorical_data = [
 # %% [markdown]
 # ### Applying a constant color to an entire mark
 
-# `Plot.constantly()` returns a function that always returns the same value, regardless of its input. When used as a channel specifier (like for `fill` or `stroke`), it assigns a single categorical value to the entire mark. This is useful for creating consistent visual elements in your plot. Let's illustrate this with a simple scenario:
+# [Plot.constantly()](uplight?dir=down&match=Plot.constantly(...)) returns a function that always returns the same value, regardless of its input. When used as a channel specifier (like for `fill` or `stroke`), it assigns a single categorical value to the entire mark. This is useful for creating consistent visual elements in your plot. Separately, one can use [Plot.colorMap(...)](uplight?dir=down) to assign specific colors to these categorical values, usually in combination with [Plot.colorLegend()](uplight?dir=down).
 
 # %%
+import random
 
 (
-    # Walls: a black square outline
     Plot.line(
         [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]],
         {"stroke": Plot.constantly("Walls")},
     )
-    # Target: a blue circle at the center
     + Plot.ellipse([[5, 5, 1]], {"fill": Plot.constantly("Target")})
-    # Guesses: multiple semi-transparent purple dots
     + Plot.ellipse(
         [(random.uniform(0, 10), random.uniform(0, 10)) for _ in range(20)],
         {"fill": Plot.constantly("Guesses"), "r": 0.5, "opacity": 0.2},
     )
-    # Define colors and add legend
     + Plot.colorMap({"Walls": "black", "Target": "blue", "Guesses": "purple"})
     + Plot.colorLegend()
-    # Set plot dimensions
     + {"width": 400, "height": 400, "aspectRatio": 1}
 )
-
-# %% [markdown]
-# Key points:
-# 1. `Plot.constantly("Walls")` creates a function that always returns "Walls". This is used as the `stroke` value for the entire wall outline.
-# 2. Similarly, `Plot.constantly("Target")` and `Plot.constantly("Guesses")` are used for the target and guesses, respectively.
-# 3. The `colorMap` defines the actual colors corresponding to these categorical values.
-# 4. `colorLegend()` adds a legend showing these color assignments.
-
-# This approach ensures consistent coloring for each element and provides a clear legend for interpretation.
 
 # %% [markdown]
 # ## Sliders
@@ -368,7 +341,6 @@ frequency_slider = Plot.Slider(
         },
     )
     + Plot.domain([0, 99], [-1, 1])
-    + {"height": 300, "width": 500}
 ) | Plot.Slider("frame", fps=30, range=[0, 59])
 
 # %% [markdown]
@@ -410,3 +382,117 @@ Plot.Frames(
 # This example cycles through different shapes, changing every half second. The `fps` parameter controls the speed of the animation, similar to how it works with animated sliders.
 
 # Both animated sliders and Plot.Frames have their uses, and you can choose based on your specific needs. Animated sliders offer more fine-grained control and are useful when you need to manipulate the animation state directly, while Plot.Frames provides a more convenient way to cycle through a predefined set of plots.
+
+
+# %% [markdown]
+
+# ### barX example
+
+# For a richer example, we'll use some sample data from ancient civilizations.
+
+# %%
+
+civilizations = [
+    {
+        "name": "Mesopotamia",
+        "start": -3500,
+        "end": -539,
+        "continent": "Asia",
+        "peak_population": 10000000,
+    },
+    {
+        "name": "Indus Valley Civilization",
+        "start": -3300,
+        "end": -1300,
+        "continent": "Asia",
+        "peak_population": 5000000,
+    },
+    {
+        "name": "Ancient Egypt",
+        "start": -3100,
+        "end": -30,
+        "continent": "Africa",
+        "peak_population": 5000000,
+    },
+    {
+        "name": "Ancient China",
+        "start": -2070,
+        "end": 1912,
+        "continent": "Asia",
+        "peak_population": 60000000,
+    },
+    {
+        "name": "Maya Civilization",
+        "start": -2000,
+        "end": 1500,
+        "continent": "North America",
+        "peak_population": 2000000,
+    },
+    {
+        "name": "Ancient Greece",
+        "start": -800,
+        "end": -146,
+        "continent": "Europe",
+        "peak_population": 8000000,
+    },
+    {
+        "name": "Persian Empire",
+        "start": -550,
+        "end": 651,
+        "continent": "Asia",
+        "peak_population": 50000000,
+    },
+    {
+        "name": "Roman Empire",
+        "start": -27,
+        "end": 476,
+        "continent": "Europe",
+        "peak_population": 70000000,
+    },
+    {
+        "name": "Byzantine Empire",
+        "start": 330,
+        "end": 1453,
+        "continent": "Europe",
+        "peak_population": 30000000,
+    },
+    {
+        "name": "Inca Empire",
+        "start": 1438,
+        "end": 1533,
+        "continent": "South America",
+        "peak_population": 12000000,
+    },
+    {
+        "name": "Aztec Empire",
+        "start": 1428,
+        "end": 1521,
+        "continent": "North America",
+        "peak_population": 5000000,
+    },
+]
+
+# %% [markdown]
+
+# Below: a [barX](uplight?dir=down&match=Plot.barX) mark specifies [x1 and x2](uplight?dir=down&match="x1","x2") channels to show civilization timespans, with a [text mark](uplight?dir=down&match=Plot.text) providing labels that align with the bars. Both marks use the civilization name for the [y channel](uplight?dir=down&match="y":+"name"). [Color is used](uplight?dir=down&match=Plot.colorLegend(\),"fill":+"continent") to indicate the civilization name, and a legend is provided.
+
+# %%
+
+(
+    Plot.barX(
+        civilizations,
+        {
+            "x1": "start",
+            "x2": "end",
+            "y": "name",
+            "fill": "continent",
+            "sort": {"y": "x1"},
+        },
+    )
+    + Plot.text(
+        civilizations,
+        {"text": "name", "x": "start", "y": "name", "textAnchor": "end", "dx": -3},
+    )
+    + {"axis": None, "marginLeft": 100}
+    + Plot.colorLegend()
+)

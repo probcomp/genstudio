@@ -1,5 +1,6 @@
 from genstudio.layout import LayoutItem, View
 from genstudio.js_modules import JSCall
+from genstudio.util import CONFIG
 from typing import TypeAlias, Union, Sequence, Any
 import uuid
 
@@ -78,7 +79,7 @@ class PlotSpec(LayoutItem):
         return new_spec
 
     def for_json(self) -> Any:
-        return View.PlotSpec({"layers": self.layers})
+        return View.PlotSpec({"layers": [CONFIG["defaults"]] + self.layers})
 
 
 def new(*specs: Any, **kwargs: Any) -> PlotSpec:

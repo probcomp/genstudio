@@ -40,7 +40,7 @@ body .jupyter-wrapper .jp-Notebook {
         margin-top: 0.6rem;
     }
 
-    a:not(.md-icon) {
+    a:not(.md-icon):not(.uplight-link) {
         text-decoration: none;
         background-image: linear-gradient(transparent calc(100% - 3px), color-mix(in srgb, var(--md-accent-fg-color) 20%, transparent) 3px);
         background-repeat: no-repeat;
@@ -49,8 +49,30 @@ body .jupyter-wrapper .jp-Notebook {
         transition: background-color 0.3s;
     }
 
-    a:hover {
-        background-image: linear-gradient(transparent calc(100% - 3px), color-mix(in srgb, var(--md-accent-fg-color) 50%, transparent) 3px);
+    .uplight-link {
+        color: inherit;
+        background-color: color-mix(in srgb, var(--uplight-color) 20%, transparent);
+        padding: 0 3px;
+        &.uplight-hover{
+            background-color: color-mix(in srgb, var(--uplight-color) 35%, transparent);
+            color: inherit;
+        }
+    }
+
+    .uplight-code {
+        color: var(--uplight-color);
+        font-weight: bold;
+        background-color: color-mix(in srgb, var(--uplight-color) 20%, transparent);
+        &.uplight-hover {
+            background-color: color-mix(in srgb, var(--uplight-color) 35%, transparent);
+            color: color-mix(in srgb, var(--uplight-color) 70%, currentColor);
+        }
+    }
+
+    .uplight-link,
+    .uplight-code {
+        cursor: default;
+
     }
 }
 
@@ -58,11 +80,7 @@ body .jupyter-wrapper .jp-Notebook {
     width: 120px;
 }
 
-.uplight-reference,
-.uplight-highlight {
-    cursor: crosshair;
 
-}
 
 .md-nav {
     .md-nav__title {
@@ -71,7 +89,8 @@ body .jupyter-wrapper .jp-Notebook {
 }
 
 .md-content {
-    p, ul, ol, dl, table {
+
+    p, ul, ol, dl, table, .jp-Cell-outputArea {
         max-width: 42em;
     }
 
