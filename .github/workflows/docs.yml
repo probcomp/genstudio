@@ -17,11 +17,18 @@ jobs:
     steps:
     - name: Check out repository
       uses: actions/checkout@v4
-    - name: Set up Python
+
+    - name: Yarn deps
+      run: yarn install --frozen-lockfile --production=false
+
+    - name: JavaScript bundle
+      run: yarn build
+
+    - name: Python install
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
-    - name: Install Poetry
+    - name: Poetry Install
       uses: snok/install-poetry@v1
       with:
         version: 1.8.3
@@ -29,17 +36,17 @@ jobs:
       uses: google-github-actions/auth@v2
       with:
         credentials_json: "${{ secrets.ARTIFACT_REGISTRY_KEY }}"
-    - name: Configure deploy keys
+    - name: Deploy key config
       run: |
         poetry self add keyrings.google-artifactregistry-auth
         poetry config repositories.gcp https://us-west1-python.pkg.dev/probcomp-caliban/probcomp/
-    - name: Install Python dependencies
+    - name: Python deps (via poetry)
       run: poetry install
-    - name: Set up kernel
+    - name: Kernel install
       run: poetry run python -m ipykernel install --user --name genstudio
-    - name: Build docs site
+    - name: mkdocs build
       run: poetry run mkdocs build
-    - name: Create website artifact
+    - name: Artifact upload
       uses: actions/upload-artifact@v4
       with:
         name: website
