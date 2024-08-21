@@ -1,5 +1,4 @@
 # %% [markdown]
-# # GenStudio Basics
 
 # This guide introduces the fundamental concepts of creating plots with GenStudio.
 # You'll learn how to:

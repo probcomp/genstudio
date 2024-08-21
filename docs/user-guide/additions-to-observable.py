@@ -1,7 +1,6 @@
 import genstudio.plot as Plot
 
 # %% [markdown]
-# ## Additions to Observable Plot
 
 # GenStudio extends Observable Plot with some additional marks that aren't directly available in the original library.
 

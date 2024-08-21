@@ -30,7 +30,8 @@ nav:
       - Animation & Interactivity: user-guide/animate-interactive.py
       - HTML with Hiccup: user-guide/html-hiccup.py
       - Python Event Loops: user-guide/python-event-loop.py
-      - Additions to Observable Plot: user-guide/additions-to-observable.py
+      - Compare with Observable Plot: user-guide/comparison-with-observable.py
+      - Additional Marks: user-guide/additions-to-observable.py
   - More Examples:
       - Timelines with barX: examples/timelines.py
 markdown_extensions:

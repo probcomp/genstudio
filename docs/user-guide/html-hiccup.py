@@ -2,7 +2,6 @@ import genstudio.plot as Plot
 from genstudio.plot import html, js
 
 # %% [markdown]
-# # HTML Generation with Plot.html
 
 # Plot.html is a Python implementation of Clojure's Hiccup, enabling HTML structure creation and interactive visualizations. This guide covers:
 # 1. Basic HTML generation

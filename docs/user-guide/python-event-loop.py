@@ -11,8 +11,6 @@ import numpy as np
 
 # %% [markdown]
 
-# # Python-Controlled Animations in GenStudio
-
 # This guide demonstrates how to create Python-controlled animations using GenStudio plots, the `.reset` method, and interactive sliders. We'll cover:
 # 1. Setting up a basic animated plot
 # 2. Creating interactive animations with ipywidgets

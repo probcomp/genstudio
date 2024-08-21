@@ -1,5 +1,4 @@
 # %% [markdown]
-# # Interactive and Animated Plots with GenStudio
 
 # This guide demonstrates how to create interactive and animated plots using GenStudio. We'll cover:
 # 1. Using sliders for dynamic parameter adjustment
