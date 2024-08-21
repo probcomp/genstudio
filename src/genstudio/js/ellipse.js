@@ -46,8 +46,6 @@ export class Ellipse extends Plot.Mark {
     rx = rx || r || (d => d?.[2]);
     rotate = rotate || (d => d?.[4] || 0);
 
-    console.log(options)
-
     super(data, {
       x: { value: x, scale: "x" },
       y: { value: y, scale: "y" },

@@ -18,8 +18,6 @@ theme:
   features:
     - navigation.tracking
     - navigation.indexes
-    # - navigation.sections
-    - toc.follow
     - toc.integrate
     - content.action.edit
   logo: false
@@ -57,7 +55,8 @@ plugins:
 extra_css:
   - stylesheets/custom.css
 extra_javascript:
-  - uplight.js
+  - js/uplight.js
+  - js/scroll-fix.js
 # poetry run ipython kernel install --user --name=genstudio
 
 hooks:

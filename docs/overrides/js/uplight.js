@@ -341,7 +341,7 @@ function uplight({
 
 // Modify the DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', function () {
-    uplight({ target: 'body', debugMode: true });
+    uplight({ target: 'body', debugMode: false });
 });
 
 // Test suite
