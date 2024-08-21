@@ -1,17 +1,13 @@
-body {
-
-    .md-container,
-    .md-header__title {
-        --md-text-font-family: "Georgia", "Times New Roman", serif;
-        font-family: var(--md-text-font-family);
-    }
+.md-sidebar {
+    font-family: Roboto, sans-serif;
 }
-
+.md-footer {
+    display: none;
+}
 body .jupyter-wrapper .jp-Notebook {
     padding: 0;
 
     .jp-Cell .jp-CodeCell {
-
         .jp-InputPrompt,
         .jp-OutputPrompt {
             display: none;
@@ -42,7 +38,10 @@ body .jupyter-wrapper .jp-Notebook {
 
     a:not(.md-icon):not(.uplight-link) {
         text-decoration: none;
-        background-image: linear-gradient(transparent calc(100% - 3px), color-mix(in srgb, var(--md-accent-fg-color) 20%, transparent) 3px);
+        background-image: linear-gradient(
+            transparent calc(100% - 3px),
+            color-mix(in srgb, var(--md-accent-fg-color) 20%, transparent) 3px
+        );
         background-repeat: no-repeat;
         background-size: 100% 100%;
         background-position: 0 100%;
@@ -51,10 +50,18 @@ body .jupyter-wrapper .jp-Notebook {
 
     .uplight-link {
         color: inherit;
-        background-color: color-mix(in srgb, var(--uplight-color) 20%, transparent);
+        background-color: color-mix(
+            in srgb,
+            var(--uplight-color) 20%,
+            transparent
+        );
         padding: 0 3px;
-        &.uplight-hover{
-            background-color: color-mix(in srgb, var(--uplight-color) 35%, transparent);
+        &.uplight-hover {
+            background-color: color-mix(
+                in srgb,
+                var(--uplight-color) 35%,
+                transparent
+            );
             color: inherit;
         }
     }
@@ -62,9 +69,17 @@ body .jupyter-wrapper .jp-Notebook {
     .uplight-code {
         color: var(--uplight-color);
         font-weight: bold;
-        background-color: color-mix(in srgb, var(--uplight-color) 20%, transparent);
+        background-color: color-mix(
+            in srgb,
+            var(--uplight-color) 20%,
+            transparent
+        );
         &.uplight-hover {
-            background-color: color-mix(in srgb, var(--uplight-color) 35%, transparent);
+            background-color: color-mix(
+                in srgb,
+                var(--uplight-color) 35%,
+                transparent
+            );
             color: color-mix(in srgb, var(--uplight-color) 70%, currentColor);
         }
     }
@@ -72,15 +87,12 @@ body .jupyter-wrapper .jp-Notebook {
     .uplight-link,
     .uplight-code {
         cursor: default;
-
     }
 }
 
 .md-header .md-header__source {
-    width: 120px;
+    width: 200px;
 }
-
-
 
 .md-nav {
     .md-nav__title {
@@ -89,12 +101,21 @@ body .jupyter-wrapper .jp-Notebook {
 }
 
 .md-content {
-
-    p, ul, ol, dl, table, .jp-Cell-outputArea {
+    p,
+    ul,
+    ol,
+    dl,
+    table,
+    .jp-Cell-outputArea {
         max-width: 42em;
     }
 
-    h1, h2, h3, h4, h5, h6 {
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
         max-width: 42em;
     }
 

@@ -1,19 +1,42 @@
 site_name: GenStudio
 site_url: https://studio.gen.dev
 repo_url: https://github.com/probcomp/genstudio
+repo_name: probcomp/genstudio
+edit_uri: tree/docs/docs/
 theme:
   name: material
   custom_dir: docs/overrides
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil-box
+    download: material/download
+  palette:
+    primary: black
+    accent: blue
+  font:
+    text: Georgia
   features:
     - navigation.tracking
     - navigation.indexes
+    # - navigation.sections
     - toc.follow
     - toc.integrate
+    - content.action.edit
+  logo: false
 nav:
   - Home: index.py
-  - User Guide: user-guide.py
+  - User Guide:
+      - The Basics: user-guide/basics.py
+      - Animation & Interactivity: user-guide/animate-interactive.py
+      - HTML with Hiccup: user-guide/html-hiccup.py
+      - Python Event Loops: user-guide/python-event-loop.py
+      - Additions to Observable Plot: user-guide/additions-to-observable.py
   - More Examples:
-    - Python Event Loop: examples/event-loop.py
+      - Timelines with barX: examples/timelines.py
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
 plugins:
   - search
   - mkdocs-jupyter:
@@ -35,3 +58,6 @@ extra_css:
 extra_javascript:
   - uplight.js
 # poetry run ipython kernel install --user --name=genstudio
+
+hooks:
+  - src/genstudio/scripts/css_modifier.py

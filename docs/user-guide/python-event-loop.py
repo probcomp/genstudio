@@ -1,3 +1,8 @@
+# %% [markdown]
+# > **NOTE**: This technique will only work in a "live" jupyter session because it depends on communication with a python backend.
+
+# %%
+
 import genstudio.plot as Plot
 from IPython.display import display
 import asyncio
@@ -6,7 +11,11 @@ import numpy as np
 
 # %% [markdown]
 
-# This guide demonstrates how to create Python-controlled animations using GenStudio plots, the `.reset` method, and interactive sliders.
+# # Python-Controlled Animations in GenStudio
+
+# This guide demonstrates how to create Python-controlled animations using GenStudio plots, the `.reset` method, and interactive sliders. We'll cover:
+# 1. Setting up a basic animated plot
+# 2. Creating interactive animations with ipywidgets
 
 # GenStudio plots can be displayed as "widgets" or "html". In order for python<>javascript communication to work, we must use its "widget" mode.
 

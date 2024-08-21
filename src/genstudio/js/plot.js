@@ -10,7 +10,7 @@ const DEFAULT_ASPECT_RATIO = 1.5
 
 
 export function PlotWrapper({spec}) {
-    const [$state, set$state] = React.useContext($StateContext)
+    const $state = React.useContext($StateContext)
     const availableWidth = React.useContext(WidthContext)
     spec = prepareSpec(spec, spec.width ?? availableWidth)
     // if (!spec.height && !spec.aspectRatio){
