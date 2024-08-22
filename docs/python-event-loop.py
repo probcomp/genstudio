@@ -15,7 +15,7 @@ import numpy as np
 # 1. Setting up a basic animated plot
 # 2. Creating interactive animations with ipywidgets
 
-# GenStudio plots can be displayed as "widgets" or "html". In order for python<>javascript communication to work, we must use its "widget" mode.
+# We must use the `"widget"` [rendering modes](getting-started/#rendering-modes) for bidirectional python/javascript communication:
 
 # %%
 

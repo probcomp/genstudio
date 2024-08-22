@@ -1,3 +1,9 @@
+@media screen and (min-width:60em) {
+    .md-search__form {
+
+    }
+}
+
 .md-sidebar {
     font-family: Roboto, sans-serif;
 }
@@ -91,7 +97,7 @@ body .jupyter-wrapper .jp-Notebook {
 }
 
 .md-header .md-header__source {
-    width: 200px;
+    width: 220px;
 }
 
 .md-nav {

@@ -11,7 +11,7 @@ theme:
     edit: material/pencil-box
     download: material/download
   palette:
-    primary: black
+    primary: white
     accent: blue
   font:
     text: Georgia
@@ -22,21 +22,21 @@ theme:
     - content.action.edit
   logo: false
 nav:
-  - Home: index.py
-  - User Guide:
-      - The Basics: user-guide/basics.py
-      - Animation & Interactivity: user-guide/animate-interactive.py
-      - HTML with Hiccup: user-guide/html-hiccup.py
-      - Python Event Loops: user-guide/python-event-loop.py
-      - Compare with Observable Plot: user-guide/comparison-with-observable.py
-      - Additional Marks: user-guide/additions-to-observable.py
+  - Home: index.md
+  - Getting Started: getting-started.py
+  - Animation & Interactivity: animate-interactive.py
+  - HTML with Hiccup: html-hiccup.py
+  - Python Event Loops: python-event-loop.py
+  - Compare with Observable Plot: comparison-with-observable.py
   - More Examples:
-      - Timelines with barX: examples/timelines.py
+      - Additional Marks: additions-to-observable.py
+      - Timelines with barX: example-timelines.py
   - Changelog: CHANGELOG.md
 markdown_extensions:
   - admonition
   - pymdownx.details
   - pymdownx.superfences
+  - attr_list
 plugins:
   - search
   - mkdocs-jupyter:

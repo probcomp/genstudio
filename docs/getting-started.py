@@ -202,3 +202,34 @@ import random
     + Plot.colorLegend()
     + {"width": 400, "height": 400, "aspectRatio": 1}
 )
+
+
+# %% [markdown]
+# ## Rendering Modes
+
+# GenStudio offers two rendering modes:
+
+# 1. **HTML mode**: Renders visualizations as standalone HTML, ideal for embedding in web pages or exporting. Plots persist across kernel restarts.
+
+# 2. **Widget mode**: Renders visualizations as interactive Jupyter widgets. Enables bidirectional communication between Python and JavaScript.
+
+
+# You can choose the rendering mode in two ways:
+
+# 1. Globally, using `Plot.configure()`:
+
+# %%
+Plot.configure(display_as="widget")  # Set global rendering mode to widget
+
+# %% [markdown]
+# 2. For individual plots, using the `.display_as()` method:
+
+# %%
+(
+    Plot.dot(categorical_data, {"x": "value", "y": "category", "fill": "category"})
+    + Plot.colorLegend()
+).display_as("html")  # This specific plot will render as HTML
+
+# %% [markdown]
+# The global setting affects all subsequent plots unless overridden by `.display_as()`.
+# You can switch between modes as needed for different use cases.
