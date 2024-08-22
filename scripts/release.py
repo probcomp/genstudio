@@ -27,11 +27,14 @@ def get_next_version():
         .split()
     )
 
-    if not tags:
+    # Filter out dev versions
+    release_tags = [tag for tag in tags if not tag.endswith(".dev")]
+
+    if not release_tags:
         return f"{year_month}.001"
 
     # Extract the highest patch number
-    patch_numbers = [int(tag.split(".")[-1]) for tag in tags]
+    patch_numbers = [int(tag.split(".")[-1]) for tag in release_tags]
     next_patch = max(patch_numbers) + 1
 
     return f"{year_month}.{next_patch:03d}"
@@ -45,6 +48,8 @@ def update_pyproject_toml(new_version):
 
     with open("pyproject.toml", "w") as f:
         toml.dump(data, f)
+
+    print(f"Updated pyproject.toml with new version: {new_version}")
 
 
 def update_readme(new_version):
