@@ -1,6 +1,6 @@
 # %% [markdown]
 
-# This guide demonstrates how to create interactive and animated plots using GenStudio. We'll cover:
+# This guide demonstrate:
 # 1. Using sliders for dynamic parameter adjustment
 # 2. Creating animated sliders
 # 3. Using Plot.Frames for frame-by-frame animations

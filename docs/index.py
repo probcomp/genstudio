@@ -11,7 +11,7 @@
 # - Terse layout syntax for organizing plots into rows and columns
 # - Hiccup implementation for interspersing arbitrary HTML
 
-# For detailed usage instructions and examples, refer to the [Gen Studio User Guide](https://studio.gen.dev).
+# For detailed usage instructions and examples, refer to the [User Guide](/user-guide/basics).
 
 # ### Installation
 

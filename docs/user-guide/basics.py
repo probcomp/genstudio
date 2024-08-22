@@ -1,13 +1,5 @@
 # %% [markdown]
 
-# This guide introduces the fundamental concepts of creating plots with GenStudio.
-# You'll learn how to:
-# 1. Create simple plots
-# 2. Understand and use different types of marks
-# 3. Layer marks and add options to plots
-# 4. Specify data and channels for visualizations
-# 5. Utilize various color schemes and legends
-
 # Let's begin by importing GenStudio and creating our first plot.
 
 # %% [markdown]
