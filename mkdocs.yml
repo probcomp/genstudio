@@ -12,7 +12,7 @@ theme:
     download: material/download
   palette:
     primary: white
-    accent: blue
+    accent: custom
   font:
     text: Georgia
   features:
@@ -43,7 +43,6 @@ plugins:
       include: ["*.py"]
       execute: true
       kernel_name: genstudio
-      # no_input: True
       include_requirejs: true
       include_source: True
       remove_tag_config:
