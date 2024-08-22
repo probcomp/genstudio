@@ -1,7 +1,8 @@
 # Gen Studio
 _Visualization tools for GenJAX._
 
-Current version: xxx
+Current version: `2024.08.001`
+
 -----
 
 `genstudio.plot` provides a composable way to create interactive plots using [Observable Plot](https://observablehq.com/plot/).

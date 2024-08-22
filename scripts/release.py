@@ -58,7 +58,7 @@ def update_readme(new_version):
 
     # Update version in README (assuming there's a line like "Current version: X.Y.Z")
     updated_content = re.sub(
-        r"Current version: [\d\.]+", f"Current version: {new_version}", content
+        r"Current version: `.+`", f"Current version: `{new_version}`", content
     )
 
     with open("README.md", "w") as f:
