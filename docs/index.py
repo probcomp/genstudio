@@ -38,4 +38,4 @@
 # ```
 
 # %% [markdown]
-# For more detailed information, check out our [User Guide](user-guide).
+# For more detailed information, check out our [User Guide](user-guide/basics).

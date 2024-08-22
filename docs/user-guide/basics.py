@@ -36,7 +36,7 @@ Plot.line(six_points)
 # %% [markdown]
 # ## Understanding Marks
 
-# In GenStudio (and Observable Plot), [marks](https://observablehq.com/plot/marks) are the basic visual elements used to represent data. The `line` we just used is one type of mark. Other common marks include `dot` for scatter plots, `bar` for bar charts, and `text` for adding labels.
+# In GenStudio (and Observable Plot), [marks](https://observablehq.com/plot/features/marks) are the basic visual elements used to represent data. The `line` we just used is one type of mark. Other common marks include `dot` for scatter plots, `bar` for bar charts, and `text` for adding labels.
 
 # Each mark type has its own set of properties that control its appearance and behavior. For example, with `line`, we can control the stroke, stroke width, and curve:
 
@@ -53,7 +53,7 @@ Plot.line(
 
 # %% [markdown]
 
-# To learn more, refer to the [marks documentation](https://observablehq.com/plot/marks).
+# To learn more, refer to the [marks documentation](https://observablehq.com/plot/features/marks).
 
 # ## Layering Marks and Options
 

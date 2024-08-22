@@ -5,7 +5,7 @@
 # 2. Creating animated sliders
 # 3. Using Plot.Frames for frame-by-frame animations
 
-
+# %%
 import genstudio.plot as Plot
 
 # %% [markdown]
