@@ -78,8 +78,15 @@ def update_changelog(new_version):
     ).decode()
 
     # Categorize commits (this is a basic implementation and might need refinement)
-    features = [msg for msg in commit_messages.split("\n") if msg.startswith("feat:")]
-    fixes = [msg for msg in commit_messages.split("\n") if msg.startswith("fix:")]
+    features = [
+        msg[5:].strip()
+        for msg in commit_messages.split("\n")
+        if msg.startswith("feat:")
+    ]
+    fixes = [
+        msg[4:].strip() for msg in commit_messages.split("\n") if msg.startswith("fix:")
+    ]
+
     others = [
         msg
         for msg in commit_messages.split("\n")
@@ -87,20 +94,23 @@ def update_changelog(new_version):
     ]
 
     # Prepare changelog entry
-    changelog_entry = f"## [{new_version}] - {datetime.now().strftime('%B %d, %Y')}\n\n"
+    changelog_entry = (
+        f"### **`{new_version}`** - *{datetime.now().strftime('%B %d, %Y')}*\n\n"
+    )
 
     if features:
-        changelog_entry += "### New Features\n"
+        changelog_entry += "#### New Features\n"
         changelog_entry += "\n".join(f"- {feature}" for feature in features)
         changelog_entry += "\n\n"
 
     if fixes:
-        changelog_entry += "### Bug Fixes\n"
+        changelog_entry += "#### Bug Fixes\n"
         changelog_entry += "\n".join(f"- {fix}" for fix in fixes)
         changelog_entry += "\n\n"
 
     if others:
-        changelog_entry += "### Other Changes\n"
+        if features or fixes:
+            changelog_entry += "#### Other Changes\n"
         changelog_entry += "\n".join(f"- {other}" for other in others)
         changelog_entry += "\n\n"
 
