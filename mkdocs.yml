@@ -56,7 +56,6 @@ extra_css:
 extra_javascript:
   - js/uplight.js
   - js/scroll-fix.js
-# poetry run ipython kernel install --user --name=genstudio
 
 hooks:
   - src/genstudio/scripts/css_modifier.py

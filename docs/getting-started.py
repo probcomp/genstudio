@@ -49,7 +49,7 @@ Plot.line(
 
 # ## Layering Marks and Options
 
-# We can layer multiple marks and add options to plots using the [+](uplight?dir=down&match=%2B) operator. For example, below we'll layer a dot plot with a line plot, then add a frame.
+# We can layer multiple marks and add options to plots using the `+` operator. For example, here we compose a [line mark](uplight?match=Plot.line(...\)) with a [dot mark](uplight?match=Plot.dot(...\)), then add a [frame](uplight?match=Plot.frame(\)):
 
 # %%
 (
@@ -77,14 +77,14 @@ object_data = [
 ]
 
 # %% [markdown]
-# A mark takes [data](uplight?dir=down&match=object_data) followed by an options dictionary, which specifies how [channel names](uplight?dir=down&match="x","y","stroke","strokeWidth","r","fill") get their values.
+# A mark takes [data](uplight?match=object_data) followed by an options dictionary, which specifies how [channel names](uplight?match="x","y","stroke","strokeWidth","r","fill") get their values.
 #
 # There are several ways to specify channel values in Observable Plot:
 
-# 1. A [string](uplight?dir=down&match="X","Y","CATEGORY") is used to specify a property name in the data object. If it matches, that property's value is used. Otherwise, it's treated as a literal value.
-# 2. A [function](uplight?dir=down&match=Plot.js(...\)) will receive two arguments, `(data, index)`, and should return the desired value for the channel. We use `Plot.js` to insert a JavaScript source string - this function is evaluated within the rendering environment, and not in python.
-# 3. An [array](uplight?dir=down&match=[...]) provides explicit values for each data point.
-# 4. [Other values](uplight?dir=down&match=8,None) will be used as a constant for all data points.
+# 1. A [string](uplight?match="X","Y","CATEGORY") is used to specify a property name in the data object. If it matches, that property's value is used. Otherwise, it's treated as a literal value.
+# 2. A [function](uplight?match=Plot.js(...\)) will receive two arguments, `(data, index)`, and should return the desired value for the channel. We use `Plot.js` to insert a JavaScript source string - this function is evaluated within the rendering environment, and not in python.
+# 3. An [array](uplight?match=[...]) provides explicit values for each data point. It should have the same length as the list passed in the first (data) position.
+# 4. [Other values](uplight?match=8,None) will be used as a constant for all data points.
 
 # %%
 Plot.dot(
@@ -125,7 +125,7 @@ Plot.dot(
 # %% [markdown]
 # ### Custom color interpolation
 
-# You can also create custom color scales by specifying a range and an [interpolation function](uplight?dir=down&match=Plot.js(...)):
+# You can also create custom color scales by specifying a range and an [interpolation function](uplight?match=Plot.js(...\)):
 
 # %%
 (
@@ -162,7 +162,7 @@ Plot.dot(
 # %% [markdown]
 # ### Using colorMap and colorLegend
 
-# [Plot.colorMap(...)](uplight?dir=down) assigns specific colors to categories, while [Plot.colorLegend()](uplight?dir=down) adds a color legend to your plot. In the following example, we create a dot plot with categorical data. The [fill channel](uplight?dir=down&match="fill":+"category") determines the color of each dot based on its category.
+# [Plot.colorMap(...)](uplight) assigns specific colors to categories, while [Plot.colorLegend()](uplight) adds a color legend to your plot. In the following example, we create a dot plot with categorical data. The [fill channel](uplight?match="fill":+"category") determines the color of each dot based on its category.
 
 # %%
 categorical_data = [
@@ -183,7 +183,7 @@ categorical_data = [
 # %% [markdown]
 # ### Applying a constant color to an entire mark
 
-# [Plot.constantly(...)](uplight?dir=down) returns a function that always returns the same value, regardless of its input. When used as a channel specifier (like for `fill` or `stroke`), it assigns a single categorical value to the entire mark. This is useful for creating consistent visual elements in your plot. Separately, one can use [Plot.colorMap(...)](uplight?dir=down) to assign specific colors to these categorical values, usually in combination with [Plot.colorLegend()](uplight?dir=down).
+# [Plot.constantly(...)](uplight) returns a function that always returns the same value, regardless of its input. When used as a channel specifier (like for `fill` or `stroke`), it assigns a single categorical value to the entire mark. This is useful for creating consistent visual elements in your plot. Separately, one can use [Plot.colorMap(...)](uplight) to assign specific colors to these categorical values, usually in combination with [Plot.colorLegend()](uplight).
 
 # %%
 import random
@@ -222,7 +222,7 @@ import random
 Plot.configure(display_as="widget")  # Set global rendering mode to widget
 
 # %% [markdown]
-# 2. For individual plots, using the `.display_as()` method:
+# 2. Using a plot's [.display_as(...)](uplight) method:
 
 # %%
 (

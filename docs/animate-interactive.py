@@ -37,7 +37,7 @@ line | slider
 # %% [markdown]
 # ### Animated Sliders
 
-# Sliders can also be used to create animations. When a slider is given an [fps](uplight?dir=down&match=fps=30) (frames per second) parameter, it automatically animates by updating [its value](uplight?dir=down&match=$state.frame,key="frame") over time. This approach is useful when all frame differences can be expressed using JavaScript functions that read from $state variables.
+# Sliders can also be used to create animations. When a slider is given an [fps](uplight?match=fps=30) (frames per second) parameter, it automatically animates by updating [its value](uplight?match=$state.frame,key="frame") over time. This approach is useful when all frame differences can be expressed using JavaScript functions that read from $state variables.
 
 # %%
 

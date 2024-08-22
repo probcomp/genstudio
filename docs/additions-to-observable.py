@@ -17,7 +17,7 @@ histogram_data = [1, 2, 2, 3, 3, 3, 4, 4, 5]
 Plot.histogram(histogram_data)
 
 # %% [markdown]
-# You can customize the [number of bins](uplight?dir=down&match=thresholds=5):
+# You can customize the [number of bins](uplight?match=thresholds=5):
 
 # %%
 Plot.histogram(histogram_data, thresholds=5)

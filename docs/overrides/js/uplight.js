@@ -4,16 +4,21 @@ Uplight: Flexible Syntax Highlighting for Documentation
 Usage:
 1. Include this script in your HTML.
 2. Call `uplight({ target: 'body', debug: true })` to apply highlighting.
-3. Use `<a href="uplight?match=pattern">` links in your documentation to define highlight patterns.
-   These links will automatically apply to the nearest `<pre>` block above them.
+3. Use `<a href="uplight?match=pattern&dir=direction">` links in your documentation to define highlight patterns.
+   These links will automatically apply to the nearest `<pre>` block based on the specified direction.
 
 Key Features:
-- Automatically associates highlight patterns with the nearest code block.
+- Automatically associates highlight patterns with code blocks based on specified direction.
 - Supports flexible pattern matching with wildcards.
 - Provides interactive hover effects for highlighted code.
 
 For detailed pattern syntax and behavior, see the documentation in the matchWildcard function.
 */
+
+// Utility functions
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 const Observable10Colors = [
     "#4e79a7", "#f28e2c", "#e15759", "#76b7b2", "#59a14f",
@@ -23,24 +28,7 @@ const Observable10Colors = [
 let debug = false;
 const log = (...args) => debug && console.log(...args);
 
-// Utility function
-function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// Core highlighting functionality
-function highlightText({ source, styles }) {
-    const preElements = document.getElementsByTagName('pre');
-    for (let preElement of preElements) {
-        const text = preElement.textContent;
-        const matches = findMatches(text, source);
-        if (matches.length === 0) continue;
-        const highlightedText = applyHighlights(text, matches, styles);
-        preElement.innerHTML = `<code>${highlightedText}</code>`;
-    }
-}
-
-// Function to handle wildcard matching
+// Wildcard matching functions
 function matchWildcard(text, startIndex, nextLiteral) {
     /*
     Wildcard Matching Rules:
@@ -84,7 +72,8 @@ function matchWildcard(text, startIndex, nextLiteral) {
     }
     return index;
 }
-// Find all matches of a pattern in the text
+
+// Matching functions
 function findMatches(text, pattern) {
     const isRegex = pattern.startsWith('/') && pattern.endsWith('/');
     if (isRegex) {
@@ -109,7 +98,6 @@ function findMatches(text, pattern) {
     return matches;
 }
 
-// New function to find regex matches
 function findRegexMatches(text, pattern) {
     const regex = new RegExp(pattern, 'g');
     let matches = [];
@@ -131,7 +119,6 @@ function findRegexMatches(text, pattern) {
     return matches;
 }
 
-// Find a single match of the pattern starting from a given position
 function findSingleMatch(text, pattern, startPosition) {
     let patternPosition = 0;
     let textPosition = startPosition;
@@ -160,13 +147,31 @@ function findSingleMatch(text, pattern, startPosition) {
 
     return null;
 }
+// Highlighting functions
+function findMatchesForPatterns(text, patterns, matchId) {
+    return patterns.flatMap(pattern =>
+        findMatches(text, pattern).map(match => [...match, matchId])
+    );
+}
 
+function highlightPatterns(preElement, patterns, options = {}) {
+    const text = preElement.textContent;
+    const { matchId = `match-${Math.random().toString(36).slice(2, 11)}`, colorIndex = 0 } = options;
+    const matches = findMatchesForPatterns(text, patterns, matchId);
+    if (matches.length === 0) return;
+
+    const color = Observable10Colors[colorIndex % Observable10Colors.length];
+    const styleString = `--uplight-color: ${color};`;
+
+    const allMatches = matches.map(match => [...match, styleString]);
+    preElement.innerHTML = `<code>${applyHighlights(text, allMatches)}</code>`;
+}
 
 function applyHighlights(text, matches) {
     // Sort matches in reverse order based on their start index
     matches.sort((a, b) => b[0] - a[0]);
 
-    return matches.reduce((result, [start, end, styleString, matchId]) => {
+    return matches.reduce((result, [start, end, matchId, styleString]) => {
         const beforeMatch = result.slice(0, start);
         const matchContent = result.slice(start, end);
         const afterMatch = result.slice(end);
@@ -179,8 +184,8 @@ function applyHighlights(text, matches) {
     }, text);
 }
 
+// Link processing and hover effect functions
 function processLinksAndHighlight(targetElement) {
-
     const elements = targetElement.querySelectorAll('pre, a[href^="uplight"]');
 
     const preMap = new Map();
@@ -188,83 +193,65 @@ function processLinksAndHighlight(targetElement) {
     const colorMap = new Map();
     let colorIndex = 0;
 
-    // First pass: Process all pre elements and links
+    // Process all elements
     elements.forEach((element, index) => {
         if (element.tagName === 'PRE') {
             preMap.set(element, []);
         } else if (element.tagName === 'A') {
             const url = new URL(element.href);
-            const direction = url.searchParams.get('dir') || 'up';
-            const patterns = (url.searchParams.get('match') || element.textContent).split(',');
-            const matchId = `match-${index}-${Math.random().toString(36).substr(2, 9)}`;
-            log(patterns)
-            linkMap.set(element, { direction, patterns, index, matchId });
+            const matchId = `match-${index}-${Math.random().toString(36).slice(2, 11)}`;
+            const direction = url.searchParams.get('dir') || 'down';
+            linkMap.set(element, {
+                direction: direction === 'up' || direction === '-1' ? -1 :
+                           direction === 'down' || direction === '1' ? 1 :
+                           0, // 'all' or '0'
+                patterns: (url.searchParams.get('match') || element.textContent).split(','),
+                index,
+                matchId
+            });
             colorMap.set(matchId, colorIndex);
             colorIndex = (colorIndex + 1) % Observable10Colors.length;
-            // Add click event listener to prevent default behavior
-            element.addEventListener('click', (event) => {
-                event.preventDefault();
-            });
+            element.addEventListener('click', e => e.preventDefault());
         }
     });
 
     // Second pass: Process links and find matches in pre elements
-    linkMap.forEach((linkData, linkElement) => {
-        const { direction, patterns, index, matchId } = linkData;
-        const searchForMatch = (preElement) => {
-            const text = preElement.textContent;
-            let allMatches = [];
-            patterns.forEach(pattern => {
-                const matches = findMatches(text, pattern);
-                allMatches.push(...matches.map(match => [...match, matchId]));
-            });
-            return allMatches.length > 0 ? allMatches : null;
+    linkMap.forEach(({ direction, patterns, index, matchId }, linkElement) => {
+        const findMatchingPre = (start, end, step) => {
+            for (let i = start; i !== end; i += step) {
+                if (elements[i].tagName === 'PRE') {
+                    return [elements[i]];
+                }
+            }
+            return [];
         };
 
-        let matchingPres = [];
-        if (direction === 'all') {
-            preMap.forEach((_, preElement) => {
-                const matches = searchForMatch(preElement);
-                if (matches) {
-                    matchingPres.push(preElement);
-                }
-            });
-        } else if (direction === 'up') {
-            for (let i = index - 1; i >= 0; i--) {
-                if (elements[i].tagName === 'PRE') {
-                    const matches = searchForMatch(elements[i]);
-                    if (matches) {
-                        matchingPres.push(elements[i]);
-                        break;
-                    }
-                }
-            }
-        } else {
-            for (let i = index + 1; i < elements.length; i++) {
-                if (elements[i].tagName === 'PRE') {
-                    const matches = searchForMatch(elements[i]);
-                    if (matches) {
-                        matchingPres.push(elements[i]);
-                        break;
-                    }
-                }
-            }
-        }
+        const matchingPres = direction === 0
+            ? Array.from(preMap.keys())
+            : direction === -1
+                ? findMatchingPre(index - 1, -1, -1)
+                : findMatchingPre(index + 1, elements.length, 1);
 
         matchingPres.forEach(matchingPre => {
-            const matches = searchForMatch(matchingPre);
-            if (matches) {
-                preMap.get(matchingPre).push(...matches);
-            }
+            const text = matchingPre.textContent;
+            const newMatches = findMatchesForPatterns(text, patterns, matchId);
+            preMap.get(matchingPre).push(...newMatches);
         });
     });
 
-    // Remove preMaps that don't have any matches
-    for (const [preElement, matches] of preMap.entries()) {
-        if (matches.length === 0) {
-            preMap.delete(preElement);
+    // Apply highlights to pre elements
+    preMap.forEach((matches, preElement) => {
+        if (matches.length > 0) {
+            const text = preElement.textContent;
+            const allMatches = matches.map(([start, end, matchId]) => [
+                start,
+                end,
+                matchId,
+                `--uplight-color: ${Observable10Colors[colorMap.get(matchId)]};`
+            ]);
+            preElement.innerHTML = `<code>${applyHighlights(text, allMatches)}</code>`;
         }
-    }
+    });
 
     log(preMap);
 
@@ -275,27 +262,6 @@ function processLinksAndHighlight(targetElement) {
         linkElement.dataset.matchId = matchId;
         linkElement.classList.add('uplight-link');
         linkElement.style.setProperty('--uplight-color', color);
-    });
-
-    // Process each pre element
-    preMap.forEach((matches, preElement) => {
-        let text = preElement.textContent;
-        let allMatches = [];
-
-        matches.forEach(match => {
-            const [start, end, matchId] = match;
-            const colorIndex = colorMap.get(matchId);
-            const color = Observable10Colors[colorIndex];
-            const style = `--uplight-color: ${color};`;
-            allMatches.push([start, end, style, matchId]);
-        });
-
-        // Only apply highlights if there are matches
-        if (allMatches.length > 0) {
-            preElement.innerHTML = applyHighlights(text, allMatches);
-        } else {
-            log('No matches found for this pre element');
-        }
     });
 }
 
@@ -323,6 +289,7 @@ function addHoverEffect(targetElement) {
     });
 }
 
+// Main uplight function
 function uplight({
     target = 'body',
     debugMode = false
@@ -338,11 +305,6 @@ function uplight({
     processLinksAndHighlight(targetElement);
     addHoverEffect(targetElement);
 }
-
-// Modify the DOMContentLoaded event listener
-document.addEventListener('DOMContentLoaded', function () {
-    uplight({ target: 'body', debugMode: false });
-});
 
 // Test suite
 function runTests() {
@@ -400,6 +362,11 @@ function runTests() {
 
     log(`\nTest summary: ${passedTests} passed, ${failedTests} failed`);
 }
+
+// Modify the DOMContentLoaded event listener
+document.addEventListener('DOMContentLoaded', function () {
+    uplight({ target: 'body', debugMode: false });
+});
 
 // Run tests
 runTests();

@@ -58,10 +58,12 @@
     font-family: var(--serif-font);
     font-size: 1rem;
     line-height: 1.25;
+    --md-code-font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
 
     pre,
     code {
         font-size: 13px;
+        font-family: var(--md-code-font-family)
     }
 
     .admonition, .details {
@@ -143,7 +145,7 @@ body .jupyter-wrapper .jp-Notebook {
     }
 
     .uplight-code {
-        color: var(--uplight-color);
+        color: color-mix(in srgb, var(--uplight-color) 80%, black);
         font-weight: bold;
         background-color: color-mix(in srgb, var(--uplight-color) 20%, transparent);
 
@@ -180,4 +182,5 @@ body .jupyter-wrapper .jp-Notebook {
             background-color: var(--md-accent-fg-color);
         }
     }
+
 }
