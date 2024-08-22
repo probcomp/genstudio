@@ -20,15 +20,16 @@ def get_next_version():
     today = datetime.now()
     year_month = today.strftime("%Y.%m")
 
-    # Read all tags
+    # Read all tags, including those with 'v' prefix
     tags = (
-        subprocess.check_output(["git", "tag", "-l", f"{year_month}.*"])
+        subprocess.check_output(["git", "tag", "-l", f"v{year_month}.[0-9][0-9][0-9]"])
         .decode()
-        .split()
+        .strip()
+        .split("\n")
     )
 
-    # Filter out dev versions
-    release_tags = [tag for tag in tags if not tag.endswith(".dev")]
+    # Filter out dev versions and empty strings, and remove 'v' prefix
+    release_tags = [tag[1:] for tag in tags if tag and not tag.endswith(".dev")]
 
     if not release_tags:
         return f"{year_month}.001"
