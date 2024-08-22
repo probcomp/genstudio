@@ -13,8 +13,7 @@ theme:
   palette:
     primary: white
     accent: custom
-  font:
-    text: Georgia
+  font: false
   features:
     - navigation.tracking
     - navigation.indexes
