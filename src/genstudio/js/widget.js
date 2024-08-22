@@ -34,7 +34,7 @@ const pauseIcon = html`<svg viewBox="0 24 24" width="24" height="24"><path fill=
 
 function Frames(props) {
   const { state_key, frames } = props
-  const $state = useContext($StateContext);
+  const [$state] = useContext($StateContext);
 
   if (!Array.isArray(frames)) {
     return html`<div className="red">Error: 'frames' must be an array.</div>`;
@@ -73,7 +73,7 @@ function getFirstDefinedValue(...values) {
 
 function Slider(options) {
   const { state_key, fps, label, range, init, step = 1, loop = true } = options;
-  const $state = useContext($StateContext);
+  const [$state, set$state] = useContext($StateContext);
   const availableWidth = useContext(WidthContext);
   const isAnimated = typeof fps === 'number' && fps > 0;
   const [isPlaying, setIsPlaying] = useState(isAnimated);
@@ -85,17 +85,19 @@ function Slider(options) {
     if (isAnimated && isPlaying) {
       const intervalId = setInterval(() => {
 
-        const newValue = $state[state_key] + step;
-        if (newValue > maxRange) {
-          if (loop) {
-            $state[state_key] = minRange;
-          } else {
-            setIsPlaying(false);
-            $state[state_key] = maxRange;
+        $state[state_key] = (prevValue) => {
+          const nextValue = prevValue + step;
+          if (nextValue > maxRange) {
+            if (loop) {
+              return minRange;
+            } else {
+              setIsPlaying(false);
+              return maxRange;
+            }
           }
-        } else {
-          $state[state_key] = newValue;
+          return nextValue;
         }
+
       }, 1000 / fps);
       return () => clearInterval(intervalId);
     }
@@ -104,7 +106,7 @@ function Slider(options) {
   const handleSliderChange = useCallback((value) => {
     setIsPlaying(false);
     $state[state_key] = Number(value);
-  }, [$state, state_key]);
+  }, [set$state, state_key]);
 
   const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
 
@@ -288,35 +290,29 @@ function Hiccup(tag, props, ...children) {
       : html`<${baseTag} ...${props} />`;
 }
 
-function useStateProxy(initialStateFunction, deps) {
+function useStateWithDeps(initialStateFunction, deps) {
+  // useState, recomputes initial state when deps change
   const [state, setState] = useState({});
   useEffect(() => {
     setState(initialStateFunction);
   }, deps);
 
-  return useMemo(() => new Proxy({}, {
-    get: (_, prop) => state[prop],
-    set: (_, prop, value) => {
+  const stateProxy = new Proxy(state, {
+    set(_, prop, value) {
       setState(prevState => ({
         ...prevState,
-        [prop]: value
+        [prop]: typeof value === 'function' ? value(prevState[prop]) : value
       }));
       return true;
-    },
-    has: (_, prop) => prop in state,
-    deleteProperty: (_, prop) => {
-      setState(prevState => {
-        const { [prop]: _, ...rest } = prevState;
-        return rest;
-      });
-      return true;
-    },
-    ownKeys: () => Reflect.ownKeys(state)
-  }), [state]);
+    }
+  });
+
+  return useMemo(() => [stateProxy, setState], [state]);
 }
 
 function StateProvider({ ast, cache, experimental }) {
-  const $state = useStateProxy(() => collectReactiveInitialState(ast), [ast]);
+  const stateArray = useStateWithDeps(() => collectReactiveInitialState(ast), [ast]);
+  const [$state] = stateArray;
 
   const [data, setData] = useState();
   useEffect(() => {
@@ -327,7 +323,7 @@ function StateProvider({ ast, cache, experimental }) {
 
   if (!data) return;
   return html`
-    <${$StateContext.Provider} value=${$state}>
+    <${$StateContext.Provider} value=${stateArray}>
       <${Node} value=${data} />
     </>
   `;
