@@ -32,6 +32,7 @@ nav:
       - Additional Marks: user-guide/additions-to-observable.py
   - More Examples:
       - Timelines with barX: examples/timelines.py
+  - Release Notes: CHANGELOG.md
 markdown_extensions:
   - admonition
   - pymdownx.details
