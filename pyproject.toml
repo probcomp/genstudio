@@ -1,12 +1,35 @@
+[build-system]
+requires = [ "poetry-core",]
+build-backend = "poetry.core.masonry.api"
+
 [tool.poetry]
 name = "genstudio"
-version = "0.1.0"
+version = "2024.08.1"
 description = ""
-authors = ["Matthew Huebert <me@matt.is>"]
+authors = [ "Matthew Huebert <me@matt.is>",]
 license = "MIT"
 readme = "README.md"
-packages = [{include = "genstudio", from = "src"}]
-include = ["**/*_build.js"]
+include = [ "**/*_build.js",]
+[[tool.poetry.packages]]
+include = "genstudio"
+from = "src"
+
+[[tool.poetry.source]]
+name = "gcp"
+url = "https://us-west1-python.pkg.dev/probcomp-caliban/probcomp/simple/"
+priority = "explicit"
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+include = [ "src", "tests",]
+exclude = [ "notebooks",]
+typeCheckingMode = "standard"
+reportUnusedExpression = false
+reportFunctionMemberAccess = false
+
+[tool.ruff]
+ignore = [ "E402",]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
@@ -27,7 +50,6 @@ toml = "^0.10.2"
 jaxlib = "^0.4.24"
 ipykernel = "^6.29.4"
 watchfiles = "^0.21.0"
-genjax = {version = "0.3.1.post258.dev0+b103dee7", source = "gcp"}
 jupyter-client = "^8.6.2"
 nbformat = "^5.10.4"
 mkdocs = "^1.6.0"
@@ -35,23 +57,6 @@ mkdocs-jupyter = "^0.24.8"
 mkdocs-terminal = "^4.4.0"
 mkdocs-material = "^9.5.31"
 
-[[tool.poetry.source]]
-name = "gcp"
-url = "https://us-west1-python.pkg.dev/probcomp-caliban/probcomp/simple/"
-priority = "explicit"
-
-[tool.pyright]
-venvPath = "."
-venv = ".venv"
-include = ["src", "tests"]
-exclude = ["notebooks"]
-typeCheckingMode = "standard"
-reportUnusedExpression = false
-reportFunctionMemberAccess = false
-
-[tool.ruff]
-ignore = ["E402"]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.poetry.group.dev.dependencies.genjax]
+version = "0.3.1.post258.dev0+b103dee7"
+source = "gcp"

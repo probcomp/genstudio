@@ -9,6 +9,7 @@ on:
       - 'v*.*.*'
   release:
     types: [published]
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -51,28 +52,34 @@ jobs:
       - name: Install deps
         run: poetry install
 
+      - name: Check if triggered by push to main
+        id: check_trigger
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "DEV_CHANNEL=true" >> $GITHUB_OUTPUT
+          else
+            echo "DEV_CHANNEL=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Get current date and time
+        if: steps.check_trigger.outputs.DEV_CHANNEL == 'true'
         id: datetime
         run: |
           echo "NEXT_VERSION=$(date +'%Y.%m.%d.%H%M')" >> $GITHUB_ENV
 
       - name: Update version in pyproject.toml
+        if: steps.check_trigger.outputs.DEV_CHANNEL == 'true'
         run: |
           poetry version ${{ env.NEXT_VERSION }}
 
-      - name: Create Git tag
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${{ env.NEXT_VERSION }}" -m "Release version ${{ env.NEXT_VERSION }}"
-          git push origin --tags
 
       - name: Deploy to Artifact Registry
         run: poetry publish --build --repository gcp
 
       - name: Create GitHub Release
+        if: steps.check_trigger.outputs.DEV_CHANNEL == 'false'
         uses: softprops/action-gh-release@v1
         with:
-          body_path: CHANGELOG.md
+          body_path: docs/CHANGELOG.md
           files: |
             dist/*

@@ -28,13 +28,13 @@ def get_next_version():
     )
 
     if not tags:
-        return f"{year_month}.1"
+        return f"{year_month}.001"
 
     # Extract the highest patch number
     patch_numbers = [int(tag.split(".")[-1]) for tag in tags]
     next_patch = max(patch_numbers) + 1
 
-    return f"{year_month}.{next_patch}"
+    return f"{year_month}.{next_patch:03d}"
 
 
 def update_pyproject_toml(new_version):
@@ -81,24 +81,28 @@ def update_changelog(new_version):
     ]
 
     # Prepare changelog entry
-    changelog_entry = f"""
-## [{new_version}] - {datetime.now().strftime("%Y-%m-%d")}
+    changelog_entry = f"## [{new_version}] - {datetime.now().strftime('%B %d, %Y')}\n\n"
 
-### New Features
-{chr(10).join(f"- {feature}" for feature in features)}
+    if features:
+        changelog_entry += "### New Features\n"
+        changelog_entry += "\n".join(f"- {feature}" for feature in features)
+        changelog_entry += "\n\n"
 
-### Bug Fixes
-{chr(10).join(f"- {fix}" for fix in fixes)}
+    if fixes:
+        changelog_entry += "### Bug Fixes\n"
+        changelog_entry += "\n".join(f"- {fix}" for fix in fixes)
+        changelog_entry += "\n\n"
 
-### Other Changes
-{chr(10).join(f"- {other}" for other in others)}
-"""
+    if others:
+        changelog_entry += "### Other Changes\n"
+        changelog_entry += "\n".join(f"- {other}" for other in others)
+        changelog_entry += "\n\n"
 
     # Prepend to CHANGELOG.md
-    with open("CHANGELOG.md", "r+") as f:
+    with open("docs/CHANGELOG.md", "r+") as f:
         content = f.read()
         f.seek(0, 0)
-        f.write(changelog_entry.rstrip("\n") + "\n\n" + content)
+        f.write(changelog_entry + content)
 
     # Print the new changelog entry to the terminal
     print("\nNew changelog entry:")
@@ -121,7 +125,7 @@ def main():
     update_changelog(new_version)
 
     # Commit changes
-    subprocess.run(["git", "add", "pyproject.toml", "README.md", "CHANGELOG.md"])
+    subprocess.run(["git", "add", "pyproject.toml", "README.md", "docs/CHANGELOG.md"])
     subprocess.run(["git", "commit", "-m", f"Release version {new_version}"])
 
     # Create and push tag
