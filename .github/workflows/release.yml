@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*.*.*'
   release:
     types: [published]
 jobs:
@@ -67,3 +69,10 @@ jobs:
 
       - name: Deploy to Artifact Registry
         run: poetry publish --build --repository gcp
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: CHANGELOG.md
+          files: |
+            dist/*
