@@ -88,7 +88,7 @@ civilizations = [
 
 # %% [markdown]
 
-# Below: a [barX](uplight?match=Plot.barX) mark specifies [x1 and x2](uplight?match="x1","x2") channels to show civilization timespans, with a [text mark](uplight?match=Plot.text) providing labels that align with the bars. Both marks use the civilization name for the [y channel](uplight?match="y":+"name"). [Color is used](uplight?match=Plot.colorLegend(\),"fill":+"continent") to indicate the continent, and a legend is provided.
+# Below: a [barX](bylight?match=Plot.barX) mark specifies [x1 and x2](bylight?match="x1","x2") channels to show civilization timespans, with a [text mark](bylight?match=Plot.text) providing labels that align with the bars. Both marks use the civilization name for the [y channel](bylight?match="y":+"name"). [Color is used](bylight?match=Plot.colorLegend(\),"fill":+"continent") to indicate the continent, and a legend is provided.
 
 # %%
 

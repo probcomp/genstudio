@@ -1,10 +1,10 @@
 /*
-Uplight: Flexible Syntax Highlighting for Documentation
+bylight: Flexible Syntax Highlighting for Documentation
 
 Usage:
 1. Include this script in your HTML.
-2. Call `uplight({ target: 'body', debug: true })` to apply highlighting.
-3. Use `<a href="uplight?match=pattern&dir=direction">` links in your documentation to define highlight patterns.
+2. Call `bylight({ target: 'body', debug: true })` to apply highlighting.
+3. Use `<a href="bylight?match=pattern&dir=direction">` links in your documentation to define highlight patterns.
    These links will automatically apply to the nearest `<pre>` block based on the specified direction.
 
 Key Features:
@@ -161,7 +161,7 @@ function highlightPatterns(preElement, patterns, options = {}) {
     if (matches.length === 0) return;
 
     const color = Observable10Colors[colorIndex % Observable10Colors.length];
-    const styleString = `--uplight-color: ${color};`;
+    const styleString = `--bylight-color: ${color};`;
 
     const allMatches = matches.map(match => [...match, styleString]);
     preElement.innerHTML = `<code>${applyHighlights(text, allMatches)}</code>`;
@@ -177,7 +177,7 @@ function applyHighlights(text, matches) {
         const afterMatch = result.slice(end);
 
         return beforeMatch +
-               `<span class="uplight-code" style="${styleString}" data-match-id="${matchId}">` +
+               `<span class="bylight-code" style="${styleString}" data-match-id="${matchId}">` +
                matchContent +
                '</span>' +
                afterMatch;
@@ -186,7 +186,7 @@ function applyHighlights(text, matches) {
 
 // Link processing and hover effect functions
 function processLinksAndHighlight(targetElement) {
-    const elements = targetElement.querySelectorAll('pre, a[href^="uplight"]');
+    const elements = targetElement.querySelectorAll('pre, a[href^="bylight"]');
 
     const preMap = new Map();
     const linkMap = new Map();
@@ -247,7 +247,7 @@ function processLinksAndHighlight(targetElement) {
                 start,
                 end,
                 matchId,
-                `--uplight-color: ${Observable10Colors[colorMap.get(matchId)]};`
+                `--bylight-color: ${Observable10Colors[colorMap.get(matchId)]};`
             ]);
             preElement.innerHTML = `<code>${applyHighlights(text, allMatches)}</code>`;
         }
@@ -260,8 +260,8 @@ function processLinksAndHighlight(targetElement) {
         const { matchId } = linkData;
         const color = Observable10Colors[colorMap.get(matchId)];
         linkElement.dataset.matchId = matchId;
-        linkElement.classList.add('uplight-link');
-        linkElement.style.setProperty('--uplight-color', color);
+        linkElement.classList.add('bylight-link');
+        linkElement.style.setProperty('--bylight-color', color);
     });
 }
 
@@ -272,7 +272,7 @@ function addHoverEffect(targetElement) {
             const matchId = target.dataset.matchId;
             const elements = targetElement.querySelectorAll(`[data-match-id="${matchId}"]`);
             elements.forEach(el => {
-                el.classList.add('uplight-hover');
+                el.classList.add('bylight-hover');
             });
         }
     });
@@ -283,14 +283,14 @@ function addHoverEffect(targetElement) {
             const matchId = target.dataset.matchId;
             const elements = targetElement.querySelectorAll(`[data-match-id="${matchId}"]`);
             elements.forEach(el => {
-                el.classList.remove('uplight-hover');
+                el.classList.remove('bylight-hover');
             });
         }
     });
 }
 
-// Main uplight function
-function uplight({
+// Main bylight function
+function bylight({
     target = 'body',
     debugMode = false
 }) {
@@ -298,7 +298,7 @@ function uplight({
     const targetElement = typeof target === 'string' ? document.querySelector(target) : target;
 
     if (!targetElement) {
-        console.error(`Uplight: Target element not found - ${target}`);
+        console.error(`bylight: Target element not found - ${target}`);
         return;
     }
 
@@ -308,7 +308,7 @@ function uplight({
 
 // Test suite
 function runTests() {
-    log("Running tests for Uplight highlighting functions...");
+    log("Running tests for bylight highlighting functions...");
 
     const testCases = [
         { input: "go(a, b)", pattern: "go(...)", name: "Simple go(...) match", expected: ["go(a, b)"] },
@@ -365,7 +365,7 @@ function runTests() {
 
 // Modify the DOMContentLoaded event listener
 document.addEventListener('DOMContentLoaded', function () {
-    uplight({ target: 'body', debugMode: false });
+    bylight({ target: 'body', debugMode: false });
 });
 
 // Run tests

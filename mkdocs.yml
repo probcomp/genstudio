@@ -54,7 +54,7 @@ plugins:
 extra_css:
   - stylesheets/custom.css
 extra_javascript:
-  - js/uplight.js
+  - js/bylight.js
   - js/scroll-fix.js
 
 hooks:

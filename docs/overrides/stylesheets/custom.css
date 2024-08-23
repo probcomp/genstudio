@@ -133,30 +133,30 @@ body .jupyter-wrapper .jp-Notebook {
         margin-top: 0.6rem;
     }
 
-    .uplight-link {
+    .bylight-link {
         color: inherit;
-        background-color: color-mix(in srgb, var(--uplight-color) 20%, transparent);
+        background-color: color-mix(in srgb, var(--bylight-color) 20%, transparent);
         padding: 0 3px;
 
-        &.uplight-hover {
-            background-color: color-mix(in srgb, var(--uplight-color) 35%, transparent);
+        &.bylight-hover {
+            background-color: color-mix(in srgb, var(--bylight-color) 35%, transparent);
             color: inherit;
         }
     }
 
-    .uplight-code {
-        color: color-mix(in srgb, var(--uplight-color) 80%, black);
+    .bylight-code {
+        color: color-mix(in srgb, var(--bylight-color) 80%, black);
         font-weight: bold;
-        background-color: color-mix(in srgb, var(--uplight-color) 20%, transparent);
+        background-color: color-mix(in srgb, var(--bylight-color) 20%, transparent);
 
-        &.uplight-hover {
-            background-color: color-mix(in srgb, var(--uplight-color) 35%, transparent);
-            color: color-mix(in srgb, var(--uplight-color) 70%, currentColor);
+        &.bylight-hover {
+            background-color: color-mix(in srgb, var(--bylight-color) 35%, transparent);
+            color: color-mix(in srgb, var(--bylight-color) 70%, currentColor);
         }
     }
 
-    .uplight-link,
-    .uplight-code {
+    .bylight-link,
+    .bylight-code {
         cursor: default;
     }
 }
