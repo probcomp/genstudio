@@ -1,6 +1,6 @@
 # %% [markdown]
 
-# GenStudio is built on top of Observable Plot and aims to provide a similar API and functionality in a Python environment. This guide will highlight the similarities and differences between GenStudio and Observable Plot to help users familiar with Observable Plot transition to GenStudio.
+# GenStudio provides a complete Python interface to the Observable Plot API. This guide will highlight the similarities and differences between GenStudio and Observable Plot to help users familiar with Observable Plot transition to GenStudio.
 
 # %%
 
