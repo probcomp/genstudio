@@ -4,7 +4,7 @@ GenStudio is a Python library for creating interactive, JavaScript-based visuali
 
 [Getting Started](getting-started.py){ .md-button  .md-button--primary }
 
-## Key Features
+Key features:
 
 - Seamless integration with [Observable Plot](https://observablehq.com/plot/), a layered grammar-of-graphics based library, for creating rich, interactive plots
 - Compose plots, HTML elements, and interactive widgets using a simple, declarative syntax

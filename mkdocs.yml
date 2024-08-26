@@ -13,7 +13,8 @@ theme:
   palette:
     primary: white
     accent: custom
-  font: false
+  font:
+    text: Crimson Pro
   features:
     - navigation.tracking
     - navigation.indexes

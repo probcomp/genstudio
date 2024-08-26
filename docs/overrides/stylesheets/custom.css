@@ -4,28 +4,9 @@
     --md-accent-fg-color--light: #bbbbbb;
     --md-accent-fg-color--dark:  #9d9d9d;
     --sans-font: Roboto, sans-serif;
-    --serif-font: 'Crimson Pro', Georgia, serif;
     --md-border-radius: 6px;
 }
 
-
-/* Crimson Pro - Variable Font */
-@font-face {
-    font-display: swap;
-    font-family: 'Crimson Pro';
-    font-style: normal;
-    font-weight: 100 900; /* Full range of weights */
-    src: url('../fonts/Crimson_Pro/CrimsonPro-VariableFont_wght.ttf') format('truetype-variations');
-}
-
-/* Crimson Pro Italic - Variable Font */
-@font-face {
-    font-display: swap;
-    font-family: 'Crimson Pro';
-    font-style: italic;
-    font-weight: 100 900; /* Full range of weights */
-    src: url('../fonts/Crimson_Pro/CrimsonPro-Italic-VariableFont_wght.ttf') format('truetype-variations');
-}
 
 /* Global styles */
 .md-sidebar {
@@ -55,8 +36,7 @@
 
 /* Typography */
 .md-typeset {
-    font-family: var(--serif-font);
-    font-size: 1rem;
+    font-size: 18px;
     line-height: 1.25;
     --md-code-font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
 
@@ -69,6 +49,12 @@
     .admonition, .details {
         font-size: inherit;
         max-width: var(--body-width);
+    }
+
+    table {
+        th, td {
+            font-size: initial;
+        }
     }
 }
 

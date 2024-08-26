@@ -1,9 +1,5 @@
 # %% [markdown]
 
-# Let's begin by importing GenStudio and creating our first plot.
-
-# %% [markdown]
-
 # To use GenStudio, first import it:
 
 # %%
@@ -135,25 +131,18 @@ Plot.dot(
 
 # ## Data Serialization
 
-# Serialization to JSON proceeds as follows:
+# Data is passed to the JavaScript runtime as JSON, using the [orjson](https://github.com/ijl/orjson) library with additional fallback behaviour:
 
-# 1. `.for_json()`: If an object has a `for_json` method, it's called first and is expected to return a JSON-serializable type.
-#    Example:
-#    class CustomObject:
-#        def for_json(self):
-#            return {"data": "serialized"}
-#    # Serializes to: {"data": "serialized"}
 
-# 2. `.tolist()`: If an object has a `tolist` method (eg. JAX/numpy arrays), it's called next:
-#    numpy_array = np.array([1, 2, 3])
-#    # Serializes to: [1, 2, 3]
+# | Condition | Conversion |
+# |-----------|------------|
+# | Object has `for_json` method | `$object.for_json()` |
+# | Object has `tolist` method | `$object.tolist()` |
+# | Object is iterable | `list($object)` |
+# | Datetime objects | Converted to a JavaScript `Date` |
+# | Callable objects | Converted to JavaScript functions that return values to Python <br/> (only for "widget" display mode)|
 
-# 3. Other types:
-#    - Iterables: Converted to lists
-#    - Datetime objects: Converted to a special format
-#    - Callable objects: Handled specially for widgets
-
-# Alternate modes of serialization (eg. for better performance with larger datasets) is possible but not yet implemented.
+# Alternate modes of serialization (eg. for better performance with larger datasets) are possible but not yet implemented.
 
 # ## Color Schemes
 
