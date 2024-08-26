@@ -207,13 +207,16 @@ class Slider(LayoutItem):
         self,
         key: str,
         range: int | Sequence[float | int],
+        init: float | int | None = None,
         label: str | None = None,
         **kwargs: Any,
     ):
         super().__init__()
+        range = [0, range] if isinstance(range, (float, int)) else range
         self.config: dict[str, Any] = {
             "state_key": key,
-            "range": [0, range] if isinstance(range, int) else range,
+            "range": range,
+            "init": init if init is not None else range[0],
             "label": label,
             "kind": "Slider",
             **kwargs,

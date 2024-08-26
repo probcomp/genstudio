@@ -25,7 +25,9 @@ class Reactive {
   }
 
   render() {
-    return Slider(this.options);
+    if (this.options.kind === "Slider") {
+      return Slider(this.options);
+    }
   }
 }
 
@@ -145,8 +147,8 @@ function collectReactiveInitialState(ast) {
     if (!node) return;
     if (typeof node === 'object' && node['__type__'] === 'function') {
       if (node.name === 'Reactive') {
-        const { state_key, init, range } = node.args[0];
-        initialState[state_key] = init ?? (typeof range === 'number' ? range : range[0]);
+        const { state_key, init } = node.args[0];
+        initialState[state_key] = init;
       } else if (layoutComponents.has(node.name)) {
         node.args.forEach(traverse);
       }
@@ -290,12 +292,15 @@ function Hiccup(tag, props, ...children) {
       : html`<${baseTag} ...${props} />`;
 }
 
-function useStateWithDeps(initialStateFunction, deps) {
+function useReactiveState(ast) {
   // useState, recomputes initial state when deps change
   const [state, setState] = useState({});
+  const initialState = useMemo(() => collectReactiveInitialState(ast), [ast]);
+  const initialStateKeys = useMemo(() => Object.keys(initialState).sort().join(','), [initialState]);
+
   useEffect(() => {
-    setState(initialStateFunction);
-  }, deps);
+    setState(initialState);
+  }, [initialStateKeys]);
 
   const stateProxy = new Proxy(state, {
     set(_, prop, value) {
@@ -311,7 +316,7 @@ function useStateWithDeps(initialStateFunction, deps) {
 }
 
 function StateProvider({ ast, cache, experimental }) {
-  const stateArray = useStateWithDeps(() => collectReactiveInitialState(ast), [ast]);
+  const stateArray = useReactiveState(ast);
   const [$state] = stateArray;
 
   const [data, setData] = useState();

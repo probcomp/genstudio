@@ -729,3 +729,10 @@ def Frames(frames, key=None, **opts):
         )
     else:
         return Hiccup(View.Frames, {"state_key": key, "frames": frames})
+
+
+def Reactive(key, initial_value, **kwargs):
+    """
+    Initializes a reactive variable.
+    """
+    return View.Reactive({"state_key": key, "init": initial_value, **kwargs})
