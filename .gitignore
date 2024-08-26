@@ -3,3 +3,4 @@
 *.slides.html
 meta.json
 site
+*.interactive

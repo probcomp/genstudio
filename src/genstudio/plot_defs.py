@@ -5,7 +5,7 @@ from typing import Any, Dict
 
 
 def area(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -16,11 +16,11 @@ def area(
     where the baseline and topline share *x* values, or areaX for a vertical
     orientation where the baseline and topline share *y* values.
     """
-    return PlotSpec(MarkSpec("area", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("area", data, {**options, **kwargs}))
 
 
 def areaX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -54,11 +54,11 @@ def areaX(
     channels. When any of these channels are used, setting an explicit **z**
     channel (possibly to null) is strongly recommended.
     """
-    return PlotSpec(MarkSpec("areaX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("areaX", data, {**options, **kwargs}))
 
 
 def areaY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -92,11 +92,11 @@ def areaY(
     channels. When any of these channels are used, setting an explicit **z**
     channel (possibly to null) is strongly recommended.
     """
-    return PlotSpec(MarkSpec("areaY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("areaY", data, {**options, **kwargs}))
 
 
 def arrow(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -110,11 +110,11 @@ def arrow(
     Plot.arrow(inequality, {x1: "POP_1980", y1: "R90_10_1980", x2: "POP_2015", y2: "R90_10_2015", bend: true})
     ```
     """
-    return PlotSpec(MarkSpec("arrow", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("arrow", data, {**options, **kwargs}))
 
 
 def auto(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -130,11 +130,11 @@ def auto(
     Plot.auto(penguins, {x: "body_mass_g"})
     ```
     """
-    return PlotSpec(MarkSpec("auto", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("auto", data, {**options, **kwargs}))
 
 
 def autoSpec(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -151,11 +151,11 @@ def autoSpec(
     the returned object will have **y** set to {value: null, reduce: *count*} and
     **mark** set to *bar*, telling you that a histogram will be rendered.
     """
-    return PlotSpec(MarkSpec("autoSpec", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("autoSpec", data, {**options, **kwargs}))
 
 
 def axisFx(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -180,11 +180,11 @@ def axisFx(
     the margin or shorten the labels, say by using the **textOverflow** and
     **lineWidth** options to clip, or using the **tickRotate** option to rotate.
     """
-    return PlotSpec(MarkSpec("axisFx", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("axisFx", data, {**options, **kwargs}))
 
 
 def axisFy(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -209,14 +209,10 @@ def axisFy(
     the margin or shorten the labels, say by using the **textOverflow** and
     **lineWidth** options to clip.
     """
-    return PlotSpec(MarkSpec("axisFy", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("axisFy", data, {**options, **kwargs}))
 
 
-def axisX(
-    values: Any,
-    options: Dict[str, Any] = {},
-    **kwargs: Any,
-) -> PlotSpec:
+def axisX(*args, **kwargs: Any) -> PlotSpec:
     """
     Returns a new compound axis mark to document the visual encoding of the
     horizontal position *x* scale, comprised of (up to) three marks: a vector for
@@ -240,14 +236,40 @@ def axisX(
     **textOverflow** and **lineWidth** options to clip; or use the **tickRotate**
     option to rotate.
     """
-    return PlotSpec(MarkSpec("axisX", values, {**options, **kwargs}))
+    # This function accepts the following argument combinations:
+    # 1. (data, options)
+    # 2. (data, options=...)
+    # 3. (options_dict)
+    # 4. (data)
+    # 5. (**kwargs)
+    # 6. ()
+    options = kwargs.pop("options", None)
+    if len(args) == 2:
+        data, options = args
+    elif len(args) == 1 and options is not None:
+        data = args[0]
+    elif len(args) == 1 and isinstance(args[0], dict):
+        data = None
+        options = args[0]
+    elif len(args) == 1:
+        data = args[0]
+        options = {}
+    elif len(args) == 0:
+        data = None
+        options = {}
+    else:
+        raise ValueError("Invalid arguments")
+
+    if data is not None:
+        return PlotSpec(
+            {"marks": [JSCall("Plot", "axisX", [data, {**(options or {}), **kwargs}])]}
+        )
+    return PlotSpec(
+        {"marks": [JSCall("Plot", "axisX", [{**(options or {}), **kwargs}])]}
+    )
 
 
-def axisY(
-    values: Any,
-    options: Dict[str, Any] = {},
-    **kwargs: Any,
-) -> PlotSpec:
+def axisY(*args, **kwargs: Any) -> PlotSpec:
     """
     Returns a new compound axis mark to document the visual encoding of the
     vertical position *y* scale, comprised of (up to) three marks: a vector for
@@ -270,11 +292,41 @@ def axisY(
     **transform** *y*-scale option to show thousands or millions; or use the
     **textOverflow** and **lineWidth** options to clip.
     """
-    return PlotSpec(MarkSpec("axisY", values, {**options, **kwargs}))
+    # This function accepts the following argument combinations:
+    # 1. (data, options)
+    # 2. (data, options=...)
+    # 3. (options_dict)
+    # 4. (data)
+    # 5. (**kwargs)
+    # 6. ()
+    options = kwargs.pop("options", None)
+    if len(args) == 2:
+        data, options = args
+    elif len(args) == 1 and options is not None:
+        data = args[0]
+    elif len(args) == 1 and isinstance(args[0], dict):
+        data = None
+        options = args[0]
+    elif len(args) == 1:
+        data = args[0]
+        options = {}
+    elif len(args) == 0:
+        data = None
+        options = {}
+    else:
+        raise ValueError("Invalid arguments")
+
+    if data is not None:
+        return PlotSpec(
+            {"marks": [JSCall("Plot", "axisY", [data, {**(options or {}), **kwargs}])]}
+        )
+    return PlotSpec(
+        {"marks": [JSCall("Plot", "axisY", [{**(options or {}), **kwargs}])]}
+    )
 
 
 def barX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -317,11 +369,11 @@ def barX(
     Plot.barX([4, 9, 24, 46, 66, 7])
     ```
     """
-    return PlotSpec(MarkSpec("barX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("barX", data, {**options, **kwargs}))
 
 
 def barY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -363,7 +415,7 @@ def barY(
     Plot.barY([4, 9, 24, 46, 66, 7])
     ```
     """
-    return PlotSpec(MarkSpec("barY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("barY", data, {**options, **kwargs}))
 
 
 def bin(*args: Any) -> Dict[str, Any]:
@@ -471,7 +523,7 @@ def binY(*args: Any) -> Dict[str, Any]:
 
 
 def bollinger(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -487,11 +539,11 @@ def bollinger(
 
     Here the *k* option defaults to zero instead of two.
     """
-    return PlotSpec(MarkSpec("bollinger", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("bollinger", data, {**options, **kwargs}))
 
 
 def bollingerX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -503,11 +555,11 @@ def bollingerX(
     when data is an array of numbers [*x*₀, *x*₁, *x*₂, …]. If the *y* option is
     not specified, it defaults to [0, 1, 2, …].
     """
-    return PlotSpec(MarkSpec("bollingerX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("bollingerX", data, {**options, **kwargs}))
 
 
 def bollingerY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -519,11 +571,11 @@ def bollingerY(
     when data is an array of numbers [*y*₀, *y*₁, *y*₂, …]. If the *x* option is
     not specified, it defaults to [0, 1, 2, …].
     """
-    return PlotSpec(MarkSpec("bollingerY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("bollingerY", data, {**options, **kwargs}))
 
 
 def boxX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -546,11 +598,11 @@ def boxX(
     - **strokeOpacity** - the stroke opacity of the rule, tick, and dot; defaults to 1
     - **strokeWidth** - the stroke width of the tick; defaults to 2
     """
-    return PlotSpec(MarkSpec("boxX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("boxX", data, {**options, **kwargs}))
 
 
 def boxY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -573,11 +625,11 @@ def boxY(
     - **strokeOpacity** - the stroke opacity of the rule, tick, and dot; defaults to 1
     - **strokeWidth** - the stroke width of the tick; defaults to 2
     """
-    return PlotSpec(MarkSpec("boxY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("boxY", data, {**options, **kwargs}))
 
 
 def cell(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -599,11 +651,11 @@ def cell(
     temporal), use a barX mark; if only **y** is quantitative, use a barY mark;
     if both are quantitative, use a rect mark.
     """
-    return PlotSpec(MarkSpec("cell", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("cell", data, {**options, **kwargs}))
 
 
 def cellX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -617,11 +669,11 @@ def cellX(
     Plot.cellX(values)
     ```
     """
-    return PlotSpec(MarkSpec("cellX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("cellX", data, {**options, **kwargs}))
 
 
 def cellY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -635,7 +687,7 @@ def cellY(
     Plot.cellY(values)
     ```
     """
-    return PlotSpec(MarkSpec("cellY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("cellY", data, {**options, **kwargs}))
 
 
 def centroid(*args: Any) -> Dict[str, Any]:
@@ -651,18 +703,18 @@ def centroid(*args: Any) -> Dict[str, Any]:
 
 
 def circle(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
     Like dot, except that the **symbol** option is set to *circle*.
     """
-    return PlotSpec(MarkSpec("circle", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("circle", data, {**options, **kwargs}))
 
 
 def cluster(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -676,7 +728,7 @@ def cluster(
 
     [1]: https://d3js.org/d3-hierarchy/cluster
     """
-    return PlotSpec(MarkSpec("cluster", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("cluster", data, {**options, **kwargs}))
 
 
 def column(*args: Any) -> Dict[str, Any]:
@@ -696,7 +748,7 @@ def column(*args: Any) -> Dict[str, Any]:
 
 
 def contour(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -727,11 +779,11 @@ def contour(
     mark’s channels are not evaluated on the initial *data* but rather on the
     generated contour multipolygons.
     """
-    return PlotSpec(MarkSpec("contour", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("contour", data, {**options, **kwargs}))
 
 
 def crosshair(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -743,11 +795,11 @@ def crosshair(
     axes. If either **x** or **y** is not specified, the crosshair will be
     one-dimensional.
     """
-    return PlotSpec(MarkSpec("crosshair", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("crosshair", data, {**options, **kwargs}))
 
 
 def crosshairX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -758,11 +810,11 @@ def crosshairX(
     as time in a time-series chart, or the aggregated dimension when grouping or
     binning.
     """
-    return PlotSpec(MarkSpec("crosshairX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("crosshairX", data, {**options, **kwargs}))
 
 
 def crosshairY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -773,11 +825,11 @@ def crosshairY(
     as time in a time-series chart, or the aggregated dimension when grouping or
     binning.
     """
-    return PlotSpec(MarkSpec("crosshairY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("crosshairY", data, {**options, **kwargs}))
 
 
 def delaunayLink(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -792,11 +844,11 @@ def delaunayLink(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Delaunay triangulation for each group.
     """
-    return PlotSpec(MarkSpec("delaunayLink", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("delaunayLink", data, {**options, **kwargs}))
 
 
 def delaunayMesh(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -811,11 +863,11 @@ def delaunayMesh(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Delaunay triangulation for each group.
     """
-    return PlotSpec(MarkSpec("delaunayMesh", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("delaunayMesh", data, {**options, **kwargs}))
 
 
 def density(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -829,11 +881,11 @@ def density(
     constructed with values representing the density threshold value of each
     contour.
     """
-    return PlotSpec(MarkSpec("density", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("density", data, {**options, **kwargs}))
 
 
 def differenceY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -848,7 +900,7 @@ def differenceY(
     and is clipped by the area extending from the comparison to the bottom of the
     frame.
     """
-    return PlotSpec(MarkSpec("differenceY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("differenceY", data, {**options, **kwargs}))
 
 
 def dodgeX(*args: Any) -> Dict[str, Any]:
@@ -878,7 +930,7 @@ def dodgeY(*args: Any) -> Dict[str, Any]:
 
 
 def dot(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -900,11 +952,11 @@ def dot(
     Dots are sorted by descending radius **r** by default to mitigate
     overplotting; set the **sort** option to null to draw them in input order.
     """
-    return PlotSpec(MarkSpec("dot", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("dot", data, {**options, **kwargs}))
 
 
 def dotX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -919,11 +971,11 @@ def dotX(
     If an **interval** is specified, such as *day*, **y** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(MarkSpec("dotX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("dotX", data, {**options, **kwargs}))
 
 
 def dotY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -938,7 +990,7 @@ def dotY(
     If an **interval** is specified, such as *day*, **x** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(MarkSpec("dotY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("dotY", data, {**options, **kwargs}))
 
 
 def filter(*args: Any) -> Dict[str, Any]:
@@ -998,17 +1050,47 @@ def formatWeekday(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "formatWeekday", args)
 
 
-def frame(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
+def frame(*args, **kwargs: Any) -> PlotSpec:
     """
     Draws a rectangle around the plot’s frame, or if an **anchor** is given, a
     line on the given side. Useful for visual separation of facets, or in
     conjunction with axes and grids to fill the frame’s background.
     """
-    return PlotSpec({"marks": [JSCall("Plot", "frame", [{**options, **kwargs}])]})
+    # This function accepts the following argument combinations:
+    # 1. (data, options)
+    # 2. (data, options=...)
+    # 3. (options_dict)
+    # 4. (data)
+    # 5. (**kwargs)
+    # 6. ()
+    options = kwargs.pop("options", None)
+    if len(args) == 2:
+        data, options = args
+    elif len(args) == 1 and options is not None:
+        data = args[0]
+    elif len(args) == 1 and isinstance(args[0], dict):
+        data = None
+        options = args[0]
+    elif len(args) == 1:
+        data = args[0]
+        options = {}
+    elif len(args) == 0:
+        data = None
+        options = {}
+    else:
+        raise ValueError("Invalid arguments")
+
+    if data is not None:
+        return PlotSpec(
+            {"marks": [JSCall("Plot", "frame", [data, {**(options or {}), **kwargs}])]}
+        )
+    return PlotSpec(
+        {"marks": [JSCall("Plot", "frame", [{**(options or {}), **kwargs}])]}
+    )
 
 
 def geo(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1028,7 +1110,7 @@ def geo(
     data is *data*.geometries; if *data* is some other GeoJSON object, then the
     mark’s data is the single-element array [*data*].
     """
-    return PlotSpec(MarkSpec("geo", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("geo", data, {**options, **kwargs}))
 
 
 def geoCentroid(*args: Any) -> Dict[str, Any]:
@@ -1043,7 +1125,7 @@ def geoCentroid(*args: Any) -> Dict[str, Any]:
 
 
 def graticule(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1054,47 +1136,167 @@ def graticule(
 
     [1]: https://d3js.org/d3-geo/shape#geoGraticule
     """
-    return PlotSpec(MarkSpec("graticule", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("graticule", data, {**options, **kwargs}))
 
 
-def gridFx(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
+def gridFx(*args, **kwargs: Any) -> PlotSpec:
     """
     Returns a new horizontally-positioned ruleX mark (a vertical line, |) that
     renders a grid for the *fx* scale. The *data* defaults to the *fx* scale’s
     domain; if desired, specify the *data* explicitly, or use the **ticks**
     option.
     """
-    return PlotSpec({"marks": [JSCall("Plot", "gridFx", [{**options, **kwargs}])]})
+    # This function accepts the following argument combinations:
+    # 1. (data, options)
+    # 2. (data, options=...)
+    # 3. (options_dict)
+    # 4. (data)
+    # 5. (**kwargs)
+    # 6. ()
+    options = kwargs.pop("options", None)
+    if len(args) == 2:
+        data, options = args
+    elif len(args) == 1 and options is not None:
+        data = args[0]
+    elif len(args) == 1 and isinstance(args[0], dict):
+        data = None
+        options = args[0]
+    elif len(args) == 1:
+        data = args[0]
+        options = {}
+    elif len(args) == 0:
+        data = None
+        options = {}
+    else:
+        raise ValueError("Invalid arguments")
+
+    if data is not None:
+        return PlotSpec(
+            {"marks": [JSCall("Plot", "gridFx", [data, {**(options or {}), **kwargs}])]}
+        )
+    return PlotSpec(
+        {"marks": [JSCall("Plot", "gridFx", [{**(options or {}), **kwargs}])]}
+    )
 
 
-def gridFy(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
+def gridFy(*args, **kwargs: Any) -> PlotSpec:
     """
     Returns a new vertically-positioned ruleY mark (a horizontal line, —) that
     renders a grid for the *fy* scale. The *data* defaults to the *fy* scale’s
     domain; if desired, specify the *data* explicitly, or use the **ticks**
     option.
     """
-    return PlotSpec({"marks": [JSCall("Plot", "gridFy", [{**options, **kwargs}])]})
+    # This function accepts the following argument combinations:
+    # 1. (data, options)
+    # 2. (data, options=...)
+    # 3. (options_dict)
+    # 4. (data)
+    # 5. (**kwargs)
+    # 6. ()
+    options = kwargs.pop("options", None)
+    if len(args) == 2:
+        data, options = args
+    elif len(args) == 1 and options is not None:
+        data = args[0]
+    elif len(args) == 1 and isinstance(args[0], dict):
+        data = None
+        options = args[0]
+    elif len(args) == 1:
+        data = args[0]
+        options = {}
+    elif len(args) == 0:
+        data = None
+        options = {}
+    else:
+        raise ValueError("Invalid arguments")
+
+    if data is not None:
+        return PlotSpec(
+            {"marks": [JSCall("Plot", "gridFy", [data, {**(options or {}), **kwargs}])]}
+        )
+    return PlotSpec(
+        {"marks": [JSCall("Plot", "gridFy", [{**(options or {}), **kwargs}])]}
+    )
 
 
-def gridX(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
+def gridX(*args, **kwargs: Any) -> PlotSpec:
     """
     Returns a new horizontally-positioned ruleX mark (a vertical line, |) that
     renders a grid for the *x* scale. The *data* defaults to tick values sampled
     from the *x* scale’s domain; if desired, specify the *data* explicitly, or
     use one of the **ticks**, **tickSpacing**, or **interval** options.
     """
-    return PlotSpec({"marks": [JSCall("Plot", "gridX", [{**options, **kwargs}])]})
+    # This function accepts the following argument combinations:
+    # 1. (data, options)
+    # 2. (data, options=...)
+    # 3. (options_dict)
+    # 4. (data)
+    # 5. (**kwargs)
+    # 6. ()
+    options = kwargs.pop("options", None)
+    if len(args) == 2:
+        data, options = args
+    elif len(args) == 1 and options is not None:
+        data = args[0]
+    elif len(args) == 1 and isinstance(args[0], dict):
+        data = None
+        options = args[0]
+    elif len(args) == 1:
+        data = args[0]
+        options = {}
+    elif len(args) == 0:
+        data = None
+        options = {}
+    else:
+        raise ValueError("Invalid arguments")
+
+    if data is not None:
+        return PlotSpec(
+            {"marks": [JSCall("Plot", "gridX", [data, {**(options or {}), **kwargs}])]}
+        )
+    return PlotSpec(
+        {"marks": [JSCall("Plot", "gridX", [{**(options or {}), **kwargs}])]}
+    )
 
 
-def gridY(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
+def gridY(*args, **kwargs: Any) -> PlotSpec:
     """
     Returns a new vertically-positioned ruleY mark (a horizontal line, —) that
     renders a grid for the *y* scale. The *data* defaults to tick values sampled
     from the *y* scale’s domain; if desired, specify the *data* explicitly, or
     use one of the **ticks**, **tickSpacing**, or **interval** options.
     """
-    return PlotSpec({"marks": [JSCall("Plot", "gridY", [{**options, **kwargs}])]})
+    # This function accepts the following argument combinations:
+    # 1. (data, options)
+    # 2. (data, options=...)
+    # 3. (options_dict)
+    # 4. (data)
+    # 5. (**kwargs)
+    # 6. ()
+    options = kwargs.pop("options", None)
+    if len(args) == 2:
+        data, options = args
+    elif len(args) == 1 and options is not None:
+        data = args[0]
+    elif len(args) == 1 and isinstance(args[0], dict):
+        data = None
+        options = args[0]
+    elif len(args) == 1:
+        data = args[0]
+        options = {}
+    elif len(args) == 0:
+        data = None
+        options = {}
+    else:
+        raise ValueError("Invalid arguments")
+
+    if data is not None:
+        return PlotSpec(
+            {"marks": [JSCall("Plot", "gridY", [data, {**(options or {}), **kwargs}])]}
+        )
+    return PlotSpec(
+        {"marks": [JSCall("Plot", "gridY", [{**(options or {}), **kwargs}])]}
+    )
 
 
 def group(*args: Any) -> Dict[str, Any]:
@@ -1209,14 +1411,14 @@ def groupZ(*args: Any) -> Dict[str, Any]:
 
 
 def hexagon(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
     Like dot, except that the **symbol** option is set to *hexagon*.
     """
-    return PlotSpec(MarkSpec("hexagon", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("hexagon", data, {**options, **kwargs}))
 
 
 def hexbin(*args: Any) -> Dict[str, Any]:
@@ -1250,7 +1452,7 @@ def hexbin(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "hexbin", args)
 
 
-def hexgrid(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
+def hexgrid(*args, **kwargs: Any) -> PlotSpec:
     """
     The hexgrid decoration mark complements the hexbin transform, showing the
     outlines of all hexagons spanning the frame with a default **stroke** of
@@ -1270,11 +1472,45 @@ def hexgrid(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
     the hexbin transform. The grid is clipped by the frame. This is a stroke-only
     mark, and **fill** is not supported; to fill the frame, use the frame mark.
     """
-    return PlotSpec({"marks": [JSCall("Plot", "hexgrid", [{**options, **kwargs}])]})
+    # This function accepts the following argument combinations:
+    # 1. (data, options)
+    # 2. (data, options=...)
+    # 3. (options_dict)
+    # 4. (data)
+    # 5. (**kwargs)
+    # 6. ()
+    options = kwargs.pop("options", None)
+    if len(args) == 2:
+        data, options = args
+    elif len(args) == 1 and options is not None:
+        data = args[0]
+    elif len(args) == 1 and isinstance(args[0], dict):
+        data = None
+        options = args[0]
+    elif len(args) == 1:
+        data = args[0]
+        options = {}
+    elif len(args) == 0:
+        data = None
+        options = {}
+    else:
+        raise ValueError("Invalid arguments")
+
+    if data is not None:
+        return PlotSpec(
+            {
+                "marks": [
+                    JSCall("Plot", "hexgrid", [data, {**(options or {}), **kwargs}])
+                ]
+            }
+        )
+    return PlotSpec(
+        {"marks": [JSCall("Plot", "hexgrid", [{**(options or {}), **kwargs}])]}
+    )
 
 
 def hull(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1289,11 +1525,11 @@ def hull(
     separate hull for each group. If **z** is not specified, it defaults to the
     **fill** channel, if any, or the **stroke** channel, if any.
     """
-    return PlotSpec(MarkSpec("hull", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("hull", data, {**options, **kwargs}))
 
 
 def image(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1312,7 +1548,7 @@ def image(
     *y₁*], [*x₂*, *y₂*], …] such that **x** = [*x₀*, *x₁*, *x₂*, …] and **y** =
     [*y₀*, *y₁*, *y₂*, …].
     """
-    return PlotSpec(MarkSpec("image", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("image", data, {**options, **kwargs}))
 
 
 def initializer(*args: Any) -> Dict[str, Any]:
@@ -1336,7 +1572,7 @@ def initializer(*args: Any) -> Dict[str, Any]:
 
 
 def interpolatorBarycentric(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1353,11 +1589,11 @@ def interpolatorBarycentric(
     [1]: https://en.wikipedia.org/wiki/Barycentric_coordinate_system
     [2]: https://d3js.org/d3-random#randomLcg
     """
-    return PlotSpec(MarkSpec("interpolatorBarycentric", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("interpolatorBarycentric", data, {**options, **kwargs}))
 
 
 def interpolatorRandomWalk(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1371,7 +1607,7 @@ def interpolatorRandomWalk(
 
     [1]: https://www.cs.cmu.edu/~kmcrane/Projects/MonteCarloGeometryProcessing/index.html
     """
-    return PlotSpec(MarkSpec("interpolatorRandomWalk", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("interpolatorRandomWalk", data, {**options, **kwargs}))
 
 
 def legend(*args: Any) -> Dict[str, Any]:
@@ -1385,7 +1621,7 @@ def legend(*args: Any) -> Dict[str, Any]:
 
 
 def line(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1417,11 +1653,11 @@ def line(
     channels. When any of these channels are used, setting an explicit **z**
     channel (possibly to null) is strongly recommended.
     """
-    return PlotSpec(MarkSpec("line", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("line", data, {**options, **kwargs}))
 
 
 def lineX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1443,11 +1679,11 @@ def lineX(
     Plot.lineX(observations, {y: "date", x: "temperature", interval: "day"})
     ```
     """
-    return PlotSpec(MarkSpec("lineX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("lineX", data, {**options, **kwargs}))
 
 
 def lineY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1470,11 +1706,11 @@ def lineY(
     Plot.lineY(observations, {x: "date", y: "temperature", interval: "day"})
     ```
     """
-    return PlotSpec(MarkSpec("lineY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("lineY", data, {**options, **kwargs}))
 
 
 def linearRegressionX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1484,11 +1720,11 @@ def linearRegressionX(
     for example when visualizing a time-series where time goes up↑; use
     linearRegressionY instead if time goes right→.
     """
-    return PlotSpec(MarkSpec("linearRegressionX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("linearRegressionX", data, {**options, **kwargs}))
 
 
 def linearRegressionY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1514,11 +1750,11 @@ def linearRegressionY(
     [3]: https://observablehq.com/@toja/linear-regression-with-confidence-bands
     [4]: https://stats.stackexchange.com/questions/101318/understanding-shape-and-calculation-of-confidence-bands-in-linear-regression
     """
-    return PlotSpec(MarkSpec("linearRegressionY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("linearRegressionY", data, {**options, **kwargs}))
 
 
 def link(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1536,7 +1772,7 @@ def link(
     will render links as geodesics; to draw a straight line instead, use the
     *linear* **curve**.
     """
-    return PlotSpec(MarkSpec("link", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("link", data, {**options, **kwargs}))
 
 
 def map(*args: Any) -> Dict[str, Any]:
@@ -1688,7 +1924,7 @@ def pointerY(*args: Any) -> Dict[str, Any]:
 
 
 def raster(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1719,11 +1955,11 @@ def raster(
     **value** is a function of *x* and *y*), you must specify all of **x1**,
     **x2**, **y1**, and **y2** to define the raster domain.
     """
-    return PlotSpec(MarkSpec("raster", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("raster", data, {**options, **kwargs}))
 
 
 def rect(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1749,11 +1985,11 @@ def rect(
     Both *x* and *y* should be quantitative or temporal; otherwise, use a bar or
     cell mark.
     """
-    return PlotSpec(MarkSpec("rect", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("rect", data, {**options, **kwargs}))
 
 
 def rectX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1768,11 +2004,11 @@ def rectX(
     Plot.rectX(olympians, Plot.binY({x: "count"}, {y: "height"}))
     ```
     """
-    return PlotSpec(MarkSpec("rectX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("rectX", data, {**options, **kwargs}))
 
 
 def rectY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1787,7 +2023,7 @@ def rectY(
     Plot.rectY(olympians, Plot.binX({y: "count"}, {x: "weight"}))
     ```
     """
-    return PlotSpec(MarkSpec("rectY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("rectY", data, {**options, **kwargs}))
 
 
 def reverse(*args: Any) -> Dict[str, Any]:
@@ -1799,7 +2035,7 @@ def reverse(*args: Any) -> Dict[str, Any]:
 
 
 def ruleX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1823,11 +2059,11 @@ def ruleX(
 
     If *y* represents ordinal values, use a tickX mark instead.
     """
-    return PlotSpec(MarkSpec("ruleX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("ruleX", data, {**options, **kwargs}))
 
 
 def ruleY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1852,7 +2088,7 @@ def ruleY(
 
     If *x* represents ordinal values, use a tickY mark instead.
     """
-    return PlotSpec(MarkSpec("ruleY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("ruleY", data, {**options, **kwargs}))
 
 
 def scale(*args: Any) -> Dict[str, Any]:
@@ -1968,7 +2204,7 @@ def sort(*args: Any) -> Dict[str, Any]:
 
 
 def sphere(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1976,11 +2212,11 @@ def sphere(
     Returns a new geo mark whose *data* is the outline of the sphere on the
     projection’s plane. (For use with a spherical **projection** only.)
     """
-    return PlotSpec(MarkSpec("sphere", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("sphere", data, {**options, **kwargs}))
 
 
 def spike(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -1992,7 +2228,7 @@ def spike(
     Plot.spike(cities, {x: "longitude", y: "latitude", stroke: "red", length: "population"})
     ```
     """
-    return PlotSpec(MarkSpec("spike", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("spike", data, {**options, **kwargs}))
 
 
 def stackX(*args: Any) -> Dict[str, Any]:
@@ -2058,7 +2294,7 @@ def stackY2(*args: Any) -> Dict[str, Any]:
 
 
 def text(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2087,11 +2323,11 @@ def text(
     [3]: https://d3js.org/d3-format
     [4]: https://d3js.org/d3-time-format
     """
-    return PlotSpec(MarkSpec("text", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("text", data, {**options, **kwargs}))
 
 
 def textX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2107,11 +2343,11 @@ def textX(
     If an **interval** is specified, such as *day*, **y** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(MarkSpec("textX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("textX", data, {**options, **kwargs}))
 
 
 def textY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2127,11 +2363,11 @@ def textY(
     If an **interval** is specified, such as *day*, **x** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(MarkSpec("textY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("textY", data, {**options, **kwargs}))
 
 
 def tickX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2148,11 +2384,11 @@ def tickX(
 
     If *y* represents quantitative or temporal values, use a ruleX mark instead.
     """
-    return PlotSpec(MarkSpec("tickX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("tickX", data, {**options, **kwargs}))
 
 
 def tickY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2169,11 +2405,11 @@ def tickY(
 
     If *x* represents quantitative or temporal values, use a ruleY mark instead.
     """
-    return PlotSpec(MarkSpec("tickY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("tickY", data, {**options, **kwargs}))
 
 
 def tip(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2186,7 +2422,7 @@ def tip(
     *y₁*], [*x₂*, *y₂*], …] such that **x** = [*x₀*, *x₁*, *x₂*, …] and **y** =
     [*y₀*, *y₁*, *y₂*, …].
     """
-    return PlotSpec(MarkSpec("tip", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("tip", data, {**options, **kwargs}))
 
 
 def transform(*args: Any) -> Dict[str, Any]:
@@ -2210,7 +2446,7 @@ def transform(*args: Any) -> Dict[str, Any]:
 
 
 def tree(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2226,7 +2462,7 @@ def tree(
 
     [1]: https://d3js.org/d3-hierarchy/tree
     """
-    return PlotSpec(MarkSpec("tree", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("tree", data, {**options, **kwargs}))
 
 
 def treeLink(*args: Any) -> Dict[str, Any]:
@@ -2300,7 +2536,7 @@ def valueof(*args: Any) -> Dict[str, Any]:
 
 
 def vector(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2316,11 +2552,11 @@ def vector(
     **y** default to accessors assuming that *data* contains tuples [[*x₀*,
     *y₀*], [*x₁*, *y₁*], [*x₂*, *y₂*], …]
     """
-    return PlotSpec(MarkSpec("vector", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("vector", data, {**options, **kwargs}))
 
 
 def vectorX(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2329,11 +2565,11 @@ def vectorX(
     defaults to null, assuming that *data* is an array of numbers [*x₀*, *x₁*,
     *x₂*, …].
     """
-    return PlotSpec(MarkSpec("vectorX", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("vectorX", data, {**options, **kwargs}))
 
 
 def vectorY(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2342,11 +2578,11 @@ def vectorY(
     defaults to null, assuming that *data* is an array of numbers [*y₀*, *y₁*,
     *y₂*, …].
     """
-    return PlotSpec(MarkSpec("vectorY", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("vectorY", data, {**options, **kwargs}))
 
 
 def voronoi(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2357,11 +2593,11 @@ def voronoi(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Voronoi tesselation for each group.
     """
-    return PlotSpec(MarkSpec("voronoi", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("voronoi", data, {**options, **kwargs}))
 
 
 def voronoiMesh(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
@@ -2377,7 +2613,7 @@ def voronoiMesh(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Voronoi tesselation for each group.
     """
-    return PlotSpec(MarkSpec("voronoiMesh", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("voronoiMesh", data, {**options, **kwargs}))
 
 
 def window(*args: Any) -> Dict[str, Any]:

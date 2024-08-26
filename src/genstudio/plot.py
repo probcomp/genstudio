@@ -505,13 +505,27 @@ def identity():
     which returns its input unchanged.
 
     Returns:
-        dict: A dictionary representing the JavaScript identity function.
+        A JavaScript function that returns its first argument unchanged.
     """
     return js("(x) => x")
 
 
 identity.for_json = lambda: identity()  # allow bare Plot.identity
 
+
+def index():
+    """Returns a JavaScript function that returns the index of each data point.
+
+    In Observable Plot, this function is useful for creating channels based on
+    the position of data points in the dataset, rather than their values.
+
+    Returns:
+        A JavaScript function that takes two arguments (data, index) and returns the index.
+    """
+    return js("(data, index) => index")
+
+
+index.for_json = lambda: index()
 
 # The following convenience dicts can be added directly to PlotSpec to declare additional behaviour.
 

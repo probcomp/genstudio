@@ -10,7 +10,7 @@
 
 - [ ] Data Manipulation: Examples of how to preprocess or transform data before plotting, especially using Python data manipulation libraries like pandas.
 
-- [ ] Exporting and Saving: Information on how to save plots as images or HTML files using the `save_html` and `save_image` methods.
+- [x] Exporting and Saving: Information on how to save plots as images or HTML files using the `save_html` and `save_image` methods.
 
 - [ ] Performance Considerations: Guidelines on optimizing performance for large datasets or complex visualizations.
 

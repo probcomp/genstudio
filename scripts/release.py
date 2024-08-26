@@ -73,23 +73,20 @@ def update_changelog(new_version):
         .decode()
         .strip()
     )
-    commit_messages = subprocess.check_output(
-        ["git", "log", f"{last_tag}..HEAD", "--pretty=format:%s"]
-    ).decode()
+    commit_messages = (
+        subprocess.check_output(
+            ["git", "log", f"{last_tag}..HEAD", "--pretty=format:%s"]
+        )
+        .decode()
+        .split("\n")
+    )
 
     # Categorize commits (this is a basic implementation and might need refinement)
-    features = [
-        msg[5:].strip()
-        for msg in commit_messages.split("\n")
-        if msg.startswith("feat:")
-    ]
-    fixes = [
-        msg[4:].strip() for msg in commit_messages.split("\n") if msg.startswith("fix:")
-    ]
-
+    features = [msg[5:].strip() for msg in commit_messages if msg.startswith("feat:")]
+    fixes = [msg[4:].strip() for msg in commit_messages if msg.startswith("fix:")]
     others = [
         msg
-        for msg in commit_messages.split("\n")
+        for msg in commit_messages
         if not (msg.startswith("feat:") or msg.startswith("fix:"))
     ]
 

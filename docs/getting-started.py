@@ -60,6 +60,38 @@ Plot.line(
 
 # %% [markdown]
 
+# Plots are immutable; we often reuse layers repeatedly throughout a notebook as we gradually built up a more complex visualization, or show different phenomena on top of the same background layer.
+
+# %%
+import random
+
+walls = (
+    Plot.line(
+        [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0], [0, 5], [5, 5], [5, 10]],
+        {"stroke": "black", "strokeWidth": 2},
+    )
+    + Plot.hideAxis()
+)
+walls
+
+# %%
+# Generate a cluster of random points within the larger room
+center_x, center_y = random.uniform(0, 10), random.uniform(5, 10)
+positions = Plot.dot(
+    [
+        [center_x + random.uniform(-0.5, 0.5), center_y + random.uniform(-0.5, 0.5)]
+        for _ in range(10)
+    ],
+    {"r": 5, "fill": "red"},
+)
+
+# plot our positions cluster on top of the walls plot
+walls + positions
+# %%
+
+
+# %% [markdown]
+
 # ## Specifying Data and Channels
 
 # Channels are how we map our data to visual properties of the mark. For many marks, `x` and `y` are the primary channels, but others like `color`, `size`, or `opacity` are also common. We typically specify our _data_ and _channels_ separately.
@@ -233,3 +265,26 @@ Plot.configure(display_as="widget")  # Set global rendering mode to widget
 # %% [markdown]
 # The global setting affects all subsequent plots unless overridden by `.display_as()`.
 # You can switch between modes as needed for different use cases.
+# %% [markdown]
+
+# ## Exporting and Saving
+
+# GenStudio provides methods to save your visualizations as standalone HTML files or images.
+
+# To save a plot as an HTML file, use the `save_html` method:
+
+# %%
+Plot.dot([[1, 1]]).save_html("basic_plot.html")
+
+# %% [markdown]
+
+# This will create a file named "basic_plot.html" in the current directory containing the interactive visualization.
+
+# To save a plot as an image, use the `save_image` method:
+
+# %%
+Plot.dot([[1, 1]]).save_image("basic_plot.png", width=800, height=600)
+
+# %% [markdown]
+
+# This will create an image file named "basic_plot.png" with the specified `width` and `height` in pixels. The image will be automatically cropped to remove any transparent regions.

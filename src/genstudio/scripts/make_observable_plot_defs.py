@@ -55,20 +55,64 @@ def get_function_def(path: str, func_name: str) -> Optional[str]:
 # Templates for inclusion in output
 
 
-def FN_MARK_WITHOUT_DATA(options: Dict[str, Any] = {}, **kwargs: Any) -> PlotSpec:
+def FN_MARK_WITH_OPTIONAL_DATA(*args, **kwargs: Any) -> PlotSpec:
     """DOC"""
+    # This function accepts the following argument combinations:
+    # 1. (data, options)
+    # 2. (data, options=...)
+    # 3. (options_dict)
+    # 4. (data)
+    # 5. (**kwargs)
+    # 6. ()
+    options = kwargs.pop("options", None)
+    if len(args) == 2:
+        data, options = args
+    elif len(args) == 1 and options is not None:
+        data = args[0]
+    elif len(args) == 1 and isinstance(args[0], dict):
+        data = None
+        options = args[0]
+    elif len(args) == 1:
+        data = args[0]
+        options = {}
+    elif len(args) == 0:
+        data = None
+        options = {}
+    else:
+        raise ValueError("Invalid arguments")
+
+    if data is not None:
+        return PlotSpec(
+            {
+                "marks": [
+                    JSCall(
+                        "Plot",
+                        "FN_MARK_WITH_OPTIONAL_DATA",
+                        [data, {**(options or {}), **kwargs}],
+                    )
+                ]
+            }
+        )
     return PlotSpec(
-        {"marks": [JSCall("Plot", "FN_MARK_WITHOUT_DATA", [{**options, **kwargs}])]}
+        {
+            "marks": [
+                JSCall(
+                    "Plot",
+                    "FN_MARK_WITH_OPTIONAL_DATA",
+                    [{**(options or {}), **kwargs}],
+                )
+            ]
+        }
     )
 
 
 def FN_MARK(
-    values: Any,
+    data: Any,
     options: Dict[str, Any] = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """DOC"""
-    return PlotSpec(MarkSpec("FN_MARK", values, {**options, **kwargs}))
+    return PlotSpec(MarkSpec("FN_MARK", data, {**options, **kwargs}))
 
 
 def FN_OTHER(*args: Any) -> Dict[str, Any]:
@@ -78,7 +122,7 @@ def FN_OTHER(*args: Any) -> Dict[str, Any]:
 
 sources: Dict[str, Optional[str]] = {
     name: get_function_def("scripts/make_observable_plot_defs.py", name)
-    for name in ["FN_MARK_WITHOUT_DATA", "FN_MARK", "FN_OTHER"]
+    for name in ["FN_MARK_WITH_OPTIONAL_DATA", "FN_MARK", "FN_OTHER"]
 }
 
 
@@ -86,8 +130,18 @@ def def_source(name: str, meta: Dict[str, Any]) -> str:
     kind = meta.get("kind")
     doc = meta.get("doc")
     variant: Optional[str] = None
-    if name in ["hexgrid", "grid", "gridX", "gridY", "gridFx", "gridFy", "frame"]:
-        variant = "FN_MARK_WITHOUT_DATA"
+    if name in [
+        "axisX",
+        "axisY",
+        "hexgrid",
+        "grid",
+        "gridX",
+        "gridY",
+        "gridFx",
+        "gridFy",
+        "frame",
+    ]:
+        variant = "FN_MARK_WITH_OPTIONAL_DATA"
     elif kind == "marks":
         variant = "FN_MARK"
     else:
