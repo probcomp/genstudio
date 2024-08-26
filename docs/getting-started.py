@@ -132,6 +132,29 @@ Plot.dot(
 )
 
 # %% [markdown]
+
+# ## Data Serialization
+
+# Serialization to JSON proceeds as follows:
+
+# 1. `.for_json()`: If an object has a `for_json` method, it's called first and is expected to return a JSON-serializable type.
+#    Example:
+#    class CustomObject:
+#        def for_json(self):
+#            return {"data": "serialized"}
+#    # Serializes to: {"data": "serialized"}
+
+# 2. `.tolist()`: If an object has a `tolist` method (eg. JAX/numpy arrays), it's called next:
+#    numpy_array = np.array([1, 2, 3])
+#    # Serializes to: [1, 2, 3]
+
+# 3. Other types:
+#    - Iterables: Converted to lists
+#    - Datetime objects: Converted to a special format
+#    - Callable objects: Handled specially for widgets
+
+# Alternate modes of serialization (eg. for better performance with larger datasets) is possible but not yet implemented.
+
 # ## Color Schemes
 
 # %% [markdown]
