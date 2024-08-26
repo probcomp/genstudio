@@ -1,3 +1,8 @@
+### **`2024.08.004`** - *August 26, 2024*
+
+#### Bug Fixes
+- release script should run pre-commit
+
 ### **`2024.08.003`** - *August 26, 2024*
 
 #### New Features
