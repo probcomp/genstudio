@@ -80,36 +80,44 @@ def update_changelog(new_version):
         .decode()
         .split("\n")
     )
+    # Define categories and their prefixes
+    categories = {
+        "New Features": "feat:",
+        "Bug Fixes": "fix:",
+        "Documentation": "docs:",
+        "Other Changes": None,  # This will catch all other commits
+    }
 
-    # Categorize commits (this is a basic implementation and might need refinement)
-    features = [msg[5:].strip() for msg in commit_messages if msg.startswith("feat:")]
-    fixes = [msg[4:].strip() for msg in commit_messages if msg.startswith("fix:")]
-    others = [
-        msg
-        for msg in commit_messages
-        if not (msg.startswith("feat:") or msg.startswith("fix:"))
-    ]
+    # Categorize commits
+    categorized_commits = {category: [] for category in categories}
+
+    for msg in commit_messages:
+        categorized = False
+        for category, prefix in categories.items():
+            if prefix and msg.startswith(prefix):
+                categorized_commits[category].append(msg[len(prefix) :].strip())
+                categorized = True
+                break
+        if not categorized:
+            categorized_commits["Other Changes"].append(msg.strip())
 
     # Prepare changelog entry
     changelog_entry = (
         f"#### [{new_version}] - {datetime.now().strftime('%B %d, %Y')}\n\n"
     )
 
-    if features:
-        changelog_entry += "#### New Features\n"
-        changelog_entry += "\n".join(f"- {feature}" for feature in features)
-        changelog_entry += "\n\n"
+    for category, commits in categorized_commits.items():
+        if commits:
+            changelog_entry += f"#### {category}\n"
+            changelog_entry += "\n".join(f"- {commit}" for commit in commits)
+            changelog_entry += "\n\n"
 
-    if fixes:
-        changelog_entry += "#### Bug Fixes\n"
-        changelog_entry += "\n".join(f"- {fix}" for fix in fixes)
-        changelog_entry += "\n\n"
-
-    if others:
-        if features or fixes:
-            changelog_entry += "#### Other Changes\n"
-        changelog_entry += "\n".join(f"- {other}" for other in others)
-        changelog_entry += "\n\n"
+    # Remove empty "Other Changes" section if it's the only one
+    if (
+        len([c for c in categorized_commits.values() if c]) == 1
+        and categorized_commits["Other Changes"]
+    ):
+        changelog_entry = changelog_entry.replace("#### Other Changes\n", "")
 
     # Prepend to CHANGELOG.md
     with open("CHANGELOG.md", "r+") as f:
