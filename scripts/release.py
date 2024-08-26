@@ -92,7 +92,7 @@ def update_changelog(new_version):
 
     # Prepare changelog entry
     changelog_entry = (
-        f"### **`{new_version}`** - *{datetime.now().strftime('%B %d, %Y')}*\n\n"
+        f"#### [{new_version}] - {datetime.now().strftime('%B %d, %Y')}\n\n"
     )
 
     if features:
@@ -112,7 +112,7 @@ def update_changelog(new_version):
         changelog_entry += "\n\n"
 
     # Prepend to CHANGELOG.md
-    with open("docs/CHANGELOG.md", "r+") as f:
+    with open("CHANGELOG.md", "r+") as f:
         content = f.read()
         f.seek(0, 0)
         f.write(changelog_entry + content)
@@ -138,13 +138,13 @@ def main():
     update_changelog(new_version)
 
     # Add changes
-    subprocess.run(["git", "add", "pyproject.toml", "README.md", "docs/CHANGELOG.md"])
+    subprocess.run(["git", "add", "pyproject.toml", "README.md", "CHANGELOG.md"])
 
     # Run pre-commit
     subprocess.run(["pre-commit", "run", "--all-files"])
 
     # Add changes again (in case pre-commit made modifications)
-    subprocess.run(["git", "add", "pyproject.toml", "README.md", "docs/CHANGELOG.md"])
+    subprocess.run(["git", "add", "pyproject.toml", "README.md", "CHANGELOG.md"])
 
     # Commit changes
     subprocess.run(["git", "commit", "-m", f"Release version {new_version}"])
