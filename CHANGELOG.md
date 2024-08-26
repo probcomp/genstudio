@@ -11,6 +11,6 @@
 #### Other Changes
 - values => data (in arguments to Plot.{mark})
 
-### [2024.08.001]
+#### [2024.08.001]
 
 - Initial release
