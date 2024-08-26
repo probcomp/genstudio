@@ -137,8 +137,16 @@ def main():
     update_readme(new_version)
     update_changelog(new_version)
 
-    # Commit changes
+    # Add changes
     subprocess.run(["git", "add", "pyproject.toml", "README.md", "docs/CHANGELOG.md"])
+
+    # Run pre-commit
+    subprocess.run(["pre-commit", "run", "--all-files"])
+
+    # Add changes again (in case pre-commit made modifications)
+    subprocess.run(["git", "add", "pyproject.toml", "README.md", "docs/CHANGELOG.md"])
+
+    # Commit changes
     subprocess.run(["git", "commit", "-m", f"Release version {new_version}"])
 
     # Create and push tag
