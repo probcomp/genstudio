@@ -238,7 +238,19 @@ categorical_data = [
 # %% [markdown]
 # ### Applying a constant color to an entire mark
 
-# [Plot.constantly(...)](bylight) returns a function that always returns the same value, regardless of its input. When used as a channel specifier (like for `fill` or `stroke`), it assigns a single categorical value to the entire mark. This is useful for creating consistent visual elements in your plot. Separately, one can use [Plot.colorMap(...)](bylight) to assign specific colors to these categorical values, usually in combination with [Plot.colorLegend()](bylight).
+# When specifying colors for marks, there's an important distinction to be aware of:
+
+# 1. Direct color specification:
+#    Use a string to specify a color directly. This will set the color for all points in the mark, but it's not possible to label the color in a legend.
+#    Example: `{"fill": "red"}` or `{"fill": "#FF0000"}`
+
+# 2. Categorical color assignment:
+#    For automatic color assignment based on categories, use a function (or string, for property access) that returns a value for each data point. For a constant category across all data points, use [Plot.constantly(...)](bylight).
+#    Example: `{"fill": Plot.constantly("Category A")}`.
+
+# `Plot.constantly` returns a function that always returns the same value, regardless of its input. When used as a channel specifier (like for `fill` or `stroke`), it assigns a single categorical value to the entire mark.
+
+# Categorical color assignment has the advantage that we can use it with [Plot.colorMap(...)](bylight) to assign specific colors to categories, and [Plot.colorLegend()](bylight) to display the color mappings.
 
 # %%
 import random

@@ -4,3 +4,4 @@
 meta.json
 site
 *.interactive
+basic_plot.*
