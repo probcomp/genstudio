@@ -4,11 +4,11 @@
 - a reactive variable maintains its current value when a plot is reset, unless reactive variable definitions change
 
 #### Documentation
-- explain Plot.constantly for colors
+- Plot.constantly for colors
 - JSON serialization
 - Exporting and Saving
 
-#### Changes
+#### Other Changes
 - values => data (in arguments to Plot.{mark})
 
 ### [2024.08.001]
