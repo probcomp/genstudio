@@ -1,4 +1,4 @@
-#### [2024.08.005] - August 26, 2024
+### [2024.08.006] - August 26, 2024
 
 #### New Features
 - a reactive variable maintains its current value when a plot is reset, unless reactive variable definitions change
@@ -11,6 +11,6 @@
 #### Other Changes
 - values => data (in arguments to Plot.{mark})
 
-#### [2024.08.001]
+### [2024.08.001]
 
 - Initial release
