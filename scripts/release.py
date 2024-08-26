@@ -103,7 +103,7 @@ def update_changelog(new_version):
 
     # Prepare changelog entry
     changelog_entry = (
-        f"### [{new_version}] - {datetime.now().strftime('%B %d, %Y')}\n\n"
+        f"### [{new_version}] - {datetime.now().strftime('%b %d, %Y')}\n\n"
     )
 
     for category, commits in categorized_commits.items():
