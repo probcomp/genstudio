@@ -1,5 +1,4 @@
 # %% [markdown]
-
 # This guide demonstrates:
 # 1. Using sliders for dynamic parameter adjustment
 # 2. Creating animated sliders
@@ -10,10 +9,11 @@ import genstudio.plot as Plot
 
 # %% [markdown]
 # ## Sliders
-
+#
 # Sliders allow users to dynamically adjust parameters. Each slider is bound to a reactive variable in `$state`, accessible in Plot.js functions as `$state.{key}`.
-
+#
 # Here's an example of a sine wave with an adjustable frequency:
+
 # %%
 slider = Plot.Slider(
     key="frequency", label="Frequency", range=[0.5, 5], step=0.1, init=1
@@ -36,11 +36,10 @@ line | slider
 
 # %% [markdown]
 # ### Animated Sliders
-
+#
 # Sliders can also be used to create animations. When a slider is given an [fps](bylight?match=fps=30) (frames per second) parameter, it automatically animates by updating [its value](bylight?match=$state.frame,key="frame") over time. This approach is useful when all frame differences can be expressed using JavaScript functions that read from $state variables.
 
 # %%
-
 (
     Plot.line(
         {"x": range(100)},
@@ -59,7 +58,7 @@ line | slider
 
 # %% [markdown]
 # ## Plot.Frames
-
+#
 # `Plot.Frames` provides a convenient way to scrub or animate over a sequence of arbitrary plots. Each frame is rendered individually. It implicitly creates a slider and cycles through the provided frames. Here's a basic example:
 
 # %%
@@ -97,19 +96,19 @@ show_shapes("blue")
 
 # %% [markdown]
 # ## Reactive Variable Lifecycle
-
+#
 # > **Note:** this section will only work in a live jupyter session because it depends on python/JavaScript communication.
-
+#
 # When using the widget display mode, we can reset the contents of a plot in-place. Reactive variables _maintain their current values_ even when a plot is reset, unless the number or names of the reactive values change.
-
+#
 # This allows us to update an in-progress animation without restarting the animation:
 
 # %%
 # Create an empty plot:
 shapes_plot = Plot.new()
 shapes_plot
-# %%
 
+# %%
 import time
 
 # Change the color every 200ms for 5 seconds

@@ -54,9 +54,10 @@ plugins:
           - hide_output
 extra_css:
   - stylesheets/custom.css
+  - https://unpkg.com/bylight/styles/bylight.css
 extra_javascript:
-  - js/bylight.js
+  - https://unpkg.com/bylight/dist/index.global.js
   - js/scroll-fix.js
-
+  - js/bylight.js
 hooks:
   - src/genstudio/scripts/css_modifier.py

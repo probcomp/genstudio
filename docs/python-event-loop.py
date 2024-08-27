@@ -2,7 +2,6 @@
 # > **NOTE**: This technique will only work in a "live" jupyter session because it depends on communication with a python backend.
 
 # %%
-
 import genstudio.plot as Plot
 from IPython.display import display
 import asyncio
@@ -10,19 +9,16 @@ import time
 import numpy as np
 
 # %% [markdown]
-
 # This guide demonstrates how to create Python-controlled animations using GenStudio plots, the `.reset` method, and interactive sliders. We'll cover:
 # 1. Setting up a basic animated plot
 # 2. Creating interactive animations with ipywidgets
-
+#
 # We must use the `"widget"` [rendering modes](getting-started/#rendering-modes) for bidirectional python/javascript communication:
 
 # %%
-
 Plot.configure({"display_as": "widget"})
 
 # %% [markdown]
-
 # First, a simple sine wave plot:
 
 # %%
@@ -33,13 +29,12 @@ basic_plot = (
     + Plot.height(200)
 )
 basic_plot
-# %% [markdown]
 
+# %% [markdown]
 # Now, let's animate it:
 
+
 # %%
-
-
 async def animate(duration=5):
     start_time = time.time()
     while time.time() - start_time < duration:
@@ -56,10 +51,8 @@ async def animate(duration=5):
 future = asyncio.ensure_future(animate())
 
 # %% [markdown]
-
 # We use the [reset method](bylight?dir=up&match=basic_plot.reset) of a plot to update its content in-place, inside an [async function](bylight?dir=up&match=async+def) containing a `while` loop, using [sleep](bylight?dir=up&match=asyncio.sleep(...\)) to control the frame rate. To avoid interference with Jupyter comms, we use [ensure_future](bylight?dir=up&match=asyncio.ensure_future(...\)) to run the function in a new thread.
-
-
+#
 # Let's make it interactive, using [ipywidgets](bylight?match=import...as+widgets,/widgets.FloatSlider/) sliders to control frequency and amplitude:
 
 # %%
@@ -76,13 +69,12 @@ frequency_slider = widgets.FloatSlider(
 amplitude_slider = widgets.FloatSlider(
     value=1.0, min=0.1, max=2.0, step=0.1, description="Amplitude:"
 )
-# %% [markdown]
 
+# %% [markdown]
 # Now, in our animation loop we [use the slider values](bylight?match=/\w%2B_slider\.value/) to compute the y value:
 
+
 # %%
-
-
 async def interactive_animate(duration=10):
     start_time = time.time()
     while time.time() - start_time < duration:

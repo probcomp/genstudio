@@ -2,7 +2,6 @@ import genstudio.plot as Plot
 from genstudio.plot import html, js
 
 # %% [markdown]
-
 # Plot.html is a Python implementation of Clojure's Hiccup, enabling HTML structure creation and interactive visualizations. This guide covers:
 # 1. Basic HTML generation
 # 2. Creating interactive elements
@@ -56,9 +55,11 @@ html(
     Plot.line(
         {"x": range(100)},
         {
-            "y": js("""(d, i) => {
+            "y": js(
+                """(d, i) => {
                 return Math.sin(i * 2 * Math.PI / 100 * $state.frequency)
-            }""")
+            }"""
+            )
         },
     )
     + Plot.domain([0, 99], [-1, 1])

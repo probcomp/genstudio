@@ -1,35 +1,29 @@
 # %% [markdown]
-
 # To use GenStudio, first import it:
 
 # %%
 import genstudio.plot as Plot
 
 # %% [markdown]
-
 # Let's start with a simple line plot. Given a dataset of six `[x, y]` coordinates,
 
 # %%
-
 six_points = [[1, 1], [2, 4], [1.5, 7], [3, 10], [2, 13], [4, 15]]
 
 # %% [markdown]
-
 # Here is a line plot:
 
 # %%
-
 Plot.line(six_points)
 
 # %% [markdown]
 # ## Understanding Marks
-
+#
 # In GenStudio (and Observable Plot), [marks](https://observablehq.com/plot/features/marks) are the basic visual elements used to represent data. The `line` we just used is one type of mark. Other common marks include `dot` for scatter plots, `bar` for bar charts, and `text` for adding labels.
-
+#
 # Each mark type has its own set of properties that control its appearance and behavior. For example, with `line`, we can control the stroke, stroke width, and curve:
 
 # %%
-
 Plot.line(
     six_points,
     {
@@ -40,11 +34,10 @@ Plot.line(
 )
 
 # %% [markdown]
-
 # To learn more, refer to the [marks documentation](https://observablehq.com/plot/features/marks).
-
+#
 # ## Layering Marks and Options
-
+#
 # We can layer multiple marks and add options to plots using the `+` operator. For example, here we compose a [line mark](bylight?match=Plot.line(...\)) with a [dot mark](bylight?match=Plot.dot(...\)), then add a [frame](bylight?match=Plot.frame(\)):
 
 # %%
@@ -55,7 +48,6 @@ Plot.line(
 )
 
 # %% [markdown]
-
 # Plots are immutable; we often reuse layers repeatedly throughout a notebook as we gradually built up a more complex visualization, or show different phenomena on top of the same background layer.
 
 # %%
@@ -83,18 +75,15 @@ positions = Plot.dot(
 
 # plot our positions cluster on top of the walls plot
 walls + positions
-# %%
-
 
 # %% [markdown]
-
 # ## Specifying Data and Channels
-
+#
 # Channels are how we map our data to visual properties of the mark. For many marks, `x` and `y` are the primary channels, but others like `color`, `size`, or `opacity` are also common. We typically specify our _data_ and _channels_ separately.
-
+#
 # Say we have a list of objects:
-# %%
 
+# %%
 object_data = [
     {"X": 1, "Y": 2, "CATEGORY": "A"},
     {"X": 2, "Y": 4, "CATEGORY": "B"},
@@ -108,7 +97,7 @@ object_data = [
 # A mark takes [data](bylight?match=object_data) followed by an options dictionary, which specifies how [channel names](bylight?match="x","y","stroke","strokeWidth","r","fill") get their values.
 #
 # There are several ways to specify channel values in Observable Plot:
-
+#
 # 1. A [string](bylight?match="X","Y","CATEGORY") is used to specify a property name in the data object. If it matches, that property's value is used. Otherwise, it's treated as a literal value.
 # 2. A [function](bylight?match=Plot.js(...\)) will receive two arguments, `(data, index)`, and should return the desired value for the channel. We use `Plot.js` to insert a JavaScript source string - this function is evaluated within the rendering environment, and not in python.
 # 3. An [array](bylight?match=[...]) provides explicit values for each data point. It should have the same length as the list passed in the first (data) position.
@@ -128,12 +117,10 @@ Plot.dot(
 )
 
 # %% [markdown]
-
 # ## Data Serialization
-
+#
 # Data is passed to the JavaScript runtime as JSON, using the [orjson](https://github.com/ijl/orjson) library with additional fallback behaviour:
-
-
+#
 # | Condition | Conversion |
 # |-----------|------------|
 # | Object has `for_json` method | `$object.for_json()` |
@@ -141,34 +128,27 @@ Plot.dot(
 # | Object is iterable | `list($object)` |
 # | Datetime objects | Converted to a JavaScript `Date` |
 # | Callable objects | Converted to JavaScript functions that return values to Python <br/> (only for "widget" display mode)|
-
+#
 # Alternate modes of serialization (eg. for better performance with larger datasets) are possible but not yet implemented.
-
+#
 # ## Color Schemes
-
-# %% [markdown]
+#
 # ### Using a built-in color scheme
-
-# You can use a [built-in color scheme](https://observablehq.com/@d3/color-schemes) from D3.js by specifying the scheme name in the `color` option:
+#
+# You can use a [built-in color scheme](https://observablehq.com/@d3/color-schemes) from D3.js by specifying the [scheme name](bylight?match="Viridis") in the `color` option:
 
 # %%
 (
     Plot.cell(range(20), {"x": Plot.identity, "fill": Plot.identity, "inset": -0.5})
-    + {"color": {"scheme": "Viridis"}}
+    + {"color": {"type": "linear", "scheme": "Viridis"}}
     + Plot.height(50)
 )
 
 # %% [markdown]
-# In this example, `"x"` and `"fill"` are both set to `Plot.identity`.
-# - `"x": Plot.identity` means that the x-position of each cell corresponds directly to its index in the range (0 to 19).
-# - `"fill": Plot.identity` also uses the index (0 to 19) to determine the fill color.
-# Observable Plot automatically maps this domain (0 to 19) to the `"Viridis"` color scheme.
-# The result is a visualization where each cell's position and color represent its index,
-# with colors progressing through the Viridis scheme from left to right.
-
-# %% [markdown]
+# Here, the `x` and `fill` channels both use [Plot.identity](bylight?in=-1) to use the corresponding value in the provided [range](bylight?in=-1&match=range(...\)).
+#
 # ### Custom color interpolation
-
+#
 # You can also create custom color scales by specifying a range and an [interpolation function](bylight?match=Plot.js(...\)):
 
 # %%
@@ -188,10 +168,9 @@ Plot.dot(
 # - `"range"` specifies the start and end colors for the scale (blue to red).
 # - `"interpolate"` defines how to transition between these colors, using D3's HSL interpolation.
 # This results in a smooth color gradient from blue to red across the cells.
-
-# %% [markdown]
+#
 # ### Using D3 color scales directly
-
+#
 # GenStudio allows you to use [D3 color scales](https://github.com/d3/d3-scale-chromatic) directly in your plots:
 
 # %%
@@ -205,7 +184,7 @@ Plot.dot(
 
 # %% [markdown]
 # ### Using colorMap and colorLegend
-
+#
 # [Plot.colorMap(...)](bylight) assigns specific colors to categories, while [Plot.colorLegend()](bylight) adds a color legend to your plot. In the following example, we create a dot plot with categorical data. The [fill channel](bylight?match="fill":+"category") determines the color of each dot based on its category.
 
 # %%
@@ -226,19 +205,19 @@ categorical_data = [
 
 # %% [markdown]
 # ### Applying a constant color to an entire mark
-
+#
 # When specifying colors for marks, there's an important distinction to be aware of:
-
+#
 # 1. Direct color specification:
 #    Use a string to specify a color directly. This will set the color for all points in the mark, but it's not possible to label the color in a legend.
 #    Example: `{"fill": "red"}` or `{"fill": "#FF0000"}`
-
+#
 # 2. Categorical color assignment:
 #    For automatic color assignment based on categories, use a function (or string, for property access) that returns a value for each data point. For a constant category across all data points, use [Plot.constantly(...)](bylight).
 #    Example: `{"fill": Plot.constantly("Category A")}`.
-
+#
 # `Plot.constantly` returns a function that always returns the same value, regardless of its input. When used as a channel specifier (like for `fill` or `stroke`), it assigns a single categorical value to the entire mark.
-
+#
 # Categorical color assignment has the advantage that we can use it with [Plot.colorMap(...)](bylight) to assign specific colors to categories, and [Plot.colorLegend()](bylight) to display the color mappings.
 
 # %%
@@ -259,19 +238,17 @@ import random
     + {"width": 400, "height": 400, "aspectRatio": 1}
 )
 
-
 # %% [markdown]
 # ## Rendering Modes
-
+#
 # GenStudio offers two rendering modes:
-
+#
 # 1. **HTML mode**: Renders visualizations as standalone HTML, ideal for embedding in web pages or exporting. Plots persist across kernel restarts.
-
+#
 # 2. **Widget mode**: Renders visualizations as interactive Jupyter widgets. Enables bidirectional communication between Python and JavaScript.
-
-
+#
 # You can choose the rendering mode in two ways:
-
+#
 # 1. Globally, using `Plot.configure()`:
 
 # %%
@@ -284,31 +261,28 @@ Plot.configure(display_as="widget")  # Set global rendering mode to widget
 (
     Plot.dot(categorical_data, {"x": "value", "y": "category", "fill": "category"})
     + Plot.colorLegend()
-).display_as("html")  # This specific plot will render as HTML
+).display_as("html")
 
 # %% [markdown]
 # The global setting affects all subsequent plots unless overridden by `.display_as()`.
 # You can switch between modes as needed for different use cases.
-# %% [markdown]
-
+#
 # ## Exporting and Saving
-
+#
 # GenStudio provides methods to save your visualizations as standalone HTML files or images.
-
+#
 # To save a plot as an HTML file, use the `save_html` method:
 
 # %%
 Plot.dot([[1, 1]]).save_html("basic_plot.html")
 
 # %% [markdown]
-
 # This will create a file named "basic_plot.html" in the current directory containing the interactive visualization.
-
+#
 # To save a plot as an image, use the `save_image` method:
 
 # %%
 Plot.dot([[1, 1]]).save_image("basic_plot.png", width=800, height=600)
 
 # %% [markdown]
-
 # This will create an image file named "basic_plot.png" with the specified `width` and `height` in pixels. The image will be automatically cropped to remove any transparent regions.
