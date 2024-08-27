@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "genstudio"
-version = "2024.08.006"
+version = "2024.08.007"
 description = ""
 authors = [ "Matthew Huebert <me@matt.is>",]
 license = "MIT"
@@ -28,9 +28,6 @@ typeCheckingMode = "standard"
 reportUnusedExpression = false
 reportFunctionMemberAccess = false
 
-[tool.ruff]
-lint.ignore = [ "E402",]
-
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
 anywidget = "^0.9.10"
@@ -45,6 +42,9 @@ mkdocs-material-extensions = "^1.3.1"
 mkdocs-material = "^9.5.32"
 mkdocs = "^1.6.0"
 toml = "^0.10.2"
+
+[tool.ruff.lint]
+ignore = [ "E402",]
 
 [tool.poetry.group.dev.dependencies]
 jaxlib = "^0.4.24"

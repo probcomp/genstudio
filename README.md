@@ -1,7 +1,7 @@
 # Gen Studio
 _Visualization tools for GenJAX._
 
-Current version: `2024.08.006`
+Current version: `2024.08.007`
 
 -----
 

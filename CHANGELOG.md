@@ -1,3 +1,13 @@
+### [2024.08.007] - Aug 27, 2024
+
+#### Documentation
+- use bylight from a cdn
+- use Google Font
+- explain JSON serialization
+
+#### Other Changes
+- bump: Observable Plot 0.6.16
+
 #### [2024.08.006] - August 26, 2024
 
 #### New Features
