@@ -8,6 +8,11 @@ const { useEffect } = React
 export const DEFAULT_PLOT_OPTIONS = { inset: 10 };
 const DEFAULT_ASPECT_RATIO = 1.5
 
+// Add per-mark defaults
+const PER_MARK_DEFAULTS = {
+    "dot": {"fill": "currentColor"},
+    "frame": {"stroke": "#dddddd"}
+};
 
 export function PlotWrapper({spec}) {
     const [$state] = React.useContext($StateContext)
@@ -63,7 +68,7 @@ export class MarkSpec {
         }
         this.fn = Marks[name];
 
-        options = { ...options }
+        options = { ...PER_MARK_DEFAULTS[name], ...options }
 
         // handle dimensional data passed in the 1st position
         if (data.dimensions) {

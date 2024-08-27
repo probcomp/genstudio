@@ -1,6 +1,18 @@
 {
-  "version": "0.6.14",
+  "version": "^0.6.16",
   "entries": {
+    "numberInterval": {
+      "kind": "interval",
+      "doc": "Given a number *period*, returns a corresponding numeric range interval. If\n*period* is a negative number, the returned interval uses 1 / -*period*,\nallowing greater precision when *period* is a negative integer."
+    },
+    "timeInterval": {
+      "kind": "interval",
+      "doc": "Given a string *period*, returns a corresponding local time nice interval."
+    },
+    "utcInterval": {
+      "kind": "interval",
+      "doc": "Given a string *period*, returns a corresponding UTC nice interval."
+    },
     "legend": {
       "kind": "legends",
       "doc": "Generates a standalone legend for the scale defined by the given *options*,\nreturning either an SVG or HTML element depending on the scale and the\ndesired legend type. Currently supports only *color*, *opacity*, and *symbol*\nscales."
@@ -137,6 +149,10 @@
       "kind": "transforms",
       "doc": "Bins on the **x** and **y** channels; then subdivides bins on the first\nchannel of **z**, **fill**, or **stroke**, if any; and lastly for each\nchannel in the specified *outputs*, applies the corresponding *reduce* method\nto produce new channel values from the binned input channel values. Each\n*reduce* method may be one of:\n\n- a named reducer implementation such as *count* or *sum*\n- a function that takes an array of values and returns the reduced value\n- an object that implements the *reduceIndex* method\n\nFor example, for a heatmap of observed culmen lengths and depths:\n\n```js\nPlot.rect(penguins, Plot.bin({fill: \"count\"}, {x: \"culmen_depth_mm\", y: \"culmen_length_mm\"}))\n```\n\nThe bin transform is often used with the rect mark to make heatmaps; it is\nintended for aggregating continuous quantitative or temporal data, such as\ntemperatures or times, into discrete bins. See the group transform for\nordinal or categorical data.\n\nIf neither **x** nor **y** are in *options*, then **x** and **y** default to\naccessors assuming that *data* contains tuples [[*x₀*, *y₀*], [*x₁*, *y₁*],\n[*x₂*, *y₂*], …]. If **x** is not in *outputs*, by default produces **x1**\nand **x2** output channels representing the horizontal extent of each bin and\na **x** output channel representing the horizontal midpoint, say for for\nlabels. Likewise if **y** is not in *outputs*, by default produces **y1** and\n**y2** output channels representing the vertical extent of each bin and a\n**y** output channel representing the vertical midpoint. The **insetTop**,\n**insetRight**, **insetBottom**, and **insetLeft** options default to 0.5."
     },
+    "formatNumber": {
+      "kind": "format",
+      "doc": "Returns a function that formats a given number according to the specified\n*locale*.\n\n[1]: https://tools.ietf.org/html/bcp47"
+    },
     "formatMonth": {
       "kind": "format",
       "doc": "Returns a function that formats a given month number (from 0 = January to 11\n= December) according to the specified *locale* and *format*.\n\n[1]: https://tools.ietf.org/html/bcp47\n[2]: https://tc39.es/ecma402/#datetimeformat-objects"
@@ -227,7 +243,7 @@
     },
     "barY": {
       "kind": "marks",
-      "doc": "Returns a new vertical bar mark for the given *data* and *options*; the\nrequired *y* values should be quantitative or temporal, and the optional *x*\nvalues should be ordinal. For example, for a vertical bar chart of English\nletter frequency:\n\n```js\nPlot.barY(alphabet, {y: \"frequency\", x: \"letter\"})\n```\nIf neither **y1** nor **y2** nor **interval** is specified, an implicit\nstackY transform is applied and **y** defaults to the identity function,\nassuming that *data* = [*y₀*, *y₁*, *y₂*, …]. Otherwise if an **interval** is\nspecified, then **y1** and **y2** are derived from **y**, representing the\nlower and upper bound of the containing interval, respectively. Otherwise, if\nonly one of **y1** or **y2** is specified, the other defaults to **y**, which\ndefaults to zero.\n\nThe optional **x** ordinal channel specifies the horizontal position; it is\ntypically bound to the *x* scale, which must be a *band* scale. If the **x**\nchannel is not specified, the bar will span the horizontal extent of the\nplot’s frame. The barY mark is often used in conjunction with the groupX\ntransform. For a stacked histogram of penguins by species, colored by sex:\n\n```js\nPlot.barY(penguins, Plot.groupX({y: \"count\"}, {x: \"species\", fill: \"sex\"}))\n```\n\nIf *x* is quantitative, use the rectY mark instead, possibly with a binX\ntransform. If *y* is ordinal, use the cell mark instead, possibly with a\ngroup transform.\n\nIf *options* is undefined, then **x** defaults to the zero-based index of\n*data* [0, 1, 2, …], allowing a quick bar chart from an array of numbers:\n\n```js\nPlot.barY([4, 9, 24, 46, 66, 7])\n```"
+      "doc": "Returns a new vertical bar mark for the given *data* and *options*; the\nrequired *y* values should be quantitative or temporal, and the optional *x*\nvalues should be ordinal. For example, for a vertical bar chart of English\nletter frequency:\n\n```js\nPlot.barY(alphabet, {y: \"frequency\", x: \"letter\"})\n```\n\nIf neither **y1** nor **y2** nor **interval** is specified, an implicit\nstackY transform is applied and **y** defaults to the identity function,\nassuming that *data* = [*y₀*, *y₁*, *y₂*, …]. Otherwise if an **interval** is\nspecified, then **y1** and **y2** are derived from **y**, representing the\nlower and upper bound of the containing interval, respectively. Otherwise, if\nonly one of **y1** or **y2** is specified, the other defaults to **y**, which\ndefaults to zero.\n\nThe optional **x** ordinal channel specifies the horizontal position; it is\ntypically bound to the *x* scale, which must be a *band* scale. If the **x**\nchannel is not specified, the bar will span the horizontal extent of the\nplot’s frame. The barY mark is often used in conjunction with the groupX\ntransform. For a stacked histogram of penguins by species, colored by sex:\n\n```js\nPlot.barY(penguins, Plot.groupX({y: \"count\"}, {x: \"species\", fill: \"sex\"}))\n```\n\nIf *x* is quantitative, use the rectY mark instead, possibly with a binX\ntransform. If *y* is ordinal, use the cell mark instead, possibly with a\ngroup transform.\n\nIf *options* is undefined, then **x** defaults to the zero-based index of\n*data* [0, 1, 2, …], allowing a quick bar chart from an array of numbers:\n\n```js\nPlot.barY([4, 9, 24, 46, 66, 7])\n```"
     },
     "mapX": {
       "kind": "transforms",
@@ -369,6 +385,10 @@
       "kind": "marks",
       "doc": "Returns a mark that draws contours representing the estimated density of the\ntwo-dimensional points given by **x** and **y**, and possibly weighted by\n**weight**. If either **x** or **y** is not specified, it defaults to the\nrespective middle of the plot’s frame.\n\nIf the **stroke** or **fill** is specified as *density*, a color channel is\nconstructed with values representing the density threshold value of each\ncontour."
     },
+    "differenceX": {
+      "kind": "marks",
+      "doc": "Returns a new horizontal difference mark for the given the specified *data*\nand *options*, as in a time-series chart where time goes down↓ (or up↑).\n\nThe mark is a composite of a positive area, negative area, and line. The\npositive area extends from the left of the frame to the line, and is clipped\nby the area extending from the comparison to the right of the frame. The\nnegative area conversely extends from the right of the frame to the line, and\nis clipped by the area extending from the comparison to the left of the\nframe."
+    },
     "differenceY": {
       "kind": "marks",
       "doc": "Returns a new vertical difference mark for the given the specified *data* and\n*options*, as in a time-series chart where time goes right→ (or ←left).\n\nThe mark is a composite of a positive area, negative area, and line. The\npositive area extends from the bottom of the frame to the line, and is\nclipped by the area extending from the comparison to the top of the frame.\nThe negative area conversely extends from the top of the frame to the line,\nand is clipped by the area extending from the comparison to the bottom of the\nframe."
@@ -441,6 +461,14 @@
       "kind": "marks",
       "doc": "Like vector, but with default *options* suitable for drawing a spike map. For\nexample, to show city populations:\n\n```js\nPlot.spike(cities, {x: \"longitude\", y: \"latitude\", stroke: \"red\", length: \"population\"})\n```"
     },
+    "waffleY": {
+      "kind": "marks",
+      "doc": "Returns a new vertical waffle mark for the given *data* and *options*; the\nrequired *y* values should be quantitative, and the optional *x* values\nshould be ordinal. For example, for a vertical waffle chart of Olympic\nathletes by sport:\n\n```js\nPlot.waffleY(olympians, Plot.groupX({y: \"count\"}, {x: \"sport\"}))\n```\n\nIf neither **y1** nor **y2** nor **interval** is specified, an implicit\nstackY transform is applied and **y** defaults to the identity function,\nassuming that *data* = [*y₀*, *y₁*, *y₂*, …]. Otherwise if an **interval** is\nspecified, then **y1** and **y2** are derived from **y**, representing the\nlower and upper bound of the containing interval, respectively. Otherwise, if\nonly one of **y1** or **y2** is specified, the other defaults to **y**, which\ndefaults to zero.\n\nThe optional **x** ordinal channel specifies the horizontal position; it is\ntypically bound to the *x* scale, which must be a *band* scale. If the **x**\nchannel is not specified, the waffle will span the horizontal extent of the\nplot’s frame. Because a waffle represents a discrete number of square cells,\nit may not use all of the available bandwidth.\n\nIf *options* is undefined, then **x** defaults to the zero-based index of\n*data* [0, 1, 2, …], allowing a quick waffle chart from an array of numbers:\n\n```js\nPlot.waffleY([4, 9, 24, 46, 66, 7])\n```"
+    },
+    "waffleX": {
+      "kind": "marks",
+      "doc": "Returns a new horizonta waffle mark for the given *data* and *options*; the\nrequired *x* values should be quantitative, and the optional *y* values\nshould be ordinal. For example, for a horizontal waffle chart of Olympic\nathletes by sport:\n\n```js\nPlot.waffleX(olympians, Plot.groupY({x: \"count\"}, {y: \"sport\"}))\n```\n\nIf neither **x1** nor **x2** nor **interval** is specified, an implicit\nstackX transform is applied and **x** defaults to the identity function,\nassuming that *data* = [*x₀*, *x₁*, *x₂*, …]. Otherwise if an **interval** is\nspecified, then **x1** and **x2** are derived from **x**, representing the\nlower and upper bound of the containing interval, respectively. Otherwise, if\nonly one of **x1** or **x2** is specified, the other defaults to **x**, which\ndefaults to zero.\n\nThe optional **y** ordinal channel specifies the vertical position; it is\ntypically bound to the *y* scale, which must be a *band* scale. If the **y**\nchannel is not specified, the waffle will span the vertical extent of the\nplot’s frame. Because a waffle represents a discrete number of square cells,\nit may not use all of the available bandwidth.\n\nIf *options* is undefined, then **y** defaults to the zero-based index of\n*data* [0, 1, 2, …], allowing a quick waffle chart from an array of numbers:\n\n```js\nPlot.waffleX([4, 9, 24, 46, 66, 7])\n```"
+    },
     "valueof": {
       "kind": "options",
       "doc": "Given some *data* and a channel *value* definition (such as a field name or\nfunction accessor), returns an array of the specified *type* containing the\ncorresponding values derived from *data*. If *type* is not specified, it\ndefaults to Array; otherwise it must be an Array or TypedArray subclass.\n\nThe returned array is not guaranteed to be new; when the *value* is a channel\ntransform or an array that is an instance of the given *type*, the array may\nbe returned as-is without making a copy."
@@ -512,6 +540,10 @@
     "shiftX": {
       "kind": "transforms",
       "doc": "Groups data into series using the first channel of *z*, *fill*, or *stroke*\n(if any), then derives *x1* and *x2* output channels by shifting the input\n*x* channel according to the specified *interval*."
+    },
+    "shiftY": {
+      "kind": "transforms",
+      "doc": "Groups data into series using the first channel of *z*, *fill*, or *stroke*\n(if any), then derives *y1* and *y2* output channels by shifting the input\n*y* channel according to the specified *interval*."
     }
   }
 }

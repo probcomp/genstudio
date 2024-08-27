@@ -1,4 +1,4 @@
-# Generated from version 0.6.14 of Observable Plot
+# Generated from version ^0.6.16 of Observable Plot
 from genstudio.js_modules import JSCall
 from genstudio.plot_spec import MarkSpec, PlotSpec
 from typing import Any, Dict
@@ -259,13 +259,28 @@ def axisX(*args, **kwargs: Any) -> PlotSpec:
         options = {}
     else:
         raise ValueError("Invalid arguments")
-
     if data is not None:
         return PlotSpec(
-            {"marks": [JSCall("Plot", "axisX", [data, {**(options or {}), **kwargs}])]}
+            {
+                "marks": [
+                    JSCall(
+                        "Plot",
+                        "axisX",
+                        [data, {**(options or {}), **kwargs}],
+                    )
+                ]
+            }
         )
     return PlotSpec(
-        {"marks": [JSCall("Plot", "axisX", [{**(options or {}), **kwargs}])]}
+        {
+            "marks": [
+                JSCall(
+                    "Plot",
+                    "axisX",
+                    [{**(options or {}), **kwargs}],
+                )
+            ]
+        }
     )
 
 
@@ -315,13 +330,28 @@ def axisY(*args, **kwargs: Any) -> PlotSpec:
         options = {}
     else:
         raise ValueError("Invalid arguments")
-
     if data is not None:
         return PlotSpec(
-            {"marks": [JSCall("Plot", "axisY", [data, {**(options or {}), **kwargs}])]}
+            {
+                "marks": [
+                    JSCall(
+                        "Plot",
+                        "axisY",
+                        [data, {**(options or {}), **kwargs}],
+                    )
+                ]
+            }
         )
     return PlotSpec(
-        {"marks": [JSCall("Plot", "axisY", [{**(options or {}), **kwargs}])]}
+        {
+            "marks": [
+                JSCall(
+                    "Plot",
+                    "axisY",
+                    [{**(options or {}), **kwargs}],
+                )
+            ]
+        }
     )
 
 
@@ -386,6 +416,7 @@ def barY(
     ```js
     Plot.barY(alphabet, {y: "frequency", x: "letter"})
     ```
+
     If neither **y1** nor **y2** nor **interval** is specified, an implicit
     stackY transform is applied and **y** defaults to the identity function,
     assuming that *data* = [*y₀*, *y₁*, *y₂*, …]. Otherwise if an **interval** is
@@ -884,6 +915,25 @@ def density(
     return PlotSpec(MarkSpec("density", data, {**options, **kwargs}))
 
 
+def differenceX(
+    data: Any,
+    options: Dict[str, Any] = {},
+    **kwargs: Any,
+) -> PlotSpec:
+    """
+    Returns a new horizontal difference mark for the given the specified *data*
+    and *options*, as in a time-series chart where time goes down↓ (or up↑).
+
+    The mark is a composite of a positive area, negative area, and line. The
+    positive area extends from the left of the frame to the line, and is clipped
+    by the area extending from the comparison to the right of the frame. The
+    negative area conversely extends from the right of the frame to the line, and
+    is clipped by the area extending from the comparison to the left of the
+    frame.
+    """
+    return PlotSpec(MarkSpec("differenceX", data, {**options, **kwargs}))
+
+
 def differenceY(
     data: Any,
     options: Dict[str, Any] = {},
@@ -1039,6 +1089,16 @@ def formatMonth(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "formatMonth", args)
 
 
+def formatNumber(*args: Any) -> Dict[str, Any]:
+    """
+    Returns a function that formats a given number according to the specified
+    *locale*.
+
+    [1]: https://tools.ietf.org/html/bcp47
+    """
+    return JSCall("Plot", "formatNumber", args)
+
+
 def formatWeekday(*args: Any) -> Dict[str, Any]:
     """
     Returns a function that formats a given week day number (from 0 = Sunday to 6
@@ -1079,13 +1139,28 @@ def frame(*args, **kwargs: Any) -> PlotSpec:
         options = {}
     else:
         raise ValueError("Invalid arguments")
-
     if data is not None:
         return PlotSpec(
-            {"marks": [JSCall("Plot", "frame", [data, {**(options or {}), **kwargs}])]}
+            {
+                "marks": [
+                    JSCall(
+                        "Plot",
+                        "frame",
+                        [data, {**(options or {}), **kwargs}],
+                    )
+                ]
+            }
         )
     return PlotSpec(
-        {"marks": [JSCall("Plot", "frame", [{**(options or {}), **kwargs}])]}
+        {
+            "marks": [
+                JSCall(
+                    "Plot",
+                    "frame",
+                    [{**(options or {}), **kwargs}],
+                )
+            ]
+        }
     )
 
 
@@ -1169,13 +1244,28 @@ def gridFx(*args, **kwargs: Any) -> PlotSpec:
         options = {}
     else:
         raise ValueError("Invalid arguments")
-
     if data is not None:
         return PlotSpec(
-            {"marks": [JSCall("Plot", "gridFx", [data, {**(options or {}), **kwargs}])]}
+            {
+                "marks": [
+                    JSCall(
+                        "Plot",
+                        "gridFx",
+                        [data, {**(options or {}), **kwargs}],
+                    )
+                ]
+            }
         )
     return PlotSpec(
-        {"marks": [JSCall("Plot", "gridFx", [{**(options or {}), **kwargs}])]}
+        {
+            "marks": [
+                JSCall(
+                    "Plot",
+                    "gridFx",
+                    [{**(options or {}), **kwargs}],
+                )
+            ]
+        }
     )
 
 
@@ -1209,13 +1299,28 @@ def gridFy(*args, **kwargs: Any) -> PlotSpec:
         options = {}
     else:
         raise ValueError("Invalid arguments")
-
     if data is not None:
         return PlotSpec(
-            {"marks": [JSCall("Plot", "gridFy", [data, {**(options or {}), **kwargs}])]}
+            {
+                "marks": [
+                    JSCall(
+                        "Plot",
+                        "gridFy",
+                        [data, {**(options or {}), **kwargs}],
+                    )
+                ]
+            }
         )
     return PlotSpec(
-        {"marks": [JSCall("Plot", "gridFy", [{**(options or {}), **kwargs}])]}
+        {
+            "marks": [
+                JSCall(
+                    "Plot",
+                    "gridFy",
+                    [{**(options or {}), **kwargs}],
+                )
+            ]
+        }
     )
 
 
@@ -1249,13 +1354,28 @@ def gridX(*args, **kwargs: Any) -> PlotSpec:
         options = {}
     else:
         raise ValueError("Invalid arguments")
-
     if data is not None:
         return PlotSpec(
-            {"marks": [JSCall("Plot", "gridX", [data, {**(options or {}), **kwargs}])]}
+            {
+                "marks": [
+                    JSCall(
+                        "Plot",
+                        "gridX",
+                        [data, {**(options or {}), **kwargs}],
+                    )
+                ]
+            }
         )
     return PlotSpec(
-        {"marks": [JSCall("Plot", "gridX", [{**(options or {}), **kwargs}])]}
+        {
+            "marks": [
+                JSCall(
+                    "Plot",
+                    "gridX",
+                    [{**(options or {}), **kwargs}],
+                )
+            ]
+        }
     )
 
 
@@ -1289,13 +1409,28 @@ def gridY(*args, **kwargs: Any) -> PlotSpec:
         options = {}
     else:
         raise ValueError("Invalid arguments")
-
     if data is not None:
         return PlotSpec(
-            {"marks": [JSCall("Plot", "gridY", [data, {**(options or {}), **kwargs}])]}
+            {
+                "marks": [
+                    JSCall(
+                        "Plot",
+                        "gridY",
+                        [data, {**(options or {}), **kwargs}],
+                    )
+                ]
+            }
         )
     return PlotSpec(
-        {"marks": [JSCall("Plot", "gridY", [{**(options or {}), **kwargs}])]}
+        {
+            "marks": [
+                JSCall(
+                    "Plot",
+                    "gridY",
+                    [{**(options or {}), **kwargs}],
+                )
+            ]
+        }
     )
 
 
@@ -1495,17 +1630,28 @@ def hexgrid(*args, **kwargs: Any) -> PlotSpec:
         options = {}
     else:
         raise ValueError("Invalid arguments")
-
     if data is not None:
         return PlotSpec(
             {
                 "marks": [
-                    JSCall("Plot", "hexgrid", [data, {**(options or {}), **kwargs}])
+                    JSCall(
+                        "Plot",
+                        "hexgrid",
+                        [data, {**(options or {}), **kwargs}],
+                    )
                 ]
             }
         )
     return PlotSpec(
-        {"marks": [JSCall("Plot", "hexgrid", [{**(options or {}), **kwargs}])]}
+        {
+            "marks": [
+                JSCall(
+                    "Plot",
+                    "hexgrid",
+                    [{**(options or {}), **kwargs}],
+                )
+            ]
+        }
     )
 
 
@@ -1883,6 +2029,15 @@ def normalizeY(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "normalizeY", args)
 
 
+def numberInterval(*args: Any) -> Dict[str, Any]:
+    """
+    Given a number *period*, returns a corresponding numeric range interval. If
+    *period* is a negative number, the returned interval uses 1 / -*period*,
+    allowing greater precision when *period* is a negative integer.
+    """
+    return JSCall("Plot", "numberInterval", args)
+
+
 def plot(*args: Any) -> Dict[str, Any]:
     """
     Renders a new plot given the specified *options* and returns the
@@ -2174,6 +2329,15 @@ def shiftX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "shiftX", args)
 
 
+def shiftY(*args: Any) -> Dict[str, Any]:
+    """
+    Groups data into series using the first channel of *z*, *fill*, or *stroke*
+    (if any), then derives *y1* and *y2* output channels by shifting the input
+    *y* channel according to the specified *interval*.
+    """
+    return JSCall("Plot", "shiftY", args)
+
+
 def shuffle(*args: Any) -> Dict[str, Any]:
     """
     Applies a transform to *options* to randomly shuffles the mark’s index. If a
@@ -2408,6 +2572,13 @@ def tickY(
     return PlotSpec(MarkSpec("tickY", data, {**options, **kwargs}))
 
 
+def timeInterval(*args: Any) -> Dict[str, Any]:
+    """
+    Given a string *period*, returns a corresponding local time nice interval.
+    """
+    return JSCall("Plot", "timeInterval", args)
+
+
 def tip(
     data: Any,
     options: Dict[str, Any] = {},
@@ -2521,6 +2692,13 @@ def treeNode(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "treeNode", args)
 
 
+def utcInterval(*args: Any) -> Dict[str, Any]:
+    """
+    Given a string *period*, returns a corresponding UTC nice interval.
+    """
+    return JSCall("Plot", "utcInterval", args)
+
+
 def valueof(*args: Any) -> Dict[str, Any]:
     """
     Given some *data* and a channel *value* definition (such as a field name or
@@ -2614,6 +2792,84 @@ def voronoiMesh(
     separate Voronoi tesselation for each group.
     """
     return PlotSpec(MarkSpec("voronoiMesh", data, {**options, **kwargs}))
+
+
+def waffleX(
+    data: Any,
+    options: Dict[str, Any] = {},
+    **kwargs: Any,
+) -> PlotSpec:
+    """
+    Returns a new horizonta waffle mark for the given *data* and *options*; the
+    required *x* values should be quantitative, and the optional *y* values
+    should be ordinal. For example, for a horizontal waffle chart of Olympic
+    athletes by sport:
+
+    ```js
+    Plot.waffleX(olympians, Plot.groupY({x: "count"}, {y: "sport"}))
+    ```
+
+    If neither **x1** nor **x2** nor **interval** is specified, an implicit
+    stackX transform is applied and **x** defaults to the identity function,
+    assuming that *data* = [*x₀*, *x₁*, *x₂*, …]. Otherwise if an **interval** is
+    specified, then **x1** and **x2** are derived from **x**, representing the
+    lower and upper bound of the containing interval, respectively. Otherwise, if
+    only one of **x1** or **x2** is specified, the other defaults to **x**, which
+    defaults to zero.
+
+    The optional **y** ordinal channel specifies the vertical position; it is
+    typically bound to the *y* scale, which must be a *band* scale. If the **y**
+    channel is not specified, the waffle will span the vertical extent of the
+    plot’s frame. Because a waffle represents a discrete number of square cells,
+    it may not use all of the available bandwidth.
+
+    If *options* is undefined, then **y** defaults to the zero-based index of
+    *data* [0, 1, 2, …], allowing a quick waffle chart from an array of numbers:
+
+    ```js
+    Plot.waffleX([4, 9, 24, 46, 66, 7])
+    ```
+    """
+    return PlotSpec(MarkSpec("waffleX", data, {**options, **kwargs}))
+
+
+def waffleY(
+    data: Any,
+    options: Dict[str, Any] = {},
+    **kwargs: Any,
+) -> PlotSpec:
+    """
+    Returns a new vertical waffle mark for the given *data* and *options*; the
+    required *y* values should be quantitative, and the optional *x* values
+    should be ordinal. For example, for a vertical waffle chart of Olympic
+    athletes by sport:
+
+    ```js
+    Plot.waffleY(olympians, Plot.groupX({y: "count"}, {x: "sport"}))
+    ```
+
+    If neither **y1** nor **y2** nor **interval** is specified, an implicit
+    stackY transform is applied and **y** defaults to the identity function,
+    assuming that *data* = [*y₀*, *y₁*, *y₂*, …]. Otherwise if an **interval** is
+    specified, then **y1** and **y2** are derived from **y**, representing the
+    lower and upper bound of the containing interval, respectively. Otherwise, if
+    only one of **y1** or **y2** is specified, the other defaults to **y**, which
+    defaults to zero.
+
+    The optional **x** ordinal channel specifies the horizontal position; it is
+    typically bound to the *x* scale, which must be a *band* scale. If the **x**
+    channel is not specified, the waffle will span the horizontal extent of the
+    plot’s frame. Because a waffle represents a discrete number of square cells,
+    it may not use all of the available bandwidth.
+
+    If *options* is undefined, then **x** defaults to the zero-based index of
+    *data* [0, 1, 2, …], allowing a quick waffle chart from an array of numbers:
+
+    ```js
+    Plot.waffleY([4, 9, 24, 46, 66, 7])
+    ```
+    """
+    return PlotSpec(MarkSpec("waffleY", data, {**options, **kwargs}))
 
 
 def window(*args: Any) -> Dict[str, Any]:

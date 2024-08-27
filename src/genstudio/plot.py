@@ -42,16 +42,20 @@ from genstudio.plot_defs import (
     delaunayLink,
     delaunayMesh,
     density,
+    differenceX,
     differenceY,
     dodgeX,
     dodgeY,
+    dot,
     dotX,
     dotY,
     filter,
     find,
     formatIsoDate,
     formatMonth,
+    formatNumber,
     formatWeekday,
+    frame,
     geo,
     geoCentroid,
     graticule,
@@ -73,10 +77,10 @@ from genstudio.plot_defs import (
     interpolatorRandomWalk,
     legend,
     line,
-    linearRegressionX,
-    linearRegressionY,
     lineX,
     lineY,
+    linearRegressionX,
+    linearRegressionY,
     link,
     map,
     mapX,
@@ -85,6 +89,7 @@ from genstudio.plot_defs import (
     normalize,
     normalizeX,
     normalizeY,
+    numberInterval,
     plot,
     pointer,
     pointerX,
@@ -94,6 +99,8 @@ from genstudio.plot_defs import (
     rectX,
     rectY,
     reverse,
+    ruleX,
+    ruleY,
     scale,
     select,
     selectFirst,
@@ -103,6 +110,7 @@ from genstudio.plot_defs import (
     selectMinX,
     selectMinY,
     shiftX,
+    shiftY,
     shuffle,
     sort,
     sphere,
@@ -118,17 +126,21 @@ from genstudio.plot_defs import (
     textY,
     tickX,
     tickY,
+    timeInterval,
     tip,
     transform,
     tree,
     treeLink,
     treeNode,
+    utcInterval,
     valueof,
     vector,
     vectorX,
     vectorY,
     voronoi,
     voronoiMesh,
+    waffleX,
+    waffleY,
     window,
     windowX,
     windowY,
@@ -433,13 +445,6 @@ def small_multiples(*specs, **options):
     return Grid(*specs, **options)
 
 
-def dot(values, options={}, **kwargs):
-    return plot_defs.dot(values, {"fill": "currentColor", **options, **kwargs})
-
-
-dot.__doc__ = plot_defs.dot.__doc__
-
-
 def Histogram(
     values,
     thresholds=None,
@@ -484,18 +489,6 @@ def Histogram(
 
 
 histogram = Histogram  # Alias for backwards compatibility
-
-
-def frame(options={}, **kwargs):
-    return plot_defs.frame({"stroke": "#dddddd", **options, **kwargs})
-
-
-def ruleY(values, options: dict[str, Any] = {}, **kwargs):
-    return plot_defs.ruleY(values or [0], options, **kwargs)
-
-
-def ruleX(values, options: dict[str, Any] = {}, **kwargs):
-    return plot_defs.ruleX(values or [0], options, **kwargs)
 
 
 def identity():

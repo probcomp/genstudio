@@ -80,7 +80,6 @@ def FN_MARK_WITH_OPTIONAL_DATA(*args, **kwargs: Any) -> PlotSpec:
         options = {}
     else:
         raise ValueError("Invalid arguments")
-
     if data is not None:
         return PlotSpec(
             {
