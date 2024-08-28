@@ -1,3 +1,8 @@
+### [2024.08.010] - Aug 28, 2024
+
+#### Bug Fixes
+- Allow cache entries to reference each other (non-circular)
+
 ### [2024.08.009] - Aug 28, 2024
 
 #### New Features
