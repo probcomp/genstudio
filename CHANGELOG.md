@@ -1,3 +1,12 @@
+### [2024.08.008] - Aug 28, 2024
+
+#### New Features
+- Bylight code highlighting
+- Plot.Reactive can animate, Plot.Frames accepts slider=False
+
+#### Other Changes
+- refactor: JSCall, JSCode, now inherit from LayoutItem
+
 ### [2024.08.007] - Aug 27, 2024
 
 #### Documentation
