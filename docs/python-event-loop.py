@@ -1,6 +1,3 @@
-# %% [markdown]
-# > **NOTE**: This technique will only work in a "live" jupyter session because it depends on communication with a python backend.
-
 # %%
 import genstudio.plot as Plot
 from IPython.display import display
@@ -32,6 +29,15 @@ basic_plot
 
 # %% [markdown]
 # Now, let's animate it:
+
+# %% tags=["hide_source"]
+import genstudio.plot as Plot
+
+Plot.html(
+    "div.bg-black.white.p3",
+    """NOTE: The following examples will only work in a live jupyter session because it depends on communication with a python backend.
+""",
+)
 
 
 # %%
