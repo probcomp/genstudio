@@ -219,7 +219,6 @@ export function evaluate(node, cache, $state, experimental) {
     case "datetime":
       return new Date(node.value);
     case "cached":
-      console.log("cached", node.id, cache[node.id])
       return cache[node.id];
     case "callback":
       if (experimental) {
@@ -232,6 +231,32 @@ export function evaluate(node, cache, $state, experimental) {
         Object.entries(node).map(([key, value]) => [key, evaluate(value, cache, $state, experimental)])
       );
   }
+}
+
+
+function evaluateCache(cache, $state, experimental) {
+  const evaluatedCache = {};
+  const evaluating = new Set();
+
+  function evaluateCacheEntry(key) {
+    if (key in evaluatedCache) return evaluatedCache[key];
+    if (evaluating.has(key)) {
+      console.warn(`Circular reference detected in cache for key: ${key}`);
+      return undefined;
+    }
+
+    evaluating.add(key);
+    const result = evaluate(cache[key], evaluatedCache, $state, experimental);
+    evaluating.delete(key);
+    evaluatedCache[key] = result;
+    return result;
+  }
+
+  for (const key in cache) {
+    evaluateCacheEntry(key);
+  }
+
+  return evaluatedCache;
 }
 
 function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEFAULT_GRID_GAP, aspectRatio = 1 }) {
@@ -361,7 +386,7 @@ function StateProvider({ ast, cache, experimental }) {
   const [data, setData] = useState();
   useEffect(() => {
     if ($state) {
-      setData(evaluate(ast, evaluate(cache, {}, $state, experimental), $state, experimental))
+      setData(evaluate(ast, evaluateCache(cache, $state, experimental), $state, experimental))
     }
   }, [ast, cache, $state, experimental]);
 
