@@ -23,9 +23,11 @@ line = (
     Plot.line(
         {"x": range(100)},
         {
-            "y": Plot.js("""(d, i) => {
+            "y": Plot.js(
+                """(d, i) => {
                 return Math.sin(i * 2 * Math.PI / 100 * $state.frequency)
-            }""")
+            }"""
+            )
         },
     )
     + Plot.domain([0, 99], [-1, 1])
@@ -93,6 +95,25 @@ def show_shapes(color):
 
 
 show_shapes("blue")
+
+# %% [markdown]
+# ## Reactive/Slider with cycle
+#
+# `Plot.Reactive` and `Plot.Slider` accept a `cycle` parameter, which allows for automatic looping through a sequence of values.
+
+(
+    Plot.html(
+        "div",
+        {
+            "style": {
+                "width": 100,
+                "height": 100,
+                "background": Plot.js("$state.colors"),
+            }
+        },
+    )
+    | Plot.Reactive("colors", fps=3, cycle=["black", "blue", "red", "green"])
+)
 
 # %% [markdown]
 # ## Reactive Variable Lifecycle

@@ -60,7 +60,7 @@ class Bylight {
     const preRef = React.useRef(null);
 
     React.useEffect(() => {
-      if (preRef.current) {
+      if (preRef.current && this.patterns) {
         bylight.highlight(preRef.current, this.patterns);
       }
     }, [this.source, this.patterns]);
@@ -97,40 +97,56 @@ function getFirstDefinedValue(...values) {
 }
 
 function Slider(options) {
-  const { state_key, fps, label, range, init, step = 1, loop = true } = options;
+  const { state_key, fps, label, range, init, step = 1, loop = true, cycle } = options;
   const [$state, set$state] = useContext($StateContext);
   const availableWidth = useContext(WidthContext);
   const isAnimated = typeof fps === 'number' && fps > 0;
   const [isPlaying, setIsPlaying] = useState(isAnimated);
-  const [minRange, maxRange] = range[0] < range[1] ? range : [range[1], range[0]];
-  const sliderValue = getFirstDefinedValue($state[state_key], init, minRange);
+
+  let minRange, maxRange, sliderValue;
+  if (cycle) {
+    minRange = 0;
+    maxRange = cycle.length - 1;
+    sliderValue = cycle.indexOf(getFirstDefinedValue($state[state_key], init, cycle[0]));
+  } else {
+    [minRange, maxRange] = range[0] < range[1] ? range : [range[1], range[0]];
+    sliderValue = getFirstDefinedValue($state[state_key], init, minRange);
+  }
 
   useEffect(() => {
     if (isAnimated && isPlaying) {
       const intervalId = setInterval(() => {
-
         $state[state_key] = (prevValue) => {
-          const nextValue = prevValue + step;
-          if (nextValue > maxRange) {
-            if (loop) {
-              return minRange;
-            } else {
-              setIsPlaying(false);
-              return maxRange;
+          if (cycle) {
+            const currentIndex = cycle.indexOf(prevValue);
+            const nextIndex = (currentIndex + 1) % cycle.length;
+            return cycle[nextIndex];
+          } else {
+            const nextValue = prevValue + step;
+            if (nextValue > maxRange) {
+              if (loop) {
+                return minRange;
+              } else {
+                setIsPlaying(false);
+                return maxRange;
+              }
             }
+            return nextValue;
           }
-          return nextValue;
         }
-
       }, 1000 / fps);
       return () => clearInterval(intervalId);
     }
-  }, [isPlaying, fps, state_key, minRange, maxRange, step, loop]);
+  }, [isPlaying, fps, state_key, minRange, maxRange, step, loop, cycle]);
 
   const handleSliderChange = useCallback((value) => {
     setIsPlaying(false);
-    $state[state_key] = Number(value);
-  }, [set$state, state_key]);
+    if (cycle) {
+      $state[state_key] = cycle[Number(value)];
+    } else {
+      $state[state_key] = Number(value);
+    }
+  }, [set$state, state_key, cycle]);
 
   const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
   if (options.kind !== 'Slider') return;
@@ -138,8 +154,9 @@ function Slider(options) {
     <div className="f1 flex flex-column mv2 gap2" style=${{ width: availableWidth }}>
       <div className="flex items-center justify-between">
         <span className="flex g2">
-          <label>${label}${label ? ':' : ''}</label>
-          <span>${$state[state_key]}</span>
+          <label>${label}${label && !cycle && ":"}</label>
+
+          <span>${!cycle && $state[state_key]}</span>
         </span>
         ${isAnimated && html`
           <div onClick=${togglePlayPause} className="pointer">
@@ -151,7 +168,7 @@ function Slider(options) {
         type="range"
         min=${minRange}
         max=${maxRange}
-        step=${step}
+        step=${cycle ? 1 : step}
         value=${sliderValue}
         onChange=${(e) => handleSliderChange(e.target.value)}
         className="w-100 outline-0"
@@ -320,7 +337,6 @@ function useReactiveState(ast) {
   const [state, setState] = useState({});
   const initialState = useMemo(() => collectReactiveInitialState(ast), [ast]);
   const initialStateKeys = useMemo(() => Object.keys(initialState).sort().join(','), [initialState]);
-
   useEffect(() => {
     setState(initialState);
   }, [initialStateKeys]);

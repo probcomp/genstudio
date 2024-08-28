@@ -727,14 +727,17 @@ def Frames(frames, key=None, slider=True, **opts):
         return Hiccup(View.Frames, {"state_key": key, "frames": frames})
 
 
-def Reactive(key, init=None, fps=None, range=None, step=1, **kwargs):
+def Reactive(key, init=None, fps=None, range=None, cycle=None, step=1, **kwargs):
     """
     Initializes a reactive variable.
     """
-    if init is None and range is None:
-        raise ValueError("Either 'init' or 'range' must be provided for Reactive.")
+    if init is None and range is None and cycle is None:
+        raise ValueError(
+            "Either 'init', 'range', or 'cycle' must be provided for Reactive."
+        )
     range = [0, range] if isinstance(range, (float, int)) else range
-    init = init if init is not None else range[0] if range is not None else None
+    if init is None:
+        init = (cycle and cycle[0]) or (range and range[0])
     step = step or 1
     return View.Reactive(
         {
@@ -742,11 +745,14 @@ def Reactive(key, init=None, fps=None, range=None, step=1, **kwargs):
             "init": init,
             "fps": fps,
             "range": range,
+            "cycle": cycle,
             "step": step,
             **kwargs,
         }
     )
 
 
-def Slider(key, range, init=None, label=None, **kwargs):
-    return Reactive(key, init, range=range, label=label, kind="Slider", **kwargs)
+def Slider(key, range=None, init=None, label=None, cycle=None, **kwargs):
+    return Reactive(
+        key, init, range=range, label=label, cycle=cycle, kind="Slider", **kwargs
+    )

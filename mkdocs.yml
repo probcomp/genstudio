@@ -31,6 +31,7 @@ nav:
   - More Examples:
       - Additional Marks: additions-to-observable.py
       - Timelines with barX: example-timelines.py
+      - Synchronized Highlights: synchronized-highlights.py
   - Changelog: CHANGELOG.md
 markdown_extensions:
   - admonition
