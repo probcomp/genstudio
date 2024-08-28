@@ -1,10 +1,3 @@
-# %%
-import genstudio.plot as Plot
-from IPython.display import display
-import asyncio
-import time
-import numpy as np
-
 # %% [markdown]
 # This guide demonstrates how to create Python-controlled animations using GenStudio plots, the `.reset` method, and interactive sliders. We'll cover:
 # 1. Setting up a basic animated plot
@@ -13,12 +6,16 @@ import numpy as np
 # We must use the `"widget"` [rendering modes](getting-started/#rendering-modes) for bidirectional python/javascript communication:
 
 # %%
+import genstudio.plot as Plot
+
 Plot.configure({"display_as": "widget"})
 
 # %% [markdown]
 # First, a simple sine wave plot:
 
 # %%
+import numpy as np
+
 x = np.linspace(0, 10, 100)
 basic_plot = (
     Plot.line(list(zip(x, np.sin(x))))
@@ -31,8 +28,6 @@ basic_plot
 # Now, let's animate it:
 
 # %% tags=["hide_source"]
-import genstudio.plot as Plot
-
 Plot.html(
     "div.bg-black.white.p3",
     """NOTE: The following examples will only work in a live jupyter session because it depends on communication with a python backend.
@@ -41,6 +36,10 @@ Plot.html(
 
 
 # %%
+import asyncio
+import time
+
+
 async def animate(duration=5):
     start_time = time.time()
     while time.time() - start_time < duration:
@@ -81,6 +80,9 @@ amplitude_slider = widgets.FloatSlider(
 
 
 # %%
+from IPython.display import display
+
+
 async def interactive_animate(duration=10):
     start_time = time.time()
     while time.time() - start_time < duration:
