@@ -1,14 +1,11 @@
 import uuid
-from typing import Any, Sequence
+from typing import Any, List, Optional, Tuple, Sequence, Union
 
 from html2image import Html2Image
 from PIL import Image
 
-from genstudio.js_modules import JSRef
 from genstudio.util import PARENT_PATH, CONFIG
 from genstudio.widget import Widget, to_json_with_cache
-
-View = JSRef("View")
 
 
 def html_snippet(ast, id=None):
@@ -152,6 +149,81 @@ class LayoutItem:
         self.html().set_ast(new_ast)
 
 
+class JSCall(LayoutItem):
+    """Represents a JavaScript function call."""
+
+    def __init__(self, module: str, name: str, args: Union[List[Any], Tuple[Any, ...]]):
+        super().__init__()
+        self.module = module
+        self.name = name
+        self.args = args
+
+    def for_json(self) -> dict:
+        return {
+            "__type__": "function",
+            "module": self.module,
+            "name": self.name,
+            "args": self.args,
+        }
+
+
+class JSRef(LayoutItem):
+    """Refers to a JavaScript module or name. When called, returns a function call representation."""
+
+    def __init__(
+        self,
+        module: str,
+        name: Optional[str] = None,
+        label: Optional[str] = None,
+        doc: Optional[str] = None,
+    ):
+        super().__init__()
+        self.__name__ = name or label
+        self.__doc__ = doc
+        self.module = module
+        self.name = name
+
+    def __call__(self, *args: Any) -> Any:
+        """Invokes the wrapped JavaScript function in the runtime with the provided arguments."""
+        if self.name is None:
+            raise ValueError("Cannot call a JSRef with no name")
+        return JSCall(self.module, self.name, args)
+
+    def __getattr__(self, name: str) -> "JSRef":
+        """Returns a reference to a nested property or method of the JavaScript object."""
+        if name == "cache_id":
+            raise AttributeError(
+                f"'{self.__class__.__name__}' object has no attribute 'cache_id'"
+            )
+        if self.name is None:
+            return JSRef(self.module, name)
+        else:
+            raise ValueError("Only module.name paths are currently supported")
+            # return JSRef(f"{self.module}.{self.name}", name)
+
+    def for_json(self) -> dict:
+        return {"__type__": "ref", "module": self.module, "name": self.name}
+
+
+def js_ref(module: str, name: str) -> "JSRef":
+    """Represents a reference to a JavaScript module or name."""
+    return JSRef(module=module, name=name)
+
+
+class JSCode(LayoutItem):
+    def __init__(self, code: str):
+        super().__init__()
+        self.code = code
+
+    def for_json(self) -> dict:
+        return {"__type__": "js", "value": self.code}
+
+
+def js(txt: str) -> JSCode:
+    """Represents raw JavaScript code to be evaluated as a LayoutItem."""
+    return JSCode(txt)
+
+
 class Hiccup(LayoutItem):
     """Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
 
@@ -184,6 +256,9 @@ def flatten_layout_items(
     return flattened, options
 
 
+View = JSRef("View")
+
+
 class Row(LayoutItem):
     def __init__(self, *items: Any):
         super().__init__()
@@ -202,28 +277,10 @@ class Column(LayoutItem):
         return Hiccup(View.Column, self.options, *self.items)
 
 
-class Slider(LayoutItem):
-    def __init__(
-        self,
-        key: str,
-        range: int | Sequence[float | int],
-        init: float | int | None = None,
-        label: str | None = None,
-        **kwargs: Any,
-    ):
-        super().__init__()
-        range = [0, range] if isinstance(range, (float, int)) else range
-        self.config: dict[str, Any] = {
-            "state_key": key,
-            "range": range,
-            "init": init if init is not None else range[0],
-            "label": label,
-            "kind": "Slider",
-            **kwargs,
-        }
-
-    def for_json(self) -> Any:
-        return View.Reactive(self.config)
+def unwrap_for_json(x):
+    while hasattr(x, "for_json"):
+        x = x.for_json()
+    return x
 
 
 class CachedObject(LayoutItem):
@@ -235,7 +292,7 @@ class CachedObject(LayoutItem):
         return self.id
 
     def for_json(self):
-        return self.value
+        return unwrap_for_json(self.value)
 
     def _repr_mimebundle_(self, **kwargs: Any) -> Any:
         if hasattr(self.value, "_repr_mimebundle_"):

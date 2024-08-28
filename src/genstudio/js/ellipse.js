@@ -7,21 +7,6 @@ import {
   applyTransform
 } from "./plot_style";
 
-export function maybeNumberChannel(value, defaultValue) {
-  if (value === undefined) value = defaultValue;
-  return value === null || typeof value === "number" ? [undefined, value] : [value, undefined];
-}
-
-export function maybeTuple(...args) {
-  if (args.length === 0) {
-    throw new Error("maybeTuple requires at least one argument");
-  }
-
-  return args.map((arg, index) =>
-    arg === undefined ? (x => x ? x[index] : undefined) : arg
-  );
-}
-
 export class Ellipse extends Plot.Mark {
   /**
    * Creates an Ellipse mark.

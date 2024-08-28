@@ -1,12 +1,13 @@
 # %%
 import json
-from typing import Dict, Any, Optional
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 import genstudio.util as util
-from genstudio.js_modules import JSCall
-from genstudio.plot_spec import PlotSpec, MarkSpec
+from genstudio.layout import JSCall
+from genstudio.plot_spec import MarkSpec, PlotSpec
 
-from pathlib import Path
+PlotOptions = dict[str, Any] | JSCall
 
 OBSERVABLE_PLOT_METADATA: Dict[str, Any] = json.load(
     open(util.PARENT_PATH / "scripts" / "observable_plot_metadata.json")
@@ -81,13 +82,19 @@ def FN_MARK_WITH_OPTIONAL_DATA(*args, **kwargs: Any) -> PlotSpec:
     else:
         raise ValueError("Invalid arguments")
     if data is not None:
+        if isinstance(options, dict):
+            merged_options = {**options, **kwargs}
+        else:
+            if kwargs:
+                raise ValueError("Cannot use kwargs when options is not a dict")
+            merged_options = options
         return PlotSpec(
             {
                 "marks": [
                     JSCall(
                         "Plot",
                         "FN_MARK_WITH_OPTIONAL_DATA",
-                        [data, {**(options or {}), **kwargs}],
+                        [data, merged_options],
                     )
                 ]
             }
@@ -107,14 +114,20 @@ def FN_MARK_WITH_OPTIONAL_DATA(*args, **kwargs: Any) -> PlotSpec:
 
 def FN_MARK(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """DOC"""
-    return PlotSpec(MarkSpec("FN_MARK", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("FN_MARK", data, merged_options))
 
 
-def FN_OTHER(*args: Any) -> Dict[str, Any]:
+def FN_OTHER(*args: Any) -> JSCall:
     """DOC"""
     return JSCall("Plot", "FN_OTHER", args)
 
@@ -164,9 +177,11 @@ plot_defs = "\n\n\n".join(
 
 plot_defs_module = f"""# Generated from version {OBSERVABLE_VERSION} of Observable Plot
 
-from genstudio.js_modules import JSCall
+from genstudio.layout import JSCall
 from genstudio.plot_spec import MarkSpec, PlotSpec
 from typing import Any, Dict
+
+PlotOptions = dict[str, Any] | JSCall
 
 
 {plot_defs}

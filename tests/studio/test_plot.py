@@ -1,9 +1,9 @@
 # %%
 
 import genstudio.plot as Plot
+from genstudio.layout import JSCall
+from genstudio.plot_spec import MarkSpec, PlotSpec
 from genstudio.widget import Widget
-from genstudio.plot_spec import PlotSpec, MarkSpec
-from genstudio.js_modules import JSCall
 
 xs = [1, 2, 3, 4, 5]
 ys = [2, 3, 2, 1, 8]
@@ -177,8 +177,8 @@ def test_plot_spec_for_json():
     ps = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
     json_data = ps.for_json()
     assert isinstance(json_data, JSCall)
-    assert json_data["module"] == "View"
-    assert json_data["name"] == "PlotSpec"
+    assert json_data.module == "View"
+    assert json_data.name == "PlotSpec"
 
 
 def run_tests():

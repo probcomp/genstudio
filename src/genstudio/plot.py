@@ -3,10 +3,11 @@
 import copy
 import json
 import random
-from typing import Any, Dict, List, Union, TypeAlias, Sequence, Literal
+from typing import Any, Dict, List, Literal, Sequence, TypeAlias, Union
 
 import genstudio.plot_defs as plot_defs
-from genstudio.js_modules import JSCall, JSRef, js
+from genstudio.layout import Column, Hiccup, JSCall, JSCode, JSRef, Row, cache, js
+
 from genstudio.plot_defs import (
     area,
     areaX,
@@ -77,10 +78,10 @@ from genstudio.plot_defs import (
     interpolatorRandomWalk,
     legend,
     line,
-    lineX,
-    lineY,
     linearRegressionX,
     linearRegressionY,
+    lineX,
+    lineY,
     link,
     map,
     mapX,
@@ -145,10 +146,8 @@ from genstudio.plot_defs import (
     windowX,
     windowY,
 )
-from genstudio.layout import Column, Row, Slider, Hiccup, cache
-from genstudio.plot_spec import PlotSpec, MarkSpec, new
+from genstudio.plot_spec import MarkSpec, PlotSpec, new
 from genstudio.util import configure, deep_merge
-
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
@@ -170,6 +169,7 @@ d3 = JSRef("d3")
 Math = JSRef("Math")
 View = JSRef("View")
 html = Hiccup
+Bylight = View.Bylight
 
 
 def repeat(data):
@@ -697,14 +697,14 @@ def doc(fn):
         return View.md("No docstring available.")
 
 
-def state(name: str) -> dict[str, str]:
+def state(name: str) -> JSCode:
     return js(f"$state.{name}")
 
 
 # %%
 
 
-def Frames(frames, key=None, **opts):
+def Frames(frames, key=None, slider=True, **opts):
     """
     Create an animated plot that cycles through a list of frames.
 
@@ -717,15 +717,36 @@ def Frames(frames, key=None, **opts):
     """
     if key is None:
         key = "frame"
-        return Hiccup(View.Frames, {"state_key": key, "frames": frames}) | Slider(
-            key, [0, len(frames) - 1], **opts
+        return Hiccup(View.Frames, {"state_key": key, "frames": frames}) | Reactive(
+            key,
+            range=[0, len(frames) - 1],
+            kind="Slider" if slider else "Animation",
+            **opts,
         )
     else:
         return Hiccup(View.Frames, {"state_key": key, "frames": frames})
 
 
-def Reactive(key, initial_value, **kwargs):
+def Reactive(key, init=None, fps=None, range=None, step=1, **kwargs):
     """
     Initializes a reactive variable.
     """
-    return View.Reactive({"state_key": key, "init": initial_value, **kwargs})
+    if init is None and range is None:
+        raise ValueError("Either 'init' or 'range' must be provided for Reactive.")
+    range = [0, range] if isinstance(range, (float, int)) else range
+    init = init if init is not None else range[0] if range is not None else None
+    step = step or 1
+    return View.Reactive(
+        {
+            "state_key": key,
+            "init": init,
+            "fps": fps,
+            "range": range,
+            "step": step,
+            **kwargs,
+        }
+    )
+
+
+def Slider(key, range, init=None, label=None, **kwargs):
+    return Reactive(key, init, range=range, label=label, kind="Slider", **kwargs)

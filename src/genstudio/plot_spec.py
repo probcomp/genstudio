@@ -1,17 +1,16 @@
-from genstudio.layout import LayoutItem, View
-from genstudio.js_modules import JSCall
-from genstudio.util import CONFIG
-from typing import TypeAlias, Union, Sequence, Any
 import uuid
+from typing import Any, Sequence, TypeAlias, Union
+
+from genstudio.layout import JSCall, LayoutItem, View
+from genstudio.util import CONFIG
 
 SpecInput: TypeAlias = Union[
     "PlotSpec",
     "MarkSpec",
-    Sequence[Union["PlotSpec", "MarkSpec", dict[str, Any]]],
-    dict[str, Any],
+    Sequence[Union["PlotSpec", "MarkSpec", JSCall, dict[Any, Any]]],
+    JSCall,
+    dict[Any, Any],
 ]
-
-Mark = dict[str, Any]
 
 
 class MarkSpec:
@@ -55,7 +54,7 @@ class PlotSpec(LayoutItem):
 
     def __init__(self, *specs: SpecInput, **kwargs: Any) -> None:
         super().__init__()
-        self.layers: list[dict[str, Any]] = flatten_layers(specs)
+        self.layers: list[JSCall | dict[Any, Any]] = flatten_layers(specs)
         if kwargs:
             self.layers.append(kwargs)
 

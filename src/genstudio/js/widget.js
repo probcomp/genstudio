@@ -4,6 +4,7 @@ import { flatten, html, useCellUnmounted, useElementWidth, serializeEvent } from
 import { AnyWidgetReact, Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
 const { createRender, useModelState, useExperimental } = AnyWidgetReact
 const { useState, useEffect, useContext, useMemo, useCallback } = React
+import bylight from "bylight";
 
 const TACHYONS_CSS_URL = "https://cdn.jsdelivr.net/gh/tachyons-css/tachyons@6b8c744afadaf506cb12f9a539b47f9b412ed500/css/tachyons.css"
 const DEFAULT_GRID_GAP = "10px"
@@ -25,9 +26,7 @@ class Reactive {
   }
 
   render() {
-    if (this.options.kind === "Slider") {
-      return Slider(this.options);
-    }
+    return Slider(this.options);
   }
 }
 
@@ -50,6 +49,29 @@ function Frames(props) {
   return html`<${Node} value=${frames[index]} />`;
 }
 
+class Bylight {
+  constructor({ patterns, source, ...props }) {
+    this.patterns = patterns;
+    this.source = source;
+    this.props = props;
+  }
+
+  render() {
+    const preRef = React.useRef(null);
+
+    React.useEffect(() => {
+      if (preRef.current) {
+        bylight.highlight(preRef.current, this.patterns);
+      }
+    }, [this.source, this.patterns]);
+
+    return React.createElement('pre', {
+      ref: preRef,
+      className: this.props.className
+    }, this.source);
+  }
+}
+
 const scope = {
   d3,
   Plot, React, ReactDOM,
@@ -65,7 +87,8 @@ const scope = {
     flatten,
     Slider,
     Frames,
-    Reactive: (options) => new Reactive(options)
+    Reactive: (options) => new Reactive(options),
+    Bylight: (source, patterns, props) => new Bylight({source, patterns, ...(props || {})})
   }
 }
 
@@ -79,7 +102,6 @@ function Slider(options) {
   const availableWidth = useContext(WidthContext);
   const isAnimated = typeof fps === 'number' && fps > 0;
   const [isPlaying, setIsPlaying] = useState(isAnimated);
-
   const [minRange, maxRange] = range[0] < range[1] ? range : [range[1], range[0]];
   const sliderValue = getFirstDefinedValue($state[state_key], init, minRange);
 
@@ -111,7 +133,7 @@ function Slider(options) {
   }, [set$state, state_key]);
 
   const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
-
+  if (options.kind !== 'Slider') return;
   return html`
     <div className="f1 flex flex-column mv2 gap2" style=${{ width: availableWidth }}>
       <div className="flex items-center justify-between">
@@ -180,6 +202,7 @@ export function evaluate(node, cache, $state, experimental) {
     case "datetime":
       return new Date(node.value);
     case "cached":
+      console.log("cached", node.id, cache[node.id])
       return cache[node.id];
     case "callback":
       if (experimental) {

@@ -19,4 +19,11 @@ Plot.dot(data, r=40, opacity=0.2) + bg
 
 data = [[1, 2], [3, 4], [5, Plot.js("console.log('evaluating cached data') || 6")]]
 bg = Plot.line([[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]])
-Plot.new(Plot.cache(Plot.dot(data, r=40, opacity=0.2) + bg))
+Plot.new(Plot.dot(data, r=40, opacity=0.2) + Plot.cache(bg))
+
+Plot.new(Plot.cache(Plot.dot([[2, 2]]) + Plot.dot([[1, 1]])))
+
+
+import genstudio.plot as Plot
+
+Plot.dot([[1, 1]]) + Plot.cache(Plot.dot([[2, 2]]))

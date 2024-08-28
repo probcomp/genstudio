@@ -1,12 +1,14 @@
 # Generated from version ^0.6.16 of Observable Plot
-from genstudio.js_modules import JSCall
+from genstudio.layout import JSCall
 from genstudio.plot_spec import MarkSpec, PlotSpec
-from typing import Any, Dict
+from typing import Any
+
+PlotOptions = dict[str, Any] | JSCall
 
 
 def area(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -16,12 +18,18 @@ def area(
     where the baseline and topline share *x* values, or areaX for a vertical
     orientation where the baseline and topline share *y* values.
     """
-    return PlotSpec(MarkSpec("area", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("area", data, merged_options))
 
 
 def areaX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -54,12 +62,18 @@ def areaX(
     channels. When any of these channels are used, setting an explicit **z**
     channel (possibly to null) is strongly recommended.
     """
-    return PlotSpec(MarkSpec("areaX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("areaX", data, merged_options))
 
 
 def areaY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -92,12 +106,18 @@ def areaY(
     channels. When any of these channels are used, setting an explicit **z**
     channel (possibly to null) is strongly recommended.
     """
-    return PlotSpec(MarkSpec("areaY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("areaY", data, merged_options))
 
 
 def arrow(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -110,12 +130,18 @@ def arrow(
     Plot.arrow(inequality, {x1: "POP_1980", y1: "R90_10_1980", x2: "POP_2015", y2: "R90_10_2015", bend: true})
     ```
     """
-    return PlotSpec(MarkSpec("arrow", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("arrow", data, merged_options))
 
 
 def auto(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -130,12 +156,18 @@ def auto(
     Plot.auto(penguins, {x: "body_mass_g"})
     ```
     """
-    return PlotSpec(MarkSpec("auto", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("auto", data, merged_options))
 
 
 def autoSpec(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -151,12 +183,18 @@ def autoSpec(
     the returned object will have **y** set to {value: null, reduce: *count*} and
     **mark** set to *bar*, telling you that a histogram will be rendered.
     """
-    return PlotSpec(MarkSpec("autoSpec", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("autoSpec", data, merged_options))
 
 
 def axisFx(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -180,12 +218,18 @@ def axisFx(
     the margin or shorten the labels, say by using the **textOverflow** and
     **lineWidth** options to clip, or using the **tickRotate** option to rotate.
     """
-    return PlotSpec(MarkSpec("axisFx", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("axisFx", data, merged_options))
 
 
 def axisFy(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -209,7 +253,13 @@ def axisFy(
     the margin or shorten the labels, say by using the **textOverflow** and
     **lineWidth** options to clip.
     """
-    return PlotSpec(MarkSpec("axisFy", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("axisFy", data, merged_options))
 
 
 def axisX(*args, **kwargs: Any) -> PlotSpec:
@@ -260,13 +310,19 @@ def axisX(*args, **kwargs: Any) -> PlotSpec:
     else:
         raise ValueError("Invalid arguments")
     if data is not None:
+        if isinstance(options, dict):
+            merged_options = {**options, **kwargs}
+        else:
+            if kwargs:
+                raise ValueError("Cannot use kwargs when options is not a dict")
+            merged_options = options
         return PlotSpec(
             {
                 "marks": [
                     JSCall(
                         "Plot",
                         "axisX",
-                        [data, {**(options or {}), **kwargs}],
+                        [data, merged_options],
                     )
                 ]
             }
@@ -331,13 +387,19 @@ def axisY(*args, **kwargs: Any) -> PlotSpec:
     else:
         raise ValueError("Invalid arguments")
     if data is not None:
+        if isinstance(options, dict):
+            merged_options = {**options, **kwargs}
+        else:
+            if kwargs:
+                raise ValueError("Cannot use kwargs when options is not a dict")
+            merged_options = options
         return PlotSpec(
             {
                 "marks": [
                     JSCall(
                         "Plot",
                         "axisY",
-                        [data, {**(options or {}), **kwargs}],
+                        [data, merged_options],
                     )
                 ]
             }
@@ -357,7 +419,7 @@ def axisY(*args, **kwargs: Any) -> PlotSpec:
 
 def barX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -399,12 +461,18 @@ def barX(
     Plot.barX([4, 9, 24, 46, 66, 7])
     ```
     """
-    return PlotSpec(MarkSpec("barX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("barX", data, merged_options))
 
 
 def barY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -446,10 +514,16 @@ def barY(
     Plot.barY([4, 9, 24, 46, 66, 7])
     ```
     """
-    return PlotSpec(MarkSpec("barY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("barY", data, merged_options))
 
 
-def bin(*args: Any) -> Dict[str, Any]:
+def bin(*args: Any) -> JSCall:
     """
     Bins on the **x** and **y** channels; then subdivides bins on the first
     channel of **z**, **fill**, or **stroke**, if any; and lastly for each
@@ -485,7 +559,7 @@ def bin(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "bin", args)
 
 
-def binX(*args: Any) -> Dict[str, Any]:
+def binX(*args: Any) -> JSCall:
     """
     Bins on the **x** channel; then subdivides bins on the first channel of
     **z**, **fill**, or **stroke**, if any; then further subdivides bins on the
@@ -519,7 +593,7 @@ def binX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "binX", args)
 
 
-def binY(*args: Any) -> Dict[str, Any]:
+def binY(*args: Any) -> JSCall:
     """
     Bins on the **y** channel; then subdivides bins on the first channel of
     **z**, **fill**, or **stroke**, if any; then further subdivides bins on the
@@ -555,7 +629,7 @@ def binY(*args: Any) -> Dict[str, Any]:
 
 def bollinger(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -570,12 +644,18 @@ def bollinger(
 
     Here the *k* option defaults to zero instead of two.
     """
-    return PlotSpec(MarkSpec("bollinger", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("bollinger", data, merged_options))
 
 
 def bollingerX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -586,12 +666,18 @@ def bollingerX(
     when data is an array of numbers [*x*₀, *x*₁, *x*₂, …]. If the *y* option is
     not specified, it defaults to [0, 1, 2, …].
     """
-    return PlotSpec(MarkSpec("bollingerX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("bollingerX", data, merged_options))
 
 
 def bollingerY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -602,12 +688,18 @@ def bollingerY(
     when data is an array of numbers [*y*₀, *y*₁, *y*₂, …]. If the *x* option is
     not specified, it defaults to [0, 1, 2, …].
     """
-    return PlotSpec(MarkSpec("bollingerY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("bollingerY", data, merged_options))
 
 
 def boxX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -629,12 +721,18 @@ def boxX(
     - **strokeOpacity** - the stroke opacity of the rule, tick, and dot; defaults to 1
     - **strokeWidth** - the stroke width of the tick; defaults to 2
     """
-    return PlotSpec(MarkSpec("boxX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("boxX", data, merged_options))
 
 
 def boxY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -656,12 +754,18 @@ def boxY(
     - **strokeOpacity** - the stroke opacity of the rule, tick, and dot; defaults to 1
     - **strokeWidth** - the stroke width of the tick; defaults to 2
     """
-    return PlotSpec(MarkSpec("boxY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("boxY", data, merged_options))
 
 
 def cell(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -682,12 +786,18 @@ def cell(
     temporal), use a barX mark; if only **y** is quantitative, use a barY mark;
     if both are quantitative, use a rect mark.
     """
-    return PlotSpec(MarkSpec("cell", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("cell", data, merged_options))
 
 
 def cellX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -700,12 +810,18 @@ def cellX(
     Plot.cellX(values)
     ```
     """
-    return PlotSpec(MarkSpec("cellX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("cellX", data, merged_options))
 
 
 def cellY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -718,10 +834,16 @@ def cellY(
     Plot.cellY(values)
     ```
     """
-    return PlotSpec(MarkSpec("cellY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("cellY", data, merged_options))
 
 
-def centroid(*args: Any) -> Dict[str, Any]:
+def centroid(*args: Any) -> JSCall:
     """
     Given a **geometry** input channel of GeoJSON geometry, derives **x** and
     **y** output channels representing the planar (projected) centroids of the
@@ -735,18 +857,24 @@ def centroid(*args: Any) -> Dict[str, Any]:
 
 def circle(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
     Like dot, except that the **symbol** option is set to *circle*.
     """
-    return PlotSpec(MarkSpec("circle", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("circle", data, merged_options))
 
 
 def cluster(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -759,10 +887,16 @@ def cluster(
 
     [1]: https://d3js.org/d3-hierarchy/cluster
     """
-    return PlotSpec(MarkSpec("cluster", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("cluster", data, merged_options))
 
 
-def column(*args: Any) -> Dict[str, Any]:
+def column(*args: Any) -> JSCall:
     """
     Returns a [*column*, *setColumn*] helper for deriving columns; *column* is a
     channel transform that returns whatever value was most recently passed to
@@ -780,7 +914,7 @@ def column(*args: Any) -> Dict[str, Any]:
 
 def contour(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -810,12 +944,18 @@ def contour(
     mark’s channels are not evaluated on the initial *data* but rather on the
     generated contour multipolygons.
     """
-    return PlotSpec(MarkSpec("contour", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("contour", data, merged_options))
 
 
 def crosshair(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -826,12 +966,18 @@ def crosshair(
     axes. If either **x** or **y** is not specified, the crosshair will be
     one-dimensional.
     """
-    return PlotSpec(MarkSpec("crosshair", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("crosshair", data, merged_options))
 
 
 def crosshairX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -841,12 +987,18 @@ def crosshairX(
     as time in a time-series chart, or the aggregated dimension when grouping or
     binning.
     """
-    return PlotSpec(MarkSpec("crosshairX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("crosshairX", data, merged_options))
 
 
 def crosshairY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -856,12 +1008,18 @@ def crosshairY(
     as time in a time-series chart, or the aggregated dimension when grouping or
     binning.
     """
-    return PlotSpec(MarkSpec("crosshairY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("crosshairY", data, merged_options))
 
 
 def delaunayLink(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -875,12 +1033,18 @@ def delaunayLink(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Delaunay triangulation for each group.
     """
-    return PlotSpec(MarkSpec("delaunayLink", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("delaunayLink", data, merged_options))
 
 
 def delaunayMesh(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -894,12 +1058,18 @@ def delaunayMesh(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Delaunay triangulation for each group.
     """
-    return PlotSpec(MarkSpec("delaunayMesh", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("delaunayMesh", data, merged_options))
 
 
 def density(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -912,12 +1082,18 @@ def density(
     constructed with values representing the density threshold value of each
     contour.
     """
-    return PlotSpec(MarkSpec("density", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("density", data, merged_options))
 
 
 def differenceX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -931,12 +1107,18 @@ def differenceX(
     is clipped by the area extending from the comparison to the left of the
     frame.
     """
-    return PlotSpec(MarkSpec("differenceX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("differenceX", data, merged_options))
 
 
 def differenceY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -950,10 +1132,16 @@ def differenceY(
     and is clipped by the area extending from the comparison to the bottom of the
     frame.
     """
-    return PlotSpec(MarkSpec("differenceY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("differenceY", data, merged_options))
 
 
-def dodgeX(*args: Any) -> Dict[str, Any]:
+def dodgeX(*args: Any) -> JSCall:
     """
     Given a **y** position channel, derives a new **x** position channel that
     places circles of the given radius **r** to avoid overlap. The order in which
@@ -966,7 +1154,7 @@ def dodgeX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "dodgeX", args)
 
 
-def dodgeY(*args: Any) -> Dict[str, Any]:
+def dodgeY(*args: Any) -> JSCall:
     """
     Given an **x** position channel, derives a new **y** position channel that
     places circles of the given radius **r** to avoid overlap. The order in which
@@ -981,7 +1169,7 @@ def dodgeY(*args: Any) -> Dict[str, Any]:
 
 def dot(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1002,12 +1190,18 @@ def dot(
     Dots are sorted by descending radius **r** by default to mitigate
     overplotting; set the **sort** option to null to draw them in input order.
     """
-    return PlotSpec(MarkSpec("dot", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("dot", data, merged_options))
 
 
 def dotX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1021,12 +1215,18 @@ def dotX(
     If an **interval** is specified, such as *day*, **y** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(MarkSpec("dotX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("dotX", data, merged_options))
 
 
 def dotY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1040,10 +1240,16 @@ def dotY(
     If an **interval** is specified, such as *day*, **x** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(MarkSpec("dotY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("dotY", data, merged_options))
 
 
-def filter(*args: Any) -> Dict[str, Any]:
+def filter(*args: Any) -> JSCall:
     """
     Applies a transform to *options* to filter the mark’s index according to the
     given *test*, which can be a function (receiving the datum *d* and index *i*)
@@ -1061,7 +1267,7 @@ def filter(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "filter", args)
 
 
-def find(*args: Any) -> Dict[str, Any]:
+def find(*args: Any) -> JSCall:
     """
     Given the specified *test* function, returns a corresponding reducer
     implementation for use with the group or bin transform. The reducer returns
@@ -1070,7 +1276,7 @@ def find(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "find", args)
 
 
-def formatIsoDate(*args: Any) -> Dict[str, Any]:
+def formatIsoDate(*args: Any) -> JSCall:
     """
     Given a *date*, returns the shortest equivalent ISO 8601 UTC string. If the
     given *date* is not valid, returns `"Invalid Date"`.
@@ -1078,7 +1284,7 @@ def formatIsoDate(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "formatIsoDate", args)
 
 
-def formatMonth(*args: Any) -> Dict[str, Any]:
+def formatMonth(*args: Any) -> JSCall:
     """
     Returns a function that formats a given month number (from 0 = January to 11
     = December) according to the specified *locale* and *format*.
@@ -1089,7 +1295,7 @@ def formatMonth(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "formatMonth", args)
 
 
-def formatNumber(*args: Any) -> Dict[str, Any]:
+def formatNumber(*args: Any) -> JSCall:
     """
     Returns a function that formats a given number according to the specified
     *locale*.
@@ -1099,7 +1305,7 @@ def formatNumber(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "formatNumber", args)
 
 
-def formatWeekday(*args: Any) -> Dict[str, Any]:
+def formatWeekday(*args: Any) -> JSCall:
     """
     Returns a function that formats a given week day number (from 0 = Sunday to 6
     = Saturday) according to the specified *locale* and *format*.
@@ -1140,13 +1346,19 @@ def frame(*args, **kwargs: Any) -> PlotSpec:
     else:
         raise ValueError("Invalid arguments")
     if data is not None:
+        if isinstance(options, dict):
+            merged_options = {**options, **kwargs}
+        else:
+            if kwargs:
+                raise ValueError("Cannot use kwargs when options is not a dict")
+            merged_options = options
         return PlotSpec(
             {
                 "marks": [
                     JSCall(
                         "Plot",
                         "frame",
-                        [data, {**(options or {}), **kwargs}],
+                        [data, merged_options],
                     )
                 ]
             }
@@ -1166,7 +1378,7 @@ def frame(*args, **kwargs: Any) -> PlotSpec:
 
 def geo(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1185,10 +1397,16 @@ def geo(
     data is *data*.geometries; if *data* is some other GeoJSON object, then the
     mark’s data is the single-element array [*data*].
     """
-    return PlotSpec(MarkSpec("geo", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("geo", data, merged_options))
 
 
-def geoCentroid(*args: Any) -> Dict[str, Any]:
+def geoCentroid(*args: Any) -> JSCall:
     """
     Given a **geometry** input channel of spherical GeoJSON geometry, derives
     **x** and **y** output channels representing the spherical centroids of the
@@ -1201,7 +1419,7 @@ def geoCentroid(*args: Any) -> Dict[str, Any]:
 
 def graticule(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1211,7 +1429,13 @@ def graticule(
 
     [1]: https://d3js.org/d3-geo/shape#geoGraticule
     """
-    return PlotSpec(MarkSpec("graticule", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("graticule", data, merged_options))
 
 
 def gridFx(*args, **kwargs: Any) -> PlotSpec:
@@ -1245,13 +1469,19 @@ def gridFx(*args, **kwargs: Any) -> PlotSpec:
     else:
         raise ValueError("Invalid arguments")
     if data is not None:
+        if isinstance(options, dict):
+            merged_options = {**options, **kwargs}
+        else:
+            if kwargs:
+                raise ValueError("Cannot use kwargs when options is not a dict")
+            merged_options = options
         return PlotSpec(
             {
                 "marks": [
                     JSCall(
                         "Plot",
                         "gridFx",
-                        [data, {**(options or {}), **kwargs}],
+                        [data, merged_options],
                     )
                 ]
             }
@@ -1300,13 +1530,19 @@ def gridFy(*args, **kwargs: Any) -> PlotSpec:
     else:
         raise ValueError("Invalid arguments")
     if data is not None:
+        if isinstance(options, dict):
+            merged_options = {**options, **kwargs}
+        else:
+            if kwargs:
+                raise ValueError("Cannot use kwargs when options is not a dict")
+            merged_options = options
         return PlotSpec(
             {
                 "marks": [
                     JSCall(
                         "Plot",
                         "gridFy",
-                        [data, {**(options or {}), **kwargs}],
+                        [data, merged_options],
                     )
                 ]
             }
@@ -1355,13 +1591,19 @@ def gridX(*args, **kwargs: Any) -> PlotSpec:
     else:
         raise ValueError("Invalid arguments")
     if data is not None:
+        if isinstance(options, dict):
+            merged_options = {**options, **kwargs}
+        else:
+            if kwargs:
+                raise ValueError("Cannot use kwargs when options is not a dict")
+            merged_options = options
         return PlotSpec(
             {
                 "marks": [
                     JSCall(
                         "Plot",
                         "gridX",
-                        [data, {**(options or {}), **kwargs}],
+                        [data, merged_options],
                     )
                 ]
             }
@@ -1410,13 +1652,19 @@ def gridY(*args, **kwargs: Any) -> PlotSpec:
     else:
         raise ValueError("Invalid arguments")
     if data is not None:
+        if isinstance(options, dict):
+            merged_options = {**options, **kwargs}
+        else:
+            if kwargs:
+                raise ValueError("Cannot use kwargs when options is not a dict")
+            merged_options = options
         return PlotSpec(
             {
                 "marks": [
                     JSCall(
                         "Plot",
                         "gridY",
-                        [data, {**(options or {}), **kwargs}],
+                        [data, merged_options],
                     )
                 ]
             }
@@ -1434,7 +1682,7 @@ def gridY(*args, **kwargs: Any) -> PlotSpec:
     )
 
 
-def group(*args: Any) -> Dict[str, Any]:
+def group(*args: Any) -> JSCall:
     """
     Groups on the **x** and **y** channels; then subdivides groups on the first
     channel of **z**, **fill**, or **stroke**, if any; and then for each channel
@@ -1467,7 +1715,7 @@ def group(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "group", args)
 
 
-def groupX(*args: Any) -> Dict[str, Any]:
+def groupX(*args: Any) -> JSCall:
     """
     Groups on the **x** channel; then subdivides groups on the first channel of
     **z**, **fill**, or **stroke**, if any; and then for each channel in the
@@ -1496,7 +1744,7 @@ def groupX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "groupX", args)
 
 
-def groupY(*args: Any) -> Dict[str, Any]:
+def groupY(*args: Any) -> JSCall:
     """
     Groups on the **y** channel; then subdivides groups on the first channel of
     **z**, **fill**, or **stroke**, if any; and then for each channel in the
@@ -1525,7 +1773,7 @@ def groupY(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "groupY", args)
 
 
-def groupZ(*args: Any) -> Dict[str, Any]:
+def groupZ(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then for each channel in the specified *outputs*, applies the corresponding
@@ -1547,16 +1795,22 @@ def groupZ(*args: Any) -> Dict[str, Any]:
 
 def hexagon(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
     Like dot, except that the **symbol** option is set to *hexagon*.
     """
-    return PlotSpec(MarkSpec("hexagon", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("hexagon", data, merged_options))
 
 
-def hexbin(*args: Any) -> Dict[str, Any]:
+def hexbin(*args: Any) -> JSCall:
     """
     Bins hexagonally on the scaled **x** and **y** channels; then subdivides bins
     on the first channel of **z**, **fill**, or **stroke**, if any; and lastly
@@ -1631,13 +1885,19 @@ def hexgrid(*args, **kwargs: Any) -> PlotSpec:
     else:
         raise ValueError("Invalid arguments")
     if data is not None:
+        if isinstance(options, dict):
+            merged_options = {**options, **kwargs}
+        else:
+            if kwargs:
+                raise ValueError("Cannot use kwargs when options is not a dict")
+            merged_options = options
         return PlotSpec(
             {
                 "marks": [
                     JSCall(
                         "Plot",
                         "hexgrid",
-                        [data, {**(options or {}), **kwargs}],
+                        [data, merged_options],
                     )
                 ]
             }
@@ -1657,7 +1917,7 @@ def hexgrid(*args, **kwargs: Any) -> PlotSpec:
 
 def hull(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1671,12 +1931,18 @@ def hull(
     separate hull for each group. If **z** is not specified, it defaults to the
     **fill** channel, if any, or the **stroke** channel, if any.
     """
-    return PlotSpec(MarkSpec("hull", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("hull", data, merged_options))
 
 
 def image(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1694,10 +1960,16 @@ def image(
     *y₁*], [*x₂*, *y₂*], …] such that **x** = [*x₀*, *x₁*, *x₂*, …] and **y** =
     [*y₀*, *y₁*, *y₂*, …].
     """
-    return PlotSpec(MarkSpec("image", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("image", data, merged_options))
 
 
-def initializer(*args: Any) -> Dict[str, Any]:
+def initializer(*args: Any) -> JSCall:
     """
     Given an *options* object that may specify some basic initializers
     (**filter**, **sort**, or **reverse**) or a custom **initializer**, composes
@@ -1719,7 +1991,7 @@ def initializer(*args: Any) -> Dict[str, Any]:
 
 def interpolatorBarycentric(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1735,12 +2007,18 @@ def interpolatorBarycentric(
     [1]: https://en.wikipedia.org/wiki/Barycentric_coordinate_system
     [2]: https://d3js.org/d3-random#randomLcg
     """
-    return PlotSpec(MarkSpec("interpolatorBarycentric", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("interpolatorBarycentric", data, merged_options))
 
 
 def interpolatorRandomWalk(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1753,10 +2031,16 @@ def interpolatorRandomWalk(
 
     [1]: https://www.cs.cmu.edu/~kmcrane/Projects/MonteCarloGeometryProcessing/index.html
     """
-    return PlotSpec(MarkSpec("interpolatorRandomWalk", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("interpolatorRandomWalk", data, merged_options))
 
 
-def legend(*args: Any) -> Dict[str, Any]:
+def legend(*args: Any) -> JSCall:
     """
     Generates a standalone legend for the scale defined by the given *options*,
     returning either an SVG or HTML element depending on the scale and the
@@ -1768,7 +2052,7 @@ def legend(*args: Any) -> Dict[str, Any]:
 
 def line(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1799,12 +2083,18 @@ def line(
     channels. When any of these channels are used, setting an explicit **z**
     channel (possibly to null) is strongly recommended.
     """
-    return PlotSpec(MarkSpec("line", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("line", data, merged_options))
 
 
 def lineX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1825,12 +2115,18 @@ def lineX(
     Plot.lineX(observations, {y: "date", x: "temperature", interval: "day"})
     ```
     """
-    return PlotSpec(MarkSpec("lineX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("lineX", data, merged_options))
 
 
 def lineY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1852,12 +2148,18 @@ def lineY(
     Plot.lineY(observations, {x: "date", y: "temperature", interval: "day"})
     ```
     """
-    return PlotSpec(MarkSpec("lineY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("lineY", data, merged_options))
 
 
 def linearRegressionX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1866,12 +2168,18 @@ def linearRegressionX(
     for example when visualizing a time-series where time goes up↑; use
     linearRegressionY instead if time goes right→.
     """
-    return PlotSpec(MarkSpec("linearRegressionX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("linearRegressionX", data, merged_options))
 
 
 def linearRegressionY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1896,12 +2204,18 @@ def linearRegressionY(
     [3]: https://observablehq.com/@toja/linear-regression-with-confidence-bands
     [4]: https://stats.stackexchange.com/questions/101318/understanding-shape-and-calculation-of-confidence-bands-in-linear-regression
     """
-    return PlotSpec(MarkSpec("linearRegressionY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("linearRegressionY", data, merged_options))
 
 
 def link(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -1918,10 +2232,16 @@ def link(
     will render links as geodesics; to draw a straight line instead, use the
     *linear* **curve**.
     """
-    return PlotSpec(MarkSpec("link", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("link", data, merged_options))
 
 
-def map(*args: Any) -> Dict[str, Any]:
+def map(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then for each channel in the specified *outputs*, applies the corresponding
@@ -1942,7 +2262,7 @@ def map(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "map", args)
 
 
-def mapX(*args: Any) -> Dict[str, Any]:
+def mapX(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then applies the specified *map* method to each of the **x**, **x1**, and
@@ -1963,7 +2283,7 @@ def mapX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "mapX", args)
 
 
-def mapY(*args: Any) -> Dict[str, Any]:
+def mapY(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then applies the specified map method to each of the **y**, **y1**, and
@@ -1984,14 +2304,14 @@ def mapY(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "mapY", args)
 
 
-def marks(*args: Any) -> Dict[str, Any]:
+def marks(*args: Any) -> JSCall:
     """
     Given an array of marks, returns a compound mark; supports *mark*.plot shorthand.
     """
     return JSCall("Plot", "marks", args)
 
 
-def normalize(*args: Any) -> Dict[str, Any]:
+def normalize(*args: Any) -> JSCall:
     """
     Given a normalize *basis*, returns a corresponding map implementation for use
     with the map transform, allowing the normalization of arbitrary channels
@@ -2005,7 +2325,7 @@ def normalize(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "normalize", args)
 
 
-def normalizeX(*args: Any) -> Dict[str, Any]:
+def normalizeX(*args: Any) -> JSCall:
     """
     Groups data into series using the first channel of **z**, **fill**, or
     **stroke** (if any), then derives new **x**, **x1**, and **x2** channels for
@@ -2017,7 +2337,7 @@ def normalizeX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "normalizeX", args)
 
 
-def normalizeY(*args: Any) -> Dict[str, Any]:
+def normalizeY(*args: Any) -> JSCall:
     """
     Groups data into series using the first channel of **z**, **fill**, or
     **stroke** (if any), then derives new **y**, **y1**, and **y2** channels for
@@ -2029,7 +2349,7 @@ def normalizeY(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "normalizeY", args)
 
 
-def numberInterval(*args: Any) -> Dict[str, Any]:
+def numberInterval(*args: Any) -> JSCall:
     """
     Given a number *period*, returns a corresponding numeric range interval. If
     *period* is a negative number, the returned interval uses 1 / -*period*,
@@ -2038,7 +2358,7 @@ def numberInterval(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "numberInterval", args)
 
 
-def plot(*args: Any) -> Dict[str, Any]:
+def plot(*args: Any) -> JSCall:
     """
     Renders a new plot given the specified *options* and returns the
     corresponding SVG element, or an HTML figure element if a caption or legend
@@ -2047,7 +2367,7 @@ def plot(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "plot", args)
 
 
-def pointer(*args: Any) -> Dict[str, Any]:
+def pointer(*args: Any) -> JSCall:
     """
     Applies a render transform to the specified *options* to filter the mark
     index such that only the point closest to the pointer is rendered; the mark
@@ -2056,7 +2376,7 @@ def pointer(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "pointer", args)
 
 
-def pointerX(*args: Any) -> Dict[str, Any]:
+def pointerX(*args: Any) -> JSCall:
     """
     Like the pointer transform, except the determination of the closest point
     considers mostly the *x* (horizontal↔︎) position; this should be used for
@@ -2067,7 +2387,7 @@ def pointerX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "pointerX", args)
 
 
-def pointerY(*args: Any) -> Dict[str, Any]:
+def pointerY(*args: Any) -> JSCall:
     """
     Like the pointer transform, except the determination of the closest point
     considers mostly the *y* (vertical↕︎) position; this should be used for plots
@@ -2080,7 +2400,7 @@ def pointerY(*args: Any) -> Dict[str, Any]:
 
 def raster(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2110,12 +2430,18 @@ def raster(
     **value** is a function of *x* and *y*), you must specify all of **x1**,
     **x2**, **y1**, and **y2** to define the raster domain.
     """
-    return PlotSpec(MarkSpec("raster", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("raster", data, merged_options))
 
 
 def rect(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2140,12 +2466,18 @@ def rect(
     Both *x* and *y* should be quantitative or temporal; otherwise, use a bar or
     cell mark.
     """
-    return PlotSpec(MarkSpec("rect", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("rect", data, merged_options))
 
 
 def rectX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2159,12 +2491,18 @@ def rectX(
     Plot.rectX(olympians, Plot.binY({x: "count"}, {y: "height"}))
     ```
     """
-    return PlotSpec(MarkSpec("rectX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("rectX", data, merged_options))
 
 
 def rectY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2178,10 +2516,16 @@ def rectY(
     Plot.rectY(olympians, Plot.binX({y: "count"}, {x: "weight"}))
     ```
     """
-    return PlotSpec(MarkSpec("rectY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("rectY", data, merged_options))
 
 
-def reverse(*args: Any) -> Dict[str, Any]:
+def reverse(*args: Any) -> JSCall:
     """
     Applies a transform to *options* to reverse the order of the mark’s index,
     say for reverse input order.
@@ -2191,7 +2535,7 @@ def reverse(*args: Any) -> Dict[str, Any]:
 
 def ruleX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2214,12 +2558,18 @@ def ruleX(
 
     If *y* represents ordinal values, use a tickX mark instead.
     """
-    return PlotSpec(MarkSpec("ruleX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("ruleX", data, merged_options))
 
 
 def ruleY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2243,10 +2593,16 @@ def ruleY(
 
     If *x* represents ordinal values, use a tickY mark instead.
     """
-    return PlotSpec(MarkSpec("ruleY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("ruleY", data, merged_options))
 
 
-def scale(*args: Any) -> Dict[str, Any]:
+def scale(*args: Any) -> JSCall:
     """
     Returns a standalone scale given the specified scale *options*, which must
     define exactly one named scale. For example, for a default *linear* *color*
@@ -2259,7 +2615,7 @@ def scale(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "scale", args)
 
 
-def select(*args: Any) -> Dict[str, Any]:
+def select(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects points from each series based on the given *selector*. For
@@ -2272,7 +2628,7 @@ def select(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "select", args)
 
 
-def selectFirst(*args: Any) -> Dict[str, Any]:
+def selectFirst(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the first point from each series in input order.
@@ -2280,7 +2636,7 @@ def selectFirst(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "selectFirst", args)
 
 
-def selectLast(*args: Any) -> Dict[str, Any]:
+def selectLast(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the last point from each series in input order.
@@ -2288,7 +2644,7 @@ def selectLast(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "selectLast", args)
 
 
-def selectMaxX(*args: Any) -> Dict[str, Any]:
+def selectMaxX(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the maximum point from each series based on **x** channel value.
@@ -2296,7 +2652,7 @@ def selectMaxX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "selectMaxX", args)
 
 
-def selectMaxY(*args: Any) -> Dict[str, Any]:
+def selectMaxY(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the maximum point from each series based on **y** channel value.
@@ -2304,7 +2660,7 @@ def selectMaxY(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "selectMaxY", args)
 
 
-def selectMinX(*args: Any) -> Dict[str, Any]:
+def selectMinX(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the minimum point from each series based on **x** channel value.
@@ -2312,7 +2668,7 @@ def selectMinX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "selectMinX", args)
 
 
-def selectMinY(*args: Any) -> Dict[str, Any]:
+def selectMinY(*args: Any) -> JSCall:
     """
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the minimum point from each series based on **y** channel value.
@@ -2320,7 +2676,7 @@ def selectMinY(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "selectMinY", args)
 
 
-def shiftX(*args: Any) -> Dict[str, Any]:
+def shiftX(*args: Any) -> JSCall:
     """
     Groups data into series using the first channel of *z*, *fill*, or *stroke*
     (if any), then derives *x1* and *x2* output channels by shifting the input
@@ -2329,7 +2685,7 @@ def shiftX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "shiftX", args)
 
 
-def shiftY(*args: Any) -> Dict[str, Any]:
+def shiftY(*args: Any) -> JSCall:
     """
     Groups data into series using the first channel of *z*, *fill*, or *stroke*
     (if any), then derives *y1* and *y2* output channels by shifting the input
@@ -2338,7 +2694,7 @@ def shiftY(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "shiftY", args)
 
 
-def shuffle(*args: Any) -> Dict[str, Any]:
+def shuffle(*args: Any) -> JSCall:
     """
     Applies a transform to *options* to randomly shuffles the mark’s index. If a
     **seed** is specified, a linear congruential generator with the given seed is
@@ -2348,7 +2704,7 @@ def shuffle(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "shuffle", args)
 
 
-def sort(*args: Any) -> Dict[str, Any]:
+def sort(*args: Any) -> JSCall:
     """
     Applies a transform to *options* to sort the mark’s index by the specified
     *order*. The *order* is one of:
@@ -2369,19 +2725,25 @@ def sort(*args: Any) -> Dict[str, Any]:
 
 def sphere(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
     Returns a new geo mark whose *data* is the outline of the sphere on the
     projection’s plane. (For use with a spherical **projection** only.)
     """
-    return PlotSpec(MarkSpec("sphere", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("sphere", data, merged_options))
 
 
 def spike(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2392,10 +2754,16 @@ def spike(
     Plot.spike(cities, {x: "longitude", y: "latitude", stroke: "red", length: "population"})
     ```
     """
-    return PlotSpec(MarkSpec("spike", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("spike", data, merged_options))
 
 
-def stackX(*args: Any) -> Dict[str, Any]:
+def stackX(*args: Any) -> JSCall:
     """
     Transforms a length channel **x** into starting and ending position channels
     **x1** and **x2** by “stacking” elements that share a given **y** position.
@@ -2409,7 +2777,7 @@ def stackX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "stackX", args)
 
 
-def stackX1(*args: Any) -> Dict[str, Any]:
+def stackX1(*args: Any) -> JSCall:
     """
     Like **stackX**, but returns the starting position **x1** as the **x**
     channel, for example to position a dot on the left-hand side of each element
@@ -2418,7 +2786,7 @@ def stackX1(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "stackX1", args)
 
 
-def stackX2(*args: Any) -> Dict[str, Any]:
+def stackX2(*args: Any) -> JSCall:
     """
     Like **stackX**, but returns the starting position **x2** as the **x**
     channel, for example to position a dot on the right-hand side of each element
@@ -2427,7 +2795,7 @@ def stackX2(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "stackX2", args)
 
 
-def stackY(*args: Any) -> Dict[str, Any]:
+def stackY(*args: Any) -> JSCall:
     """
     Transforms a length channel **y** into starting and ending position channels
     **y1** and **y2** by “stacking” elements that share a given **x** position.
@@ -2440,7 +2808,7 @@ def stackY(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "stackY", args)
 
 
-def stackY1(*args: Any) -> Dict[str, Any]:
+def stackY1(*args: Any) -> JSCall:
     """
     Like **stackY**, but returns the starting position **y1** as the **y**
     channel, for example to position a dot at the bottom of each element of a
@@ -2449,7 +2817,7 @@ def stackY1(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "stackY1", args)
 
 
-def stackY2(*args: Any) -> Dict[str, Any]:
+def stackY2(*args: Any) -> JSCall:
     """
     Like **stackY**, but returns the ending position **y2** as the **y** channel,
     for example to position a dot at the top of each element of a stack.
@@ -2459,7 +2827,7 @@ def stackY2(*args: Any) -> Dict[str, Any]:
 
 def text(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2487,12 +2855,18 @@ def text(
     [3]: https://d3js.org/d3-format
     [4]: https://d3js.org/d3-time-format
     """
-    return PlotSpec(MarkSpec("text", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("text", data, merged_options))
 
 
 def textX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2507,12 +2881,18 @@ def textX(
     If an **interval** is specified, such as *day*, **y** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(MarkSpec("textX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("textX", data, merged_options))
 
 
 def textY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2527,12 +2907,18 @@ def textY(
     If an **interval** is specified, such as *day*, **x** is transformed to the
     middle of the interval.
     """
-    return PlotSpec(MarkSpec("textY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("textY", data, merged_options))
 
 
 def tickX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2548,12 +2934,18 @@ def tickX(
 
     If *y* represents quantitative or temporal values, use a ruleX mark instead.
     """
-    return PlotSpec(MarkSpec("tickX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("tickX", data, merged_options))
 
 
 def tickY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2569,10 +2961,16 @@ def tickY(
 
     If *x* represents quantitative or temporal values, use a ruleY mark instead.
     """
-    return PlotSpec(MarkSpec("tickY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("tickY", data, merged_options))
 
 
-def timeInterval(*args: Any) -> Dict[str, Any]:
+def timeInterval(*args: Any) -> JSCall:
     """
     Given a string *period*, returns a corresponding local time nice interval.
     """
@@ -2581,7 +2979,7 @@ def timeInterval(*args: Any) -> Dict[str, Any]:
 
 def tip(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2593,10 +2991,16 @@ def tip(
     *y₁*], [*x₂*, *y₂*], …] such that **x** = [*x₀*, *x₁*, *x₂*, …] and **y** =
     [*y₀*, *y₁*, *y₂*, …].
     """
-    return PlotSpec(MarkSpec("tip", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("tip", data, merged_options))
 
 
-def transform(*args: Any) -> Dict[str, Any]:
+def transform(*args: Any) -> JSCall:
     """
     Given an *options* object that may specify some basic transforms (**filter**,
     **sort**, or **reverse**) or a custom **transform**, composes those
@@ -2618,7 +3022,7 @@ def transform(*args: Any) -> Dict[str, Any]:
 
 def tree(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2633,10 +3037,16 @@ def tree(
 
     [1]: https://d3js.org/d3-hierarchy/tree
     """
-    return PlotSpec(MarkSpec("tree", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("tree", data, merged_options))
 
 
-def treeLink(*args: Any) -> Dict[str, Any]:
+def treeLink(*args: Any) -> JSCall:
     """
     Populates the *x1*, *y1*, *x2*, and *y2* channels, and applies the following
     defaults: **curve** is *bump-x*, **stroke** is #555, **strokeWidth** is 1.5,
@@ -2668,7 +3078,7 @@ def treeLink(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "treeLink", args)
 
 
-def treeNode(*args: Any) -> Dict[str, Any]:
+def treeNode(*args: Any) -> JSCall:
     """
     Populates the *x* and *y* channels with the positions for each node, and
     applies a default **frameAnchor** based on the specified **treeAnchor**. This
@@ -2692,14 +3102,14 @@ def treeNode(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "treeNode", args)
 
 
-def utcInterval(*args: Any) -> Dict[str, Any]:
+def utcInterval(*args: Any) -> JSCall:
     """
     Given a string *period*, returns a corresponding UTC nice interval.
     """
     return JSCall("Plot", "utcInterval", args)
 
 
-def valueof(*args: Any) -> Dict[str, Any]:
+def valueof(*args: Any) -> JSCall:
     """
     Given some *data* and a channel *value* definition (such as a field name or
     function accessor), returns an array of the specified *type* containing the
@@ -2715,7 +3125,7 @@ def valueof(*args: Any) -> Dict[str, Any]:
 
 def vector(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2730,12 +3140,18 @@ def vector(
     **y** default to accessors assuming that *data* contains tuples [[*x₀*,
     *y₀*], [*x₁*, *y₁*], [*x₂*, *y₂*], …]
     """
-    return PlotSpec(MarkSpec("vector", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("vector", data, merged_options))
 
 
 def vectorX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2743,12 +3159,18 @@ def vectorX(
     defaults to null, assuming that *data* is an array of numbers [*x₀*, *x₁*,
     *x₂*, …].
     """
-    return PlotSpec(MarkSpec("vectorX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("vectorX", data, merged_options))
 
 
 def vectorY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2756,12 +3178,18 @@ def vectorY(
     defaults to null, assuming that *data* is an array of numbers [*y₀*, *y₁*,
     *y₂*, …].
     """
-    return PlotSpec(MarkSpec("vectorY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("vectorY", data, merged_options))
 
 
 def voronoi(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2771,12 +3199,18 @@ def voronoi(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Voronoi tesselation for each group.
     """
-    return PlotSpec(MarkSpec("voronoi", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("voronoi", data, merged_options))
 
 
 def voronoiMesh(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2791,12 +3225,18 @@ def voronoiMesh(
     If **z** is specified, the input points are grouped by *z*, producing a
     separate Voronoi tesselation for each group.
     """
-    return PlotSpec(MarkSpec("voronoiMesh", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("voronoiMesh", data, merged_options))
 
 
 def waffleX(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2830,12 +3270,18 @@ def waffleX(
     Plot.waffleX([4, 9, 24, 46, 66, 7])
     ```
     """
-    return PlotSpec(MarkSpec("waffleX", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("waffleX", data, merged_options))
 
 
 def waffleY(
     data: Any,
-    options: Dict[str, Any] = {},
+    options: PlotOptions = {},
     **kwargs: Any,
 ) -> PlotSpec:
     """
@@ -2869,10 +3315,16 @@ def waffleY(
     Plot.waffleY([4, 9, 24, 46, 66, 7])
     ```
     """
-    return PlotSpec(MarkSpec("waffleY", data, {**options, **kwargs}))
+    if isinstance(options, dict):
+        merged_options = {**options, **kwargs}
+    else:
+        if kwargs:
+            raise ValueError("Cannot use kwargs when options is not a dict")
+        merged_options = options
+    return PlotSpec(MarkSpec("waffleY", data, merged_options))
 
 
-def window(*args: Any) -> Dict[str, Any]:
+def window(*args: Any) -> JSCall:
     """
     Given the specified window *options*, returns a corresponding map
     implementation for use with the map transform, allowing the window transform
@@ -2888,7 +3340,7 @@ def window(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "window", args)
 
 
-def windowX(*args: Any) -> Dict[str, Any]:
+def windowX(*args: Any) -> JSCall:
     """
     Groups data into series using the first channel of *z*, *fill*, or *stroke*
     (if any), then derives new *x*, *x1*, and *x2* channels by computing a moving
@@ -2904,7 +3356,7 @@ def windowX(*args: Any) -> Dict[str, Any]:
     return JSCall("Plot", "windowX", args)
 
 
-def windowY(*args: Any) -> Dict[str, Any]:
+def windowY(*args: Any) -> JSCall:
     """
     Groups data into series using the first channel of *z*, *fill*, or *stroke*
     (if any), then derives new *y*, *y1*, and *y2* channels by computing a moving

@@ -75,10 +75,10 @@ def update_changelog(new_version):
     )
     commit_messages = (
         subprocess.check_output(
-            ["git", "log", f"{last_tag}..HEAD", "--pretty=format:%s"]
+            ["git", "log", f"{last_tag}..HEAD", "--pretty=format:%B"]
         )
         .decode()
-        .split("\n")
+        .split("\n\n")
     )
     # Define categories and their prefixes
     categories = {
@@ -92,14 +92,21 @@ def update_changelog(new_version):
     categorized_commits = {category: [] for category in categories}
 
     for msg in commit_messages:
-        categorized = False
-        for category, prefix in categories.items():
-            if prefix and msg.startswith(prefix):
-                categorized_commits[category].append(msg[len(prefix) :].strip())
-                categorized = True
-                break
-        if not categorized:
-            categorized_commits["Other Changes"].append(msg.strip())
+        lines = msg.strip().split("\n")
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            categorized = False
+            for category, prefix in categories.items():
+                if prefix and line.lower().startswith(prefix.lower()):
+                    cleaned_msg = line[len(prefix) :].strip()
+                    categorized_commits[category].append(cleaned_msg)
+                    categorized = True
+                    break
+            if not categorized:
+                categorized_commits["Other Changes"].append(line)
+        print("---")
 
     # Prepare changelog entry
     changelog_entry = (
@@ -119,20 +126,31 @@ def update_changelog(new_version):
     ):
         changelog_entry = changelog_entry.replace("#### Other Changes\n", "")
 
+    # Save original content of CHANGELOG.md
+    with open("CHANGELOG.md", "r") as f:
+        original_content = f.read()
+
     # Prepend to CHANGELOG.md
-    with open("CHANGELOG.md", "r+") as f:
-        content = f.read()
-        f.seek(0, 0)
-        f.write(changelog_entry + content)
+    with open("CHANGELOG.md", "w") as f:
+        f.write(changelog_entry + original_content)
 
     # Print the new changelog entry to the terminal
     print("\nNew changelog entry:")
     print(changelog_entry)
 
     # Pause for user to review and potentially edit
-    input(
-        "\nReview the changelog entry. Edit CHANGELOG.md if needed, then press Enter to continue..."
+    user_input = input(
+        "\nReview the changelog entry. Press Enter to continue or 'q' to cancel: "
     )
+
+    if user_input.lower() == "q":
+        # Revert the changelog
+        with open("CHANGELOG.md", "w") as f:
+            f.write(original_content)
+        print("Changelog update cancelled and reverted.")
+        return False
+
+    return True
 
 
 def main():
@@ -141,9 +159,12 @@ def main():
 
     new_version = get_next_version()
 
+    if not update_changelog(new_version):
+        print("Release process cancelled.")
+        return
+
     update_pyproject_toml(new_version)
     update_readme(new_version)
-    update_changelog(new_version)
 
     # Add changes
     subprocess.run(["git", "add", "pyproject.toml", "README.md", "CHANGELOG.md"])
