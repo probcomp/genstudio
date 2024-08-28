@@ -1,3 +1,11 @@
+### [2024.08.009] - Aug 28, 2024
+
+#### New Features
+- add cycle option to Slider/Reactive/Frames
+
+#### Documentation
+- Bylight example
+
 ### [2024.08.008] - Aug 28, 2024
 
 #### New Features
