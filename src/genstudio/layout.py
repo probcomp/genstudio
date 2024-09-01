@@ -230,13 +230,14 @@ class Hiccup(LayoutItem):
     def __init__(self, *args: Any) -> None:
         LayoutItem.__init__(self)
         if len(args) == 0:
-            self.child: list[Any] | tuple[Any, ...] | None = None
-        elif len(args) == 1 and isinstance(args[0], (list, tuple)):
+            self.child = None
+        elif len(args) == 1:
             self.child = args[0]
         else:
             self.child = args
 
     def for_json(self) -> Any:
+        print("Hiccup child", self.child)
         return self.child
 
 
