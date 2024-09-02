@@ -85,3 +85,9 @@ class Widget(anywidget.AnyWidget):
         if f is not None:
             f(params["event"])
         return "ok", []
+
+    def update_cache(self, *updates):
+        updates = [
+            [cached.id, operation, payload] for [cached, operation, payload] in updates
+        ]
+        self.send({"type": "update_cache", "updates": to_json(updates, widget=self)})

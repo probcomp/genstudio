@@ -2,7 +2,7 @@ import { $StateContext, WidthContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from 
 import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
 import { flatten, html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
 import { AnyWidgetReact, Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
-const { createRender, useModelState, useExperimental } = AnyWidgetReact
+const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 import bylight from "bylight";
 
@@ -88,11 +88,11 @@ const scope = {
     Slider,
     Frames,
     Reactive: (options) => new Reactive(options),
-    Bylight: (source, patterns, props) => new Bylight({source, patterns, ...(props || {})})
+    Bylight: (source, patterns, props) => new Bylight({ source, patterns, ...(props || {}) })
   }
 }
 
-function getFirstDefinedValue(...values) {
+function firstDefined(...values) {
   return values.find(value => value !== undefined);
 }
 
@@ -107,10 +107,10 @@ function Slider(options) {
   if (cycle) {
     minRange = 0;
     maxRange = cycle.length - 1;
-    sliderValue = cycle.indexOf(getFirstDefinedValue($state[state_key], init, cycle[0]));
+    sliderValue = cycle.indexOf(firstDefined($state[state_key], init, cycle[0]));
   } else {
     [minRange, maxRange] = range[0] < range[1] ? range : [range[1], range[0]];
-    sliderValue = getFirstDefinedValue($state[state_key], init, minRange);
+    sliderValue = firstDefined($state[state_key], init, minRange);
   }
 
   useEffect(() => {
@@ -222,7 +222,7 @@ export function evaluate(node, cache, $state, experimental) {
       return cache[node.id];
     case "callback":
       if (experimental) {
-        return (e) => experimental.invoke("handle_callback", {id: node.id, event: serializeEvent(e)});
+        return (e) => experimental.invoke("handle_callback", { id: node.id, event: serializeEvent(e) });
       } else {
         return undefined;
       }
@@ -292,7 +292,7 @@ function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEFAULT_GR
   `;
 }
 
-function Row({children, ...props}) {
+function Row({ children, ...props }) {
   const availableWidth = useContext(WidthContext);
   const childCount = React.Children.count(children);
   const childWidth = availableWidth / childCount;
@@ -310,7 +310,7 @@ function Row({children, ...props}) {
   `;
 }
 
-function Column({children, ...props}) {
+function Column({ children, ...props }) {
   return html`
     <div ...${props} className="layout-column">
       ${children}
@@ -358,9 +358,8 @@ function Hiccup(tag, props, ...children) {
 }
 
 function useReactiveState(ast) {
-  // useState, recomputes initial state when deps change
-  const [state, setState] = useState({});
   const initialState = useMemo(() => collectReactiveInitialState(ast), [ast]);
+  const [state, setState] = useState(initialState);
   const initialStateKeys = useMemo(() => Object.keys(initialState).sort().join(','), [initialState]);
   useEffect(() => {
     setState(initialState);
@@ -379,16 +378,66 @@ function useReactiveState(ast) {
   return useMemo(() => [stateProxy, setState], [state]);
 }
 
-function StateProvider({ ast, cache, experimental }) {
+function handleCacheUpdate(setCache, $state, experimental, updates) {
+  setCache((cache) => {
+    if (!cache) {
+      console.warn("handling cache update before cache is set!")
+    };
+    cache = {...cache}
+    updates = evaluate(JSON.parse(updates), cache, $state, experimental)
+    for (const [id, operation, payload] of updates) {
+      const prevValue = cache[id];
+      let nextValue;
+      switch (operation) {
+        case "append":
+          nextValue = [...prevValue, payload];
+          break;
+        case "concat":
+          nextValue = [...prevValue, ...payload];
+          break;
+        case "reset":
+          nextValue = payload;
+          break;
+      }
+      cache[id] = nextValue
+    }
+    return cache
+  })
+}
+
+function StateProvider({ ast, cache: initialCache, experimental, model }) {
   const stateArray = useReactiveState(ast);
   const [$state] = stateArray;
 
+  // the cache needs to be evaluated, requiring reactive state.
+
+  // set cache
+  const [cache, setLocalCache] = useState(null);
+  useEffect(() => {
+    if ($state && initialCache) {
+      const nextCache = evaluateCache(initialCache, $state, experimental);
+      setLocalCache(nextCache)
+    }
+  }, [$state, initialCache])
+
+  // set data
   const [data, setData] = useState();
   useEffect(() => {
-    if ($state) {
-      setData(evaluate(ast, evaluateCache(cache, $state, experimental), $state, experimental))
+    if (cache) {
+      setData(evaluate(ast, cache, $state, experimental))
     }
   }, [ast, cache, $state, experimental]);
+
+  // listen for update_cache events
+  useEffect(() => {
+    const cb = (msg) => {
+      if (msg.type === 'update_cache') {
+        handleCacheUpdate(setLocalCache, $state, experimental, msg.updates)
+      }
+    }
+    model.on("msg:custom", cb);
+    return () => model.off("msg:custom", cb)
+  }, [model, setLocalCache])
 
   if (!data) return;
   return html`
@@ -443,7 +492,7 @@ function Viewer({ jsonString, ...data }) {
   const parsedData = useMemo(() => {
     if (jsonString) {
       try {
-        return {...data, size: estimateJSONSize(jsonString), ...JSON.parse(jsonString)};
+        return { ...data, size: estimateJSONSize(jsonString), ...JSON.parse(jsonString) };
       } catch (error) {
         console.error("Error parsing JSON:", error);
         return null;
@@ -557,7 +606,8 @@ function AnyWidgetApp() {
   addCSSLink(TACHYONS_CSS_URL)
   let [jsonString] = useModelState("data");
   const experimental = useExperimental();
-  return html`<${Viewer} jsonString=${jsonString} experimental=${experimental} />`;
+  const model = useModel();
+  return html`<${Viewer} jsonString=${jsonString} experimental=${experimental}, model=${model} />`;
 }
 
 export const renderData = (element, data) => {

@@ -237,7 +237,6 @@ class Hiccup(LayoutItem):
             self.child = args
 
     def for_json(self) -> Any:
-        print("Hiccup child", self.child)
         return self.child
 
 
