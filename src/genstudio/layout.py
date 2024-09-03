@@ -301,4 +301,6 @@ class CachedObject(LayoutItem):
 
 
 def cache(value: Any) -> CachedObject:
+    if isinstance(value, CachedObject):
+        return value
     return CachedObject(value)

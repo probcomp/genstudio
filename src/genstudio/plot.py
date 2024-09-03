@@ -704,7 +704,7 @@ def state(name: str) -> JSCode:
 # %%
 
 
-def Frames(frames, key=None, slider=True, **opts):
+def Frames(frames, key=None, slider=True, tail=False, **opts):
     """
     Create an animated plot that cycles through a list of frames.
 
@@ -715,44 +715,36 @@ def Frames(frames, key=None, slider=True, **opts):
     Returns:
         A Hiccup-style representation of the animated plot.
     """
+    frames = cache(frames)
     if key is None:
         key = "frame"
         return Hiccup(View.Frames, {"state_key": key, "frames": frames}) | Reactive(
             key,
-            range=[0, len(frames) - 1],
-            kind="Slider" if slider else "Animation",
+            rangeFrom=frames,
+            tail=tail,
+            kind="Slider" if slider else None,
             **opts,
         )
     else:
         return Hiccup(View.Frames, {"state_key": key, "frames": frames})
 
 
-def Reactive(key, init=None, fps=None, range=None, cycle=None, step=1, **kwargs):
+def Reactive(key, init=None, fps=None, range=None, tail=None, step=1, **kwargs):
     """
     Initializes a reactive variable.
     """
-    if init is None and range is None and cycle is None:
-        raise ValueError(
-            "Either 'init', 'range', or 'cycle' must be provided for Reactive."
-        )
-    range = [0, range] if isinstance(range, (float, int)) else range
-    if init is None:
-        init = (cycle and cycle[0]) or (range and range[0])
-    step = step or 1
     return View.Reactive(
         {
             "state_key": key,
             "init": init,
             "fps": fps,
             "range": range,
-            "cycle": cycle,
             "step": step,
+            "tail": tail,
             **kwargs,
         }
     )
 
 
 def Slider(key, range=None, init=None, label=None, cycle=None, **kwargs):
-    return Reactive(
-        key, init, range=range, label=label, cycle=cycle, kind="Slider", **kwargs
-    )
+    return Reactive(key, init, range=range, label=label, kind="Slider", **kwargs)

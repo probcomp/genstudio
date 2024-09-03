@@ -25,6 +25,7 @@ line = (
         {
             "y": Plot.js(
                 """(d, i) => {
+                    console.log($state, Math.sin(i * 2 * Math.PI / 100 * $state.frequency))
                 return Math.sin(i * 2 * Math.PI / 100 * $state.frequency)
             }"""
             )
@@ -47,11 +48,9 @@ line | slider
         {"x": range(100)},
         {
             "y": Plot.js(
-                """(d, i) => {
-                    return Math.sin(
+                """(d, i) => Math.sin(
                         i * 2 * Math.PI / 100 + 2 * Math.PI * $state.frame / 60
-                    )
-                }"""
+                    )"""
             )
         },
     )
@@ -64,6 +63,7 @@ line | slider
 # `Plot.Frames` provides a convenient way to scrub or animate over a sequence of arbitrary plots. Each frame is rendered individually. It implicitly creates a slider and cycles through the provided frames. Here's a basic example:
 
 # %%
+import genstudio.plot as Plot
 import random
 
 shapes = [
@@ -95,25 +95,6 @@ def show_shapes(color):
 
 
 show_shapes("blue")
-
-# %% [markdown]
-# ## Reactive/Slider with cycle
-#
-# `Plot.Reactive` and `Plot.Slider` accept a `cycle` parameter, which allows for automatic looping through a sequence of values.
-
-(
-    Plot.html(
-        "div",
-        {
-            "style": {
-                "width": 100,
-                "height": 100,
-                "background": Plot.js("$state.colors"),
-            }
-        },
-    )
-    | Plot.Reactive("colors", fps=3, cycle=["black", "blue", "red", "green"])
-)
 
 # %% [markdown]
 # ## Reactive Variable Lifecycle

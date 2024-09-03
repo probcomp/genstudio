@@ -19,14 +19,111 @@ const md = new MarkdownIt({
 function renderMarkdown(text) {
   return html`<div className='prose' dangerouslySetInnerHTML=${{ __html: md.render(text) }} />`;
 }
+function ReactiveSlider(options) {
+  let { state_key, fps, label, step = 1, loop = true, tail, rangeMin, rangeMax } = options;
+  const [$state, set$state] = useContext($StateContext);
+  const availableWidth = useContext(WidthContext);
+  const isAnimated = typeof fps === 'number' && fps > 0;
+  const [isPlaying, setIsPlaying] = useState(isAnimated);
+
+  const sliderValue = clamp($state[state_key] ?? rangeMin, rangeMin, rangeMax);
+
+  useEffect(() => {
+    if (isAnimated && isPlaying) {
+      const intervalId = setInterval(() => {
+        $state[state_key] = (prevValue) => {
+          const nextValue = prevValue + step;
+          if (nextValue > rangeMax) {
+            if (tail) {
+              return rangeMax;
+            } else if (loop) {
+              return rangeMin;
+            } else {
+              setIsPlaying(false);
+              return rangeMax;
+            }
+          }
+          return nextValue;
+        };
+      }, 1000 / fps);
+      return () => clearInterval(intervalId);
+    }
+  }, [isPlaying, fps, state_key, rangeMin, rangeMax, step, loop, tail]);
+
+  const handleSliderChange = useCallback((value) => {
+    setIsPlaying(false);
+    $state[state_key] = Number(value);
+  }, [set$state, state_key]);
+
+  const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
+  if (options.kind !== 'Slider') return;
+  return html`
+    <div className="f1 flex flex-column mv2 gap2" style=${{ width: availableWidth }}>
+      <div className="flex items-center justify-between">
+        <span className="flex g2">
+          <label>${label}</label>
+          <span>${$state[state_key]}</span>
+        </span>
+        ${isAnimated && html`
+          <div onClick=${togglePlayPause} className="pointer">
+            ${isPlaying ? pauseIcon : playIcon}
+          </div>
+        `}
+      </div>
+      <input
+        type="range"
+        min=${rangeMin}
+        max=${rangeMax}
+        step=${step}
+        value=${sliderValue}
+        onChange=${(e) => handleSliderChange(e.target.value)}
+        className="w-100 outline-0"
+      />
+    </div>
+  `;
+}
+
+function clamp(value, min, max) {
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
 
 class Reactive {
   constructor(data) {
-    this.options = data;
+    let { init, range, rangeFrom, tail, step } = data;
+
+    let rangeMin, rangeMax;
+    if (rangeFrom) {
+      // determine range dynamically based on last index of rangeFrom
+      rangeMin = 0;
+      rangeMax = rangeFrom.length - 1;
+    } else if (typeof range === 'number') {
+      // range may be specified as the upper end of a [0, n] integer range.
+      rangeMin = 0;
+      rangeMax = range;
+    } else {
+      [rangeMin, rangeMax] = range;
+    }
+    init = init || rangeMin;
+    step = step || 1;
+
+    // Assert that init is set
+    if (init === undefined) {
+      throw new Error("Reactive: 'init', 'rangeFrom' or 'range' must be defined");
+    }
+    this.options = {
+      ...data,
+      rangeMin,
+      rangeMax,
+      tail,
+      init,
+      step
+    };
   }
 
   render() {
-    return Slider(this.options);
+    return ReactiveSlider(this.options);
   }
 }
 
@@ -36,7 +133,6 @@ const pauseIcon = html`<svg viewBox="0 24 24" width="24" height="24"><path fill=
 function Frames(props) {
   const { state_key, frames } = props
   const [$state] = useContext($StateContext);
-
   if (!Array.isArray(frames)) {
     return html`<div className="red">Error: 'frames' must be an array.</div>`;
   }
@@ -85,97 +181,12 @@ const scope = {
     Row,
     Column,
     flatten,
-    Slider,
     Frames,
     Reactive: (options) => new Reactive(options),
     Bylight: (source, patterns, props) => new Bylight({ source, patterns, ...(props || {}) })
   }
 }
 
-function firstDefined(...values) {
-  return values.find(value => value !== undefined);
-}
-
-function Slider(options) {
-  const { state_key, fps, label, range, init, step = 1, loop = true, cycle } = options;
-  const [$state, set$state] = useContext($StateContext);
-  const availableWidth = useContext(WidthContext);
-  const isAnimated = typeof fps === 'number' && fps > 0;
-  const [isPlaying, setIsPlaying] = useState(isAnimated);
-
-  let minRange, maxRange, sliderValue;
-  if (cycle) {
-    minRange = 0;
-    maxRange = cycle.length - 1;
-    sliderValue = cycle.indexOf(firstDefined($state[state_key], init, cycle[0]));
-  } else {
-    [minRange, maxRange] = range[0] < range[1] ? range : [range[1], range[0]];
-    sliderValue = firstDefined($state[state_key], init, minRange);
-  }
-
-  useEffect(() => {
-    if (isAnimated && isPlaying) {
-      const intervalId = setInterval(() => {
-        $state[state_key] = (prevValue) => {
-          if (cycle) {
-            const currentIndex = cycle.indexOf(prevValue);
-            const nextIndex = (currentIndex + 1) % cycle.length;
-            return cycle[nextIndex];
-          } else {
-            const nextValue = prevValue + step;
-            if (nextValue > maxRange) {
-              if (loop) {
-                return minRange;
-              } else {
-                setIsPlaying(false);
-                return maxRange;
-              }
-            }
-            return nextValue;
-          }
-        }
-      }, 1000 / fps);
-      return () => clearInterval(intervalId);
-    }
-  }, [isPlaying, fps, state_key, minRange, maxRange, step, loop, cycle]);
-
-  const handleSliderChange = useCallback((value) => {
-    setIsPlaying(false);
-    if (cycle) {
-      $state[state_key] = cycle[Number(value)];
-    } else {
-      $state[state_key] = Number(value);
-    }
-  }, [set$state, state_key, cycle]);
-
-  const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
-  if (options.kind !== 'Slider') return;
-  return html`
-    <div className="f1 flex flex-column mv2 gap2" style=${{ width: availableWidth }}>
-      <div className="flex items-center justify-between">
-        <span className="flex g2">
-          <label>${label}${label && !cycle && ":"}</label>
-
-          <span>${!cycle && $state[state_key]}</span>
-        </span>
-        ${isAnimated && html`
-          <div onClick=${togglePlayPause} className="pointer">
-            ${isPlaying ? pauseIcon : playIcon}
-          </div>
-        `}
-      </div>
-      <input
-        type="range"
-        min=${minRange}
-        max=${maxRange}
-        step=${cycle ? 1 : step}
-        value=${sliderValue}
-        onChange=${(e) => handleSliderChange(e.target.value)}
-        className="w-100 outline-0"
-      />
-    </div>
-  `;
-}
 
 const layoutComponents = new Set(['Hiccup', 'Grid', 'Row', 'Column']);
 
@@ -186,7 +197,7 @@ function collectReactiveInitialState(ast) {
     if (!node) return;
     if (typeof node === 'object' && node['__type__'] === 'function') {
       if (node.name === 'Reactive') {
-        const { state_key, init } = node.args[0];
+        const {state_key, init} = new Reactive(node.args[0], initialState).options;
         initialState[state_key] = init;
       } else if (layoutComponents.has(node.name)) {
         node.args.forEach(traverse);
@@ -321,7 +332,7 @@ function Column({ children, ...props }) {
 
 function Node({ value }) {
   if (Array.isArray(value)) {
-    return Hiccup(...value);
+    return (['string', 'function'].includes(typeof value[0])) ? Hiccup(...value) : Hiccup("div", ...value);
   } else if (typeof value === 'object' && value !== null && 'render' in value) {
     return value.render();
   } else {
@@ -361,9 +372,7 @@ function useReactiveState(ast) {
   const initialState = useMemo(() => collectReactiveInitialState(ast), [ast]);
   const [state, setState] = useState(initialState);
   const initialStateKeys = useMemo(() => Object.keys(initialState).sort().join(','), [initialState]);
-  useEffect(() => {
-    setState(initialState);
-  }, [initialStateKeys]);
+  useEffect(() => setState(initialState), [initialStateKeys]);
 
   const stateProxy = new Proxy(state, {
     set(_, prop, value) {
@@ -378,71 +387,49 @@ function useReactiveState(ast) {
   return useMemo(() => [stateProxy, setState], [state]);
 }
 
-function handleCacheUpdate(setCache, $state, experimental, updates) {
-  setCache((cache) => {
-    if (!cache) {
-      console.warn("handling cache update before cache is set!")
-    };
-    cache = {...cache}
-    updates = evaluate(JSON.parse(updates), cache, $state, experimental)
-    for (const [id, operation, payload] of updates) {
-      const prevValue = cache[id];
-      let nextValue;
-      switch (operation) {
-        case "append":
-          nextValue = [...prevValue, payload];
-          break;
-        case "concat":
-          nextValue = [...prevValue, ...payload];
-          break;
-        case "reset":
-          nextValue = payload;
-          break;
-      }
-      cache[id] = nextValue
-    }
-    return cache
-  })
-}
-
-function StateProvider({ ast, cache: initialCache, experimental, model }) {
+function StateProvider({ ast, cache, experimental, model }) {
   const stateArray = useReactiveState(ast);
   const [$state] = stateArray;
 
-  // the cache needs to be evaluated, requiring reactive state.
+  const [evaluatedAst, setEvaluatedAst] = useState();
+  const evaluateData = () => {
+    const evaluatedCache = evaluateCache(cache, $state, experimental)
+    const evaluatedAst = evaluate(ast, evaluatedCache, $state, experimental)
+    setEvaluatedAst(evaluatedAst)
+  }
+  useEffect(evaluateData, [ast, cache, $state, experimental]);
 
-  // set cache
-  const [cache, setLocalCache] = useState(null);
-  useEffect(() => {
-    if ($state && initialCache) {
-      const nextCache = evaluateCache(initialCache, $state, experimental);
-      setLocalCache(nextCache)
-    }
-  }, [$state, initialCache])
-
-  // set data
-  const [data, setData] = useState();
-  useEffect(() => {
-    if (cache) {
-      setData(evaluate(ast, cache, $state, experimental))
-    }
-  }, [ast, cache, $state, experimental]);
-
-  // listen for update_cache events
   useEffect(() => {
     const cb = (msg) => {
       if (msg.type === 'update_cache') {
-        handleCacheUpdate(setLocalCache, $state, experimental, msg.updates)
+        const updates = evaluate(JSON.parse(msg.updates), cache, $state, experimental);
+        for (const [id, operation, payload] of updates) {
+          const prevValue = cache[id];
+          let nextValue;
+          switch (operation) {
+            case "append":
+              nextValue = [...prevValue, payload];
+              break;
+            case "concat":
+              nextValue = [...prevValue, ...payload];
+              break;
+            case "reset":
+              nextValue = payload;
+              break;
+          }
+          cache[id] = nextValue
+        }
+        evaluateData()
       }
     }
     model.on("msg:custom", cb);
     return () => model.off("msg:custom", cb)
-  }, [model, setLocalCache])
+  }, [cache, model])
 
-  if (!data) return;
+  if (!evaluatedAst) return;
   return html`
     <${$StateContext.Provider} value=${stateArray}>
-      <${Node} value=${data} />
+      <${Node} value=${evaluatedAst} />
     </>
   `;
 }
