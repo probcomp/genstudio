@@ -1,205 +1,24 @@
-import { $StateContext, WidthContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
-import { MarkSpec, PlotSpec, PlotWrapper, DEFAULT_PLOT_OPTIONS } from "./plot";
-import { flatten, html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
-import { AnyWidgetReact, Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
-const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact
-const { useState, useEffect, useContext, useMemo, useCallback } = React
-import bylight from "bylight";
+import { WidthContext, CONTAINER_PADDING, $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
+import { html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
+import { AnyWidgetReact, React, ReactDOM, Plot, d3 } from "./imports";
+const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
+const { useState, useMemo, useCallback, useEffect } = React;
+import * as api from "./api";
 
 const TACHYONS_CSS_URL = "https://cdn.jsdelivr.net/gh/tachyons-css/tachyons@6b8c744afadaf506cb12f9a539b47f9b412ed500/css/tachyons.css"
-const DEFAULT_GRID_GAP = "10px"
-export const CONTAINER_PADDING = 10;
-
-const md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  typographer: true
-});
-
-function renderMarkdown(text) {
-  return html`<div className='prose' dangerouslySetInnerHTML=${{ __html: md.render(text) }} />`;
-}
-function ReactiveSlider(options) {
-  let { state_key, fps, label, step = 1, loop = true, tail, rangeMin, rangeMax } = options;
-  const [$state, set$state] = useContext($StateContext);
-  const availableWidth = useContext(WidthContext);
-  const isAnimated = typeof fps === 'number' && fps > 0;
-  const [isPlaying, setIsPlaying] = useState(isAnimated);
-
-  const sliderValue = clamp($state[state_key] ?? rangeMin, rangeMin, rangeMax);
-
-  useEffect(() => {
-    if (isAnimated && isPlaying) {
-      const intervalId = setInterval(() => {
-        $state[state_key] = (prevValue) => {
-          const nextValue = prevValue + step;
-          if (nextValue > rangeMax) {
-            if (tail) {
-              return rangeMax;
-            } else if (loop) {
-              return rangeMin;
-            } else {
-              setIsPlaying(false);
-              return rangeMax;
-            }
-          }
-          return nextValue;
-        };
-      }, 1000 / fps);
-      return () => clearInterval(intervalId);
-    }
-  }, [isPlaying, fps, state_key, rangeMin, rangeMax, step, loop, tail]);
-
-  const handleSliderChange = useCallback((value) => {
-    setIsPlaying(false);
-    $state[state_key] = Number(value);
-  }, [set$state, state_key]);
-
-  const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
-  if (options.kind !== 'Slider') return;
-  return html`
-    <div className="f1 flex flex-column mv2 gap2" style=${{ width: availableWidth }}>
-      <div className="flex items-center justify-between">
-        <span className="flex g2">
-          <label>${label}</label>
-          <span>${$state[state_key]}</span>
-        </span>
-        ${isAnimated && html`
-          <div onClick=${togglePlayPause} className="pointer">
-            ${isPlaying ? pauseIcon : playIcon}
-          </div>
-        `}
-      </div>
-      <input
-        type="range"
-        min=${rangeMin}
-        max=${rangeMax}
-        step=${step}
-        value=${sliderValue}
-        onChange=${(e) => handleSliderChange(e.target.value)}
-        className="w-100 outline-0"
-      />
-    </div>
-  `;
-}
-
-function clamp(value, min, max) {
-  if (value < min) return min;
-  if (value > max) return max;
-  return value;
-}
-
-class Reactive {
-  constructor(data) {
-    let { init, range, rangeFrom, tail, step } = data;
-
-    let rangeMin, rangeMax;
-    if (rangeFrom) {
-      // determine range dynamically based on last index of rangeFrom
-      rangeMin = 0;
-      rangeMax = rangeFrom.length - 1;
-    } else if (typeof range === 'number') {
-      // range may be specified as the upper end of a [0, n] integer range.
-      rangeMin = 0;
-      rangeMax = range;
-    } else {
-      [rangeMin, rangeMax] = range;
-    }
-    init = init || rangeMin;
-    step = step || 1;
-
-    // Assert that init is set
-    if (init === undefined) {
-      throw new Error("Reactive: 'init', 'rangeFrom' or 'range' must be defined");
-    }
-    this.options = {
-      ...data,
-      rangeMin,
-      rangeMax,
-      tail,
-      init,
-      step
-    };
-  }
-
-  render() {
-    return ReactiveSlider(this.options);
-  }
-}
-
-const playIcon = html`<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
-const pauseIcon = html`<svg viewBox="0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`;
-
-function Frames(props) {
-  const { state_key, frames } = props
-  const [$state] = useContext($StateContext);
-  if (!Array.isArray(frames)) {
-    return html`<div className="red">Error: 'frames' must be an array.</div>`;
-  }
-
-  const index = $state[state_key];
-  if (!Number.isInteger(index) || index < 0 || index >= frames.length) {
-    return html`<div className="red">Error: Invalid index. $state[${state_key}] (${index}) must be a valid index of the frames array (length: ${frames.length}).</div>`;
-  }
-
-  return html`<${Node} value=${frames[index]} />`;
-}
-
-class Bylight {
-  constructor({ patterns, source, ...props }) {
-    this.patterns = patterns;
-    this.source = source;
-    this.props = props;
-  }
-
-  render() {
-    const preRef = React.useRef(null);
-
-    React.useEffect(() => {
-      if (preRef.current && this.patterns) {
-        bylight.highlight(preRef.current, this.patterns);
-      }
-    }, [this.source, this.patterns]);
-
-    return React.createElement('pre', {
-      ref: preRef,
-      className: this.props.className
-    }, this.source);
-  }
-}
-
-const scope = {
-  d3,
-  Plot, React, ReactDOM,
-  View: {
-    PlotSpec: (x) => new PlotSpec(x),
-    MarkSpec: (name, data, options) => new MarkSpec(name, data, options),
-    md: renderMarkdown,
-    repeat: (data) => (_, i) => data[i % data.length],
-    Hiccup,
-    Grid,
-    Row,
-    Column,
-    flatten,
-    Frames,
-    Reactive: (options) => new Reactive(options),
-    Bylight: (source, patterns, props) => new Bylight({ source, patterns, ...(props || {}) })
-  }
-}
-
 
 const layoutComponents = new Set(['Hiccup', 'Grid', 'Row', 'Column']);
 
-function collectReactiveInitialState(ast) {
+export function collectReactiveInitialState(ast) {
   let initialState = {};
 
   function traverse(node) {
     if (!node) return;
     if (typeof node === 'object' && node['__type__'] === 'function') {
-      if (node.name === 'Reactive') {
-        const {state_key, init} = new Reactive(node.args[0], initialState).options;
+      if (node.path === 'Reactive') {
+        const { state_key, init } = new api.Reactive(node.args[0], initialState).options;
         initialState[state_key] = init;
-      } else if (layoutComponents.has(node.name)) {
+      } else if (layoutComponents.has(node.path)) {
         node.args.forEach(traverse);
       }
     } else if (Array.isArray(node)) {
@@ -210,6 +29,9 @@ function collectReactiveInitialState(ast) {
   traverse(ast);
   return initialState;
 }
+function resolveReference(path, obj) {
+  return path.split('.').reduce((acc, key) => acc[key], obj);
+}
 
 export function evaluate(node, cache, $state, experimental) {
   if (node === null || typeof node !== 'object') return node;
@@ -217,14 +39,19 @@ export function evaluate(node, cache, $state, experimental) {
 
   switch (node["__type__"]) {
     case "function":
-      const fn = node.name ? scope[node.module][node.name] : scope[node.module];
+      const fn = resolveReference(node.path, api);
       if (!fn) {
         console.error('Function not found', node);
         return null;
       }
-      return fn(...evaluate(node.args, cache, $state, experimental));
+      const args = evaluate(node.args, cache, $state, experimental)
+      if (fn.prototype?.constructor === fn) {
+        return new fn(...args);
+      } else {
+        return fn(...args);
+      }
     case "ref":
-      return node.name ? scope[node.module][node.name] : scope[node.module];
+      return resolveReference(node.path, api);
     case "js":
       return (new Function('$state', 'd3', 'Plot', `return ${node.value}`))($state, d3, Plot);
     case "datetime":
@@ -244,8 +71,7 @@ export function evaluate(node, cache, $state, experimental) {
   }
 }
 
-
-function evaluateCache(cache, $state, experimental) {
+export function evaluateCache(cache, $state, experimental) {
   const evaluatedCache = {};
   const evaluating = new Set();
 
@@ -270,110 +96,11 @@ function evaluateCache(cache, $state, experimental) {
   return evaluatedCache;
 }
 
-function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEFAULT_GRID_GAP, aspectRatio = 1 }) {
-  const availableWidth = useContext(WidthContext);
-  const effectiveMinWidth = Math.min(minWidth, availableWidth);
-  const gapSize = parseInt(gap);
-
-  const numColumns = Math.max(1, Math.min(Math.floor(availableWidth / effectiveMinWidth), children.length));
-  const itemWidth = (availableWidth - (numColumns - 1) * gapSize) / numColumns;
-  const itemHeight = itemWidth / aspectRatio;
-  const numRows = Math.ceil(children.length / numColumns);
-  const layoutHeight = numRows * itemHeight + (numRows - 1) * gapSize;
-
-  const containerStyle = {
-    display: 'grid',
-    gap,
-    gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
-    gridAutoRows: `${itemHeight}px`,
-    height: `${layoutHeight}px`,
-    width: `${availableWidth}px`,
-    overflowX: 'auto',
-    ...style
-  };
-
-  return html`
-    <${WidthContext.Provider} value=${itemWidth}>
-      <div style=${containerStyle}>
-        ${children.map((value, index) => html`<${Node} key=${index}
-                                                       style=${{ width: itemWidth }}
-                                                       value=${value}/>`)}
-      </div>
-    </>
-  `;
-}
-
-function Row({ children, ...props }) {
-  const availableWidth = useContext(WidthContext);
-  const childCount = React.Children.count(children);
-  const childWidth = availableWidth / childCount;
-
-  return html`
-    <div ...${props} className="layout-row">
-      <${WidthContext.Provider} value=${childWidth}>
-        ${React.Children.map(children, (child, index) => html`
-          <div className="row-item" key=${index}>
-            ${child}
-          </div>
-        `)}
-      </${WidthContext.Provider}>
-    </div>
-  `;
-}
-
-function Column({ children, ...props }) {
-  return html`
-    <div ...${props} className="layout-column">
-      ${children}
-    </div>
-  `;
-}
-
-
-function Node({ value }) {
-  if (Array.isArray(value)) {
-    return (['string', 'function'].includes(typeof value[0])) ? Hiccup(...value) : Hiccup("div", ...value);
-  } else if (typeof value === 'object' && value !== null && 'render' in value) {
-    return value.render();
-  } else {
-    return value;
-  }
-}
-
-function Hiccup(tag, props, ...children) {
-  if (props?.constructor !== Object) {
-    children.unshift(props);
-    props = {};
-  }
-
-  let baseTag = tag;
-  if (typeof tag === 'string') {
-    let id, classes
-    [baseTag, ...classes] = tag.split('.');
-    [baseTag, id] = baseTag.split('#');
-
-    if (id) { props.id = id; }
-
-    if (classes.length > 0) {
-      props.className = `${props.className || ''} ${classes.join(' ')}`.trim();
-    }
-  }
-
-  return baseTag instanceof PlotSpec
-    ? baseTag.render()
-    : children.length > 0
-      ? html`<${baseTag} ...${props}>
-          ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
-        </>`
-      : html`<${baseTag} ...${props} />`;
-}
-
-function useReactiveState(ast) {
+export function useReactiveState(ast) {
   const initialState = useMemo(() => collectReactiveInitialState(ast), [ast]);
   const [state, setState] = useState(initialState);
   const initialStateKeys = useMemo(() => Object.keys(initialState).sort().join(','), [initialState]);
   useEffect(() => setState(initialState), [initialStateKeys]);
-
   const stateProxy = new Proxy(state, {
     set(_, prop, value) {
       setState(prevState => ({
@@ -387,7 +114,7 @@ function useReactiveState(ast) {
   return useMemo(() => [stateProxy, setState], [state]);
 }
 
-function StateProvider({ ast, cache, experimental, model }) {
+export function StateProvider({ ast, cache, experimental, model }) {
   const stateArray = useReactiveState(ast);
   const [$state] = stateArray;
 
@@ -400,6 +127,7 @@ function StateProvider({ ast, cache, experimental, model }) {
   useEffect(evaluateData, [ast, cache, $state, experimental]);
 
   useEffect(() => {
+
     const cb = (msg) => {
       if (msg.type === 'update_cache') {
         const updates = evaluate(JSON.parse(msg.updates), cache, $state, experimental);
@@ -422,14 +150,14 @@ function StateProvider({ ast, cache, experimental, model }) {
         evaluateData()
       }
     }
-    model.on("msg:custom", cb);
-    return () => model.off("msg:custom", cb)
+    model?.on("msg:custom", cb);
+    return () => model?.off("msg:custom", cb)
   }, [cache, model])
 
   if (!evaluatedAst) return;
   return html`
     <${$StateContext.Provider} value=${stateArray}>
-      <${Node} value=${evaluatedAst} />
+      <${api.Node} value=${evaluatedAst} />
     </>
   `;
 }
@@ -594,7 +322,7 @@ function AnyWidgetApp() {
   let [jsonString] = useModelState("data");
   const experimental = useExperimental();
   const model = useModel();
-  return html`<${Viewer} jsonString=${jsonString} experimental=${experimental}, model=${model} />`;
+  return html`<${Viewer} ...${{ jsonString, experimental, model }} />`;
 }
 
 export const renderData = (element, data) => {

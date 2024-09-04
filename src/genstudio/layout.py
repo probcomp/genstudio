@@ -93,11 +93,7 @@ class LayoutItem:
         return Column(other, self)
 
     def _repr_mimebundle_(self, **kwargs: Any) -> Any:
-        display_as = self._display_as or CONFIG["display_as"]
-        if display_as == "widget":
-            return self.widget()._repr_mimebundle_(**kwargs)
-        else:
-            return self.html()._repr_mimebundle_(**kwargs)
+        return self.repr()._repr_mimebundle_(**kwargs)
 
     def html(self) -> HTML:
         """
@@ -114,6 +110,13 @@ class LayoutItem:
         if self._widget is None:
             self._widget = Widget(self)
         return self._widget
+
+    def repr(self) -> Widget | HTML:
+        display_as = self._display_as or CONFIG["display_as"]
+        if display_as == "widget":
+            return self.widget()
+        else:
+            return self.html()
 
     def save_html(self, path: str) -> None:
         with open(path, "w") as f:
@@ -152,17 +155,15 @@ class LayoutItem:
 class JSCall(LayoutItem):
     """Represents a JavaScript function call."""
 
-    def __init__(self, module: str, name: str, args: Union[List[Any], Tuple[Any, ...]]):
+    def __init__(self, path: str, args: Union[List[Any], Tuple[Any, ...]] = []):
         super().__init__()
-        self.module = module
-        self.name = name
+        self.path = path
         self.args = args
 
     def for_json(self) -> dict:
         return {
             "__type__": "function",
-            "module": self.module,
-            "name": self.name,
+            "path": self.path,
             "args": self.args,
         }
 
@@ -172,22 +173,18 @@ class JSRef(LayoutItem):
 
     def __init__(
         self,
-        module: str,
-        name: Optional[str] = None,
+        path: str,
         label: Optional[str] = None,
         doc: Optional[str] = None,
     ):
         super().__init__()
-        self.__name__ = name or label
+        self.path = path
+        self.__name__ = label or path.split(".")[-1]
         self.__doc__ = doc
-        self.module = module
-        self.name = name
 
     def __call__(self, *args: Any) -> Any:
         """Invokes the wrapped JavaScript function in the runtime with the provided arguments."""
-        if self.name is None:
-            raise ValueError("Cannot call a JSRef with no name")
-        return JSCall(self.module, self.name, args)
+        return JSCall(self.path, args)
 
     def __getattr__(self, name: str) -> "JSRef":
         """Returns a reference to a nested property or method of the JavaScript object."""
@@ -195,19 +192,15 @@ class JSRef(LayoutItem):
             raise AttributeError(
                 f"'{self.__class__.__name__}' object has no attribute 'cache_id'"
             )
-        if self.name is None:
-            return JSRef(self.module, name)
-        else:
-            raise ValueError("Only module.name paths are currently supported")
-            # return JSRef(f"{self.module}.{self.name}", name)
+        return JSRef(f"{self.path}.{name}")
 
     def for_json(self) -> dict:
-        return {"__type__": "ref", "module": self.module, "name": self.name}
+        return {"__type__": "ref", "path": self.path}
 
 
-def js_ref(module: str, name: str) -> "JSRef":
+def js_ref(path: str) -> "JSRef":
     """Represents a reference to a JavaScript module or name."""
-    return JSRef(module=module, name=name)
+    return JSRef(path=path)
 
 
 class JSCode(LayoutItem):
@@ -256,7 +249,7 @@ def flatten_layout_items(
     return flattened, options
 
 
-View = JSRef("View")
+_Row = JSRef("Row")
 
 
 class Row(LayoutItem):
@@ -265,7 +258,10 @@ class Row(LayoutItem):
         self.items, self.options = flatten_layout_items(items, Row)
 
     def for_json(self) -> Any:
-        return Hiccup(View.Row, self.options, *self.items)
+        return Hiccup(_Row, self.options, *self.items)
+
+
+_Column = JSRef("Column")
 
 
 class Column(LayoutItem):
@@ -274,7 +270,7 @@ class Column(LayoutItem):
         self.items, self.options = flatten_layout_items(items, Column)
 
     def for_json(self) -> Any:
-        return Hiccup(View.Column, self.options, *self.items)
+        return Hiccup(_Column, self.options, *self.items)
 
 
 def unwrap_for_json(x):

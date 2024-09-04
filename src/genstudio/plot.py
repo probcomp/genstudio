@@ -167,17 +167,13 @@ from genstudio.util import configure, deep_merge
 
 d3 = JSRef("d3")
 Math = JSRef("Math")
-View = JSRef("View")
 html = Hiccup
-Bylight = View.Bylight
+Bylight = JSRef("Bylight")
+md = JSRef("md")
 
-
-def repeat(data):
-    """
-    For passing columnar data to Observable.Plot which should repeat/cycle.
-    eg. for a set of 'xs' that are to be repeated for each set of `ys`.
-    """
-    return View.repeat(data)
+# For passing columnar data to Observable.Plot which should repeat/cycle.
+# eg. for a set of 'xs' that are to be repeated for each set of `ys`.
+repeat = JSRef("repeat")
 
 
 class Dimensioned:
@@ -436,7 +432,7 @@ def constantly(x):
 
 def Grid(*children, **opts):
     return Hiccup(
-        View.Grid,
+        JSRef("Grid"),
         {"children": children, **opts},
     )
 
@@ -683,7 +679,7 @@ def doc(fn):
         module = fn.__module__
         module = "Plot" if fn.__module__.endswith("plot_defs") else module
         title = f"<span style='padding-right: 10px;'>{module}.{name}</span>"
-        return View.md(
+        return md(
             f"""
 <div class="doc-header">{title}</div>
 <div class="doc-content">
@@ -694,7 +690,7 @@ def doc(fn):
 """
         )
     else:
-        return View.md("No docstring available.")
+        return md("No docstring available.")
 
 
 def state(name: str) -> JSCode:
@@ -702,6 +698,8 @@ def state(name: str) -> JSCode:
 
 
 # %%
+
+_Frames = JSRef("Frames")
 
 
 def Frames(frames, key=None, slider=True, tail=False, **opts):
@@ -718,7 +716,7 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
     frames = cache(frames)
     if key is None:
         key = "frame"
-        return Hiccup(View.Frames, {"state_key": key, "frames": frames}) | Reactive(
+        return Hiccup(_Frames, {"state_key": key, "frames": frames}) | Reactive(
             key,
             rangeFrom=frames,
             tail=tail,
@@ -726,14 +724,17 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
             **opts,
         )
     else:
-        return Hiccup(View.Frames, {"state_key": key, "frames": frames})
+        return Hiccup(_Frames, {"state_key": key, "frames": frames})
+
+
+_Reactive = JSRef("Reactive")
 
 
 def Reactive(key, init=None, fps=None, range=None, tail=None, step=1, **kwargs):
     """
     Initializes a reactive variable.
     """
-    return View.Reactive(
+    return _Reactive(
         {
             "state_key": key,
             "init": init,

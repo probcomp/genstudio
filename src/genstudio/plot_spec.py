@@ -1,7 +1,7 @@
 import uuid
 from typing import Any, Sequence, TypeAlias, Union
 
-from genstudio.layout import JSCall, LayoutItem, View
+from genstudio.layout import JSRef, JSCall, LayoutItem
 from genstudio.util import CONFIG
 
 SpecInput: TypeAlias = Union[
@@ -16,7 +16,7 @@ SpecInput: TypeAlias = Union[
 class MarkSpec:
     def __init__(self, name, data, options):
         self.id = str(uuid.uuid4())
-        self.ast = JSCall("View", "MarkSpec", [name, data, options])
+        self.ast = JSCall("MarkSpec", [name, data, options])
 
     def cache_id(self):
         return self.id
@@ -38,6 +38,9 @@ def flatten_layers(layers: Sequence[Any]) -> list[Any]:
         else:
             flattened.append(layer)
     return flattened
+
+
+_PlotSpec = JSRef("PlotSpec")
 
 
 class PlotSpec(LayoutItem):
@@ -78,7 +81,7 @@ class PlotSpec(LayoutItem):
         return new_spec
 
     def for_json(self) -> Any:
-        return View.PlotSpec({"layers": [CONFIG["defaults"]] + self.layers})
+        return _PlotSpec({"layers": [CONFIG["defaults"]] + self.layers})
 
 
 def new(*specs: Any, **kwargs: Any) -> PlotSpec:

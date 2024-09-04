@@ -320,8 +320,7 @@ def axisX(*args, **kwargs: Any) -> PlotSpec:
             {
                 "marks": [
                     JSCall(
-                        "Plot",
-                        "axisX",
+                        "Plot.axisX",
                         [data, merged_options],
                     )
                 ]
@@ -331,8 +330,7 @@ def axisX(*args, **kwargs: Any) -> PlotSpec:
         {
             "marks": [
                 JSCall(
-                    "Plot",
-                    "axisX",
+                    "Plot.axisX",
                     [{**(options or {}), **kwargs}],
                 )
             ]
@@ -397,8 +395,7 @@ def axisY(*args, **kwargs: Any) -> PlotSpec:
             {
                 "marks": [
                     JSCall(
-                        "Plot",
-                        "axisY",
+                        "Plot.axisY",
                         [data, merged_options],
                     )
                 ]
@@ -408,8 +405,7 @@ def axisY(*args, **kwargs: Any) -> PlotSpec:
         {
             "marks": [
                 JSCall(
-                    "Plot",
-                    "axisY",
+                    "Plot.axisY",
                     [{**(options or {}), **kwargs}],
                 )
             ]
@@ -556,7 +552,7 @@ def bin(*args: Any) -> JSCall:
     **y** output channel representing the vertical midpoint. The **insetTop**,
     **insetRight**, **insetBottom**, and **insetLeft** options default to 0.5.
     """
-    return JSCall("Plot", "bin", args)
+    return JSCall("Plot.bin", args)
 
 
 def binX(*args: Any) -> JSCall:
@@ -590,7 +586,7 @@ def binX(*args: Any) -> JSCall:
     will be dropped from the returned *options*. The **insetLeft** and
     **insetRight** options default to 0.5.
     """
-    return JSCall("Plot", "binX", args)
+    return JSCall("Plot.binX", args)
 
 
 def binY(*args: Any) -> JSCall:
@@ -624,7 +620,7 @@ def binY(*args: Any) -> JSCall:
     will be dropped from the returned *options*. The **insetTop** and
     **insetBottom** options default to 0.5.
     """
-    return JSCall("Plot", "binY", args)
+    return JSCall("Plot.binY", args)
 
 
 def bollinger(
@@ -852,7 +848,7 @@ def centroid(*args: Any) -> JSCall:
 
     For centroids of spherical geometry, see Plot.geoCentroid.
     """
-    return JSCall("Plot", "centroid", args)
+    return JSCall("Plot.centroid", args)
 
 
 def circle(
@@ -909,7 +905,7 @@ def column(*args: Any) -> JSCall:
     *source*.label. This allows derived columns to propagate a human-readable
     axis or legend label.
     """
-    return JSCall("Plot", "column", args)
+    return JSCall("Plot.column", args)
 
 
 def contour(
@@ -1151,7 +1147,7 @@ def dodgeX(*args: Any) -> JSCall:
 
     If *dodgeOptions* is a string, it is shorthand for the dodge **anchor**.
     """
-    return JSCall("Plot", "dodgeX", args)
+    return JSCall("Plot.dodgeX", args)
 
 
 def dodgeY(*args: Any) -> JSCall:
@@ -1164,7 +1160,7 @@ def dodgeY(*args: Any) -> JSCall:
 
     If *dodgeOptions* is a string, it is shorthand for the dodge **anchor**.
     """
-    return JSCall("Plot", "dodgeY", args)
+    return JSCall("Plot.dodgeY", args)
 
 
 def dot(
@@ -1264,7 +1260,7 @@ def filter(*args: Any) -> JSCall:
     Note that filtering only affects the rendered mark index, not the associated
     channel values, and thus has no effect on imputed scale domains.
     """
-    return JSCall("Plot", "filter", args)
+    return JSCall("Plot.filter", args)
 
 
 def find(*args: Any) -> JSCall:
@@ -1273,7 +1269,7 @@ def find(*args: Any) -> JSCall:
     implementation for use with the group or bin transform. The reducer returns
     the first channel value for which the *test* function returns a truthy value.
     """
-    return JSCall("Plot", "find", args)
+    return JSCall("Plot.find", args)
 
 
 def formatIsoDate(*args: Any) -> JSCall:
@@ -1281,7 +1277,7 @@ def formatIsoDate(*args: Any) -> JSCall:
     Given a *date*, returns the shortest equivalent ISO 8601 UTC string. If the
     given *date* is not valid, returns `"Invalid Date"`.
     """
-    return JSCall("Plot", "formatIsoDate", args)
+    return JSCall("Plot.formatIsoDate", args)
 
 
 def formatMonth(*args: Any) -> JSCall:
@@ -1292,7 +1288,7 @@ def formatMonth(*args: Any) -> JSCall:
     [1]: https://tools.ietf.org/html/bcp47
     [2]: https://tc39.es/ecma402/#datetimeformat-objects
     """
-    return JSCall("Plot", "formatMonth", args)
+    return JSCall("Plot.formatMonth", args)
 
 
 def formatNumber(*args: Any) -> JSCall:
@@ -1302,7 +1298,7 @@ def formatNumber(*args: Any) -> JSCall:
 
     [1]: https://tools.ietf.org/html/bcp47
     """
-    return JSCall("Plot", "formatNumber", args)
+    return JSCall("Plot.formatNumber", args)
 
 
 def formatWeekday(*args: Any) -> JSCall:
@@ -1313,7 +1309,7 @@ def formatWeekday(*args: Any) -> JSCall:
     [1]: https://tools.ietf.org/html/bcp47
     [2]: https://tc39.es/ecma402/#datetimeformat-objects
     """
-    return JSCall("Plot", "formatWeekday", args)
+    return JSCall("Plot.formatWeekday", args)
 
 
 def frame(*args, **kwargs: Any) -> PlotSpec:
@@ -1356,8 +1352,7 @@ def frame(*args, **kwargs: Any) -> PlotSpec:
             {
                 "marks": [
                     JSCall(
-                        "Plot",
-                        "frame",
+                        "Plot.frame",
                         [data, merged_options],
                     )
                 ]
@@ -1367,8 +1362,7 @@ def frame(*args, **kwargs: Any) -> PlotSpec:
         {
             "marks": [
                 JSCall(
-                    "Plot",
-                    "frame",
+                    "Plot.frame",
                     [{**(options or {}), **kwargs}],
                 )
             ]
@@ -1414,7 +1408,7 @@ def geoCentroid(*args: Any) -> JSCall:
 
     For planar (projected) centroids, see Plot.centroid.
     """
-    return JSCall("Plot", "geoCentroid", args)
+    return JSCall("Plot.geoCentroid", args)
 
 
 def graticule(
@@ -1479,8 +1473,7 @@ def gridFx(*args, **kwargs: Any) -> PlotSpec:
             {
                 "marks": [
                     JSCall(
-                        "Plot",
-                        "gridFx",
+                        "Plot.gridFx",
                         [data, merged_options],
                     )
                 ]
@@ -1490,8 +1483,7 @@ def gridFx(*args, **kwargs: Any) -> PlotSpec:
         {
             "marks": [
                 JSCall(
-                    "Plot",
-                    "gridFx",
+                    "Plot.gridFx",
                     [{**(options or {}), **kwargs}],
                 )
             ]
@@ -1540,8 +1532,7 @@ def gridFy(*args, **kwargs: Any) -> PlotSpec:
             {
                 "marks": [
                     JSCall(
-                        "Plot",
-                        "gridFy",
+                        "Plot.gridFy",
                         [data, merged_options],
                     )
                 ]
@@ -1551,8 +1542,7 @@ def gridFy(*args, **kwargs: Any) -> PlotSpec:
         {
             "marks": [
                 JSCall(
-                    "Plot",
-                    "gridFy",
+                    "Plot.gridFy",
                     [{**(options or {}), **kwargs}],
                 )
             ]
@@ -1601,8 +1591,7 @@ def gridX(*args, **kwargs: Any) -> PlotSpec:
             {
                 "marks": [
                     JSCall(
-                        "Plot",
-                        "gridX",
+                        "Plot.gridX",
                         [data, merged_options],
                     )
                 ]
@@ -1612,8 +1601,7 @@ def gridX(*args, **kwargs: Any) -> PlotSpec:
         {
             "marks": [
                 JSCall(
-                    "Plot",
-                    "gridX",
+                    "Plot.gridX",
                     [{**(options or {}), **kwargs}],
                 )
             ]
@@ -1662,8 +1650,7 @@ def gridY(*args, **kwargs: Any) -> PlotSpec:
             {
                 "marks": [
                     JSCall(
-                        "Plot",
-                        "gridY",
+                        "Plot.gridY",
                         [data, merged_options],
                     )
                 ]
@@ -1673,8 +1660,7 @@ def gridY(*args, **kwargs: Any) -> PlotSpec:
         {
             "marks": [
                 JSCall(
-                    "Plot",
-                    "gridY",
+                    "Plot.gridY",
                     [{**(options or {}), **kwargs}],
                 )
             ]
@@ -1712,7 +1698,7 @@ def group(*args: Any) -> JSCall:
     the **y1** and **y2** channels, if any, will be dropped from the returned
     *options*.
     """
-    return JSCall("Plot", "group", args)
+    return JSCall("Plot.group", args)
 
 
 def groupX(*args: Any) -> JSCall:
@@ -1741,7 +1727,7 @@ def groupX(*args: Any) -> JSCall:
     *outputs*, it defaults to *first*, and the **x1** and **x2** channels, if
     any, will be dropped from the returned *options*.
     """
-    return JSCall("Plot", "groupX", args)
+    return JSCall("Plot.groupX", args)
 
 
 def groupY(*args: Any) -> JSCall:
@@ -1770,7 +1756,7 @@ def groupY(*args: Any) -> JSCall:
     *outputs*, it defaults to *first*, and the **y1** and **y2** channels, if
     any, will be dropped from the returned *options*.
     """
-    return JSCall("Plot", "groupY", args)
+    return JSCall("Plot.groupY", args)
 
 
 def groupZ(*args: Any) -> JSCall:
@@ -1790,7 +1776,7 @@ def groupZ(*args: Any) -> JSCall:
     Plot.barX(penguins, Plot.groupZ({x: "proportion"}, {fill: "species"}))
     ```
     """
-    return JSCall("Plot", "groupZ", args)
+    return JSCall("Plot.groupZ", args)
 
 
 def hexagon(
@@ -1838,7 +1824,7 @@ def hexbin(*args: Any) -> JSCall:
 
     To draw empty hexagons, see the hexgrid mark.
     """
-    return JSCall("Plot", "hexbin", args)
+    return JSCall("Plot.hexbin", args)
 
 
 def hexgrid(*args, **kwargs: Any) -> PlotSpec:
@@ -1895,8 +1881,7 @@ def hexgrid(*args, **kwargs: Any) -> PlotSpec:
             {
                 "marks": [
                     JSCall(
-                        "Plot",
-                        "hexgrid",
+                        "Plot.hexgrid",
                         [data, merged_options],
                     )
                 ]
@@ -1906,8 +1891,7 @@ def hexgrid(*args, **kwargs: Any) -> PlotSpec:
         {
             "marks": [
                 JSCall(
-                    "Plot",
-                    "hexgrid",
+                    "Plot.hexgrid",
                     [{**(options or {}), **kwargs}],
                 )
             ]
@@ -1986,7 +1970,7 @@ def initializer(*args: Any) -> JSCall:
     scale application), it should instead be implemented as a mark transform for
     simplicity; see Plot.transform.
     """
-    return JSCall("Plot", "initializer", args)
+    return JSCall("Plot.initializer", args)
 
 
 def interpolatorBarycentric(
@@ -2047,7 +2031,7 @@ def legend(*args: Any) -> JSCall:
     desired legend type. Currently supports only *color*, *opacity*, and *symbol*
     scales.
     """
-    return JSCall("Plot", "legend", args)
+    return JSCall("Plot.legend", args)
 
 
 def line(
@@ -2259,7 +2243,7 @@ def map(*args: Any) -> JSCall:
     Plot.map({y: "cumsum"}, {y: d3.randomNormal()})
     ```
     """
-    return JSCall("Plot", "map", args)
+    return JSCall("Plot.map", args)
 
 
 def mapX(*args: Any) -> JSCall:
@@ -2280,7 +2264,7 @@ def mapX(*args: Any) -> JSCall:
     Plot.mapX("cumsum", {x: d3.randomNormal()})
     ```
     """
-    return JSCall("Plot", "mapX", args)
+    return JSCall("Plot.mapX", args)
 
 
 def mapY(*args: Any) -> JSCall:
@@ -2301,14 +2285,14 @@ def mapY(*args: Any) -> JSCall:
     Plot.mapY("cumsum", {y: d3.randomNormal()})
     ```
     """
-    return JSCall("Plot", "mapY", args)
+    return JSCall("Plot.mapY", args)
 
 
 def marks(*args: Any) -> JSCall:
     """
     Given an array of marks, returns a compound mark; supports *mark*.plot shorthand.
     """
-    return JSCall("Plot", "marks", args)
+    return JSCall("Plot.marks", args)
 
 
 def normalize(*args: Any) -> JSCall:
@@ -2322,7 +2306,7 @@ def normalize(*args: Any) -> JSCall:
     Plot.map({title: Plot.normalize("first")}, {x: "Date", title: "Close", stroke: "Symbol"})
     ```
     """
-    return JSCall("Plot", "normalize", args)
+    return JSCall("Plot.normalize", args)
 
 
 def normalizeX(*args: Any) -> JSCall:
@@ -2334,7 +2318,7 @@ def normalizeX(*args: Any) -> JSCall:
     is used, the derived series values would be [*x₀* / *x₀*, *x₁* / *x₀*, *x₂* /
     *x₀*, …] as in an index chart.
     """
-    return JSCall("Plot", "normalizeX", args)
+    return JSCall("Plot.normalizeX", args)
 
 
 def normalizeY(*args: Any) -> JSCall:
@@ -2346,7 +2330,7 @@ def normalizeY(*args: Any) -> JSCall:
     is used, the derived series values would be [*y₀* / *y₀*, *y₁* / *y₀*, *y₂* /
     *y₀*, …] as in an index chart.
     """
-    return JSCall("Plot", "normalizeY", args)
+    return JSCall("Plot.normalizeY", args)
 
 
 def numberInterval(*args: Any) -> JSCall:
@@ -2355,7 +2339,7 @@ def numberInterval(*args: Any) -> JSCall:
     *period* is a negative number, the returned interval uses 1 / -*period*,
     allowing greater precision when *period* is a negative integer.
     """
-    return JSCall("Plot", "numberInterval", args)
+    return JSCall("Plot.numberInterval", args)
 
 
 def plot(*args: Any) -> JSCall:
@@ -2364,7 +2348,7 @@ def plot(*args: Any) -> JSCall:
     corresponding SVG element, or an HTML figure element if a caption or legend
     is requested.
     """
-    return JSCall("Plot", "plot", args)
+    return JSCall("Plot.plot", args)
 
 
 def pointer(*args: Any) -> JSCall:
@@ -2373,7 +2357,7 @@ def pointer(*args: Any) -> JSCall:
     index such that only the point closest to the pointer is rendered; the mark
     will re-render interactively in response to pointer events.
     """
-    return JSCall("Plot", "pointer", args)
+    return JSCall("Plot.pointer", args)
 
 
 def pointerX(*args: Any) -> JSCall:
@@ -2384,7 +2368,7 @@ def pointerX(*args: Any) -> JSCall:
     chart, the binned quantitative dimension in a histogram, or the categorical
     dimension of a bar chart.
     """
-    return JSCall("Plot", "pointerX", args)
+    return JSCall("Plot.pointerX", args)
 
 
 def pointerY(*args: Any) -> JSCall:
@@ -2395,7 +2379,7 @@ def pointerY(*args: Any) -> JSCall:
     binned quantitative dimension in a histogram, or the categorical dimension of
     a bar chart.
     """
-    return JSCall("Plot", "pointerY", args)
+    return JSCall("Plot.pointerY", args)
 
 
 def raster(
@@ -2530,7 +2514,7 @@ def reverse(*args: Any) -> JSCall:
     Applies a transform to *options* to reverse the order of the mark’s index,
     say for reverse input order.
     """
-    return JSCall("Plot", "reverse", args)
+    return JSCall("Plot.reverse", args)
 
 
 def ruleX(
@@ -2612,7 +2596,7 @@ def scale(*args: Any) -> JSCall:
     const color = Plot.scale({color: {type: "linear"}});
     ```
     """
-    return JSCall("Plot", "scale", args)
+    return JSCall("Plot.scale", args)
 
 
 def select(*args: Any) -> JSCall:
@@ -2625,7 +2609,7 @@ def select(*args: Any) -> JSCall:
     Plot.text(data, Plot.select({y: "max"}, options))
     ```
     """
-    return JSCall("Plot", "select", args)
+    return JSCall("Plot.select", args)
 
 
 def selectFirst(*args: Any) -> JSCall:
@@ -2633,7 +2617,7 @@ def selectFirst(*args: Any) -> JSCall:
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the first point from each series in input order.
     """
-    return JSCall("Plot", "selectFirst", args)
+    return JSCall("Plot.selectFirst", args)
 
 
 def selectLast(*args: Any) -> JSCall:
@@ -2641,7 +2625,7 @@ def selectLast(*args: Any) -> JSCall:
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the last point from each series in input order.
     """
-    return JSCall("Plot", "selectLast", args)
+    return JSCall("Plot.selectLast", args)
 
 
 def selectMaxX(*args: Any) -> JSCall:
@@ -2649,7 +2633,7 @@ def selectMaxX(*args: Any) -> JSCall:
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the maximum point from each series based on **x** channel value.
     """
-    return JSCall("Plot", "selectMaxX", args)
+    return JSCall("Plot.selectMaxX", args)
 
 
 def selectMaxY(*args: Any) -> JSCall:
@@ -2657,7 +2641,7 @@ def selectMaxY(*args: Any) -> JSCall:
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the maximum point from each series based on **y** channel value.
     """
-    return JSCall("Plot", "selectMaxY", args)
+    return JSCall("Plot.selectMaxY", args)
 
 
 def selectMinX(*args: Any) -> JSCall:
@@ -2665,7 +2649,7 @@ def selectMinX(*args: Any) -> JSCall:
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the minimum point from each series based on **x** channel value.
     """
-    return JSCall("Plot", "selectMinX", args)
+    return JSCall("Plot.selectMinX", args)
 
 
 def selectMinY(*args: Any) -> JSCall:
@@ -2673,7 +2657,7 @@ def selectMinY(*args: Any) -> JSCall:
     Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
     then selects the minimum point from each series based on **y** channel value.
     """
-    return JSCall("Plot", "selectMinY", args)
+    return JSCall("Plot.selectMinY", args)
 
 
 def shiftX(*args: Any) -> JSCall:
@@ -2682,7 +2666,7 @@ def shiftX(*args: Any) -> JSCall:
     (if any), then derives *x1* and *x2* output channels by shifting the input
     *x* channel according to the specified *interval*.
     """
-    return JSCall("Plot", "shiftX", args)
+    return JSCall("Plot.shiftX", args)
 
 
 def shiftY(*args: Any) -> JSCall:
@@ -2691,7 +2675,7 @@ def shiftY(*args: Any) -> JSCall:
     (if any), then derives *y1* and *y2* output channels by shifting the input
     *y* channel according to the specified *interval*.
     """
-    return JSCall("Plot", "shiftY", args)
+    return JSCall("Plot.shiftY", args)
 
 
 def shuffle(*args: Any) -> JSCall:
@@ -2701,7 +2685,7 @@ def shuffle(*args: Any) -> JSCall:
     used to generate random numbers deterministically; otherwise, Math.random is
     used.
     """
-    return JSCall("Plot", "shuffle", args)
+    return JSCall("Plot.shuffle", args)
 
 
 def sort(*args: Any) -> JSCall:
@@ -2720,7 +2704,7 @@ def sort(*args: Any) -> JSCall:
     Plot.sort("body_mass_g", options)
     ```
     """
-    return JSCall("Plot", "sort", args)
+    return JSCall("Plot.sort", args)
 
 
 def sphere(
@@ -2774,7 +2758,7 @@ def stackX(*args: Any) -> JSCall:
     a label. If not specified, the input channel **x** defaults to the constant
     one.
     """
-    return JSCall("Plot", "stackX", args)
+    return JSCall("Plot.stackX", args)
 
 
 def stackX1(*args: Any) -> JSCall:
@@ -2783,7 +2767,7 @@ def stackX1(*args: Any) -> JSCall:
     channel, for example to position a dot on the left-hand side of each element
     of a stack.
     """
-    return JSCall("Plot", "stackX1", args)
+    return JSCall("Plot.stackX1", args)
 
 
 def stackX2(*args: Any) -> JSCall:
@@ -2792,7 +2776,7 @@ def stackX2(*args: Any) -> JSCall:
     channel, for example to position a dot on the right-hand side of each element
     of a stack.
     """
-    return JSCall("Plot", "stackX2", args)
+    return JSCall("Plot.stackX2", args)
 
 
 def stackY(*args: Any) -> JSCall:
@@ -2805,7 +2789,7 @@ def stackY(*args: Any) -> JSCall:
     midpoint between **y1** and **y2**, for example to place a label. If not
     specified, the input channel **y** defaults to the constant one.
     """
-    return JSCall("Plot", "stackY", args)
+    return JSCall("Plot.stackY", args)
 
 
 def stackY1(*args: Any) -> JSCall:
@@ -2814,7 +2798,7 @@ def stackY1(*args: Any) -> JSCall:
     channel, for example to position a dot at the bottom of each element of a
     stack.
     """
-    return JSCall("Plot", "stackY1", args)
+    return JSCall("Plot.stackY1", args)
 
 
 def stackY2(*args: Any) -> JSCall:
@@ -2822,7 +2806,7 @@ def stackY2(*args: Any) -> JSCall:
     Like **stackY**, but returns the ending position **y2** as the **y** channel,
     for example to position a dot at the top of each element of a stack.
     """
-    return JSCall("Plot", "stackY2", args)
+    return JSCall("Plot.stackY2", args)
 
 
 def text(
@@ -2974,7 +2958,7 @@ def timeInterval(*args: Any) -> JSCall:
     """
     Given a string *period*, returns a corresponding local time nice interval.
     """
-    return JSCall("Plot", "timeInterval", args)
+    return JSCall("Plot.timeInterval", args)
 
 
 def tip(
@@ -3017,7 +3001,7 @@ def transform(*args: Any) -> JSCall:
     an error if the given *options* define an **initializer**, since mark
     transforms must run before mark initializers.
     """
-    return JSCall("Plot", "transform", args)
+    return JSCall("Plot.transform", args)
 
 
 def tree(
@@ -3075,7 +3059,7 @@ def treeLink(*args: Any) -> JSCall:
     be generated by invoking the **link** method for each link in the tree, being
     passed two node arguments, the child and the parent.
     """
-    return JSCall("Plot", "treeLink", args)
+    return JSCall("Plot.treeLink", args)
 
 
 def treeNode(*args: Any) -> JSCall:
@@ -3099,14 +3083,14 @@ def treeNode(*args: Any) -> JSCall:
     method, a derived output column will be generated by invoking the **node**
     method for each node in the tree.
     """
-    return JSCall("Plot", "treeNode", args)
+    return JSCall("Plot.treeNode", args)
 
 
 def utcInterval(*args: Any) -> JSCall:
     """
     Given a string *period*, returns a corresponding UTC nice interval.
     """
-    return JSCall("Plot", "utcInterval", args)
+    return JSCall("Plot.utcInterval", args)
 
 
 def valueof(*args: Any) -> JSCall:
@@ -3120,7 +3104,7 @@ def valueof(*args: Any) -> JSCall:
     transform or an array that is an instance of the given *type*, the array may
     be returned as-is without making a copy.
     """
-    return JSCall("Plot", "valueof", args)
+    return JSCall("Plot.valueof", args)
 
 
 def vector(
@@ -3337,7 +3321,7 @@ def window(*args: Any) -> JSCall:
 
     If *options* is a number, it is shorthand for the window size **k**.
     """
-    return JSCall("Plot", "window", args)
+    return JSCall("Plot.window", args)
 
 
 def windowX(*args: Any) -> JSCall:
@@ -3353,7 +3337,7 @@ def windowX(*args: Any) -> JSCall:
 
     If *windowOptions* is a number, it is shorthand for the window size **k**.
     """
-    return JSCall("Plot", "windowX", args)
+    return JSCall("Plot.windowX", args)
 
 
 def windowY(*args: Any) -> JSCall:
@@ -3369,4 +3353,4 @@ def windowY(*args: Any) -> JSCall:
 
     If *windowOptions* is a number, it is shorthand for the window size **k**.
     """
-    return JSCall("Plot", "windowY", args)
+    return JSCall("Plot.windowY", args)

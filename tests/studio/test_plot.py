@@ -177,8 +177,7 @@ def test_plot_spec_for_json():
     ps = Plot.new(Plot.dot({"x": xs, "y": ys}), width=100)
     json_data = ps.for_json()
     assert isinstance(json_data, JSCall)
-    assert json_data.module == "View"
-    assert json_data.name == "PlotSpec"
+    assert json_data.path == "PlotSpec"
 
 
 def run_tests():

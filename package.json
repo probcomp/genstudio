@@ -6,14 +6,20 @@
   "author": "Matthew Huebert <mhuebert@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.5.0",
+    "@testing-library/react": "^16.0.1",
     "esbuild": "^0.21.5",
     "esbuild-css-modules-plugin": "^3.1.2",
+    "jsdom": "^25.0.0",
     "npm-run-all": "^4.1.5",
-    "pyright": "^1.1.367"
+    "pyright": "^1.1.367",
+    "vitest": "^2.0.5"
   },
   "dependencies": {
     "@anywidget/react": "^0.0.7",
     "@observablehq/plot": "^0.6.16",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/react-hooks": "^8.0.1",
     "bylight": "^1.0.5",
     "d3": "^7.9.0",
     "htm": "^3.1.1",
@@ -27,6 +33,7 @@
     "watch": "npx esbuild --bundle --watch --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_build.js",
     "docs:watch": "poetry run mkdocs serve",
     "docs:build": "poetry run mkdocs build",
-    "inspect": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --metafile=meta.json --outfile=src/genstudio/js/widget_build.js && open https://esbuild.github.io/analyze/"
+    "inspect": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --metafile=meta.json --outfile=src/genstudio/js/widget_build.js && open https://esbuild.github.io/analyze/",
+    "test:js": "node --experimental-vm-modules node_modules/vitest/vitest.mjs"
   }
 }

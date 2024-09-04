@@ -1,5 +1,7 @@
 import genstudio.plot as Plot
 
+Plot.configure(display_as="widget")
+
 html = Plot.Hiccup
 
 

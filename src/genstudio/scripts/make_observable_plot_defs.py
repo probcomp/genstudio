@@ -92,8 +92,7 @@ def FN_MARK_WITH_OPTIONAL_DATA(*args, **kwargs: Any) -> PlotSpec:
             {
                 "marks": [
                     JSCall(
-                        "Plot",
-                        "FN_MARK_WITH_OPTIONAL_DATA",
+                        "Plot.FN_MARK_WITH_OPTIONAL_DATA",
                         [data, merged_options],
                     )
                 ]
@@ -103,8 +102,7 @@ def FN_MARK_WITH_OPTIONAL_DATA(*args, **kwargs: Any) -> PlotSpec:
         {
             "marks": [
                 JSCall(
-                    "Plot",
-                    "FN_MARK_WITH_OPTIONAL_DATA",
+                    "Plot.FN_MARK_WITH_OPTIONAL_DATA",
                     [{**(options or {}), **kwargs}],
                 )
             ]
@@ -129,7 +127,7 @@ def FN_MARK(
 
 def FN_OTHER(*args: Any) -> JSCall:
     """DOC"""
-    return JSCall("Plot", "FN_OTHER", args)
+    return JSCall("Plot.FN_OTHER", args)
 
 
 sources: Dict[str, Optional[str]] = {
