@@ -1,5 +1,5 @@
 import * as React from "https://cdn.jsdelivr.net/npm/react@18.3.1/+esm";
-import * as ReactDOM from "https://cdn.jsdelivr.net/npm/react-dom/client@18.3.1/+esm";
+import * as ReactDOM from "https://cdn.jsdelivr.net/npm/react-dom@18.3.1/client/+esm";
 import * as AnyWidgetReact from "https://cdn.jsdelivr.net/npm/@anywidget/react@0.0.7/+esm";
 import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.15/+esm";
 import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7.9.0/+esm";

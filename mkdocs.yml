@@ -25,7 +25,9 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.py
   - Animation & Interactivity: animate-interactive.py
-  - HTML with Hiccup: html-hiccup.py
+  - HTML:
+    - Hiccup, an HTML Syntax: html-hiccup.py
+    - Functional CSS with Tachyons: tachyons-classes.md
   - Python Event Loops: python-event-loop.py
   - Compare with Observable Plot: comparison-with-observable.py
   - More Examples:
