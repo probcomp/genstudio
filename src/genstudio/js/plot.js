@@ -1,6 +1,6 @@
 import {Plot, d3, React} from "./imports"
 import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
-import { binding, flatten, html } from "./utils";
+import { binding, flatten, html, tw } from "./utils";
 import {ellipse} from "./ellipse"
 
 const Marks = {...Plot, ellipse: ellipse}
@@ -185,7 +185,7 @@ export function PlotView({ spec, $state, width }) {
         }
     }, [spec, parent, width])
     return html`
-      <div className='relative' ref=${ref}></div>
+      <div className=${tw('relative')} ref=${ref}></div>
     `
 }
 

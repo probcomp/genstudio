@@ -37,9 +37,6 @@
     background-color: white;
 }
 
-.genstudio-container > * {
-    background-color: white;
-}
 .genstudio-container, pre code {
     color: #333333;
 }

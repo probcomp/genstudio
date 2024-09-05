@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { evaluate, evaluateCache, collectReactiveInitialState, useReactiveState, StateProvider, renderData } from '../../src/genstudio/js/widget'
 import { React, Plot, ReactDOM } from '../../src/genstudio/js/imports.npm'
-import { $StateContext } from '../../src/genstudio/js/context'
 import { render, act } from '@testing-library/react'
 
 // Add this at the top of the file

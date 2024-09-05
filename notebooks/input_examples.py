@@ -8,7 +8,7 @@ params = {"q": 1}
 def render():
     return Plot.Hiccup(
         [
-            "div.flex.g4.items-center.f2",
+            "div.flex.gap-4.items-center.text-sm",
             [
                 "input",
                 {

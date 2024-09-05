@@ -1,7 +1,16 @@
-import {React, htm} from "./imports"
+import {React, htm, Twind, presetAutoprefix, presetTailwind, presetTypography} from "./imports"
 const { useState, useEffect } = React
 
-export const html = htm.bind(React.createElement)
+
+const twindConfig = Twind.defineConfig({
+  presets: [presetAutoprefix(), presetTailwind(), presetTypography()],
+})
+
+export const tw = Twind.twind(twindConfig, Twind.cssom())
+export const twInstall = Twind.injectGlobal.bind(tw)
+export const twKeyframes = Twind.keyframes.bind(tw)
+
+export const  html = htm.bind(React.createElement)
 
 export const flatten = (data, dimensions) => {
   let leaves;

@@ -25,9 +25,7 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.py
   - Animation & Interactivity: animate-interactive.py
-  - HTML:
-    - Hiccup, an HTML Syntax: html-hiccup.py
-    - Functional CSS with Tachyons: tachyons-classes.md
+  - HTML with Hiccup: html-hiccup.py
   - Python Event Loops: python-event-loop.py
   - Compare with Observable Plot: comparison-with-observable.py
   - More Examples:
@@ -62,5 +60,6 @@ extra_javascript:
   - https://unpkg.com/bylight/dist/index.global.js
   - js/scroll-fix.js
   - js/bylight.js
+  - https://cdn.twind.style
 hooks:
   - src/genstudio/scripts/css_modifier.py
