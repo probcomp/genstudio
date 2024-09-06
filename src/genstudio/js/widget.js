@@ -1,4 +1,4 @@
-import { WidthContext, CONTAINER_PADDING, $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
+import { WidthContext, EvaluateContext, CONTAINER_PADDING, $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
 import { AnyWidgetReact, React, ReactDOM, Plot, d3 } from "./imports";
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
@@ -34,6 +34,9 @@ function resolveReference(path, obj) {
 export function evaluate(node, cache, $state, experimental) {
   if (node === null || typeof node !== 'object') return node;
   if (Array.isArray(node)) return node.map(item => evaluate(item, cache, $state, experimental));
+  if (node.constructor !== Object) {
+    return node;
+  }
 
   switch (node["__type__"]) {
     case "function":
@@ -42,7 +45,7 @@ export function evaluate(node, cache, $state, experimental) {
         console.error('Function not found', node);
         return null;
       }
-      const args = evaluate(node.args, cache, $state, experimental)
+      const args = fn.macro ? node.args : evaluate(node.args, cache, $state, experimental)
       if (fn.prototype?.constructor === fn) {
         return new fn(...args);
       } else {
@@ -116,16 +119,26 @@ export function StateProvider({ ast, cache, experimental, model }) {
   const stateArray = useReactiveState(ast);
   const [$state] = stateArray;
 
-  const [evaluatedAst, setEvaluatedAst] = useState();
-  const evaluateData = () => {
+
+  // synchronize AST and EVAL
+  // (EVAL is only valid for the current AST, because it depends
+  //  on the current cache)
+  const [{ AST, EVAL }, setAST] = useState({});
+
+
+  const initialize = () => {
     const evaluatedCache = evaluateCache(cache, $state, experimental)
-    const evaluatedAst = evaluate(ast, evaluatedCache, $state, experimental)
-    setEvaluatedAst(evaluatedAst)
+    setAST(() => {
+      return {
+        AST: ast,
+        EVAL: (ast) => evaluate(ast, evaluatedCache, $state, experimental)
+      }
+    })
   }
-  useEffect(evaluateData, [ast, cache, $state, experimental]);
+
+  useEffect(() => initialize(cache), [ast, cache, $state, experimental]);
 
   useEffect(() => {
-
     const cb = (msg) => {
       if (msg.type === 'update_cache') {
         const updates = evaluate(JSON.parse(msg.updates), cache, $state, experimental);
@@ -145,18 +158,23 @@ export function StateProvider({ ast, cache, experimental, model }) {
           }
           cache[id] = nextValue
         }
-        evaluateData()
+        initialize()
       }
     }
     model?.on("msg:custom", cb);
     return () => model?.off("msg:custom", cb)
   }, [cache, model])
 
-  if (!evaluatedAst) return;
+
+
+  if (!AST) return;
+
   return html`
     <${$StateContext.Provider} value=${stateArray}>
-      <${api.Node} value=${evaluatedAst} />
-    </>
+      <${EvaluateContext.Provider} value=${EVAL}>
+        <${api.Node} value=${AST} />
+      </${EvaluateContext.Provider}>
+    </${$StateContext.Provider}>
   `;
 }
 

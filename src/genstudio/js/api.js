@@ -1,4 +1,4 @@
-import { $StateContext, WidthContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
+import { $StateContext, EvaluateContext, WidthContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { MarkSpec, PlotSpec } from "./plot";
 import { html } from "./utils";
 import { Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
@@ -91,6 +91,7 @@ export function clamp(value, min, max) {
 
 export class Reactive {
     constructor(data) {
+
         let { init, range, rangeFrom, tail, step } = data;
 
         if (init === undefined && rangeFrom === undefined && range === undefined) {
@@ -236,20 +237,36 @@ export function Column({ children, ...props }) {
 }
 
 export function Node({ value }) {
+    const evaluate = useContext(EvaluateContext)
     if (Array.isArray(value)) {
-        return (['string', 'function'].includes(typeof value[0])) ? Hiccup(...value) : Hiccup("div", ...value);
-    } else if (typeof value === 'object' && value !== null && 'render' in value) {
-        return value.render();
+        const [element, ...args] = value
+        const maybeElement = element && evaluate(element)
+        const elementType = typeof maybeElement
+
+        if (elementType === 'string' || elementType === 'function') {
+            return Hiccup(maybeElement, ...args)
+        } else {
+            return html`<${React.Fragment} children=${value.map(item =>
+                typeof item !== 'object' || item === null ? item : html`<${Node} value=${item} />`
+            )} />`;
+        }
+    }
+    const evaluatedValue = evaluate(value)
+    if ( typeof evaluatedValue === 'object' && evaluatedValue !== null && 'render' in evaluatedValue) {
+        return evaluatedValue.render();
     } else {
-        return value;
+        return evaluatedValue;
     }
 }
 
 export function Hiccup(tag, props, ...children) {
-    if (props?.constructor !== Object) {
+    const evaluate = useContext(EvaluateContext)
+
+    if (props?.constructor !== Object || props.__type__) {
         children.unshift(props);
         props = {};
     }
+    props = evaluate(props)
 
     if (props.class) {
         props.className = props.class;
@@ -272,12 +289,11 @@ export function Hiccup(tag, props, ...children) {
         }
     }
 
+    if (props.className) {
+        props.className = tw(props.className)
+    }
 
-    return baseTag instanceof PlotSpec
-        ? baseTag.render()
-        : children.length > 0
-            ? html`<${baseTag} ...${props}>
-          ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
-        </>`
-            : html`<${baseTag} ...${props} />`;
+    return html`<${baseTag} ...${props}>
+        ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
+    </>`
 }

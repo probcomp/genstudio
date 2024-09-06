@@ -730,7 +730,9 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
 _Reactive = JSRef("Reactive")
 
 
-def Reactive(key, init=None, fps=None, range=None, tail=None, step=1, **kwargs):
+def Reactive(
+    key, init=None, fps=None, range=None, rangeFrom=None, tail=None, step=1, **kwargs
+):
     """
     Initializes a reactive variable.
     """
@@ -740,6 +742,7 @@ def Reactive(key, init=None, fps=None, range=None, tail=None, step=1, **kwargs):
             "init": init,
             "fps": fps,
             "range": range,
+            "rangeFrom": rangeFrom,
             "step": step,
             "tail": tail,
             **kwargs,
