@@ -1,7 +1,7 @@
 import { $StateContext, EvaluateContext, WidthContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { MarkSpec, PlotSpec } from "./plot";
 import { html } from "./utils";
-import { Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
+import { Plot, d3, MarkdownIt, React, ReactDOM, mobxReact } from "./imports";
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 import bylight from "bylight";
 import { tw } from "./utils";
@@ -21,7 +21,7 @@ export function md(text) {
 
 export function ReactiveSlider(options) {
     let { state_key, fps, label, step = 1, loop = true, tail, rangeMin, rangeMax } = options;
-    const [$state, set$state] = useContext($StateContext);
+    const $state = useContext($StateContext);
     const availableWidth = useContext(WidthContext);
     const isAnimated = typeof fps === 'number' && fps > 0;
     const [isPlaying, setIsPlaying] = useState(isAnimated);
@@ -53,7 +53,7 @@ export function ReactiveSlider(options) {
     const handleSliderChange = useCallback((value) => {
         setIsPlaying(false);
         $state[state_key] = Number(value);
-    }, [set$state, state_key]);
+    }, [$state, state_key]);
 
     const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
     if (options.kind !== 'Slider') return;
@@ -134,7 +134,7 @@ const pauseIcon = html`<svg viewBox="0 24 24" width="24" height="24"><path fill=
 
 export function Frames(props) {
     const { state_key, frames } = props
-    const [$state] = useContext($StateContext);
+    const $state = useContext($StateContext);
     if (!Array.isArray(frames)) {
         return html`<div className=${tw("text-red-500")}>Error: 'frames' must be an array.</div>`;
     }
@@ -148,7 +148,7 @@ export function Frames(props) {
 }
 
 export class Bylight {
-    constructor(source, patterns, props={}) {
+    constructor(source, patterns, props = {}) {
         this.patterns = patterns;
         this.source = source;
         this.props = props;
@@ -231,33 +231,39 @@ export function Row({ children, ...props }) {
 export function Column({ children, ...props }) {
     return html`
     <div ...${props} className=${tw("flex flex-col")}>
-      ${children}
+    ${React.Children.map(children, (child, index) => html`
+        <div key=${index}>
+          ${child}
+        </div>
+      `)}
     </div>
   `;
 }
 
-export function Node({ value }) {
-    const evaluate = useContext(EvaluateContext)
-    if (Array.isArray(value)) {
-        const [element, ...args] = value
-        const maybeElement = element && evaluate(element)
-        const elementType = typeof maybeElement
+export const Node = mobxReact.observer(
+    function ({ value }) {
+        const evaluate = useContext(EvaluateContext)
+        if (Array.isArray(value)) {
+            const [element, ...args] = value
+            const maybeElement = element && evaluate(element)
+            const elementType = typeof maybeElement
 
-        if (elementType === 'string' || elementType === 'function') {
-            return Hiccup(maybeElement, ...args)
+            if (elementType === 'string' || elementType === 'function') {
+                return Hiccup(maybeElement, ...args)
+            } else {
+                return html`<${React.Fragment} children=${value.map(item =>
+                    typeof item !== 'object' || item === null ? item : html`<${Node} value=${item} />`
+                )} />`;
+            }
+        }
+        const evaluatedValue = evaluate(value)
+        if (typeof evaluatedValue === 'object' && evaluatedValue !== null && 'render' in evaluatedValue) {
+            return evaluatedValue.render();
         } else {
-            return html`<${React.Fragment} children=${value.map(item =>
-                typeof item !== 'object' || item === null ? item : html`<${Node} value=${item} />`
-            )} />`;
+            return evaluatedValue;
         }
     }
-    const evaluatedValue = evaluate(value)
-    if ( typeof evaluatedValue === 'object' && evaluatedValue !== null && 'render' in evaluatedValue) {
-        return evaluatedValue.render();
-    } else {
-        return evaluatedValue;
-    }
-}
+)
 
 export function Hiccup(tag, props, ...children) {
     const evaluate = useContext(EvaluateContext)

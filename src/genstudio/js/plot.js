@@ -15,7 +15,7 @@ const PER_MARK_DEFAULTS = {
 };
 
 export function PlotWrapper({spec}) {
-    const [$state] = React.useContext($StateContext)
+    const $state = React.useContext($StateContext)
     const availableWidth = React.useContext(WidthContext)
     spec = prepareSpec(spec, spec.width ?? availableWidth)
     // if (!spec.height && !spec.aspectRatio){

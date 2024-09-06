@@ -112,8 +112,8 @@ describe('Widget', () => {
       }
       render(<TestHook />);
       expect(result).toBeDefined();
-      const [state] = result;
-      expect(state).toEqual({ count: 0 });
+      const $state = result;
+      expect($state.count).toEqual(0);
     })
 
     it('should update state correctly', async () => {
@@ -128,12 +128,12 @@ describe('Widget', () => {
         return null;
       }
       render(<TestHook />);
-      const [, setState] = result;
+      const $state = result;
       await act(async () => {
-        setState(prevState => ({ ...prevState, count: 1 }));
+        $state.count = 1;
       });
-      const [updatedState] = result;
-      expect(updatedState).toEqual({ count: 1 })
+
+      expect($state.count).toEqual(1)
     })
   })
 

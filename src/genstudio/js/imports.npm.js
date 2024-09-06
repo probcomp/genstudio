@@ -9,5 +9,22 @@ import * as Twind from "@twind/core";
 import presetTailwind from "@twind/preset-tailwind";
 import presetAutoprefix from "@twind/preset-autoprefix";
 import presetTypography from "@twind/preset-typography";
+import * as mobx from "mobx";
+import * as mobxReact from "mobx-react-lite";
 
-export { AnyWidgetReact, MarkdownIt, Plot, React, ReactDOM, d3, htm, Twind, presetAutoprefix, presetTailwind, presetTypography }
+
+export {
+    AnyWidgetReact,
+    MarkdownIt,
+    Plot,
+    React,
+    ReactDOM,
+    d3,
+    htm,
+    Twind,
+    presetTailwind,
+    presetAutoprefix,
+    presetTypography,
+    mobx,
+    mobxReact
+}

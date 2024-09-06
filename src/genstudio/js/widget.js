@@ -1,6 +1,6 @@
 import { WidthContext, EvaluateContext, CONTAINER_PADDING, $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
-import { AnyWidgetReact, React, ReactDOM, Plot, d3 } from "./imports";
+import { AnyWidgetReact, React, ReactDOM, Plot, d3, mobx, mobxReact } from "./imports";
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;
 import * as api from "./api";
@@ -99,84 +99,89 @@ export function evaluateCache(cache, $state, experimental) {
 
 export function useReactiveState(ast) {
   const initialState = useMemo(() => collectReactiveInitialState(ast), [ast]);
-  const [state, setState] = useState(initialState);
-  const initialStateKeys = useMemo(() => Object.keys(initialState).sort().join(','), [initialState]);
-  useEffect(() => setState(initialState), [initialStateKeys]);
-  const stateProxy = new Proxy(state, {
-    set(_, prop, value) {
-      setState(prevState => ({
-        ...prevState,
-        [prop]: typeof value === 'function' ? value(prevState[prop]) : value
-      }));
-      return true;
-    }
-  });
 
-  return useMemo(() => [stateProxy, setState], [state]);
+  const initialStateKeys = useMemo(() => Object.keys(initialState).sort().join(','), [initialState]);
+
+  const stateStore = useMemo(() => {
+
+    const store = mobx.observable(initialState)
+    return new Proxy(store, {
+      set: mobx.action((target, prop, value) => {
+        if (typeof value === 'function') {
+          target[prop] = value(target[prop]);
+        } else {
+          target[prop] = value;
+        }
+        return true;
+      })
+    })
+  }, [initialStateKeys])
+
+  return stateStore
 }
 
-export function StateProvider({ ast, cache, experimental, model }) {
-  const stateArray = useReactiveState(ast);
-  const [$state] = stateArray;
+export const StateProvider = mobxReact.observer(
+  function ({ ast, cache, experimental, model }) {
+    const $state = useReactiveState(ast);
+
+    // synchronize AST and EVAL
+    // (EVAL is only valid for the current AST, because it depends
+    //  on the current cache)
+    const [{ AST, EVAL }, setAST] = useState({});
 
 
-  // synchronize AST and EVAL
-  // (EVAL is only valid for the current AST, because it depends
-  //  on the current cache)
-  const [{ AST, EVAL }, setAST] = useState({});
-
-
-  const initialize = () => {
-    const evaluatedCache = evaluateCache(cache, $state, experimental)
-    setAST(() => {
-      return {
-        AST: ast,
-        EVAL: (ast) => evaluate(ast, evaluatedCache, $state, experimental)
-      }
-    })
-  }
-
-  useEffect(() => initialize(cache), [ast, cache, $state, experimental]);
-
-  useEffect(() => {
-    const cb = (msg) => {
-      if (msg.type === 'update_cache') {
-        const updates = evaluate(JSON.parse(msg.updates), cache, $state, experimental);
-        for (const [id, operation, payload] of updates) {
-          const prevValue = cache[id];
-          let nextValue;
-          switch (operation) {
-            case "append":
-              nextValue = [...prevValue, payload];
-              break;
-            case "concat":
-              nextValue = [...prevValue, ...payload];
-              break;
-            case "reset":
-              nextValue = payload;
-              break;
-          }
-          cache[id] = nextValue
+    const initialize = () => {
+      const evaluatedCache = evaluateCache(cache, $state, experimental)
+      setAST(() => {
+        return {
+          AST: ast,
+          EVAL: (ast) => evaluate(ast, evaluatedCache, $state, experimental)
         }
-        initialize()
-      }
+      })
     }
-    model?.on("msg:custom", cb);
-    return () => model?.off("msg:custom", cb)
-  }, [cache, model])
+
+    useEffect(() => initialize(cache), [ast, cache, $state, experimental]);
+
+    useEffect(() => {
+      const cb = (msg) => {
+        if (msg.type === 'update_cache') {
+          const updates = evaluate(JSON.parse(msg.updates), cache, $state, experimental);
+          for (const [id, operation, payload] of updates) {
+            const prevValue = cache[id];
+            let nextValue;
+            switch (operation) {
+              case "append":
+                nextValue = [...prevValue, payload];
+                break;
+              case "concat":
+                nextValue = [...prevValue, ...payload];
+                break;
+              case "reset":
+                nextValue = payload;
+                break;
+            }
+            cache[id] = nextValue
+          }
+          initialize()
+        }
+      }
+      model?.on("msg:custom", cb);
+      return () => model?.off("msg:custom", cb)
+    }, [cache, model])
 
 
 
-  if (!AST) return;
+    if (!AST) return;
 
-  return html`
-    <${$StateContext.Provider} value=${stateArray}>
+    return html`
+    <${$StateContext.Provider} value=${$state}>
       <${EvaluateContext.Provider} value=${EVAL}>
         <${api.Node} value=${AST} />
       </${EvaluateContext.Provider}>
     </${$StateContext.Provider}>
   `;
-}
+  }
+)
 
 function DataViewer(data) {
   const [el, setEl] = useState();
