@@ -1,4 +1,4 @@
-import {Plot, d3, React} from "./imports"
+import {Plot, d3, React, mobx} from "./imports"
 import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { binding, flatten, html, tw } from "./utils";
 import {ellipse} from "./ellipse"
@@ -170,24 +170,28 @@ export function readMark(mark, width) {
     return [mark, ...extraMarks]
 }
 
-export function PlotView({ spec, $state, width }) {
-    const [parent, setParent] = React.useState(null)
-    const ref = React.useCallback(setParent)
-    useEffect(() => {
-        if (parent) {
-            const startTime = performance.now();
-            const plot = binding("$state", $state, () => Plot.plot(spec));
-            const endTime = performance.now();
-            plot.setAttribute('data-render-time-ms', `${endTime - startTime}`);
-            parent.appendChild(plot)
+export function PlotView ({ spec, $state, width }) {
+        const [parent, setParent] = React.useState(null)
+        const ref = React.useCallback(setParent)
+        useEffect(() => {
+            if (parent) {
+                return mobx.autorun(
+                    () => {
+                        const startTime = performance.now();
+                        const plot = binding("$state", $state, () => Plot.plot(spec));
+                        const endTime = performance.now();
+                        plot.setAttribute('data-render-time-ms', `${endTime - startTime}`);
+                        parent.innerHTML = '';
+                        parent.appendChild(plot)    ;
+                    }
+                )
+            }
+        }, [spec, parent, width])
+        return html`
+          <div className=${tw('relative')} ref=${ref}></div>
+        `
+    }
 
-            return () => parent.removeChild(plot);
-        }
-    }, [spec, parent, width])
-    return html`
-      <div className=${tw('relative')} ref=${ref}></div>
-    `
-}
 
 function prepareSpec(spec, availableWidth) {
     if (!spec.height) spec.width = spec.width ?? availableWidth;

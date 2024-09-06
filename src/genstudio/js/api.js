@@ -243,6 +243,7 @@ export function Column({ children, ...props }) {
 export const Node = mobxReact.observer(
     function ({ value }) {
         const evaluate = useContext(EvaluateContext)
+        value = evaluate.resolveCached(value)
         if (Array.isArray(value)) {
             const [element, ...args] = value
             const maybeElement = element && evaluate(element)
@@ -299,7 +300,9 @@ export function Hiccup(tag, props, ...children) {
         props.className = tw(props.className)
     }
 
-    return html`<${baseTag} ...${props}>
-        ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
-    </>`
+    return children.length > 0
+        ? html`<${baseTag} ...${props}>
+            ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
+          </>`
+        : html`<${baseTag} ...${props} />`;
 }

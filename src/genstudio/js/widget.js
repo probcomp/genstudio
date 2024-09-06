@@ -31,7 +31,15 @@ function resolveReference(path, obj) {
   return path.split('.').reduce((acc, key) => acc[key], obj);
 }
 
+function resolveCached(node, cache) {
+  if (node && typeof node === 'object' && node["__type__"] === "cached") {
+    return cache.get(node.id);
+  }
+  return node;
+}
+
 export function evaluate(node, cache, $state, experimental) {
+
   if (node === null || typeof node !== 'object') return node;
   if (Array.isArray(node)) return node.map(item => evaluate(item, cache, $state, experimental));
   if (node.constructor !== Object) {
@@ -58,7 +66,7 @@ export function evaluate(node, cache, $state, experimental) {
     case "datetime":
       return new Date(node.value);
     case "cached":
-      return cache[node.id];
+      return cache.get(node.id);
     case "callback":
       if (experimental) {
         return (e) => experimental.invoke("handle_callback", { id: node.id, event: serializeEvent(e) });
@@ -72,40 +80,12 @@ export function evaluate(node, cache, $state, experimental) {
   }
 }
 
-export function evaluateCache(cache, $state, experimental) {
-  const evaluatedCache = {};
-  const evaluating = new Set();
-
-  function evaluateCacheEntry(key) {
-    if (key in evaluatedCache) return evaluatedCache[key];
-    if (evaluating.has(key)) {
-      console.warn(`Circular reference detected in cache for key: ${key}`);
-      return undefined;
-    }
-
-    evaluating.add(key);
-    const result = evaluate(cache[key], evaluatedCache, $state, experimental);
-    evaluating.delete(key);
-    evaluatedCache[key] = result;
-    return result;
-  }
-
-  for (const key in cache) {
-    evaluateCacheEntry(key);
-  }
-
-  return evaluatedCache;
-}
-
-export function useReactiveState(ast) {
+export function useStateStore(ast) {
   const initialState = useMemo(() => collectReactiveInitialState(ast), [ast]);
 
-  const initialStateKeys = useMemo(() => Object.keys(initialState).sort().join(','), [initialState]);
-
-  const stateStore = useMemo(() => {
-
-    const store = mobx.observable(initialState)
-    return new Proxy(store, {
+  const store = useMemo(() => {
+    const state = mobx.observable(initialState);
+    return new Proxy(state, {
       set: mobx.action((target, prop, value) => {
         if (typeof value === 'function') {
           target[prop] = value(target[prop]);
@@ -114,69 +94,89 @@ export function useReactiveState(ast) {
         }
         return true;
       })
-    })
-  }, [initialStateKeys])
+    });
+  }, []);
 
-  return stateStore
+  useEffect(() => {
+    mobx.action(() => {
+      Object.keys(initialState).forEach(key => {
+        if (!(key in store)) {
+          store[key] = initialState[key];
+        }
+      });
+    })
+  }, [initialState])
+
+  return store
+}
+
+function createCacheStore(initialCache, $state, experimental) {
+  const store = {
+    initialCache,
+    updates: mobx.observable.map({}),
+    $state,
+    experimental,
+    evaluate: function(ast) {
+      return evaluate(ast, this, $state, experimental);
+    },
+    computedCache: {},
+    get: function (key) {
+      return this.computedCache[key].get();
+    },
+    addUpdates: mobx.action(updates => {
+      for (const update of updates) {
+        const [id, operation, payload] = update;
+        const currentUpdates = store.updates.get(id) || [];
+        store.updates.set(id, [...currentUpdates, [operation, payload]]);
+      }
+    })
+  };
+  for (const [key, initialValue] of Object.entries(store.initialCache)) {
+    store.computedCache[key] = mobx.computed(() => {
+      let value = store.evaluate(initialValue)
+      const updatesList = store.updates.get(key) || [];
+      for (const [operation, payload] of updatesList) {
+        switch (operation) {
+          case "append":
+            value = [...value, store.evaluate(payload)];
+            break;
+          case "concat":
+            value = [...value, ...store.evaluate(payload)];
+            break;
+          case "reset":
+            value = store.evaluate(payload);
+            break;
+        }
+      }
+      return value;
+    });
+  }
+
+  return store;
 }
 
 export const StateProvider = mobxReact.observer(
   function ({ ast, cache, experimental, model }) {
-    const $state = useReactiveState(ast);
-
-    // synchronize AST and EVAL
-    // (EVAL is only valid for the current AST, because it depends
-    //  on the current cache)
-    const [{ AST, EVAL }, setAST] = useState({});
-
-
-    const initialize = () => {
-      const evaluatedCache = evaluateCache(cache, $state, experimental)
-      setAST(() => {
-        return {
-          AST: ast,
-          EVAL: (ast) => evaluate(ast, evaluatedCache, $state, experimental)
-        }
-      })
-    }
-
-    useEffect(() => initialize(cache), [ast, cache, $state, experimental]);
+    const $state = useStateStore(ast);
+    const $cache = useMemo(() => createCacheStore(cache, $state, experimental), [cache])
+    const EVAL = useCallback((ast) => evaluate(ast, $cache, $state, experimental),
+      [$cache, $state, experimental])
+    EVAL.resolveCached = (node) => resolveCached(node, $cache)
 
     useEffect(() => {
       const cb = (msg) => {
         if (msg.type === 'update_cache') {
-          const updates = evaluate(JSON.parse(msg.updates), cache, $state, experimental);
-          for (const [id, operation, payload] of updates) {
-            const prevValue = cache[id];
-            let nextValue;
-            switch (operation) {
-              case "append":
-                nextValue = [...prevValue, payload];
-                break;
-              case "concat":
-                nextValue = [...prevValue, ...payload];
-                break;
-              case "reset":
-                nextValue = payload;
-                break;
-            }
-            cache[id] = nextValue
-          }
-          initialize()
+          $cache.addUpdates(JSON.parse(msg.updates))
         }
       }
       model?.on("msg:custom", cb);
       return () => model?.off("msg:custom", cb)
     }, [cache, model])
 
-
-
-    if (!AST) return;
-
     return html`
     <${$StateContext.Provider} value=${$state}>
       <${EvaluateContext.Provider} value=${EVAL}>
-        <${api.Node} value=${AST} />
+        <${api.Node} value=${ast} />
       </${EvaluateContext.Provider}>
     </${$StateContext.Provider}>
   `;
