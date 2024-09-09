@@ -62,7 +62,7 @@ export function evaluate(node, cache, $state, experimental) {
     case "ref":
       return resolveReference(node.path, api);
     case "js":
-      return (new Function('$state', 'd3', 'Plot', `return ${node.value}`))($state, d3, Plot);
+      return (new Function('$state', "$cache", 'd3', 'Plot', `return ${node.value}`))($state, cache, d3, Plot);
     case "datetime":
       return new Date(node.value);
     case "cached":
@@ -110,6 +110,20 @@ export function useStateStore(ast) {
   return store
 }
 
+function applyOperation(cacheStore, initialValue, operation, payload) {
+  const evaluatedPayload = cacheStore.evaluate(payload);
+  switch (operation) {
+    case "append":
+      return [...initialValue, evaluatedPayload];
+    case "concat":
+      return [...initialValue, ...evaluatedPayload];
+    case "reset":
+      return evaluatedPayload;
+    default:
+      throw new Error(`Unknown operation: ${operation}`);
+  }
+}
+
 function createCacheStore(initialCache, $state, experimental) {
   const store = {
     initialCache,
@@ -122,35 +136,29 @@ function createCacheStore(initialCache, $state, experimental) {
     computedCache: {},
     get: function (key) {
       return this.computedCache[key].get();
-    },
-    addUpdates: mobx.action(updates => {
-      for (const update of updates) {
-        const [id, operation, payload] = update;
+    }
+  };
+
+  for (const [key, initialValue] of Object.entries(store.initialCache)) {
+    store.computedCache[key] = mobx.computed(() => {
+      const updatesList = store.updates.get(key) || [];
+      return updatesList.reduce((acc, [operation, payload]) =>
+        applyOperation(store, acc, operation, payload), store.evaluate(initialValue));
+    });
+  }
+
+  store.addUpdates = mobx.action(updates => {
+    for (const update of updates) {
+      const [id, operation, payload] = update;
+      if (id.startsWith("$state")) {
+        const key = id.slice(7)
+        $state[key] = (prevValue) => applyOperation(store, prevValue, operation, payload)
+      } else {
         const currentUpdates = store.updates.get(id) || [];
         store.updates.set(id, [...currentUpdates, [operation, payload]]);
       }
-    })
-  };
-  for (const [key, initialValue] of Object.entries(store.initialCache)) {
-    store.computedCache[key] = mobx.computed(() => {
-      let value = store.evaluate(initialValue)
-      const updatesList = store.updates.get(key) || [];
-      for (const [operation, payload] of updatesList) {
-        switch (operation) {
-          case "append":
-            value = [...value, store.evaluate(payload)];
-            break;
-          case "concat":
-            value = [...value, ...store.evaluate(payload)];
-            break;
-          case "reset":
-            value = store.evaluate(payload);
-            break;
-        }
-      }
-      return value;
-    });
-  }
+    }
+  })
 
   return store;
 }

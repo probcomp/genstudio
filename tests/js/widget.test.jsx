@@ -68,36 +68,6 @@ describe('Widget', () => {
     })
   })
 
-  // describe('evaluateCache', () => {
-  //   it('should evaluate cache entries', () => {
-  //     const cache = {
-  //       key1: { __type__: 'js', value: '1 + 1' },
-  //       key2: { __type__: 'js', value: '$state.value * 2' }
-  //     }
-  //     const $state = { value: 3 }
-
-  //     const evaluatedCache = evaluateCache(cache, $state, null)
-  //     expect(evaluatedCache).toEqual({
-  //       key1: 2,
-  //       key2: 6
-  //     })
-  //   })
-
-  //   it('should handle circular references', () => {
-  //     const cache = {
-  //       key1: { __type__: 'js', value: '$state.key2' },
-  //       key2: { __type__: 'js', value: '$state.key1' }
-  //     }
-  //     const $state = { key1: 1, key2: 2 }
-
-  //     const evaluatedCache = evaluateCache(cache, $state, null)
-  //     expect(evaluatedCache).toEqual({
-  //       key1: 2,
-  //       key2: 1
-  //     })
-  //   })
-  // })
-
   describe('useStateStore', () => {
     it('should initialize state correctly', () => {
       const ast = {
@@ -169,12 +139,62 @@ describe('Widget', () => {
 
       expect(container.innerHTML).toContain('Count: 0');
     });
+
+    it('should update cache and $state simultaneously', async () => {
+      const ast = {
+        __type__: 'function',
+        path: 'Hiccup',
+        args: [
+          "div",
+          {
+            __type__: 'function',
+            path: 'Reactive',
+            args: [{ state_key: 'count', init: 0 }]
+          },
+          {
+            __type__: 'function',
+            path: 'md',
+            args: [{
+              __type__: 'js',
+              value: '`Count: ${$state.count}, Cached: ${$cache.get("testKey")}`'
+            }]
+          }
+        ]
+      };
+      const cache = { testKey: 'initial' };
+      const experimental = null;
+      const model = {
+        on: vi.fn(),
+        off: vi.fn(),
+        trigger: vi.fn()
+      };
+
+      const { container } = render(
+        <StateProvider ast={ast} cache={cache} experimental={experimental} model={model} />
+      );
+
+      expect(container.innerHTML).toContain('Count: 0, Cached: initial');
+
+      // Simulate updating both cache and $state
+      await act(async () => {
+        const updateMsg = {
+          type: 'update_cache',
+          updates: JSON.stringify([
+            ['testKey', 'reset', 'updated'],
+            ['$state.count', 'reset', 1]
+          ])
+        };
+        model.on.mock.calls[0][1](updateMsg);
+      });
+
+      expect(container.innerHTML).toContain('Count: 1, Cached: updated');
+    });
   });
 
   describe('renderData', () => {
     it('should render data correctly', async () => {
       const container = document.createElement('div')
-      const data = { ast: { __type__: 'function', path: 'md', args: ['# Test'] } }
+      const data = { ast: { __type__: 'function', path: 'md', args: ['# Test'] }, cache: {} }
 
       await act(async () => {
         renderData(container, data)
