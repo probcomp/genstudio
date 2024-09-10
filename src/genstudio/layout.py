@@ -142,14 +142,18 @@ class LayoutItem:
         Args:
             new_item: A LayoutItem to reset to.
         """
-        display_as = self._display_as or CONFIG["display_as"]
-        if display_as != "widget":
-            print(
-                "Warning: Resetting a non-widget LayoutItem. This will not update the display."
+        if self._html is not None:
+            raise ValueError(
+                "Cannot reset an HTML widget. Use display_as='widget' or foo.widget() to create a resettable widget."
             )
-        new_ast = other.for_json()
-        self.widget().set_ast(new_ast)
-        self.html().set_ast(new_ast)
+        self.widget().set_ast(other.for_json())
+
+    def update_cache(self, *updates):
+        if self._html is not None:
+            raise ValueError(
+                "Cannot reset an HTML widget. Use display_as='widget' or foo.widget() to create a resettable widget."
+            )
+        self.widget().update_cache(*updates)
 
 
 class JSCall(LayoutItem):
@@ -280,8 +284,8 @@ def unwrap_for_json(x):
 
 
 class CachedObject(LayoutItem):
-    def __init__(self, value):
-        self.id = str(uuid.uuid1())
+    def __init__(self, value, id=None):
+        self.id = str(uuid.uuid1()) if id is None else id
         self.value = value
 
     def cache_id(self):
@@ -296,7 +300,22 @@ class CachedObject(LayoutItem):
         return super()._repr_mimebundle_(**kwargs)
 
 
-def cache(value: Any) -> CachedObject:
-    if isinstance(value, CachedObject):
+def cache(value: Any, id=None) -> CachedObject:
+    if id is None and isinstance(value, CachedObject):
         return value
-    return CachedObject(value)
+    return CachedObject(value, id=id)
+
+
+def unwrap_cached(obj: Any) -> Any:
+    """
+    Unwraps a CachedObject if the input is one.
+
+    Args:
+        obj (Any): The object to unwrap.
+
+    Returns:
+        Any: The unwrapped object if input was a CachedObject, otherwise the input object.
+    """
+    if isinstance(obj, CachedObject):
+        return obj.value
+    return obj

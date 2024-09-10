@@ -96,12 +96,16 @@ def show_shapes(color):
 
 show_shapes("blue")
 
+# %% tags=["hide_source"]
+Plot.html(
+    "div.bg-black.text-white.p-3",
+    """NOTE: The following examples depend on communication with a python backend, and will not be interactive on the docs website.""",
+)
+
 # %% [markdown]
 # ## Reactive Variable Lifecycle
 #
-# > **Note:** this section will only work in a live jupyter session because it depends on python/JavaScript communication.
-#
-# When using the widget display mode, we can reset the contents of a plot in-place. Reactive variables _maintain their current values_ even when a plot is reset, unless the number or names of the reactive values change.
+# When using the widget display mode, we can reset the contents of a plot in-place. Reactive variables _maintain their current values_ even when a plot is reset.
 #
 # This allows us to update an in-progress animation without restarting the animation:
 
@@ -123,3 +127,55 @@ while time.time() - start_time < duration:
         )
     )
     time.sleep(0.2)
+
+# %% [markdown]
+# ## Append data to a running animation
+#
+# We can refer to the same value more than once in a plot by wrapping it in `Plot.cache`. The value will only be serialized once.
+# Plot marks are automatically cached in this way.
+#
+# Later, we can modify cached values and affected views will re-render. To do so, we call the `update_cache` method of the layout, and pass it any number of `[cached_object, operation, value]` lists.
+# %%
+numbers = Plot.cache([1, 2, 3])
+view = Plot.html("div", numbers).display_as("widget")
+view
+
+# %%
+
+view.update_cache([numbers, "append", 4])
+
+# %% [markdown]
+
+# There are three supported operations:
+# - `"reset"` for replacing the entire value,
+# - `"append"` for adding a single value to a list,
+# - `"concat"` for adding multiple values to a list.
+
+# If multiple updates are provided, they are applied synchronously.
+
+# One can update `$state` values by specifying the full name of the variable in the first position, eg. `view.update_cache(["$state.foo", "reset", "bar"])`.
+
+# %% [markdown]
+# ## Use `tail` with `rangeFrom` to continuously animate data while it is added
+# When animating using `Plot.Frames` or `Plot.Slider`, the range of the slider can be set dynamically by passing a reference to a list as a `rangeFrom` parameter. If the `tail` option is `True`, the animation will pause at the end of the range, then continue when more data is added to the list.
+
+# %%
+import genstudio.plot as Plot
+
+numbers = Plot.cache([1, 2, 3])
+tailedFrames = Plot.Frames(numbers, fps=1, tail=True, slider=False) | Plot.html(numbers)
+tailedFrames
+
+# %%
+tailedFrames.update_cache([numbers, "concat", [7, 8, 9]])
+
+# %%
+tailedSlider = (
+    Plot.Slider("n", fps=1, rangeFrom=numbers, tail=True, visible=False)
+    | Plot.js(f"$state.cached('{numbers.id}').toString()")
+    | Plot.js(f"$state.cached('{numbers.id}')[$state.n]")
+).display_as("widget")
+tailedSlider
+
+# %%
+tailedSlider.update_cache([numbers, "concat", [4, 5, 6]])

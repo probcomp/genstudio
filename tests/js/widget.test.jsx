@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { evaluate, evaluateCache, collectReactiveInitialState, useStateStore, StateProvider, renderData } from '../../src/genstudio/js/widget'
+import { evaluate, createStateStore, StateProvider, renderData } from '../../src/genstudio/js/widget'
 import { React, Plot, ReactDOM } from '../../src/genstudio/js/imports.npm'
 import { render, act } from '@testing-library/react'
 
@@ -13,18 +13,6 @@ afterEach(() => {
 })
 
 describe('Widget', () => {
-  describe('collectReactiveInitialState', () => {
-    it('should collect initial state from Reactive components', () => {
-      const ast = {
-        __type__: 'function',
-        path: 'Reactive',
-        args: [{ state_key: 'testKey', init: 5 }]
-      }
-
-      const initialState = collectReactiveInitialState(ast)
-      expect(initialState).toEqual({ testKey: 5 })
-    })
-  })
 
   describe('evaluate', () => {
     it('should evaluate a simple ast', () => {
@@ -34,7 +22,7 @@ describe('Widget', () => {
         args: ['# Hello, World!']
       }
 
-      const result = evaluate(ast, {}, {}, null)
+      const result = evaluate(ast, {}, null)
       expect(result).toBeDefined()
       expect(React.isValidElement(result)).toBe(true)
     })
@@ -70,14 +58,10 @@ describe('Widget', () => {
 
   describe('useStateStore', () => {
     it('should initialize state correctly', () => {
-      const ast = {
-        __type__: 'function',
-        path: 'Reactive',
-        args: [{ state_key: 'count', init: 0 }]
-      }
+      const init = {"$state.count": 0}
       let result;
       function TestHook() {
-        result = useStateStore(ast);
+        result = createStateStore(init);
         return null;
       }
       render(<TestHook />);
@@ -94,7 +78,7 @@ describe('Widget', () => {
       }
       let result;
       function TestHook() {
-        result = useStateStore(ast);
+        result = createStateStore(ast);
         return null;
       }
       render(<TestHook />);
@@ -116,11 +100,6 @@ describe('Widget', () => {
           "div",
           {
             __type__: 'function',
-            path: 'Reactive',
-            args: [{ state_key: 'count', init: 0 }]
-          },
-          {
-            __type__: 'function',
             path: 'md',
             args: [{
               __type__: 'js',
@@ -129,7 +108,7 @@ describe('Widget', () => {
           }
         ]
       };
-      const cache = {};
+      const cache = {"$state.count": 0};
       const experimental = null;
       const model = { on: vi.fn(), off: vi.fn() };
 
@@ -148,20 +127,15 @@ describe('Widget', () => {
           "div",
           {
             __type__: 'function',
-            path: 'Reactive',
-            args: [{ state_key: 'count', init: 0 }]
-          },
-          {
-            __type__: 'function',
             path: 'md',
             args: [{
               __type__: 'js',
-              value: '`Count: ${$state.count}, Cached: ${$cache.get("testKey")}`'
+              value: '`Count: ${$state.count}, Cached: ${$state.cached("testKey")}`'
             }]
           }
         ]
       };
-      const cache = { testKey: 'initial' };
+      const cache = { testKey: 'initial', '$state.count': 0 };
       const experimental = null;
       const model = {
         on: vi.fn(),
@@ -203,4 +177,39 @@ describe('Widget', () => {
       expect(container.innerHTML).toContain('Test')
     })
   })
+
+  describe('Plot.Reactive and Plot.js combination', () => {
+    it('should handle Plot.Reactive and Plot.js combination correctly', async () => {
+      const consoleSpy = vi.spyOn(console, 'log');
+
+      // Simulate the AST created by Python's `&` operator
+      const ast = {
+        __type__: 'function',
+        path: 'Row',
+        args: [
+          {}, // options object for Row
+          {
+            __type__: 'function',
+            path: 'Reactive',
+            args: ['foo', {__type__: 'cached', id: '$state.foo'}]
+          },
+          {__type__: "js", value: 'console.log($state.foo) || $state.foo'}
+        ]
+      };
+
+      const cache = {
+        '$state.foo': 123
+      };
+
+
+      render(
+        <StateProvider ast={ast} cache={cache} />
+      );
+      // Check that console.log was called with the correct value
+      expect(consoleSpy).toHaveBeenCalledWith(123);
+      expect(consoleSpy).toHaveBeenCalledTimes(1);
+
+      consoleSpy.mockRestore();
+    });
+  });
 })
