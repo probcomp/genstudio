@@ -29,9 +29,8 @@ basic_plot
 
 # %% tags=["hide_source"]
 Plot.html(
-    "div.bg-black.white.p3",
-    """NOTE: The following examples will only work in a live jupyter session because it depends on communication with a python backend.
-""",
+    "div.bg-black.text-white.p-3",
+    """NOTE: The following examples depend on communication with a python backend, and will not be interactive on the docs website.""",
 )
 
 

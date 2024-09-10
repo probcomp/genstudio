@@ -5,8 +5,6 @@ const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReac
 const { useState, useMemo, useCallback, useEffect } = React;
 import * as api from "./api";
 
-const TACHYONS_CSS_URL = "https://cdn.jsdelivr.net/gh/tachyons-css/tachyons@6b8c744afadaf506cb12f9a539b47f9b412ed500/css/tachyons.css"
-
 const layoutComponents = new Set(['Hiccup', 'Grid', 'Row', 'Column']);
 
 export function collectReactiveInitialState(ast) {
@@ -179,7 +177,7 @@ function DataViewer(data) {
       <div className="genstudio-container" style=${{ "padding": CONTAINER_PADDING }} ref=${elRef}>
         ${el && html`<${StateProvider} ...${data}/>`}
       </div>
-      ${data.size && data.dev && html`<div className="f1 p3">${data.size}</div>`}
+      ${data.size && data.dev && html`<div className=${tw("text-xl p-3")}>${data.size}</div>`}
     </${WidthContext.Provider}>
   `;
 }
@@ -276,15 +274,15 @@ function FileViewer() {
   };
 
   return html`
-    <div className="pa3">
+    <div className=${tw("p-3")}>
       <div
-        className=${`ba b--dashed br3 pa5 tc ${dragActive ? 'b--blue' : 'b--black-20'}`}
+        className=${tw(`border-2 border-dashed rounded-lg p-5 text-center ${dragActive ? 'border-blue-500' : 'border-gray-300'}`)}
         onDragEnter=${handleDrag}
         onDragLeave=${handleDrag}
         onDragOver=${handleDrag}
         onDrop=${handleDrop}
       >
-        <label htmlFor="file-upload" className="f5 link dim br-pill ph3 pv2 mb2 dib white bg-dark-blue pointer">
+        <label htmlFor="file-upload" className=${tw("text-sm inline-block px-3 py-2 mb-2 text-white bg-blue-600 rounded-full cursor-pointer hover:bg-blue-700")}>
           Choose a JSON file
         </label>
         <input
@@ -292,13 +290,13 @@ function FileViewer() {
           id="file-upload"
           accept=".json"
           onChange=${handleChange}
-          style=${{ display: 'none' }}
+          className=${tw("hidden")}
         />
-        <p className="f6 black-60">or drag and drop a JSON file here</p>
+        <p className=${tw("text-sm text-gray-600")}>or drag and drop a JSON file here</p>
       </div>
       ${data && html`
-        <div className="mt4">
-          <h2 className="f4 mb3">Loaded JSON Data:</h2>
+        <div className=${tw("mt-4")}>
+          <h2 className=${tw("text-lg mb-3")}>Loaded JSON Data:</h2>
           <${Viewer} ...${data} />
         </div>
       `}
@@ -306,19 +304,7 @@ function FileViewer() {
   `;
 }
 
-function addCSSLink(url) {
-  const linkId = 'tachyons-css';
-  if (!document.getElementById(linkId)) {
-    const link = document.createElement('link');
-    link.id = linkId;
-    link.rel = 'stylesheet';
-    link.href = url;
-    document.head.appendChild(link);
-  }
-}
-
 function AnyWidgetApp() {
-  addCSSLink(TACHYONS_CSS_URL)
   let [jsonString] = useModelState("data");
   const experimental = useExperimental();
   const model = useModel();
@@ -326,7 +312,6 @@ function AnyWidgetApp() {
 }
 
 export const renderData = (element, data) => {
-  addCSSLink(TACHYONS_CSS_URL);
   const root = ReactDOM.createRoot(element);
   if (typeof data === 'string') {
     root.render(html`<${Viewer} jsonString=${data} />`);
@@ -336,7 +321,6 @@ export const renderData = (element, data) => {
 };
 
 export const renderFile = (element) => {
-  addCSSLink(TACHYONS_CSS_URL);
   const root = ReactDOM.createRoot(element);
   root.render(html`<${FileViewer} />`);
 };

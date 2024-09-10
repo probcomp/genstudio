@@ -34,6 +34,27 @@
     display: none;
 }
 
+
+.md-sidebar {
+    .md-nav__link {
+        padding: 4px;
+        margin-top: 0;
+    }
+    .md-nav__link--active {
+        color: var(--md-typeset-a-color);
+        background-color: color-mix(in srgb, var(--md-typeset-a-color) 15%, white);
+        border-radius: 4px;
+    }
+    .md-nav--secondary {
+        .md-nav__link--active {
+            color: black;
+            font-weight: bold;
+            background: none;
+        }
+    }
+}
+
+
 /* Typography */
 .md-typeset {
     font-size: 18px;

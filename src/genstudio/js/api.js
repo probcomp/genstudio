@@ -4,6 +4,7 @@ import { html } from "./utils";
 import { Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 import bylight from "bylight";
+import { tw } from "./utils";
 
 const DEFAULT_GRID_GAP = "10px"
 export const CONTAINER_PADDING = 10;
@@ -15,7 +16,7 @@ const MarkdownItInstance = new MarkdownIt({
 });
 
 export function md(text) {
-    return html`<div className='prose' dangerouslySetInnerHTML=${{ __html: MarkdownItInstance.render(text) }} />`;
+    return html`<div className=${tw("prose")} dangerouslySetInnerHTML=${{ __html: MarkdownItInstance.render(text) }} />`;
 }
 
 export function ReactiveSlider(options) {
@@ -57,14 +58,14 @@ export function ReactiveSlider(options) {
     const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
     if (options.kind !== 'Slider') return;
     return html`
-    <div className="f1 flex flex-column mv2 gap2" style=${{ width: availableWidth }}>
-      <div className="flex items-center justify-between">
-        <span className="flex g2">
+    <div className=${tw("text-base flex flex-col my-2 gap-2")} style=${{ width: availableWidth }}>
+      <div className=${tw("flex items-center justify-between")}>
+        <span className=${tw("flex gap-2")}>
           <label>${label}</label>
           <span>${$state[state_key]}</span>
         </span>
         ${isAnimated && html`
-          <div onClick=${togglePlayPause} className="pointer">
+          <div onClick=${togglePlayPause} className=${tw("cursor-pointer")}>
             ${isPlaying ? pauseIcon : playIcon}
           </div>
         `}
@@ -76,7 +77,7 @@ export function ReactiveSlider(options) {
         step=${step}
         value=${sliderValue}
         onChange=${(e) => handleSliderChange(e.target.value)}
-        className="w-100 outline-0"
+        className=${tw("w-full outline-none")}
       />
     </div>
   `;
@@ -134,12 +135,12 @@ export function Frames(props) {
     const { state_key, frames } = props
     const [$state] = useContext($StateContext);
     if (!Array.isArray(frames)) {
-        return html`<div className="red">Error: 'frames' must be an array.</div>`;
+        return html`<div className=${tw("text-red-500")}>Error: 'frames' must be an array.</div>`;
     }
 
     const index = $state[state_key];
     if (!Number.isInteger(index) || index < 0 || index >= frames.length) {
-        return html`<div className="red">Error: Invalid index. $state[${state_key}] (${index}) must be a valid index of the frames array (length: ${frames.length}).</div>`;
+        return html`<div className=${tw("text-red-500")}>Error: Invalid index. $state[${state_key}] (${index}) must be a valid index of the frames array (length: ${frames.length}).</div>`;
     }
 
     return html`<${Node} value=${frames[index]} />`;
@@ -214,10 +215,10 @@ export function Row({ children, ...props }) {
     const childWidth = availableWidth / childCount;
 
     return html`
-    <div ...${props} className="layout-row">
+    <div ...${props} className=${tw("flex flex-row")}>
       <${WidthContext.Provider} value=${childWidth}>
         ${React.Children.map(children, (child, index) => html`
-          <div className="row-item" key=${index}>
+          <div className=${tw("flex-1")} key=${index}>
             ${child}
           </div>
         `)}
@@ -228,7 +229,7 @@ export function Row({ children, ...props }) {
 
 export function Column({ children, ...props }) {
     return html`
-    <div ...${props} className="layout-column">
+    <div ...${props} className=${tw("flex flex-col")}>
       ${children}
     </div>
   `;
@@ -250,6 +251,11 @@ export function Hiccup(tag, props, ...children) {
         props = {};
     }
 
+    if (props.class) {
+        props.className = props.class;
+        delete props.class;
+    }
+
     let baseTag = tag;
     if (typeof tag === 'string') {
         let id, classes
@@ -259,9 +265,13 @@ export function Hiccup(tag, props, ...children) {
         if (id) { props.id = id; }
 
         if (classes.length > 0) {
-            props.className = `${props.className || ''} ${classes.join(' ')}`.trim();
+            if (props.className) {
+                classes.push(props.className);
+            }
+            props.className = classes.join(' ');
         }
     }
+
 
     return baseTag instanceof PlotSpec
         ? baseTag.render()
