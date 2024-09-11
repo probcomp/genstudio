@@ -39,6 +39,7 @@ describe('Widget', () => {
     it('should evaluate JavaScript expressions', () => {
       const ast = {
         __type__: 'js',
+        expression: true,
         value: '2 + 2'
       }
       const result = evaluate(ast, {}, {}, null)
@@ -103,6 +104,7 @@ describe('Widget', () => {
             path: 'md',
             args: [{
               __type__: 'js',
+              expression: true,
               value: '`Count: ${$state.count}`'
             }]
           }
@@ -130,6 +132,7 @@ describe('Widget', () => {
             path: 'md',
             args: [{
               __type__: 'js',
+              expression: true,
               value: '`Count: ${$state.count}, Cached: ${$state.cached("testKey")}`'
             }]
           }

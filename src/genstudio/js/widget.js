@@ -40,7 +40,8 @@ export function evaluate(node, $state, experimental) {
     case "ref":
       return resolveReference(node.path, api);
     case "js":
-      return (new Function('$state', 'd3', 'Plot', `return ${node.value}`))($state, d3, Plot);
+      const source = node.expression ? `return ${node.value}` : node.value;
+      return (new Function('$state', 'd3', 'Plot', source))($state, d3, Plot);
     case "datetime":
       return new Date(node.value);
     case "cached":
@@ -67,6 +68,11 @@ function applyOperation($state, init, op, payload) {
       return [...init, ...evaluatedPayload];
     case "reset":
       return evaluatedPayload;
+    case "setAt":
+      const [i, v] = evaluatedPayload;
+      const newArray = [...init];
+      newArray[i] = v;
+      return newArray;
     default:
       throw new Error(`Unknown operation: ${op}`);
   }

@@ -90,6 +90,10 @@ export function useElementWidth(el) {
 }
 
 export function serializeEvent(e) {
+
+  if (e.constructor === Object) {
+    return e;
+  }
   e = e.nativeEvent || e;
 
   const baseEventData = {

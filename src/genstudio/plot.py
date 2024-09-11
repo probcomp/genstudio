@@ -808,3 +808,6 @@ def Slider(
     }
 
     return Hiccup(_Slider, slider_options)
+
+
+render = JSRef("render")
