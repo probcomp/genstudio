@@ -2,8 +2,6 @@ name: Docs Website
 
 on:
   push:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
@@ -52,6 +50,7 @@ jobs:
         name: website
         path: ./site
   publish:
+    if: github.ref == 'refs/heads/main'
     permissions:
         contents: read
         id-token: write
