@@ -1,3 +1,19 @@
+### [2024.09.001] - Sep 11, 2024
+
+#### New Features
+- support Tailwind (via twind)
+
+#### Bug Fixes
+- Hiccup with one child
+
+#### Other Changes
+- ci: always build docs
+- slim down genstudio deps
+- refactor: added api.js module
+- refactor: JSRef/JSCall use path instead of module/name
+- tests: added widget.test.jsx
+- update_cache accepts multiple updates
+
 ### [2024.08.010] - Aug 28, 2024
 
 #### Bug Fixes
