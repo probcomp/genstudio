@@ -239,3 +239,39 @@ def update_position(event):
     + Plot.domain([0, 2])
     + Plot.aspectRatio(1)
 ).display_as("widget")
+
+
+# %% [markdown]
+# ## Interactive Drawing
+#
+# This example demonstrates how to create an interactive drawing area where users can draw lines. The drawn points are then used to create a line plot with highlighted points at regular intervals.
+#
+# Initialize an empty cache for the drawn points:
+
+# %%
+points = Plot.cache([])
+
+# %% [markdown]
+# Create the interactive plot
+
+# %%
+(
+    Plot.line(points)  # Draw a continuous line through all points
+    + Plot.dot(points)  # Add dots for all points
+    + Plot.dot(  # Highlight every 6th point in red
+        points,
+        Plot.select(
+            Plot.js("(indexes) => indexes.filter(i => i % 6 === 0)"),
+            {"fill": "red", "r": 10},
+        ),
+    )
+    + Plot.draw(  # Create drawing area and update points cache on draw
+        onDraw=lambda event: event["widget"].update_cache(
+            [points, "reset", event["path"]]
+        )
+    )
+    + Plot.domain([0, 2])  # Set the domain for x and y axes
+)
+
+# The `onDraw` callback function updates the `points` cache with the newly drawn path.
+# This triggers a re-render of the plot, immediately reflecting the user's drawing.

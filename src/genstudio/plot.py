@@ -426,6 +426,10 @@ def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     return PlotSpec(MarkSpec("ellipse", values, {**options, **kwargs}))
 
 
+def draw(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
+    return PlotSpec(MarkSpec("draw", [], {**options, **kwargs}))
+
+
 def scaled_circle(x, y, r, **kwargs):
     return ellipse([[x, y]], r=r, **kwargs)
 
