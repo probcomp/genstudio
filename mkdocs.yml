@@ -16,7 +16,7 @@ theme:
   font:
     text: Crimson Pro
   features:
-    - navigation.tracking
+    # - navigation.tracking
     - navigation.indexes
     - toc.integrate
     - content.action.edit

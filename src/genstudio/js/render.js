@@ -1,5 +1,5 @@
 
-export function draggableChildren({onMouseDown, onMouseMove, onMouseUp}) {
+export function childEvents({onDragStart, onDrag, onDragEnd, onClick}) {
     function render (index, scales, values, dimensions, context, next) {
         // Call the next render function to get the base SVG group
         const g = next(index, scales, values, dimensions, context);
@@ -9,6 +9,9 @@ export function draggableChildren({onMouseDown, onMouseMove, onMouseUp}) {
         let initialUnscaledX, initialUnscaledY;
         let initialIndex;
         let initialTransform = '';
+        let isDragging = false;
+        const dragThreshold = 2; // pixels
+        let clickStartTime;
 
         // Create empty local objects for scaled and unscaled values.
         // These are used to track the current positions of children that
@@ -24,7 +27,7 @@ export function draggableChildren({onMouseDown, onMouseMove, onMouseUp}) {
 
         // Helper function to create a payload for callbacks
         // This includes both scaled (pixel) and unscaled (data) coordinates
-        const createPayload = (index, unscaledX, unscaledY) => ({
+        const createPayload = (index, unscaledX, unscaledY, type) => ({
             index,
             x: unscaledX,
             y: unscaledY,
@@ -32,7 +35,8 @@ export function draggableChildren({onMouseDown, onMouseMove, onMouseUp}) {
                 // Use the scales provided by Observable Plot to convert data coordinates to pixel coordinates
                 x: scales.x(unscaledX),
                 y: scales.y(unscaledY)
-            }
+            },
+            type
         });
 
         // Helper function to parse existing SVG transforms
@@ -42,7 +46,6 @@ export function draggableChildren({onMouseDown, onMouseMove, onMouseUp}) {
             return match ? { x: parseFloat(match[1]), y: parseFloat(match[2]) } : { x: 0, y: 0 };
         };
 
-
         const findDirectChild = (element) => {
             while (element && element.parentNode !== g) {
                 element = element.parentNode;
@@ -50,7 +53,7 @@ export function draggableChildren({onMouseDown, onMouseMove, onMouseUp}) {
             return element;
         };
 
-        const handleMouseDown = (event) => {
+        const handleDragStart = (event) => {
             // Find the first element for which g is the direct parent
             activeElement = findDirectChild(event.target);
             if (!activeElement) return;
@@ -62,66 +65,82 @@ export function draggableChildren({onMouseDown, onMouseMove, onMouseUp}) {
             initialUnscaledY = localUnscaledValues.y[initialIndex] ?? values.channels.y.value[initialIndex];
             initialTransform = activeElement.getAttribute('transform') || '';
 
-            if (onMouseDown) onMouseDown(createPayload(initialIndex, initialUnscaledX, initialUnscaledY));
+            clickStartTime = new Date().getTime();
 
-            document.addEventListener('mousemove', handleMouseMove);
-            document.addEventListener('mouseup', handleMouseUp);
+            document.addEventListener('mousemove', handleDrag);
+            document.addEventListener('mouseup', handleDragEnd);
         };
 
-        const handleMouseMove = (event) => {
+        const handleDrag = (event) => {
             if (!activeElement) return;
 
             totalDx += event.movementX;
             totalDy += event.movementY;
 
-            // Use the scales' invert function to convert pixel offsets back to data coordinates
-            const currentUnscaledX = scales.x.invert(scales.x(initialUnscaledX) + totalDx);
-            const currentUnscaledY = scales.y.invert(scales.y(initialUnscaledY) + totalDy);
+            if (!isDragging && (Math.abs(totalDx) > dragThreshold || Math.abs(totalDy) > dragThreshold)) {
+                isDragging = true;
+                if (onDragStart) onDragStart(createPayload(initialIndex, initialUnscaledX, initialUnscaledY, "dragstart"));
+            }
 
-            const initialTranslate = parseTransform(initialTransform);
-            const newTranslateX = initialTranslate.x + totalDx;
-            const newTranslateY = initialTranslate.y + totalDy;
+            if (isDragging) {
+                // Use the scales' invert function to convert pixel offsets back to data coordinates
+                const currentUnscaledX = scales.x.invert(scales.x(initialUnscaledX) + totalDx);
+                const currentUnscaledY = scales.y.invert(scales.y(initialUnscaledY) + totalDy);
 
-            if (onMouseMove) onMouseMove(createPayload(initialIndex, currentUnscaledX, currentUnscaledY))
+                const initialTranslate = parseTransform(initialTransform);
+                const newTranslateX = initialTranslate.x + totalDx;
+                const newTranslateY = initialTranslate.y + totalDy;
 
-            // Update the SVG transform to move the element
-            activeElement.setAttribute('transform', `translate(${newTranslateX}, ${newTranslateY})`);
+                if (onDrag) onDrag(createPayload(initialIndex, currentUnscaledX, currentUnscaledY, "drag"))
+
+                // Update the SVG transform to move the element
+                activeElement.setAttribute('transform', `translate(${newTranslateX}, ${newTranslateY})`);
+            }
         };
 
-        const handleMouseUp = (event) => {
+        const handleDragEnd = (event) => {
             if (!activeElement) return;
 
-            // Calculate final positions in both unscaled (data) and scaled (pixel) coordinates
-            const finalUnscaledX = scales.x.invert(scales.x(initialUnscaledX) + totalDx);
-            const finalUnscaledY = scales.y.invert(scales.y(initialUnscaledY) + totalDy);
+            const clickEndTime = new Date().getTime();
+            const clickDuration = clickEndTime - clickStartTime;
 
-            // Update local values to reflect the new position
-            localUnscaledValues.x[initialIndex] = finalUnscaledX;
-            localUnscaledValues.y[initialIndex] = finalUnscaledY;
-            localScaledValues.x[initialIndex] = finalUnscaledX;
-            localScaledValues.y[initialIndex] = finalUnscaledY;
+            if (isDragging) {
+                // Calculate final positions in both unscaled (data) and scaled (pixel) coordinates
+                const finalUnscaledX = scales.x.invert(scales.x(initialUnscaledX) + totalDx);
+                const finalUnscaledY = scales.y.invert(scales.y(initialUnscaledY) + totalDy);
 
-            const initialTranslate = parseTransform(initialTransform);
-            const finalTranslateX = initialTranslate.x + totalDx;
-            const finalTranslateY = initialTranslate.y + totalDy;
+                // Update local values to reflect the new position
+                localUnscaledValues.x[initialIndex] = finalUnscaledX;
+                localUnscaledValues.y[initialIndex] = finalUnscaledY;
+                localScaledValues.x[initialIndex] = finalUnscaledX;
+                localScaledValues.y[initialIndex] = finalUnscaledY;
 
-            if (onMouseUp) onMouseUp(createPayload(initialIndex, finalUnscaledX, finalUnscaledY));
+                const initialTranslate = parseTransform(initialTransform);
+                const finalTranslateX = initialTranslate.x + totalDx;
+                const finalTranslateY = initialTranslate.y + totalDy;
 
-            // Set the final transform on the SVG element
-            activeElement.setAttribute('transform', `translate(${finalTranslateX}, ${finalTranslateY})`);
+                if (onDragEnd) onDragEnd(createPayload(initialIndex, finalUnscaledX, finalUnscaledY, "dragend"));
+
+                // Set the final transform on the SVG element
+                activeElement.setAttribute('transform', `translate(${finalTranslateX}, ${finalTranslateY})`);
+            } else if (clickDuration < 200 && Math.abs(totalDx) < dragThreshold && Math.abs(totalDy) < dragThreshold) {
+                // If it's a short click and hasn't moved much, treat it as a click
+                if (onClick) onClick(createPayload(initialIndex, initialUnscaledX, initialUnscaledY, "click"));
+            }
 
             // Clean up event listeners
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
+            document.removeEventListener('mousemove', handleDrag);
+            document.removeEventListener('mouseup', handleDragEnd);
 
             // Reset state
             activeElement = null;
             totalDx = 0;
             totalDy = 0;
+            isDragging = false;
         };
 
         // Add mousedown event listener to the SVG group
-        g.addEventListener('mousedown', handleMouseDown);
+        g.addEventListener('mousedown', handleDragStart);
 
         return g;
     }
