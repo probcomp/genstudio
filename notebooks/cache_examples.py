@@ -18,17 +18,19 @@ Plot.new(Plot.cache(Plot.dot([[2, 2]]) + Plot.dot([[1, 1]])))
 
 Plot.dot([[1, 1]]) + Plot.cache(Plot.dot([[2, 2]]))
 
+# %%
 
 import genstudio.plot as Plot
 
-data = Plot.cache(["div", 1, 2, 3])
-widget = Plot.html(data).display_as("widget")
+data1 = Plot.cache(["div", 1, 2, 3])
+data2 = Plot.cache(["div", 9, 9, 9])
+widget = (Plot.html(data1) & Plot.html(data2)).display_as("widget")
 widget
 
 # %% Updating Cached Data
-widget.update_cache([data, "append", 4])
+widget.update_cache([data1, "append", 4])
 
-widget.update_cache([data, "concat", [5, 6]])
+widget.update_cache([data2, "concat", [5, 6]])
 
 # %% Tailed Widget Example
 
@@ -61,7 +63,7 @@ render_2 = Plot.cache(Plot.js("console.log('foo') || 'foo: '+$state.foo")) | Plo
 
 # %% Plot.Reactive initializes a variable
 # We should see '123' logged once.
-Plot.Reactive("foo", 123) & Plot.js("console.log($state.foo) || $state.foo")
+Plot.initial_state("foo", 123) & Plot.js("console.log($state.foo) || $state.foo")
 
 import genstudio.plot as Plot
 from IPython.display import display
@@ -69,11 +71,17 @@ from IPython.display import display
 p = Plot.new()
 display(p)
 
-p.reset(
-    Plot.Reactive("foo", "foo") | Plot.js("console.log(1, $state.STATE) || $state.foo")
-)
+p.reset(Plot.initial_state("foo", "foo") | Plot.js("$state.foo"))
 
-p.reset(
-    Plot.Reactive("blah", "blah")
-    | Plot.js("console.log(2, $state.STATE) || $state.blah")
-)
+p.reset(Plot.initial_state("blah", "blah") | Plot.js("$state.blah"))
+
+# %%
+
+one = Plot.cache(Plot.js("$state.foo"))
+two = Plot.cache(Plot.js("$state.bar"))
+plot = Plot.new() | Plot.initial_state("foo", "FOO") | Plot.initial_state("bar", "BAR")
+plot
+
+plot.reset(one)
+
+plot.reset(two)

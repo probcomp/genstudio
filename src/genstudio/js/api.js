@@ -127,6 +127,7 @@ export const Frames = mobxReact.observer(
     function (props) {
         const { state_key, frames } = props
         const $state = useContext($StateContext);
+        console.log("Frames", props)
 
         if (!Array.isArray(frames)) {
             return html`<div className=${tw("text-red-500")}>Error: 'frames' must be an array.</div>`;
