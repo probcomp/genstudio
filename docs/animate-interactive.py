@@ -244,34 +244,54 @@ def update_position(event):
 # %% [markdown]
 # ## Interactive Drawing
 #
-# This example demonstrates how to create an interactive drawing area where users can draw lines. The drawn points are then used to create a line plot with highlighted points at regular intervals.
+# The `Plot.draw` mark allows users to draw lines on a plot. By default no line is "drawn"; it's up to you to do something with the data.
 #
-# Initialize an empty cache for the drawn points:
+
+(
+    Plot.initial_state("points", [])
+    # Draw a line through all points
+    + Plot.line(Plot.js("$state.points"))
+    # Use `Plot.draw`, setting $state.points in the `onDraw` callback,
+    # which is passed an event containing `path`, an array of [x, y] points.
+    + Plot.draw(onDraw=Plot.js("(event) => $state.points = event.path"))
+    + Plot.domain([0, 2])
+)
+
+# %% [markdown]
+# ### With Python in-the-loop
+
+
+# %%
+interactivity_warning
+
+
+# %% [markdown]
+# Say we wanted to pass a drawn path back to Python. We can initialize an empty cached list for the drawn points, then use a python `onDraw` callback to update the points using the widget's `update_cache` method. This time, let's add some additional dot marks to make our line more interesting.
 
 # %%
 points = Plot.cache([])
-
-# %% [markdown]
-# Create the interactive plot
-
-# %%
 (
-    Plot.line(points)  # Draw a continuous line through all points
-    + Plot.dot(points)  # Add dots for all points
-    + Plot.dot(  # Highlight every 6th point in red
+    # Draw a continuous line through all points
+    Plot.line(points)
+    # Add dots for all points
+    + Plot.dot(points)
+    # Highlight every 6th point in red
+    + Plot.dot(
         points,
         Plot.select(
             Plot.js("(indexes) => indexes.filter(i => i % 6 === 0)"),
             {"fill": "red", "r": 10},
         ),
     )
-    + Plot.draw(  # Create drawing area and update points cache on draw
+    # Create drawing area and update points cache on draw
+    + Plot.draw(
         onDraw=lambda event: event["widget"].update_cache(
             [points, "reset", event["path"]]
         )
     )
-    + Plot.domain([0, 2])  # Set the domain for x and y axes
+    + Plot.domain([0, 2])
 )
 
+# %% [markdown]
 # The `onDraw` callback function updates the `points` cache with the newly drawn path.
 # This triggers a re-render of the plot, immediately reflecting the user's drawing.

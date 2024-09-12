@@ -762,6 +762,10 @@ class Reactive(LayoutItem):
         return _Reactive(self.key, self.init)
 
 
+def initial_state(key, value):
+    return Reactive(key, init=value)
+
+
 _Slider = JSRef("Slider")
 
 
