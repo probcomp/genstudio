@@ -10,6 +10,7 @@ export default defineConfig({
   resolve: {
     alias: {
       './imports': path.resolve(__dirname, 'src/genstudio/js/imports.npm.js'),
+      '../imports': path.resolve(__dirname, 'src/genstudio/js/imports.npm.js'),
     },
   },
 })

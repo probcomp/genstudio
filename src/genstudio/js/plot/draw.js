@@ -1,8 +1,8 @@
-import { Plot, d3 } from "./imports"
+import { Plot, d3 } from "../imports"
 import {
   applyIndirectStyles,
   applyTransform
-} from "./plot_style";
+} from "./style";
 
 export class Draw extends Plot.Mark {
   constructor(options = {}) {

@@ -1,8 +1,8 @@
 import {Plot, d3, React, mobx} from "./imports"
 import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { binding, flatten, html, tw } from "./utils";
-import {ellipse} from "./ellipse"
-import {draw} from "./draw"
+import {ellipse} from "./plot/ellipse"
+import {draw} from "./plot/draw"
 
 const Marks = {...Plot, ellipse, draw}
 const { useEffect } = React

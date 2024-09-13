@@ -5,7 +5,7 @@ import { Plot, d3, MarkdownIt, React, ReactDOM, mobxReact } from "./imports";
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 import bylight from "bylight";
 import { tw } from "./utils";
-import * as render from "./render";
+import * as render from "./plot/render";
 
 export { render };
 const DEFAULT_GRID_GAP = "10px"
