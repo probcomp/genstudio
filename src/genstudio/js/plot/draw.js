@@ -26,37 +26,33 @@ export class Draw extends Plot.Mark {
     let drawingArea = null;
     let scaleX, scaleY;
 
-    // Calculate scale factors to account for potential differences between
-    // the SVG's logical dimensions and its actual rendered size (due to CSS,
-    // responsive design, or high-DPI displays). This ensures accurate
-    // mapping between screen coordinates and data coordinates.
+    // Calculate scale factors to account for differences between
+    // SVG logical dimensions and actual rendered size
     const calculateScaleFactors = (rect) => {
       scaleX = rect.width / width;
       scaleY = rect.height / height;
     };
 
     // Convert pixel coordinates to data coordinates
-    const invertPoint = ([x, y]) => [
+    const invertPoint = (x, y) => [
       scales.x.invert(x / scaleX),
       scales.y.invert(y / scaleY)
     ];
 
-    const callbackPayload = (type) => {
-      return {type, path: path.map(invertPoint)};
-    };
+    const eventData = (eventType, path) => ({ type: eventType, path: [...path] });
 
-    const isWithinDrawingArea = (rect, x, y) => {
-      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-    };
+    const isWithinDrawingArea = (rect, x, y) =>
+      x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 
     const handleDrawStart = (event) => {
       currentDrawingRect = drawingArea.getBoundingClientRect();
       if (!isWithinDrawingArea(currentDrawingRect, event.clientX, event.clientY)) return;
+
       calculateScaleFactors(currentDrawingRect);
       const offsetX = event.clientX - currentDrawingRect.left;
       const offsetY = event.clientY - currentDrawingRect.top;
-      path = [[offsetX, offsetY]];
-      this.onDrawStart?.(callbackPayload("drawstart"));
+      path = [invertPoint(offsetX, offsetY)];
+      this.onDrawStart?.(eventData("drawstart", path));
 
       document.addEventListener('mousemove', handleDraw);
       document.addEventListener('mouseup', handleDrawEnd);
@@ -67,16 +63,16 @@ export class Draw extends Plot.Mark {
       event.preventDefault();
       const offsetX = event.clientX - currentDrawingRect.left;
       const offsetY = event.clientY - currentDrawingRect.top;
-      path.push([offsetX, offsetY]);
-      this.onDraw?.(callbackPayload("draw"));
+      path.push(invertPoint(offsetX, offsetY));
+      this.onDraw?.(eventData("draw", path));
     };
 
     const handleDrawEnd = (event) => {
       if (!currentDrawingRect) return;
       const offsetX = event.clientX - currentDrawingRect.left;
       const offsetY = event.clientY - currentDrawingRect.top;
-      path.push([offsetX, offsetY]);
-      this.onDrawEnd?.(callbackPayload("drawend"));
+      path.push(invertPoint(offsetX, offsetY));
+      this.onDrawEnd?.(eventData("drawend", path));
 
       document.removeEventListener('mousemove', handleDraw);
       document.removeEventListener('mouseup', handleDrawEnd);
