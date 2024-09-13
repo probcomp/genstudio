@@ -88,6 +88,7 @@ class Widget(anywidget.AnyWidget):
 
     def update_cache(self, *updates):
         updates = [
-            [cached.id, operation, payload] for [cached, operation, payload] in updates
+            [entry if isinstance(entry, str) else entry.id, operation, payload]
+            for [entry, operation, payload] in updates
         ]
         self.send({"type": "update_cache", "updates": to_json(updates, widget=self)})

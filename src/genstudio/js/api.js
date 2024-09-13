@@ -1,7 +1,7 @@
 import { $StateContext, WidthContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { MarkSpec, PlotSpec } from "./plot";
 import { html } from "./utils";
-import { Plot, d3, MarkdownIt, React, ReactDOM } from "./imports";
+import { Plot, d3, MarkdownIt, React, ReactDOM, mobxReact } from "./imports";
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 import bylight from "bylight";
 import { tw } from "./utils";
@@ -19,79 +19,13 @@ export function md(text) {
     return html`<div className=${tw("prose")} dangerouslySetInnerHTML=${{ __html: MarkdownItInstance.render(text) }} />`;
 }
 
-export function ReactiveSlider(options) {
-    let { state_key, fps, label, step = 1, loop = true, tail, rangeMin, rangeMax } = options;
-    const [$state, set$state] = useContext($StateContext);
-    const availableWidth = useContext(WidthContext);
-    const isAnimated = typeof fps === 'number' && fps > 0;
-    const [isPlaying, setIsPlaying] = useState(isAnimated);
-
-    const sliderValue = clamp($state[state_key] ?? rangeMin, rangeMin, rangeMax);
-
-    useEffect(() => {
-        if (isAnimated && isPlaying) {
-            const intervalId = setInterval(() => {
-                $state[state_key] = (prevValue) => {
-                    const nextValue = prevValue + step;
-                    if (nextValue > rangeMax) {
-                        if (tail) {
-                            return rangeMax;
-                        } else if (loop) {
-                            return rangeMin;
-                        } else {
-                            setIsPlaying(false);
-                            return rangeMax;
-                        }
-                    }
-                    return nextValue;
-                };
-            }, 1000 / fps);
-            return () => clearInterval(intervalId);
-        }
-    }, [isPlaying, fps, state_key, rangeMin, rangeMax, step, loop, tail]);
-
-    const handleSliderChange = useCallback((value) => {
-        setIsPlaying(false);
-        $state[state_key] = Number(value);
-    }, [set$state, state_key]);
-
-    const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
-    if (options.kind !== 'Slider') return;
-    return html`
-    <div className=${tw("text-base flex flex-col my-2 gap-2")} style=${{ width: availableWidth }}>
-      <div className=${tw("flex items-center justify-between")}>
-        <span className=${tw("flex gap-2")}>
-          <label>${label}</label>
-          <span>${$state[state_key]}</span>
-        </span>
-        ${isAnimated && html`
-          <div onClick=${togglePlayPause} className=${tw("cursor-pointer")}>
-            ${isPlaying ? pauseIcon : playIcon}
-          </div>
-        `}
-      </div>
-      <input
-        type="range"
-        min=${rangeMin}
-        max=${rangeMax}
-        step=${step}
-        value=${sliderValue}
-        onChange=${(e) => handleSliderChange(e.target.value)}
-        className=${tw("w-full outline-none")}
-      />
-    </div>
-  `;
-}
-
-export function clamp(value, min, max) {
-    if (value < min) return min;
-    if (value > max) return max;
-    return value;
-}
-
-export class Reactive {
-    constructor(data) {
-        let { init, range, rangeFrom, tail, step } = data;
+export const Slider = mobxReact.observer(
+    function (options) {
+        let { state_key,
+            fps,
+            label,
+            loop = true,
+            init, range, rangeFrom, tail, step } = options;
 
         if (init === undefined && rangeFrom === undefined && range === undefined) {
             throw new Error("Reactive: 'init', 'rangeFrom', or 'range' must be defined");
@@ -109,45 +43,103 @@ export class Reactive {
         } else if (range) {
             [rangeMin, rangeMax] = range;
         }
-        init = init ?? rangeMin;
         step = step || 1;
 
+        const $state = useContext($StateContext);
+        const availableWidth = useContext(WidthContext);
+        const isAnimated = typeof fps === 'number' && fps > 0;
+        const [isPlaying, setIsPlaying] = useState(isAnimated);
 
-        this.options = {
-            ...data,
-            rangeMin,
-            rangeMax,
-            tail,
-            init,
-            step
-        };
-    }
+        const sliderValue = clamp($state[state_key] ?? rangeMin, rangeMin, rangeMax);
 
-    render() {
-        return ReactiveSlider(this.options);
+        useEffect(() => {
+            if (isAnimated && isPlaying) {
+                const intervalId = setInterval(() => {
+                    $state[state_key] = (prevValue) => {
+                        const nextValue = (prevValue || 0) + step;
+                        if (nextValue > rangeMax) {
+                            if (tail) {
+                                return rangeMax;
+                            } else if (loop) {
+                                return rangeMin;
+                            } else {
+                                setIsPlaying(false);
+                                return rangeMax;
+                            }
+                        }
+                        return nextValue;
+                    };
+                }, 1000 / fps);
+                return () => clearInterval(intervalId);
+            }
+        }, [isPlaying, fps, state_key, rangeMin, rangeMax, step, loop, tail]);
+
+        const handleSliderChange = useCallback((value) => {
+            setIsPlaying(false);
+            $state[state_key] = Number(value);
+        }, [$state, state_key]);
+
+        const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
+        if (options.visible !== true) return;
+        return html`
+        <div className=${tw("text-base flex flex-col my-2 gap-2")} style=${{ width: availableWidth }}>
+          <div className=${tw("flex items-center justify-between")}>
+            <span className=${tw("flex gap-2")}>
+              <label>${label}</label>
+              <span>${$state[state_key]}</span>
+            </span>
+            ${isAnimated && html`
+              <div onClick=${togglePlayPause} className=${tw("cursor-pointer")}>
+                ${isPlaying ? pauseIcon : playIcon}
+              </div>
+            `}
+          </div>
+          <input
+            type="range"
+            min=${rangeMin}
+            max=${rangeMax}
+            step=${step}
+            value=${sliderValue}
+            onChange=${(e) => handleSliderChange(e.target.value)}
+            className=${tw("w-full outline-none")}
+          />
+        </div>
+      `;
     }
+)
+
+export function clamp(value, min, max) {
+    if (value < min) return min;
+    if (value > max) return max;
+    return value;
+}
+
+export class Reactive {
+    render() { }
 }
 
 const playIcon = html`<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
 const pauseIcon = html`<svg viewBox="0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`;
 
-export function Frames(props) {
-    const { state_key, frames } = props
-    const [$state] = useContext($StateContext);
-    if (!Array.isArray(frames)) {
-        return html`<div className=${tw("text-red-500")}>Error: 'frames' must be an array.</div>`;
+export const Frames = mobxReact.observer(
+    function (props) {
+        const { state_key, frames } = props
+        const $state = useContext($StateContext);
+
+        if (!Array.isArray(frames)) {
+            return html`<div className=${tw("text-red-500")}>Error: 'frames' must be an array.</div>`;
+        }
+
+        const index = $state[state_key];
+        if (!Number.isInteger(index) || index < 0 || index >= frames.length) {
+            return html`<div className=${tw("text-red-500")}>Error: Invalid index. $state[${state_key}] (${index}) must be a valid index of the frames array (length: ${frames.length}).</div>`;
+        }
+
+        return html`<${Node} value=${frames[index]} />`;
     }
-
-    const index = $state[state_key];
-    if (!Number.isInteger(index) || index < 0 || index >= frames.length) {
-        return html`<div className=${tw("text-red-500")}>Error: Invalid index. $state[${state_key}] (${index}) must be a valid index of the frames array (length: ${frames.length}).</div>`;
-    }
-
-    return html`<${Node} value=${frames[index]} />`;
-}
-
+)
 export class Bylight {
-    constructor(source, patterns, props={}) {
+    constructor(source, patterns, props = {}) {
         this.patterns = patterns;
         this.source = source;
         this.props = props;
@@ -230,26 +222,49 @@ export function Row({ children, ...props }) {
 export function Column({ children, ...props }) {
     return html`
     <div ...${props} className=${tw("flex flex-col")}>
-      ${children}
+    ${React.Children.map(children, (child, index) => html`
+        <div key=${index}>
+          ${child}
+        </div>
+      `)}
     </div>
   `;
 }
 
-export function Node({ value }) {
-    if (Array.isArray(value)) {
-        return (['string', 'function'].includes(typeof value[0])) ? Hiccup(...value) : Hiccup("div", ...value);
-    } else if (typeof value === 'object' && value !== null && 'render' in value) {
-        return value.render();
-    } else {
-        return value;
+export const Node = mobxReact.observer(
+    function ({ value }) {
+        const $state = useContext($StateContext)
+        value = $state.resolveCached(value)
+        if (Array.isArray(value)) {
+            const [element, ...args] = value
+            const maybeElement = element && $state.evaluate(element)
+            const elementType = typeof maybeElement
+
+            if (elementType === 'string' || elementType === 'function' || (typeof maybeElement === 'object' && maybeElement !== null && "$$typeof" in maybeElement)) {
+                return Hiccup(maybeElement, ...args)
+            } else {
+                return html`<${React.Fragment} children=${value.map(item =>
+                    typeof item !== 'object' || item === null ? item : html`<${Node} value=${item} />`
+                )} />`;
+            }
+        }
+        const evaluatedValue = $state.evaluate(value)
+        if (typeof evaluatedValue === 'object' && evaluatedValue !== null && 'render' in evaluatedValue) {
+            return evaluatedValue.render();
+        } else {
+            return evaluatedValue;
+        }
     }
-}
+)
 
 export function Hiccup(tag, props, ...children) {
-    if (props?.constructor !== Object) {
+    const $state = useContext($StateContext)
+
+    if (props?.constructor !== Object || props.__type__ || React.isValidElement(props)) {
         children.unshift(props);
         props = {};
     }
+    props = $state.evaluate(props)
 
     if (props.class) {
         props.className = props.class;
@@ -272,12 +287,13 @@ export function Hiccup(tag, props, ...children) {
         }
     }
 
+    if (props.className) {
+        props.className = tw(props.className)
+    }
 
-    return baseTag instanceof PlotSpec
-        ? baseTag.render()
-        : children.length > 0
-            ? html`<${baseTag} ...${props}>
-          ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
-        </>`
-            : html`<${baseTag} ...${props} />`;
+    return children.length > 0
+        ? html`<${baseTag} ...${props}>
+            ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
+          </>`
+        : html`<${baseTag} ...${props} />`;
 }

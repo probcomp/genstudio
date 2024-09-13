@@ -6,7 +6,19 @@ import random
 from typing import Any, Dict, List, Literal, Sequence, TypeAlias, Union
 
 import genstudio.plot_defs as plot_defs
-from genstudio.layout import Column, Hiccup, JSCall, JSCode, JSRef, Row, cache, js
+from genstudio.layout import (
+    CachedObject,
+    Column,
+    Hiccup,
+    JSCall,
+    JSCode,
+    JSRef,
+    LayoutItem,
+    Row,
+    cache,
+    js,
+    unwrap_cached,
+)
 
 from genstudio.plot_defs import (
     area,
@@ -716,11 +728,11 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
     frames = cache(frames)
     if key is None:
         key = "frame"
-        return Hiccup(_Frames, {"state_key": key, "frames": frames}) | Reactive(
+        return Hiccup(_Frames, {"state_key": key, "frames": frames}) | Slider(
             key,
             rangeFrom=frames,
             tail=tail,
-            kind="Slider" if slider else None,
+            visible=slider,
             **opts,
         )
     else:
@@ -730,22 +742,69 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
 _Reactive = JSRef("Reactive")
 
 
-def Reactive(key, init=None, fps=None, range=None, tail=None, step=1, **kwargs):
-    """
-    Initializes a reactive variable.
-    """
-    return _Reactive(
-        {
-            "state_key": key,
-            "init": init,
-            "fps": fps,
-            "range": range,
-            "step": step,
-            "tail": tail,
-            **kwargs,
-        }
-    )
+class Reactive(LayoutItem):
+    def __init__(self, key, init=None):
+        """
+        Initializes a reactive variable.
+
+        Args:
+            key (str): The key for the reactive variable in the state.
+            init (Any, optional): Initial value for the variable.
+        """
+        self.key = key
+        self.init = CachedObject(init, id=f"$state.{key}")
+
+    def for_json(self):
+        return _Reactive(self.key, self.init)
 
 
-def Slider(key, range=None, init=None, label=None, cycle=None, **kwargs):
-    return Reactive(key, init, range=range, label=label, kind="Slider", **kwargs)
+_Slider = JSRef("Slider")
+
+
+def Slider(
+    key,
+    init=None,
+    range=None,
+    rangeFrom=None,
+    fps=None,
+    step=1.0,
+    tail=False,
+    label=None,
+    visible=True,
+    **kwargs,
+):
+    """
+    Creates a slider with reactive functionality.
+
+    Args:
+        key (str): The key for the reactive variable in the state.
+        init (Any, optional): Initial value for the variable.
+        range (Union[int, List[int]], optional): Either a single 'until' value or [from, until] list.
+        rangeFrom (Any, optional): Derive the range from the length of this (ref) argument.
+        fps (int, optional): Frames per second for animation through the range.
+        step (int, optional): Step size for the range. Defaults to 1.
+        tail (bool, optional): If True, animation stops at the end of the range. Defaults to False.
+        label (str, optional): Label for the slider.
+        **kwargs: Additional keyword arguments.
+    """
+    if init is None and range is None and rangeFrom is None:
+        raise ValueError("Slider: 'init', 'range', or 'rangeFrom' must be defined")
+    if tail and rangeFrom is None:
+        raise ValueError("Slider: 'tail' can only be used when 'rangeFrom' is provided")
+    init = init if init is not None else 0
+
+    slider_options = {
+        "state_key": key,
+        "init": CachedObject(init, id=f"$state.{key}"),
+        "range": range,
+        "rangeFrom": rangeFrom,
+        "fps": fps,
+        "step": step,
+        "tail": tail,
+        "label": label,
+        "visible": visible,
+        "kind": "Slider",
+        **kwargs,
+    }
+
+    return Hiccup(_Slider, slider_options)

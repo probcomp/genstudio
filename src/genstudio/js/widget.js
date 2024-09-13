@@ -1,39 +1,28 @@
-import { WidthContext, CONTAINER_PADDING, $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
+import { WidthContext, CONTAINER_PADDING, $StateContext } from "./context";
 import { html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
-import { AnyWidgetReact, React, ReactDOM, Plot, d3 } from "./imports";
+import { AnyWidgetReact, React, ReactDOM, Plot, d3, mobx, mobxReact } from "./imports";
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;
 import * as api from "./api";
 
-const layoutComponents = new Set(['Hiccup', 'Grid', 'Row', 'Column']);
-
-export function collectReactiveInitialState(ast) {
-  let initialState = {};
-
-  function traverse(node) {
-    if (!node) return;
-    if (typeof node === 'object' && node['__type__'] === 'function') {
-      if (node.path === 'Reactive') {
-        const { state_key, init } = new api.Reactive(node.args[0], initialState).options;
-        initialState[state_key] = init;
-      } else if (layoutComponents.has(node.path)) {
-        node.args.forEach(traverse);
-      }
-    } else if (Array.isArray(node)) {
-      node.forEach(traverse);
-    }
-  }
-
-  traverse(ast);
-  return initialState;
-}
 function resolveReference(path, obj) {
   return path.split('.').reduce((acc, key) => acc[key], obj);
 }
 
-export function evaluate(node, cache, $state, experimental) {
+function resolveCached(node, $state) {
+  if (node && typeof node === 'object' && node["__type__"] === "cached") {
+    return resolveCached($state.cached(node.id), $state);
+  }
+  return node;
+}
+
+export function evaluate(node, $state, experimental) {
+
   if (node === null || typeof node !== 'object') return node;
-  if (Array.isArray(node)) return node.map(item => evaluate(item, cache, $state, experimental));
+  if (Array.isArray(node)) return node.map(item => evaluate(item, $state, experimental));
+  if (node.constructor !== Object) {
+    return node;
+  }
 
   switch (node["__type__"]) {
     case "function":
@@ -42,7 +31,7 @@ export function evaluate(node, cache, $state, experimental) {
         console.error('Function not found', node);
         return null;
       }
-      const args = evaluate(node.args, cache, $state, experimental)
+      const args = fn.macro ? node.args : evaluate(node.args, $state, experimental)
       if (fn.prototype?.constructor === fn) {
         return new fn(...args);
       } else {
@@ -55,7 +44,7 @@ export function evaluate(node, cache, $state, experimental) {
     case "datetime":
       return new Date(node.value);
     case "cached":
-      return cache[node.id];
+      return $state.cached(node.id);
     case "callback":
       if (experimental) {
         return (e) => experimental.invoke("handle_callback", { id: node.id, event: serializeEvent(e) });
@@ -64,101 +53,144 @@ export function evaluate(node, cache, $state, experimental) {
       }
     default:
       return Object.fromEntries(
-        Object.entries(node).map(([key, value]) => [key, evaluate(value, cache, $state, experimental)])
+        Object.entries(node).map(([key, value]) => [key, evaluate(value, $state, experimental)])
       );
   }
 }
 
-export function evaluateCache(cache, $state, experimental) {
-  const evaluatedCache = {};
-  const evaluating = new Set();
-
-  function evaluateCacheEntry(key) {
-    if (key in evaluatedCache) return evaluatedCache[key];
-    if (evaluating.has(key)) {
-      console.warn(`Circular reference detected in cache for key: ${key}`);
-      return undefined;
-    }
-
-    evaluating.add(key);
-    const result = evaluate(cache[key], evaluatedCache, $state, experimental);
-    evaluating.delete(key);
-    evaluatedCache[key] = result;
-    return result;
+function applyOperation($state, init, op, payload) {
+  const evaluatedPayload = $state.evaluate(payload);
+  switch (op) {
+    case "append":
+      return [...init, evaluatedPayload];
+    case "concat":
+      return [...init, ...evaluatedPayload];
+    case "reset":
+      return evaluatedPayload;
+    default:
+      throw new Error(`Unknown operation: ${op}`);
   }
-
-  for (const key in cache) {
-    evaluateCacheEntry(key);
-  }
-
-  return evaluatedCache;
 }
 
-export function useReactiveState(ast) {
-  const initialState = useMemo(() => collectReactiveInitialState(ast), [ast]);
-  const [state, setState] = useState(initialState);
-  const initialStateKeys = useMemo(() => Object.keys(initialState).sort().join(','), [initialState]);
-  useEffect(() => setState(initialState), [initialStateKeys]);
-  const stateProxy = new Proxy(state, {
-    set(_, prop, value) {
-      setState(prevState => ({
-        ...prevState,
-        [prop]: typeof value === 'function' ? value(prevState[prop]) : value
-      }));
-      return true;
+export function createStateStore(initialValues, experimental) {
+  // An AST is paired with two kinds of dynamic state: $state variables
+  // and cache entries. $state variables are primitive (non-evaluated) values
+  // which cannot have dependencies. Cache entries are AST fragments which can
+  // depend on other cache entries as well as $state.
+
+  // $state entries will be represented as `mobx.observable.box` instances,
+  // created lazily when accessed for the first time.
+  const stateEntries = {}
+
+  // cache entries will be represented as `mobx.computed` instances, created lazily,
+  // along with a list of updates to be applied to the initial value.
+  const cacheEntries = {}
+  const cacheUpdates = mobx.observable.map({})
+
+  const stateBox = function(key) {
+    // return a mobx "box" for each $state entry
+    if (!(key in stateEntries)) {
+      stateEntries[key] = mobx.observable.box(initialValues[key], {deep: false});
     }
-  });
-
-  return useMemo(() => [stateProxy, setState], [state]);
-}
-
-export function StateProvider({ ast, cache, experimental, model }) {
-  const stateArray = useReactiveState(ast);
-  const [$state] = stateArray;
-
-  const [evaluatedAst, setEvaluatedAst] = useState();
-  const evaluateData = () => {
-    const evaluatedCache = evaluateCache(cache, $state, experimental)
-    const evaluatedAst = evaluate(ast, evaluatedCache, $state, experimental)
-    setEvaluatedAst(evaluatedAst)
+    return stateEntries[key];
   }
-  useEffect(evaluateData, [ast, cache, $state, experimental]);
 
-  useEffect(() => {
+  const $state = {
+    evaluate: function(ast) {
+      return evaluate(ast, this, experimental);
+    },
+    backfill: function(cache) {
+      // adds state/cache entries to the initial state
+      Object.assign(initialValues, cache)
+    },
+    resolveCached: function (node) {
+      return resolveCached(node, this)
+    },
+    cached: function (key) {
+      if (key.startsWith('$state.')) {
+        // $state is initially populated from cache entries, identified only by a
+        // `$state` prefix in their id.
+        return stateBox(key).get()
+      }
+      if (!(key in cacheEntries)) {
+        cacheEntries[key] = mobx.computed(() => {
+          const updatesList = cacheUpdates.get(key) || [];
+          return updatesList.reduce((acc, [operation, payload]) =>
+            applyOperation(this, acc, operation, payload), this.evaluate(initialValues[key]));
+        });
+      }
+      return cacheEntries[key].get();
+    }
+  };
 
-    const cb = (msg) => {
-      if (msg.type === 'update_cache') {
-        const updates = evaluate(JSON.parse(msg.updates), cache, $state, experimental);
-        for (const [id, operation, payload] of updates) {
-          const prevValue = cache[id];
-          let nextValue;
-          switch (operation) {
-            case "append":
-              nextValue = [...prevValue, payload];
-              break;
-            case "concat":
-              nextValue = [...prevValue, ...payload];
-              break;
-            case "reset":
-              nextValue = payload;
-              break;
-          }
-          cache[id] = nextValue
-        }
-        evaluateData()
+  $state.addUpdates = mobx.action(updates => {
+    // Cache entries are computed by taking an initial value and applying each of the updates which have
+    // occurred. This is assumed to be adequately performant as the updates are typically simple/cheap.
+    for (const update of updates) {
+      const [id, operation, payload] = update;
+      if (id.startsWith("$state.")) {
+        const box = stateBox(id)
+        box.set(applyOperation($state, box.get(), operation, payload))
+      } else {
+        const currentUpdates = cacheUpdates.get(id) || [];
+        cacheUpdates.set(id, [...currentUpdates, [operation, payload]]);
       }
     }
-    model?.on("msg:custom", cb);
-    return () => model?.off("msg:custom", cb)
-  }, [cache, model])
+  })
 
-  if (!evaluatedAst) return;
-  return html`
-    <${$StateContext.Provider} value=${stateArray}>
-      <${api.Node} value=${evaluatedAst} />
-    </>
-  `;
+  // We return a proxy object for interacting directly with $state variables
+  return new Proxy($state, {
+    get: (_, key) => {
+      return key in $state ? $state[key] : stateBox('$state.' + key).get()
+    },
+    set: mobx.action((_, key, value) => {
+      const box = stateBox('$state.' + key);
+      box.set(typeof value === 'function' ? value(box.get()) : value)
+      return true;
+    })
+  });
 }
+
+export const StateProvider = mobxReact.observer(
+  function ({ ast, cache, experimental, model }) {
+
+    const $state = useMemo(() => createStateStore(cache, experimental), [])
+
+    // a currentAst state field managed by the following useEffect hook,
+    // to ensure that an ast is only rendered after $state has been populated
+    // with the associated cache entries.
+    const [currentAst, setCurrentAst] = useState(null)
+
+    useEffect(() => {
+      // when the widget is reset with a new ast/cache, add missing entries
+      // to the cache and then reset the current ast.
+      $state.backfill(cache)
+      setCurrentAst(ast)
+    }, [ast, cache])
+
+    useEffect(() => {
+      // if we have an AnyWidget model (ie. we are in widget model),
+      // listen for `update_cache` events.
+      if (model) {
+        const cb = (msg) => {
+          if (msg.type === 'update_cache') {
+            $state.addUpdates(JSON.parse(msg.updates))
+          }
+        }
+        model.on("msg:custom", cb);
+        return () => model.off("msg:custom", cb)
+      }
+    }, [cache, model])
+
+    if (!currentAst) return;
+
+    return html`
+    <${$StateContext.Provider} value=${$state}>
+      <${api.Node} value=${currentAst} />
+    </${$StateContext.Provider}>
+  `;
+  }
+)
 
 function DataViewer(data) {
   const [el, setEl] = useState();
