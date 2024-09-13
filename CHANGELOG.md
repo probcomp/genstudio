@@ -1,3 +1,11 @@
+### [2024.09.003] - Sep 13, 2024
+
+#### New Features
+- add Plot.draw mark (onDrawStart, onDraw, onDrawEnd)
+- add Plot.render.draggableChildren (onDragStart, onDrag, onDragEnd, onClick)
+- add widget.update_state([CachedObject, operation, payload]) for reactively updating cached data
+- add Plot.initial_state for initializing js $state variables
+
 ### [2024.09.002] - Sep 11, 2024
 
 #### New Features
@@ -19,13 +27,6 @@
 #### Bug Fixes
 - Allow cache entries to reference each other (non-circular)
 
-### [2024.08.009] - Aug 28, 2024
-
-#### New Features
-- add cycle option to Slider/Reactive/Frames
-
-#### Documentation
-- Bylight example
 
 ### [2024.08.008] - Aug 28, 2024
 
