@@ -244,10 +244,11 @@ def update_position(event):
 # %% [markdown]
 # ## Interactive Drawing
 #
-# The `Plot.draw` mark allows users to draw lines on a plot. By default no line is "drawn"; it's up to you to do something with the data.
-#
-import genstudio.plot as Plot
+# The `Plot.draw` mark allows users to draw lines on a plot. By default no line is "drawn"; it's up to you to do something with the `path` included in the event data.
+# Supported callbacks: `onDrawStart`, `onDraw`, and `onDrawEnd`.
 
+
+# %%
 (
     Plot.initial_state("points", [])
     # Use `Plot.draw`, setting $state.points in the `onDraw` callback,
