@@ -246,14 +246,16 @@ def update_position(event):
 #
 # The `Plot.draw` mark allows users to draw lines on a plot. By default no line is "drawn"; it's up to you to do something with the data.
 #
+import genstudio.plot as Plot
 
 (
     Plot.initial_state("points", [])
-    # Draw a line through all points
-    + Plot.line(Plot.js("$state.points"))
     # Use `Plot.draw`, setting $state.points in the `onDraw` callback,
     # which is passed an event containing `path`, an array of [x, y] points.
     + Plot.draw(onDraw=Plot.js("(event) => $state.points = event.path"))
+    # Draw a line through all points
+    + Plot.line(Plot.js("$state.points"), stroke="blue", strokeWidth=4)
+    + Plot.ellipse([[1, 1]], r=1, opacity=0.5, fill="red")
     + Plot.domain([0, 2])
 )
 
@@ -271,8 +273,14 @@ interactivity_warning
 # %%
 points = Plot.cache([])
 (
+    # Create drawing area and update points cache on draw
+    Plot.draw(
+        onDraw=lambda event: event["widget"].update_cache(
+            [points, "reset", event["path"]]
+        )
+    )
     # Draw a continuous line through all points
-    Plot.line(points)
+    + Plot.line(points)
     # Add dots for all points
     + Plot.dot(points)
     # Highlight every 6th point in red
@@ -282,12 +290,6 @@ points = Plot.cache([])
             Plot.js("(indexes) => indexes.filter(i => i % 6 === 0)"),
             {"fill": "red", "r": 10},
         ),
-    )
-    # Create drawing area and update points cache on draw
-    + Plot.draw(
-        onDraw=lambda event: event["widget"].update_cache(
-            [points, "reset", event["path"]]
-        )
     )
     + Plot.domain([0, 2])
 )

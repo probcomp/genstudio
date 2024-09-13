@@ -21,89 +21,82 @@ export class Draw extends Plot.Mark {
 
   render(index, scales, channels, dimensions, context) {
     const { width, height } = dimensions;
-    let isDrawing = false;
     let path = [];
+    let currentDrawingRect = null;
+    let drawingArea = null;
+    let scaleX, scaleY;
 
-    // Helper function to invert point with logging
-    const invertPoint = (x, y) => {
-      return [scales.x.invert(x), scales.y.invert(y)];
+    // Calculate scale factors to account for potential differences between
+    // the SVG's logical dimensions and its actual rendered size (due to CSS,
+    // responsive design, or high-DPI displays). This ensures accurate
+    // mapping between screen coordinates and data coordinates.
+    const calculateScaleFactors = (rect) => {
+      scaleX = rect.width / width;
+      scaleY = rect.height / height;
     };
 
-    // Helper function to create a payload for callbacks
-    const createPayload = (x, y, type) => {
-      const [invertedX, invertedY] = invertPoint(x, y);
-      return {
-        x: invertedX,
-        y: invertedY,
-        pixels: { x, y },
-        type
-      };
+    // Convert pixel coordinates to data coordinates
+    const invertPoint = ([x, y]) => [
+      scales.x.invert(x / scaleX),
+      scales.y.invert(y / scaleY)
+    ];
+
+    const callbackPayload = (type) => {
+      return {type, path: path.map(invertPoint)};
     };
 
-    // Helper function to create path payload
-    const createPathPayload = () => path.map(([x, y]) => invertPoint(x, y));
+    const isWithinDrawingArea = (rect, x, y) => {
+      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    };
 
     const handleDrawStart = (event) => {
-      isDrawing = true;
-      const { clientX, clientY } = event;
-      const rect = event.target.getBoundingClientRect();
-      const offsetX = clientX - rect.left;
-      const offsetY = clientY - rect.top;
+      currentDrawingRect = drawingArea.getBoundingClientRect();
+      if (!isWithinDrawingArea(currentDrawingRect, event.clientX, event.clientY)) return;
+      calculateScaleFactors(currentDrawingRect);
+      const offsetX = event.clientX - currentDrawingRect.left;
+      const offsetY = event.clientY - currentDrawingRect.top;
       path = [[offsetX, offsetY]];
-      if (this.onDrawStart) {
-        this.onDrawStart(createPayload(offsetX, offsetY, "drawstart"));
-      }
+      this.onDrawStart?.(callbackPayload("drawstart"));
 
-      // Set up global listeners
       document.addEventListener('mousemove', handleDraw);
       document.addEventListener('mouseup', handleDrawEnd);
     };
 
     const handleDraw = (event) => {
-      if (!isDrawing) return;
-      event.preventDefault()
-      const rect = event.target.getBoundingClientRect();
-      const offsetX = event.clientX - rect.left;
-      const offsetY = event.clientY - rect.top;
+      if (!currentDrawingRect) return;
+      event.preventDefault();
+      const offsetX = event.clientX - currentDrawingRect.left;
+      const offsetY = event.clientY - currentDrawingRect.top;
       path.push([offsetX, offsetY]);
-      if (this.onDraw) {
-        return this.onDraw({
-          ...createPayload(offsetX, offsetY, "draw"),
-          path: createPathPayload()
-        });
-      }
+      this.onDraw?.(callbackPayload("draw"));
     };
 
     const handleDrawEnd = (event) => {
-      if (!isDrawing) return;
-      isDrawing = false;
-      const rect = event.target.getBoundingClientRect();
-      const offsetX = event.clientX - rect.left;
-      const offsetY = event.clientY - rect.top;
+      if (!currentDrawingRect) return;
+      const offsetX = event.clientX - currentDrawingRect.left;
+      const offsetY = event.clientY - currentDrawingRect.top;
       path.push([offsetX, offsetY]);
-      if (this.onDrawEnd) {
-        this.onDrawEnd({
-          ...createPayload(offsetX, offsetY, "drawend"),
-          path: createPathPayload()
-        });
-      }
+      this.onDrawEnd?.(callbackPayload("drawend"));
 
-      // Remove global listeners
       document.removeEventListener('mousemove', handleDraw);
       document.removeEventListener('mouseup', handleDrawEnd);
+      currentDrawingRect = null;
     };
 
-    return d3.create("svg:g")
+    const g = d3.create("svg:g")
       .call(applyIndirectStyles, this, dimensions, context)
-      .call(applyTransform, this, scales, 0, 0)
-      .call(g => g.append("rect")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("fill", "none")
-        .attr("pointer-events", "all")
-        .on("mousedown", handleDrawStart)
-      )
+      .call(applyTransform, this, scales, 0, 0);
+
+    drawingArea = g.append("rect")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("fill", "none")
+      .attr("pointer-events", "all")
       .node();
+
+    document.addEventListener('mousedown', handleDrawStart);
+
+    return g.node();
   }
 }
 
