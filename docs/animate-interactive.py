@@ -127,7 +127,7 @@ while time.time() - start_time < duration:
     time.sleep(0.2)
 
 # %% [markdown]
-# ## Modify Data
+# ## Plot.cache
 
 # %% tags=["hide_source"]
 interactivity_warning
@@ -137,7 +137,7 @@ interactivity_warning
 # We can refer to the same value more than once in a plot by wrapping it in `Plot.cache`. The value will only be serialized once.
 # Plot marks are automatically cached in this way.
 #
-# Later, we can modify cached values and affected views will re-render. To do so, we call the `update_cache` method of the layout, and pass it any number of `[cached_object, operation, value]` lists.
+# `Plot.cache` also gives us a "target" inside the widget that we can send updates to, using the `update_cache` method. We can send any number of operations, in the form `[cached_object, operation, value]`. The cached value will change, and affected nodes will re-render.
 
 
 # %%
