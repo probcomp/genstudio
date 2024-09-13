@@ -40,7 +40,8 @@ export function evaluate(node, $state, experimental) {
     case "ref":
       return resolveReference(node.path, api);
     case "js":
-      return (new Function('$state', 'd3', 'Plot', `return ${node.value}`))($state, d3, Plot);
+      const source = node.expression ? `return ${node.value}` : node.value;
+      return (new Function('$state', 'd3', 'Plot', source))($state, d3, Plot);
     case "datetime":
       return new Date(node.value);
     case "cached":
@@ -67,6 +68,11 @@ function applyOperation($state, init, op, payload) {
       return [...init, ...evaluatedPayload];
     case "reset":
       return evaluatedPayload;
+    case "setAt":
+      const [i, v] = evaluatedPayload;
+      const newArray = [...init];
+      newArray[i] = v;
+      return newArray;
     default:
       throw new Error(`Unknown operation: ${op}`);
   }
@@ -78,62 +84,54 @@ export function createStateStore(initialValues, experimental) {
   // which cannot have dependencies. Cache entries are AST fragments which can
   // depend on other cache entries as well as $state.
 
-  // $state entries will be represented as `mobx.observable.box` instances,
-  // created lazily when accessed for the first time.
+  // $state is held in `mobx.observable.box` instances, created lazily
   const stateEntries = {}
 
-  // cache entries will be represented as `mobx.computed` instances, created lazily,
-  // along with a list of updates to be applied to the initial value.
-  const cacheEntries = {}
-  const cacheUpdates = mobx.observable.map({})
+  // cache entries are held in `mobx.computed` instances, created lazily
+  const cacheComputeds = {}
 
-  const stateBox = function(key) {
-    // return a mobx "box" for each $state entry
+  // initialValues are observable
+  const initialValuesMap = mobx.observable.map(initialValues, { deep: false })
+
+  // return a mobx "box" for each $state entry
+  const stateBox = function (key) {
     if (!(key in stateEntries)) {
-      stateEntries[key] = mobx.observable.box(initialValues[key], {deep: false});
+      stateEntries[key] = mobx.observable.box(initialValuesMap.get(key), { deep: false });
     }
     return stateEntries[key];
   }
 
   const $state = {
-    evaluate: function(ast) {
+    evaluate: function (ast) {
       return evaluate(ast, this, experimental);
     },
-    backfill: function(cache) {
-      // adds state/cache entries to the initial state
-      Object.assign(initialValues, cache)
+    // adds new state/cache entries to the initial state
+    backfill: function (cache) {
+      for (const key in cache) {
+        if (!initialValuesMap.has(key)) {
+          initialValuesMap.set(key, cache[key]);
+        }
+      }
     },
-    resolveCached: function (node) {
-      return resolveCached(node, this)
-    },
+    resolveCached: function (node) { return resolveCached(node, this) },
     cached: function (key) {
-      if (key.startsWith('$state.')) {
-        // $state is initially populated from cache entries, identified only by a
-        // `$state` prefix in their id.
-        return stateBox(key).get()
+      if (key.startsWith('$state.')) return stateBox(key).get();
+
+      if (!(key in cacheComputeds)) {
+        cacheComputeds[key] = mobx.computed(() => this.evaluate(initialValuesMap.get(key)));
       }
-      if (!(key in cacheEntries)) {
-        cacheEntries[key] = mobx.computed(() => {
-          const updatesList = cacheUpdates.get(key) || [];
-          return updatesList.reduce((acc, [operation, payload]) =>
-            applyOperation(this, acc, operation, payload), this.evaluate(initialValues[key]));
-        });
-      }
-      return cacheEntries[key].get();
+      return cacheComputeds[key].get();
     }
   };
 
   $state.addUpdates = mobx.action(updates => {
-    // Cache entries are computed by taking an initial value and applying each of the updates which have
-    // occurred. This is assumed to be adequately performant as the updates are typically simple/cheap.
     for (const update of updates) {
-      const [id, operation, payload] = update;
-      if (id.startsWith("$state.")) {
-        const box = stateBox(id)
+      const [key, operation, payload] = update;
+      if (key.startsWith("$state.")) {
+        const box = stateBox(key)
         box.set(applyOperation($state, box.get(), operation, payload))
       } else {
-        const currentUpdates = cacheUpdates.get(id) || [];
-        cacheUpdates.set(id, [...currentUpdates, [operation, payload]]);
+        initialValuesMap.set(key, applyOperation($state, initialValuesMap.get(key), operation, payload))
       }
     }
   })

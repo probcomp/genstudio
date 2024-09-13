@@ -83,7 +83,7 @@ class Widget(anywidget.AnyWidget):
     ) -> tuple[str, list[bytes]]:
         f = self.callback_registry[params["id"]]
         if f is not None:
-            f(params["event"])
+            f({**params["event"], "widget": self})
         return "ok", []
 
     def update_cache(self, *updates):

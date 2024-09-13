@@ -1,11 +1,11 @@
-import { Plot, d3 } from "./imports"
+import { Plot, d3 } from "../imports"
 
 import {
   applyChannelStyles,
   applyDirectStyles,
   applyIndirectStyles,
   applyTransform
-} from "./plot_style";
+} from "./style";
 
 export class Ellipse extends Plot.Mark {
   /**

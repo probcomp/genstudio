@@ -37,8 +37,8 @@
     "release": "python scripts/release.py",
     "build": "npx esbuild --bundle --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_build.js",
     "watch": "npx esbuild --bundle --watch --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_build.js",
-    "docs:watch": "poetry run mkdocs serve",
-    "docs:build": "poetry run mkdocs build",
+    "watch:docs": "poetry run mkdocs serve",
+    "build:docs": "poetry run mkdocs build",
     "inspect": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --metafile=meta.json --outfile=src/genstudio/js/widget_build.js && open https://esbuild.github.io/analyze/",
     "test:js": "node --experimental-vm-modules node_modules/vitest/vitest.mjs"
   }

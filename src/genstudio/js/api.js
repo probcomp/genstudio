@@ -5,7 +5,9 @@ import { Plot, d3, MarkdownIt, React, ReactDOM, mobxReact } from "./imports";
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 import bylight from "bylight";
 import { tw } from "./utils";
+import * as render from "./plot/render";
 
+export { render };
 const DEFAULT_GRID_GAP = "10px"
 export const CONTAINER_PADDING = 10;
 
@@ -125,6 +127,7 @@ export const Frames = mobxReact.observer(
     function (props) {
         const { state_key, frames } = props
         const $state = useContext($StateContext);
+        console.log("Frames", props)
 
         if (!Array.isArray(frames)) {
             return html`<div className=${tw("text-red-500")}>Error: 'frames' must be an array.</div>`;

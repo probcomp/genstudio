@@ -426,6 +426,10 @@ def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     return PlotSpec(MarkSpec("ellipse", values, {**options, **kwargs}))
 
 
+def draw(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
+    return PlotSpec(MarkSpec("draw", [], {**options, **kwargs}))
+
+
 def scaled_circle(x, y, r, **kwargs):
     return ellipse([[x, y]], r=r, **kwargs)
 
@@ -758,6 +762,10 @@ class Reactive(LayoutItem):
         return _Reactive(self.key, self.init)
 
 
+def initial_state(key, value):
+    return Reactive(key, init=value)
+
+
 _Slider = JSRef("Slider")
 
 
@@ -808,3 +816,6 @@ def Slider(
     }
 
     return Hiccup(_Slider, slider_options)
+
+
+render = JSRef("render")
