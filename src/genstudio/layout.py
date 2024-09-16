@@ -311,6 +311,20 @@ def ref(initial_value: Any, id=None) -> RefObject:
     return RefObject(initial_value, id=id)
 
 
+def cache(initial_value: Any, id=None) -> RefObject:
+    """
+    Deprecated: Use `ref` instead.
+    """
+    import warnings
+
+    warnings.warn(
+        "The 'cache' function is deprecated. Use 'ref' instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return ref(initial_value, id)
+
+
 def unwrap_ref(obj: Any) -> Any:
     """
     Unwraps a RefObject if the input is one.
