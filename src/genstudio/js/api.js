@@ -30,7 +30,7 @@ export const Slider = mobxReact.observer(
             init, range, rangeFrom, tail, step } = options;
 
         if (init === undefined && rangeFrom === undefined && range === undefined) {
-            throw new Error("Reactive: 'init', 'rangeFrom', or 'range' must be defined");
+            throw new Error("Slider: 'init', 'rangeFrom', or 'range' must be defined");
         }
 
         let rangeMin, rangeMax;
@@ -116,7 +116,7 @@ export function clamp(value, min, max) {
     return value;
 }
 
-export class Reactive {
+export class InitialState {
     render() { }
 }
 

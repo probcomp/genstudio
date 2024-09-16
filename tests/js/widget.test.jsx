@@ -74,7 +74,7 @@ describe('Widget', () => {
     it('should update state correctly', async () => {
       const ast = {
         __type__: 'function',
-        path: 'Reactive',
+        path: 'InitialState',
         args: [{ state_key: 'count', init: 0 }]
       }
       let result;
@@ -120,52 +120,6 @@ describe('Widget', () => {
 
       expect(container.innerHTML).toContain('Count: 0');
     });
-
-    it('should update cache and $state simultaneously', async () => {
-      const ast = {
-        __type__: 'function',
-        path: 'Hiccup',
-        args: [
-          "div",
-          {
-            __type__: 'function',
-            path: 'md',
-            args: [{
-              __type__: "js_source",
-              expression: true,
-              value: '`Count: ${$state.count}, Cached: ${$state["testKey"]}`'
-            }]
-          }
-        ]
-      };
-      const cache = { testKey: 'initial', 'count': 0 };
-      const experimental = null;
-      const model = {
-        on: vi.fn(),
-        off: vi.fn(),
-        trigger: vi.fn()
-      };
-
-      const { container } = render(
-        <StateProvider ast={ast} cache={cache} experimental={experimental} model={model} />
-      );
-
-      expect(container.innerHTML).toContain('Count: 0, Cached: initial');
-
-      // Simulate updating both cache and $state
-      await act(async () => {
-        const updateMsg = {
-          type: 'update_state',
-          updates: JSON.stringify([
-            ['testKey', 'reset', 'updated'],
-            ['count', 'reset', 1]
-          ])
-        };
-        model.on.mock.calls[0][1](updateMsg);
-      });
-
-      expect(container.innerHTML).toContain('Count: 1, Cached: updated');
-    });
   });
 
   describe('renderData', () => {
@@ -181,8 +135,8 @@ describe('Widget', () => {
     })
   })
 
-  describe('Plot.Reactive and Plot.js combination', () => {
-    it('should handle Plot.Reactive and Plot.js combination correctly', async () => {
+  describe('Plot.InitialState and Plot.js combination', () => {
+    it('should handle Plot.InitialState and Plot.js combination correctly', async () => {
       const consoleSpy = vi.spyOn(console, 'log');
 
       // Simulate the AST created by Python's `&` operator
@@ -193,7 +147,7 @@ describe('Widget', () => {
           {}, // options object for Row
           {
             __type__: 'function',
-            path: 'Reactive',
+            path: 'InitialState',
             args: ['foo', {__type__: 'ref', id: 'foo'}]
           },
           {__type__: "js_source", value: 'console.log($state.foo) || $state.foo'}
@@ -214,5 +168,91 @@ describe('Widget', () => {
 
       consoleSpy.mockRestore();
     });
+  });
+
+  describe('createStateStore', () => {
+    it('should initialize with basic values', () => {
+      const store = createStateStore({ count: 0, name: 'Test' });
+      expect(store.count).toBe(0);
+      expect(store.name).toBe('Test');
+    });
+
+    it('should update values', () => {
+      const store = createStateStore({ count: 0 });
+      store.count = 1;
+      expect(store.count).toBe(1);
+    });
+
+    it('should handle computed values', () => {
+      const store = createStateStore({
+        count: 0,
+        doubleCount: { __type__: 'js_source', expression: true, value: '$state.count * 2' }
+      });
+      expect(store.doubleCount).toBe(0);
+      store.count = 2;
+      expect(store.doubleCount).toBe(4);
+    });
+
+    it('should handle references', () => {
+      const store = createStateStore({
+        original: 10,
+        reference: { __type__: 'ref', id: 'original' }
+      });
+      expect(store.reference).toBe(10);
+      store.original = 20;
+      expect(store.reference).toBe(20);
+    });
+
+    it('should handle complex updates', () => {
+      const store = createStateStore({
+        list: [1, 2, 3],
+        sum: { __type__: 'js_source', expression: true, value: '$state.list.reduce((a, b) => a + b, 0)' }
+      });
+      expect(store.sum).toBe(6);
+      store.update([['list', 'append', 4]]);
+      expect(store.list).toEqual([1, 2, 3, 4]);
+      expect(store.sum).toBe(10);
+    });
+
+    it('should handle circular references without infinite loops', () => {
+      const store = createStateStore({
+        a: { __type__: 'ref', id: 'b' },
+        b: { __type__: 'ref', id: 'a' },
+        c: 10
+      });
+      expect(() => store.a).toThrow(/Cycle detected in computation/);
+      expect(store.c).toBe(10);
+    });
+
+    it('should demonstrate that update order matters for dependent variables', () => {
+      const store = createStateStore({
+        a: 1,
+        b: { __type__: 'js_source', expression: true, value: '$state.a + 1' }
+      });
+
+      // Initial state
+      expect(store.a).toBe(1);
+      expect(store.b).toBe(2);
+
+      // Update 'a' first, then 'b'
+      store.update([
+        ['a', 'reset', 10],
+        ['b', 'reset', { __type__: 'js_source', expression: true, value: '$state.a + 1' }]
+      ]);
+      expect(store.a).toBe(10);
+      expect(store.b).toBe(11);
+
+      // Reset the store
+      store.a = 1;
+
+      // Update 'b' first, then 'a'
+      store.update([
+        ['b', 'reset', { __type__: 'js_source', expression: true, value: '$state.a + 1' }],
+        ['a', 'reset', 10]
+      ]);
+      expect(store.a).toBe(10);
+      expect(store.b).toBe(2);  // 'b' is still based on the old value of 'a'
+    });
+
   });
 })

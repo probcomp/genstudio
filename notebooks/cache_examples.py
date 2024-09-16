@@ -60,7 +60,7 @@ render_2 = Plot.ref(
 )
 
 
-# %% Plot.Reactive initializes a variable
+# %% initialize a variable
 # We should see '123' logged once.
 Plot.initial_state("foo", 123) & Plot.js("console.log($state.foo) || $state.foo")
 

@@ -93,7 +93,17 @@ export function createStateStore(initialState, experimental) {
     set: mobx.action((_target, key, value) => {
       initialStateMap.set(key, typeof value === 'function' ? value(initialStateMap.get(key)) : value);
       return true;
-    })
+    }),
+    ownKeys(_target) {
+      return Array.from(initialStateMap.keys());
+    },
+    getOwnPropertyDescriptor(_target, key) {
+      return {
+        enumerable: true,
+        configurable: true,
+        value: this.get(_target, key)
+      };
+    }
   };
 
   const $state = new Proxy({

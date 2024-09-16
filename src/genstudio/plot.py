@@ -739,13 +739,13 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
         return Hiccup(_Frames, {"state_key": key, "frames": frames})
 
 
-_Reactive = JSRef("Reactive")
+_InitialState = JSRef("InitialState")
 
 
-class Reactive(LayoutItem):
+class InitialState(LayoutItem):
     def __init__(self, key, init=None):
         """
-        Initializes a reactive variable.
+        Initializes $state without returning a value.
 
         Args:
             key (str): The key for the reactive variable in the state.
@@ -755,11 +755,14 @@ class Reactive(LayoutItem):
         self.init = RefObject(init, id=key)
 
     def for_json(self):
-        return _Reactive(self.key, self.init)
+        return _InitialState(self.key, self.init)
 
 
 def initial_state(key, value):
-    return Reactive(key, init=value)
+    """
+    Initialise $state without returning a value.
+    """
+    return InitialState(key, init=value)
 
 
 _Slider = JSRef("Slider")

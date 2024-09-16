@@ -291,27 +291,27 @@ def unwrap_for_json(x):
 class RefObject(LayoutItem):
     def __init__(self, value, id=None):
         self.id = str(uuid.uuid1()) if id is None else id
-        self.initial_value = value
+        self.init = value
 
     def ref_id(self):
         return self.id
 
     def for_json(self):
-        return unwrap_for_json(self.initial_value)
+        return unwrap_for_json(self.init)
 
     def _repr_mimebundle_(self, **kwargs: Any) -> Any:
-        if hasattr(self.initial_value, "_repr_mimebundle_"):
-            return self.initial_value._repr_mimebundle_(**kwargs)
+        if hasattr(self.init, "_repr_mimebundle_"):
+            return self.init._repr_mimebundle_(**kwargs)
         return super()._repr_mimebundle_(**kwargs)
 
 
-def ref(initial_value: Any, id=None) -> RefObject:
-    if id is None and isinstance(initial_value, RefObject):
-        return initial_value
-    return RefObject(initial_value, id=id)
+def ref(init: Any, id=None) -> RefObject:
+    if id is None and isinstance(init, RefObject):
+        return init
+    return RefObject(init, id=id)
 
 
-def cache(initial_value: Any, id=None) -> RefObject:
+def cache(init: Any, id=None) -> RefObject:
     """
     Deprecated: Use `ref` instead.
     """
@@ -322,7 +322,7 @@ def cache(initial_value: Any, id=None) -> RefObject:
         DeprecationWarning,
         stacklevel=2,
     )
-    return ref(initial_value, id)
+    return ref(init, id)
 
 
 def unwrap_ref(obj: Any) -> Any:
@@ -336,5 +336,5 @@ def unwrap_ref(obj: Any) -> Any:
         Any: The unwrapped object if input was a RefObject, otherwise the input object.
     """
     if isinstance(obj, RefObject):
-        return obj.initial_value
+        return obj.init
     return obj
