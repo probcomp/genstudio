@@ -11,6 +11,7 @@ from genstudio.util import PARENT_PATH, CONFIG
 
 
 class Cache:
+    # a Cache is used to store "refs" off to the side while serializing data.
     def __init__(self):
         self.cache = {}
 
@@ -18,7 +19,7 @@ class Cache:
         if id not in self.cache:
             # perform to_json conversion for cache entries immediately
             self.cache[id] = orjson.Fragment(to_json(value, **kwargs))
-        return {"__type__": "cached", "id": id}
+        return {"__type__": "ref", "id": id}
 
     def for_json(self):
         return self.cache
@@ -26,10 +27,10 @@ class Cache:
 
 def to_json(data, widget=None, cache=None):
     def default(obj):
-        if hasattr(obj, "cache_id"):
+        if hasattr(obj, "ref_id"):
             if cache is not None:
                 return cache.entry(
-                    obj.cache_id(), obj.for_json(), widget=widget, cache=cache
+                    obj.ref_id(), obj.for_json(), widget=widget, cache=cache
                 )
         if hasattr(obj, "for_json"):
             return obj.for_json()
@@ -86,9 +87,9 @@ class Widget(anywidget.AnyWidget):
             f({**params["event"], "widget": self})
         return "ok", []
 
-    def update_cache(self, *updates):
+    def update_state(self, *updates):
         updates = [
             [entry if isinstance(entry, str) else entry.id, operation, payload]
             for [entry, operation, payload] in updates
         ]
-        self.send({"type": "update_cache", "updates": to_json(updates, widget=self)})
+        self.send({"type": "update_state", "updates": to_json(updates, widget=self)})

@@ -29,7 +29,7 @@ describe('Widget', () => {
 
     it('should handle references correctly', () => {
       const ast = {
-        __type__: 'ref',
+        __type__: "js_ref",
         path: 'Plot.dot'
       }
       const result = evaluate(ast, {}, {}, null)
@@ -38,7 +38,7 @@ describe('Widget', () => {
 
     it('should evaluate JavaScript expressions', () => {
       const ast = {
-        __type__: 'js',
+        __type__: "js_source",
         expression: true,
         value: '2 + 2'
       }
@@ -59,7 +59,7 @@ describe('Widget', () => {
 
   describe('useStateStore', () => {
     it('should initialize state correctly', () => {
-      const init = {"$state.count": 0}
+      const init = {"count": 0}
       let result;
       function TestHook() {
         result = createStateStore(init);
@@ -103,14 +103,14 @@ describe('Widget', () => {
             __type__: 'function',
             path: 'md',
             args: [{
-              __type__: 'js',
+              __type__: "js_source",
               expression: true,
               value: '`Count: ${$state.count}`'
             }]
           }
         ]
       };
-      const cache = {"$state.count": 0};
+      const cache = {"count": 0};
       const experimental = null;
       const model = { on: vi.fn(), off: vi.fn() };
 
@@ -131,14 +131,14 @@ describe('Widget', () => {
             __type__: 'function',
             path: 'md',
             args: [{
-              __type__: 'js',
+              __type__: "js_source",
               expression: true,
-              value: '`Count: ${$state.count}, Cached: ${$state.cached("testKey")}`'
+              value: '`Count: ${$state.count}, Cached: ${$state["testKey"]}`'
             }]
           }
         ]
       };
-      const cache = { testKey: 'initial', '$state.count': 0 };
+      const cache = { testKey: 'initial', 'count': 0 };
       const experimental = null;
       const model = {
         on: vi.fn(),
@@ -155,10 +155,10 @@ describe('Widget', () => {
       // Simulate updating both cache and $state
       await act(async () => {
         const updateMsg = {
-          type: 'update_cache',
+          type: 'update_state',
           updates: JSON.stringify([
             ['testKey', 'reset', 'updated'],
-            ['$state.count', 'reset', 1]
+            ['count', 'reset', 1]
           ])
         };
         model.on.mock.calls[0][1](updateMsg);
@@ -194,14 +194,14 @@ describe('Widget', () => {
           {
             __type__: 'function',
             path: 'Reactive',
-            args: ['foo', {__type__: 'cached', id: '$state.foo'}]
+            args: ['foo', {__type__: 'ref', id: 'foo'}]
           },
-          {__type__: "js", value: 'console.log($state.foo) || $state.foo'}
+          {__type__: "js_source", value: 'console.log($state.foo) || $state.foo'}
         ]
       };
 
       const cache = {
-        '$state.foo': 123
+        'foo': 123
       };
 
 

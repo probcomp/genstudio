@@ -127,27 +127,26 @@ while time.time() - start_time < duration:
     time.sleep(0.2)
 
 # %% [markdown]
-# ## Plot.cache
+# ## Plot.ref
 
 # %% tags=["hide_source"]
 interactivity_warning
 
 
 # %% [markdown]
-# We can refer to the same value more than once in a plot by wrapping it in `Plot.cache`. The value will only be serialized once.
-# Plot marks are automatically cached in this way.
+# We can refer to the same value more than once in a plot by wrapping it in `Plot.ref`. The value will only be serialized once. Plot marks are automatically referenced in this way.
 #
-# `Plot.cache` also gives us a "target" inside the widget that we can send updates to, using the `update_cache` method. We can send any number of operations, in the form `[cached_object, operation, value]`. The cached value will change, and affected nodes will re-render.
+# `Plot.ref` gives us a "target" inside the widget that we can send updates to, using the `update_state` method. We can send any number of operations, in the form `[ref_object, operation, value]`. The referenced value will change, and affected nodes will re-render.
 
 
 # %%
-numbers = Plot.cache([1, 2, 3])
+numbers = Plot.ref([1, 2, 3])
 view = Plot.html("div", numbers).display_as("widget")
 view
 
 # %%
 
-view.update_cache([numbers, "append", 4])
+view.update_state([numbers, "append", 4])
 
 # %% [markdown]
 
@@ -158,7 +157,7 @@ view.update_cache([numbers, "append", 4])
 
 # If multiple updates are provided, they are applied synchronously.
 
-# One can update `$state` values by specifying the full name of the variable in the first position, eg. `view.update_cache(["$state.foo", "reset", "bar"])`.
+# One can update `$state` values by specifying the full name of the variable in the first position, eg. `view.update_state(["$state.foo", "reset", "bar"])`.
 
 # %% [markdown]
 # ## Tail Data
@@ -173,23 +172,23 @@ interactivity_warning
 # %%
 import genstudio.plot as Plot
 
-numbers = Plot.cache([1, 2, 3])
+numbers = Plot.ref([1, 2, 3])
 tailedFrames = Plot.Frames(numbers, fps=1, tail=True, slider=False) | Plot.html(numbers)
 tailedFrames
 
 # %%
-tailedFrames.update_cache([numbers, "concat", [7, 8, 9]])
+tailedFrames.update_state([numbers, "concat", [7, 8, 9]])
 
 # %%
 tailedSlider = (
     Plot.Slider("n", fps=1, rangeFrom=numbers, tail=True, visible=False)
-    | Plot.js(f"$state.cached('{numbers.id}').toString()")
-    | Plot.js(f"$state.cached('{numbers.id}')[$state.n]")
+    | Plot.js(f"$state['{numbers.id}'].toString()")
+    | Plot.js(f"$state['{numbers.id}'][$state.n]")
 ).display_as("widget")
 tailedSlider
 
 # %%
-tailedSlider.update_cache([numbers, "concat", [4, 5, 6]])
+tailedSlider.update_state([numbers, "concat", [4, 5, 6]])
 
 # %% [markdown]
 # ## Mouse Events
@@ -201,15 +200,15 @@ interactivity_warning
 # This example demonstrates how to create an interactive scatter plot with draggable points. We will use `Plot.render.childEvents`, a [render transform](https://github.com/observablehq/plot/pull/1811/files#diff-1ca87be5c06a54d3c21471e15cd0d320338916c0f9588fd681a708b7dd2b028b). It handles click and drag events for any mark which produces an ordered list of svg elements, such as `Plot.dot`.
 
 # %% [markdown]
-# We first define a [cached dataset](bylight:?match=Plot.cache) with initial point coordinates to represent the points that we want to interact with.
+# We first define a [reference](bylight:?match=Plot.ref) with initial point coordinates to represent the points that we want to interact with.
 
 # %%
-data = Plot.cache([[1, 1], [2, 2], [0, 2], [2, 0]])
+data = Plot.ref([[1, 1], [2, 2], [0, 2], [2, 0]])
 
 # %% [markdown]
 # Next we define a callback function, which will receive mouse events from our plot. Each event will contain
 # information about the child that triggered the event, as well as a reference to the current widget, which has
-# a `.update_cache` method. This is what allows us to modify the plot in response to user actions.
+# a `.update_state` method. This is what allows us to modify the plot in response to user actions.
 
 
 # %%
@@ -218,7 +217,7 @@ def update_position(event):
     x = event["x"]
     y = event["y"]
     index = event["index"]
-    widget.update_cache([data, "setAt", [index, [x, y]]])
+    widget.update_state([data, "setAt", [index, [x, y]]])
 
 
 # %% [markdown]
@@ -249,6 +248,8 @@ def update_position(event):
 
 
 # %%
+import genstudio.plot as Plot
+
 (
     Plot.initial_state("points", [])
     # Use `Plot.draw`, setting $state.points in the `onDraw` callback,
@@ -269,14 +270,14 @@ interactivity_warning
 
 
 # %% [markdown]
-# Say we wanted to pass a drawn path back to Python. We can initialize an empty cached list for the drawn points, then use a python `onDraw` callback to update the points using the widget's `update_cache` method. This time, let's add some additional dot marks to make our line more interesting.
+# Say we wanted to pass a drawn path back to Python. We can initialize a ref, with an initial value of an empty list, to hold drawn points. Then, we pass in a python `onDraw` callback to update the points using the widget's `update_state` method. This time, let's add some additional dot marks to make our line more interesting.
 
 # %%
-points = Plot.cache([])
+points = Plot.ref([])
 (
-    # Create drawing area and update points cache on draw
+    # Create drawing area and update points on draw
     Plot.draw(
-        onDraw=lambda event: event["widget"].update_cache(
+        onDraw=lambda event: event["widget"].update_state(
             [points, "reset", event["path"]]
         )
     )

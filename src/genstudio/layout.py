@@ -148,12 +148,12 @@ class LayoutItem:
             )
         self.widget().set_ast(other.for_json())
 
-    def update_cache(self, *updates):
+    def update_state(self, *updates):
         if self._html is not None:
             raise ValueError(
                 "Cannot reset an HTML widget. Use display_as='widget' or foo.widget() to create a resettable widget."
             )
-        self.widget().update_cache(*updates)
+        self.widget().update_state(*updates)
 
 
 class JSCall(LayoutItem):
@@ -192,14 +192,14 @@ class JSRef(LayoutItem):
 
     def __getattr__(self, name: str) -> "JSRef":
         """Returns a reference to a nested property or method of the JavaScript object."""
-        if name == "cache_id":
+        if name == "ref_id":
             raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute 'cache_id'"
+                f"'{self.__class__.__name__}' object has no attribute 'ref_id'"
             )
         return JSRef(f"{self.path}.{name}")
 
     def for_json(self) -> dict:
-        return {"__type__": "ref", "path": self.path}
+        return {"__type__": "js_ref", "path": self.path}
 
 
 def js_ref(path: str) -> "JSRef":
@@ -214,7 +214,11 @@ class JSCode(LayoutItem):
         self.expression = expression
 
     def for_json(self) -> dict:
-        return {"__type__": "js", "value": self.code, "expression": self.expression}
+        return {
+            "__type__": "js_source",
+            "value": self.code,
+            "expression": self.expression,
+        }
 
 
 def js(txt: str, expression=True) -> JSCode:
@@ -284,39 +288,39 @@ def unwrap_for_json(x):
     return x
 
 
-class CachedObject(LayoutItem):
+class RefObject(LayoutItem):
     def __init__(self, value, id=None):
         self.id = str(uuid.uuid1()) if id is None else id
-        self.value = value
+        self.initial_value = value
 
-    def cache_id(self):
+    def ref_id(self):
         return self.id
 
     def for_json(self):
-        return unwrap_for_json(self.value)
+        return unwrap_for_json(self.initial_value)
 
     def _repr_mimebundle_(self, **kwargs: Any) -> Any:
-        if hasattr(self.value, "_repr_mimebundle_"):
-            return self.value._repr_mimebundle_(**kwargs)
+        if hasattr(self.initial_value, "_repr_mimebundle_"):
+            return self.initial_value._repr_mimebundle_(**kwargs)
         return super()._repr_mimebundle_(**kwargs)
 
 
-def cache(value: Any, id=None) -> CachedObject:
-    if id is None and isinstance(value, CachedObject):
-        return value
-    return CachedObject(value, id=id)
+def ref(initial_value: Any, id=None) -> RefObject:
+    if id is None and isinstance(initial_value, RefObject):
+        return initial_value
+    return RefObject(initial_value, id=id)
 
 
-def unwrap_cached(obj: Any) -> Any:
+def unwrap_ref(obj: Any) -> Any:
     """
-    Unwraps a CachedObject if the input is one.
+    Unwraps a RefObject if the input is one.
 
     Args:
         obj (Any): The object to unwrap.
 
     Returns:
-        Any: The unwrapped object if input was a CachedObject, otherwise the input object.
+        Any: The unwrapped object if input was a RefObject, otherwise the input object.
     """
-    if isinstance(obj, CachedObject):
-        return obj.value
+    if isinstance(obj, RefObject):
+        return obj.initial_value
     return obj

@@ -30,7 +30,7 @@ def test_jsmodule_getattr():
     result = d3.test_method
     assert isinstance(result, JSRef)
     assert result == {
-        "__type__": "ref",
+        "__type__": "js_ref",
         "module": "d3",
         "name": "test_method",
     }
@@ -40,7 +40,7 @@ def test_math_getattr():
     result = Math.test_method
     assert isinstance(result, JSRef)
     assert result == {
-        "__type__": "ref",
+        "__type__": "js_ref",
         "module": "Math",
         "name": "test_method",
     }
