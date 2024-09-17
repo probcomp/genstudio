@@ -1,3 +1,9 @@
+### [2024.09.004] - Sep 17, 2024
+
+- rename: Plot.cache -> Plot.ref
+- refactor: unify $state/cache implementations
+- tests: add dependency tests using the new (simplified) state store, independent of React
+
 ### [2024.09.003] - Sep 13, 2024
 
 #### New Features
