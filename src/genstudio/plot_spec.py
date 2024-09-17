@@ -18,7 +18,7 @@ class MarkSpec:
         self.id = str(uuid.uuid4())
         self.ast = JSCall("MarkSpec", [name, data, options])
 
-    def cache_id(self):
+    def ref_id(self):
         return self.id
 
     def for_json(self) -> Any:

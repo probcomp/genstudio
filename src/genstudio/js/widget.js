@@ -9,15 +9,14 @@ function resolveReference(path, obj) {
   return path.split('.').reduce((acc, key) => acc[key], obj);
 }
 
-function resolveCached(node, $state) {
-  if (node && typeof node === 'object' && node["__type__"] === "cached") {
-    return resolveCached($state.cached(node.id), $state);
+function resolveRef(node, $state) {
+  if (node && typeof node === 'object' && node["__type__"] === "ref") {
+    return resolveRef($state[node.id], $state);
   }
   return node;
 }
 
 export function evaluate(node, $state, experimental) {
-
   if (node === null || typeof node !== 'object') return node;
   if (Array.isArray(node)) return node.map(item => evaluate(item, $state, experimental));
   if (node.constructor !== Object) {
@@ -37,15 +36,15 @@ export function evaluate(node, $state, experimental) {
       } else {
         return fn(...args);
       }
-    case "ref":
+    case "js_ref":
       return resolveReference(node.path, api);
-    case "js":
+    case "js_source":
       const source = node.expression ? `return ${node.value}` : node.value;
       return (new Function('$state', 'd3', 'Plot', source))($state, d3, Plot);
     case "datetime":
       return new Date(node.value);
-    case "cached":
-      return $state.cached(node.id);
+    case "ref":
+      return $state.computed(node.id);
     case "callback":
       if (experimental) {
         return (e) => experimental.invoke("handle_callback", { id: node.id, event: serializeEvent(e) });
@@ -78,75 +77,63 @@ function applyOperation($state, init, op, payload) {
   }
 }
 
-export function createStateStore(initialValues, experimental) {
-  // An AST is paired with two kinds of dynamic state: $state variables
-  // and cache entries. $state variables are primitive (non-evaluated) values
-  // which cannot have dependencies. Cache entries are AST fragments which can
-  // depend on other cache entries as well as $state.
+// This function creates a reactive state management system.
+// It maintains a graph of AST fragments, evaluates them on-demand,
+// and allows for efficient updates to the underlying ASTs.
+// The system supports lazy evaluation and interdependent state management.
+export function createStateStore(initialState, experimental) {
+  const initialStateMap = mobx.observable.map(initialState, { deep: false });
+  const computeds = {};
 
-  // $state is held in `mobx.observable.box` instances, created lazily
-  const stateEntries = {}
-
-  // cache entries are held in `mobx.computed` instances, created lazily
-  const cacheComputeds = {}
-
-  // initialValues are observable
-  const initialValuesMap = mobx.observable.map(initialValues, { deep: false })
-
-  // return a mobx "box" for each $state entry
-  const stateBox = function (key) {
-    if (!(key in stateEntries)) {
-      stateEntries[key] = mobx.observable.box(initialValuesMap.get(key), { deep: false });
-    }
-    return stateEntries[key];
-  }
-
-  const $state = {
-    evaluate: function (ast) {
-      return evaluate(ast, this, experimental);
+  const stateHandler = {
+    get(target, key) {
+      if (key in target) return target[key];
+      return target.computed(key);
     },
-    // adds new state/cache entries to the initial state
-    backfill: function (cache) {
-      for (const key in cache) {
-        if (!initialValuesMap.has(key)) {
-          initialValuesMap.set(key, cache[key]);
-        }
-      }
+    set: mobx.action((_target, key, value) => {
+      initialStateMap.set(key, typeof value === 'function' ? value(initialStateMap.get(key)) : value);
+      return true;
+    }),
+    ownKeys(_target) {
+      return Array.from(initialStateMap.keys());
     },
-    resolveCached: function (node) { return resolveCached(node, this) },
-    cached: function (key) {
-      if (key.startsWith('$state.')) return stateBox(key).get();
-
-      if (!(key in cacheComputeds)) {
-        cacheComputeds[key] = mobx.computed(() => this.evaluate(initialValuesMap.get(key)));
-      }
-      return cacheComputeds[key].get();
+    getOwnPropertyDescriptor(_target, key) {
+      return {
+        enumerable: true,
+        configurable: true,
+        value: this.get(_target, key)
+      };
     }
   };
 
-  $state.addUpdates = mobx.action(updates => {
-    for (const update of updates) {
-      const [key, operation, payload] = update;
-      if (key.startsWith("$state.")) {
-        const box = stateBox(key)
-        box.set(applyOperation($state, box.get(), operation, payload))
-      } else {
-        initialValuesMap.set(key, applyOperation($state, initialValuesMap.get(key), operation, payload))
-      }
-    }
-  })
+  const $state = new Proxy({
+    evaluate: (ast) => evaluate(ast, $state, experimental),
 
-  // We return a proxy object for interacting directly with $state variables
-  return new Proxy($state, {
-    get: (_, key) => {
-      return key in $state ? $state[key] : stateBox('$state.' + key).get()
+    backfill: function(cache) {
+      for (const key in cache) {
+        if (!initialStateMap.has(key)) {
+          initialStateMap.set(key, cache[key]);
+        }
+      }
     },
-    set: mobx.action((_, key, value) => {
-      const box = stateBox('$state.' + key);
-      box.set(typeof value === 'function' ? value(box.get()) : value)
-      return true;
+
+    resolveRef: function(node) { return resolveRef(node, $state); },
+
+    computed: function(key) {
+      if (!(key in computeds)) {
+        computeds[key] = mobx.computed(() => $state.evaluate(initialStateMap.get(key)));
+      }
+      return computeds[key].get();
+    },
+
+    update: mobx.action(updates => {
+      for (const [key, operation, payload] of updates) {
+        initialStateMap.set(key, applyOperation($state, initialStateMap.get(key), operation, payload));
+      }
     })
-  });
+  }, stateHandler);
+
+  return $state;
 }
 
 export const StateProvider = mobxReact.observer(
@@ -168,11 +155,11 @@ export const StateProvider = mobxReact.observer(
 
     useEffect(() => {
       // if we have an AnyWidget model (ie. we are in widget model),
-      // listen for `update_cache` events.
+      // listen for `update_state` events.
       if (model) {
         const cb = (msg) => {
-          if (msg.type === 'update_cache') {
-            $state.addUpdates(JSON.parse(msg.updates))
+          if (msg.type === 'update_state') {
+            $state.update(JSON.parse(msg.updates))
           }
         }
         model.on("msg:custom", cb);

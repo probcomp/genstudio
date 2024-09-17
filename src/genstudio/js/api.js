@@ -30,7 +30,7 @@ export const Slider = mobxReact.observer(
             init, range, rangeFrom, tail, step } = options;
 
         if (init === undefined && rangeFrom === undefined && range === undefined) {
-            throw new Error("Reactive: 'init', 'rangeFrom', or 'range' must be defined");
+            throw new Error("Slider: 'init', 'rangeFrom', or 'range' must be defined");
         }
 
         let rangeMin, rangeMax;
@@ -116,7 +116,7 @@ export function clamp(value, min, max) {
     return value;
 }
 
-export class Reactive {
+export class InitialState {
     render() { }
 }
 
@@ -127,7 +127,6 @@ export const Frames = mobxReact.observer(
     function (props) {
         const { state_key, frames } = props
         const $state = useContext($StateContext);
-        console.log("Frames", props)
 
         if (!Array.isArray(frames)) {
             return html`<div className=${tw("text-red-500")}>Error: 'frames' must be an array.</div>`;
@@ -237,7 +236,7 @@ export function Column({ children, ...props }) {
 export const Node = mobxReact.observer(
     function ({ value }) {
         const $state = useContext($StateContext)
-        value = $state.resolveCached(value)
+        value = $state.resolveRef(value)
         if (Array.isArray(value)) {
             const [element, ...args] = value
             const maybeElement = element && $state.evaluate(element)

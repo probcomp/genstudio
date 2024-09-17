@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Literal, Sequence, TypeAlias, Union
 
 import genstudio.plot_defs as plot_defs
 from genstudio.layout import (
-    CachedObject,
+    RefObject,
     Column,
     Hiccup,
     JSCall,
@@ -15,9 +15,9 @@ from genstudio.layout import (
     JSRef,
     LayoutItem,
     Row,
-    cache,
+    ref,
     js,
-    unwrap_cached,
+    unwrap_ref,
 )
 
 from genstudio.plot_defs import (
@@ -709,10 +709,6 @@ def doc(fn):
         return md("No docstring available.")
 
 
-def state(name: str) -> JSCode:
-    return js(f"$state.{name}")
-
-
 # %%
 
 _Frames = JSRef("Frames")
@@ -729,7 +725,7 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
     Returns:
         A Hiccup-style representation of the animated plot.
     """
-    frames = cache(frames)
+    frames = ref(frames)
     if key is None:
         key = "frame"
         return Hiccup(_Frames, {"state_key": key, "frames": frames}) | Slider(
@@ -743,27 +739,30 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
         return Hiccup(_Frames, {"state_key": key, "frames": frames})
 
 
-_Reactive = JSRef("Reactive")
+_InitialState = JSRef("InitialState")
 
 
-class Reactive(LayoutItem):
+class InitialState(LayoutItem):
     def __init__(self, key, init=None):
         """
-        Initializes a reactive variable.
+        Initializes $state without returning a value.
 
         Args:
             key (str): The key for the reactive variable in the state.
             init (Any, optional): Initial value for the variable.
         """
         self.key = key
-        self.init = CachedObject(init, id=f"$state.{key}")
+        self.init = RefObject(init, id=key)
 
     def for_json(self):
-        return _Reactive(self.key, self.init)
+        return _InitialState(self.key, self.init)
 
 
 def initial_state(key, value):
-    return Reactive(key, init=value)
+    """
+    Initialise $state without returning a value.
+    """
+    return InitialState(key, init=value)
 
 
 _Slider = JSRef("Slider")
@@ -803,7 +802,7 @@ def Slider(
 
     slider_options = {
         "state_key": key,
-        "init": CachedObject(init, id=f"$state.{key}"),
+        "init": RefObject(init, id=key),
         "range": range,
         "rangeFrom": rangeFrom,
         "fps": fps,
