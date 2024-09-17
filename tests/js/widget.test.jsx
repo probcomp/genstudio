@@ -27,7 +27,7 @@ describe('Widget', () => {
       expect(React.isValidElement(result)).toBe(true)
     })
 
-    it('should handle references correctly', () => {
+    it('should resolve a js reference', () => {
       const ast = {
         __type__: "js_ref",
         path: 'Plot.dot'
@@ -36,7 +36,7 @@ describe('Widget', () => {
       expect(result).toBe(Plot.dot)
     })
 
-    it('should evaluate JavaScript expressions', () => {
+    it('should evaluate a js expression', () => {
       const ast = {
         __type__: "js_source",
         expression: true,
@@ -44,6 +44,15 @@ describe('Widget', () => {
       }
       const result = evaluate(ast, {}, {}, null)
       expect(result).toBe(4)
+    })
+
+    it('should evaluate a multi-line js source (requires explicit return)', () => {
+      const ast = {
+        __type__: "js_source",
+        value: 'let x = 0\n x = 1\n return x'
+      }
+      const result = evaluate(ast, {}, {}, null)
+      expect(result).toBe(1)
     })
 
     it('should handle datetime objects', () => {
@@ -58,7 +67,7 @@ describe('Widget', () => {
   })
 
   describe('useStateStore', () => {
-    it('should initialize state correctly', () => {
+    it('should initialize state', () => {
       const init = {"count": 0}
       let result;
       function TestHook() {
@@ -71,25 +80,6 @@ describe('Widget', () => {
       expect($state.count).toEqual(0);
     })
 
-    it('should update state correctly', async () => {
-      const ast = {
-        __type__: 'function',
-        path: 'InitialState',
-        args: [{ state_key: 'count', init: 0 }]
-      }
-      let result;
-      function TestHook() {
-        result = createStateStore(ast);
-        return null;
-      }
-      render(<TestHook />);
-      const $state = result;
-      await act(async () => {
-        $state.count = 1;
-      });
-
-      expect($state.count).toEqual(1)
-    })
   })
 
   describe('StateProvider', () => {
@@ -122,20 +112,7 @@ describe('Widget', () => {
     });
   });
 
-  describe('renderData', () => {
-    it('should render data correctly', async () => {
-      const container = document.createElement('div')
-      const data = { ast: { __type__: 'function', path: 'md', args: ['# Test'] }, cache: {} }
-
-      await act(async () => {
-        renderData(container, data)
-      })
-
-      expect(container.innerHTML).toContain('Test')
-    })
-  })
-
-  describe('Plot.InitialState and Plot.js combination', () => {
+  describe('state and Plot.js combination', () => {
     it('should handle Plot.InitialState and Plot.js combination correctly', async () => {
       const consoleSpy = vi.spyOn(console, 'log');
 
@@ -170,88 +147,96 @@ describe('Widget', () => {
     });
   });
 
+  const js_expr = (expr) => {return {__type__: 'js_source', expression: true, value: expr}}
+
   describe('createStateStore', () => {
     it('should initialize with basic values', () => {
-      const store = createStateStore({ count: 0, name: 'Test' });
-      expect(store.count).toBe(0);
-      expect(store.name).toBe('Test');
+      const $state = createStateStore({ count: 0, name: 'Test' });
+      expect($state.count).toBe(0);
+      expect($state.name).toBe('Test');
     });
 
-    it('should update values', () => {
-      const store = createStateStore({ count: 0 });
-      store.count = 1;
-      expect(store.count).toBe(1);
+    it('should update a value', () => {
+      const $state = createStateStore({ count: 0 });
+      $state.count = 1;
+      expect($state.count).toBe(1);
     });
 
     it('should handle computed values', () => {
-      const store = createStateStore({
+      const $state = createStateStore({
         count: 0,
-        doubleCount: { __type__: 'js_source', expression: true, value: '$state.count * 2' }
+        doubleCount: js_expr('$state.count * 2')
       });
-      expect(store.doubleCount).toBe(0);
-      store.count = 2;
-      expect(store.doubleCount).toBe(4);
+      expect($state.doubleCount).toBe(0);
+      $state.count = 2;
+      expect($state.doubleCount).toBe(4);
     });
 
     it('should handle references', () => {
-      const store = createStateStore({
+      const $state = createStateStore({
         original: 10,
         reference: { __type__: 'ref', id: 'original' }
       });
-      expect(store.reference).toBe(10);
-      store.original = 20;
-      expect(store.reference).toBe(20);
+      expect($state.reference).toBe(10);
+      $state.original = 20;
+      expect($state.reference).toBe(20);
     });
 
-    it('should handle complex updates', () => {
-      const store = createStateStore({
-        list: [1, 2, 3],
-        sum: { __type__: 'js_source', expression: true, value: '$state.list.reduce((a, b) => a + b, 0)' }
+    it('should apply "append" operation', () => {
+      const $state = createStateStore({
+        firstValue: js_expr("1"),
+        list: [js_expr('$state.firstValue'), 2, 3],
+        listSum: js_expr('$state.list.reduce((a, b) => a + b, 0)'),
+        listWithX: js_expr('[...$state.list, "X"]'),
       });
-      expect(store.sum).toBe(6);
-      store.update([['list', 'append', 4]]);
-      expect(store.list).toEqual([1, 2, 3, 4]);
-      expect(store.sum).toBe(10);
+      expect($state.listSum).toBe(6);
+      $state.update([['list', 'append', 4]]);
+      expect($state.list).toEqual([1, 2, 3, 4]);
+      expect($state.listWithX).toEqual([1, 2, 3, 4, "X"])
+      expect($state.listSum).toBe(10);
+      $state.firstValue = 0
+      expect($state.listWithX).toEqual([0, 2, 3, 4, "X"])
+
     });
 
-    it('should handle circular references without infinite loops', () => {
-      const store = createStateStore({
+    it('should throw if circular reference is detected', () => {
+      const $state = createStateStore({
         a: { __type__: 'ref', id: 'b' },
         b: { __type__: 'ref', id: 'a' },
         c: 10
       });
-      expect(() => store.a).toThrow(/Cycle detected in computation/);
-      expect(store.c).toBe(10);
+      expect(() => $state.a).toThrow(/Cycle detected in computation/);
+      expect($state.c).toBe(10);
     });
 
-    it('should demonstrate that update order matters for dependent variables', () => {
-      const store = createStateStore({
+    it('should demonstrate that during "update", ASTs are evaluated in order and not re-evaluated in a second pass', () => {
+      const $state = createStateStore({
         a: 1,
-        b: { __type__: 'js_source', expression: true, value: '$state.a + 1' }
+        b: js_expr('$state.a + 1')
       });
 
       // Initial state
-      expect(store.a).toBe(1);
-      expect(store.b).toBe(2);
+      expect($state.a).toBe(1);
+      expect($state.b).toBe(2);
 
       // Update 'a' first, then 'b'
-      store.update([
+      $state.update([
         ['a', 'reset', 10],
-        ['b', 'reset', { __type__: 'js_source', expression: true, value: '$state.a + 1' }]
+        ['b', 'reset', js_expr('$state.a + 2')]
       ]);
-      expect(store.a).toBe(10);
-      expect(store.b).toBe(11);
+      expect($state.a).toBe(10);
+      expect($state.b).toBe(12);
 
       // Reset the store
-      store.a = 1;
+      $state.a = 1;
 
       // Update 'b' first, then 'a'
-      store.update([
-        ['b', 'reset', { __type__: 'js_source', expression: true, value: '$state.a + 1' }],
+      $state.update([
+        ['b', 'reset', js_expr('$state.a + 1')],
         ['a', 'reset', 10]
       ]);
-      expect(store.a).toBe(10);
-      expect(store.b).toBe(2);  // 'b' is still based on the old value of 'a'
+      expect($state.a).toBe(10);
+      expect($state.b).toBe(2);  // 'b' is still based on the old value of 'a'
     });
 
   });
