@@ -1,3 +1,7 @@
+### [2024.09.005] - Sep 18, 2024
+
+- deps: add pillow as a required dependency
+
 ### [2024.09.004] - Sep 17, 2024
 
 - rename: Plot.cache -> Plot.ref
