@@ -43,6 +43,7 @@ plugins:
   - mkdocs-jupyter:
       include: ["*.py"]
       execute: true
+      allow_errors: false
       kernel_name: genstudio
       include_requirejs: true
       include_source: True
