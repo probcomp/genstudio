@@ -11,6 +11,8 @@ import { html, serializeEvent, useCellUnmounted, useElementWidth } from "./utils
 
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;
+import * as api from "./api";
+import * as plot3d from "./plot3d"
 
 function resolveReference(path, obj) {
   return path.split('.').reduce((acc, key) => acc[key], obj);
