@@ -1,4 +1,20 @@
+import { calculateScaleFactors, invertPoint } from "./style";
 
+/**
+ * Creates a render function that adds drag-and-drop and click functionality to child elements of a plot.
+ *
+ * This function enhances the rendering of plot elements by adding interactive behaviors
+ * such as dragging, clicking, and tracking position changes. It's designed to work with
+ * Observable Plot's rendering pipeline.
+ *
+ * @param {Object} options - Configuration options for the child events.
+ * @param {Function} [options.onDragStart] - Callback function called when dragging starts.
+ * @param {Function} [options.onDrag] - Callback function called during dragging.
+ * @param {Function} [options.onDragEnd] - Callback function called when dragging ends.
+ * @param {Function} [options.onClick] - Callback function called when a child element is clicked.
+ * @returns {Function} A render function to be used in the Observable Plot rendering pipeline.
+ *
+ */
 export function childEvents({onDragStart, onDrag, onDragEnd, onClick}) {
     function render (index, scales, values, dimensions, context, next) {
         // Call the next render function to get the base SVG group
@@ -12,6 +28,8 @@ export function childEvents({onDragStart, onDrag, onDragEnd, onClick}) {
         let isDragging = false;
         const dragThreshold = 2; // pixels
         let clickStartTime;
+        let scaleX, scaleY;
+        let scaleFactors;
 
         // Create empty local objects for scaled and unscaled values.
         // These are used to track the current positions of children that
@@ -25,6 +43,16 @@ export function childEvents({onDragStart, onDrag, onDragEnd, onClick}) {
             y: {}
         };
 
+        // Calculate scale factors to account for differences between
+        // SVG logical dimensions and actual rendered size
+        const updateScaleFactors = () => {
+            const svg = g.ownerSVGElement;
+            scaleFactors = calculateScaleFactors(svg);
+        };
+
+        // Convert pixel coordinates to data coordinates
+        const convertToDataCoords = (x, y) => invertPoint(x, y, scales, scaleFactors);
+
         // Helper function to create a payload for callbacks
         // This includes both scaled (pixel) and unscaled (data) coordinates
         const createPayload = (index, unscaledX, unscaledY, type) => ({
@@ -32,9 +60,8 @@ export function childEvents({onDragStart, onDrag, onDragEnd, onClick}) {
             x: unscaledX,
             y: unscaledY,
             pixels: {
-                // Use the scales provided by Observable Plot to convert data coordinates to pixel coordinates
-                x: scales.x(unscaledX),
-                y: scales.y(unscaledY)
+                x: scales.x(unscaledX) * scaleX,
+                y: scales.y(unscaledY) * scaleY
             },
             type
         });
@@ -59,6 +86,7 @@ export function childEvents({onDragStart, onDrag, onDragEnd, onClick}) {
             if (!activeElement) return;
 
             event.preventDefault();
+            updateScaleFactors();
             initialIndex = Array.from(g.children).indexOf(activeElement);
             // Use local values if available, otherwise fall back to original values
             initialUnscaledX = localUnscaledValues.x[initialIndex] ?? values.channels.x.value[initialIndex];
@@ -74,8 +102,8 @@ export function childEvents({onDragStart, onDrag, onDragEnd, onClick}) {
         const handleDrag = (event) => {
             if (!activeElement) return;
 
-            totalDx += event.movementX;
-            totalDy += event.movementY;
+            totalDx += event.movementX / scaleFactors.x;
+            totalDy += event.movementY / scaleFactors.y;
 
             if (!isDragging && (Math.abs(totalDx) > dragThreshold || Math.abs(totalDy) > dragThreshold)) {
                 isDragging = true;
@@ -88,8 +116,8 @@ export function childEvents({onDragStart, onDrag, onDragEnd, onClick}) {
                 const currentUnscaledY = scales.y.invert(scales.y(initialUnscaledY) + totalDy);
 
                 const initialTranslate = parseTransform(initialTransform);
-                const newTranslateX = initialTranslate.x + totalDx;
-                const newTranslateY = initialTranslate.y + totalDy;
+                const newTranslateX = initialTranslate.x + totalDx * scaleX;
+                const newTranslateY = initialTranslate.y + totalDy * scaleY;
 
                 if (onDrag) onDrag(createPayload(initialIndex, currentUnscaledX, currentUnscaledY, "drag"))
 
@@ -116,8 +144,8 @@ export function childEvents({onDragStart, onDrag, onDragEnd, onClick}) {
                 localScaledValues.y[initialIndex] = finalUnscaledY;
 
                 const initialTranslate = parseTransform(initialTransform);
-                const finalTranslateX = initialTranslate.x + totalDx;
-                const finalTranslateY = initialTranslate.y + totalDy;
+                const finalTranslateX = initialTranslate.x + totalDx * scaleX;
+                const finalTranslateY = initialTranslate.y + totalDy * scaleY;
 
                 if (onDragEnd) onDragEnd(createPayload(initialIndex, finalUnscaledX, finalUnscaledY, "dragend"));
 

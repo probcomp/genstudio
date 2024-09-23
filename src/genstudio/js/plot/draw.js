@@ -1,10 +1,23 @@
 import { Plot, d3 } from "../imports"
 import {
   applyIndirectStyles,
-  applyTransform
+  applyTransform,
+  calculateScaleFactors,
+  invertPoint
 } from "./style";
 
+/**
+ * A custom mark for interactive drawing on plots.
+ * @extends Plot.Mark
+ */
 export class Draw extends Plot.Mark {
+  /**
+   * Creates a new Draw mark.
+   * @param {Object} options - Configuration options for the Draw mark.
+   * @param {Function} [options.onDrawStart] - Callback function called when drawing starts.
+   * @param {Function} [options.onDraw] - Callback function called during drawing.
+   * @param {Function} [options.onDrawEnd] - Callback function called when drawing ends.
+   */
   constructor(options = {}) {
     super([null], {}, options, {
       ariaLabel: "draw area",
@@ -19,25 +32,21 @@ export class Draw extends Plot.Mark {
     this.onDrawEnd = options.onDrawEnd;
   }
 
+  /**
+   * Renders the Draw mark.
+   * @param {number} index - The index of the mark.
+   * @param {Object} scales - The scales for the plot.
+   * @param {Object} channels - The channels for the plot.
+   * @param {Object} dimensions - The dimensions of the plot.
+   * @param {Object} context - The rendering context.
+   * @returns {SVGGElement} The rendered SVG group element.
+   */
   render(index, scales, channels, dimensions, context) {
     const { width, height } = dimensions;
     let path = [];
     let currentDrawingRect = null;
     let drawingArea = null;
-    let scaleX, scaleY;
-
-    // Calculate scale factors to account for differences between
-    // SVG logical dimensions and actual rendered size
-    const calculateScaleFactors = (rect) => {
-      scaleX = rect.width / width;
-      scaleY = rect.height / height;
-    };
-
-    // Convert pixel coordinates to data coordinates
-    const invertPoint = (x, y) => [
-      scales.x.invert(x / scaleX),
-      scales.y.invert(y / scaleY)
-    ];
+    let scaleFactors;
 
     const eventData = (eventType, path) => ({ type: eventType, path: [...path] });
 
@@ -48,10 +57,10 @@ export class Draw extends Plot.Mark {
       currentDrawingRect = drawingArea.getBoundingClientRect();
       if (!isWithinDrawingArea(currentDrawingRect, event.clientX, event.clientY)) return;
 
-      calculateScaleFactors(currentDrawingRect);
+      scaleFactors = calculateScaleFactors(drawingArea.ownerSVGElement);
       const offsetX = event.clientX - currentDrawingRect.left;
       const offsetY = event.clientY - currentDrawingRect.top;
-      path = [invertPoint(offsetX, offsetY)];
+      path = [invertPoint(offsetX, offsetY, scales, scaleFactors)];
       this.onDrawStart?.(eventData("drawstart", path));
 
       document.addEventListener('mousemove', handleDraw);
@@ -63,7 +72,7 @@ export class Draw extends Plot.Mark {
       event.preventDefault();
       const offsetX = event.clientX - currentDrawingRect.left;
       const offsetY = event.clientY - currentDrawingRect.top;
-      path.push(invertPoint(offsetX, offsetY));
+      path.push(invertPoint(offsetX, offsetY, scales, scaleFactors));
       this.onDraw?.(eventData("draw", path));
     };
 
@@ -71,7 +80,7 @@ export class Draw extends Plot.Mark {
       if (!currentDrawingRect) return;
       const offsetX = event.clientX - currentDrawingRect.left;
       const offsetY = event.clientY - currentDrawingRect.top;
-      path.push(invertPoint(offsetX, offsetY));
+      path.push(invertPoint(offsetX, offsetY, scales, scaleFactors));
       this.onDrawEnd?.(eventData("drawend", path));
 
       document.removeEventListener('mousemove', handleDraw);
@@ -98,11 +107,9 @@ export class Draw extends Plot.Mark {
 
 /**
  * Returns a new draw mark for the given options.
- * @param {Object} options - Options for the draw mark
- * @param {Function} [options.onDrawStart] - Callback function called when drawing starts
- * @param {Function} [options.onDraw] - Callback function called during drawing
- * @param {Function} [options.onDrawEnd] - Callback function called when drawing ends
- * @returns {Draw} A new Draw mark
+ * @param {Object} _data - Unused parameter (maintained for consistency with other mark functions).
+ * @param {DrawOptions} options - Options for the draw mark.
+ * @returns {Draw} A new Draw mark.
  */
 export function draw(_data, options = {}) {
   return new Draw(options);
@@ -110,7 +117,7 @@ export function draw(_data, options = {}) {
 
 /**
  * @typedef {Object} DrawOptions
- * @property {Function} [onDrawStart] - Callback function called when drawing starts
- * @property {Function} [onDraw] - Callback function called during drawing
- * @property {Function} [onDrawEnd] - Callback function called when drawing ends
+ * @property {Function} [onDrawStart] - Callback function called when drawing starts.
+ * @property {Function} [onDraw] - Callback function called during drawing.
+ * @property {Function} [onDrawEnd] - Callback function called when drawing ends.
  */

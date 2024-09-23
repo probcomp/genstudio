@@ -423,11 +423,80 @@ def test_get_in():
 
 
 def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
+    """
+    Returns a new ellipse mark for the given *values* and *options*.
+
+    If neither **x** nor **y** are specified, *values* is assumed to be an array of
+    pairs [[*x₀*, *y₀*], [*x₁*, *y₁*], [*x₂*, *y₂*], …] such that **x** = [*x₀*,
+    *x₁*, *x₂*, …] and **y** = [*y₀*, *y₁*, *y₂*, …].
+
+    The **rx** and **ry** options specify the x and y radii respectively. If only
+    **r** is specified, it is used for both radii. The optional **rotate** option
+    specifies rotation in degrees.
+
+    Additional styling options such as **fill**, **stroke**, and **strokeWidth**
+    can be specified to customize the appearance of the ellipses.
+
+    Args:
+        values: The data for the ellipses.
+        options: Additional options for customizing the ellipses.
+        **kwargs: Additional keyword arguments to be merged with options.
+
+    Returns:
+        A PlotSpec object representing the ellipse mark.
+    """
     return PlotSpec(MarkSpec("ellipse", values, {**options, **kwargs}))
 
 
 def draw(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
+    """
+    Returns a new draw mark for the given *options*.
+
+    The draw mark allows interactive drawing on the plot. It supports callbacks
+    for draw start, during drawing, and draw end events.
+
+    Args:
+        options: Options for the draw mark, including callback functions.
+        **kwargs: Additional keyword arguments to be merged with options.
+
+    Returns:
+        A PlotSpec object representing the draw mark.
+
+    The following callback options are supported:
+    - onDrawStart: Called when drawing starts.
+    - onDraw: Called during drawing.
+    - onDrawEnd: Called when drawing ends.
+
+    Each callback receives an event object with the current path data.
+    """
     return PlotSpec(MarkSpec("draw", [], {**options, **kwargs}))
+
+
+def img(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
+    """
+    Returns a new image mark for the given *values* and *options*.
+
+    The image mark renders images on the plot. The **src** option specifies the
+    image source, while **x**, **y**, **width**, and **height** define the image's
+    position and size in the x/y scales. This differs from the built-in Observable Plot
+    image mark, which specifies width/height in pixels.
+
+    Args:
+        values: The data for the images.
+        options: Options for customizing the images.
+        **kwargs: Additional keyword arguments to be merged with options.
+
+    Returns:
+        A PlotSpec object representing the image mark.
+
+    The following options are supported:
+    - src: The source path of the image.
+    - x: The x-coordinate of the top-left corner.
+    - y: The y-coordinate of the top-left corner.
+    - width: The width of the image.
+    - height: The height of the image.
+    """
+    return PlotSpec(MarkSpec("img", values, {**options, **kwargs}))
 
 
 def scaled_circle(x, y, r, **kwargs):
