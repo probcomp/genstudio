@@ -10,7 +10,7 @@ def save_bw_image(src, dest, threshold=200):
 
 
 # Save a black and white copy of the image
-save_bw_image("./genjax-logo.png", "./genjax-logo-bw.png")
+save_bw_image("docs/genjax-logo.png", "docs/genjax-logo-bw.png")
 
 #
 (
