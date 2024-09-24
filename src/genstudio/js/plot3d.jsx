@@ -1,8 +1,9 @@
-import { Canvas, useThree, extend } from '@react-three/fiber'
-import { OrbitControls, Text, Line, Sphere, Box, Plane, useTexture, Html } from '@react-three/drei'
-import * as THREE from 'three'
-import {React, ReactDOM} from "./imports"
-console.log(React)
+import { Box, Line, OrbitControls, PerspectiveCamera, Plane, PointMaterial, Points, Sphere, Text, useTexture } from '@react-three/drei';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import * as React from "react";
+import { useRef } from 'react';
+import * as THREE from 'three';
+
 
 // Define ViewCoordinates constants with human-friendly names
 const ViewCoordinates = {
@@ -56,12 +57,15 @@ export function PointLight({ position, intensity = 1, distance = 0, decay = 1 })
  * @param {React.ReactNode} props.children - The child components to render in the scene.
  * @param {string} [props.viewCoordinates='RIGHT_UP_FORWARD'] - The view coordinate system.
  * @param {number} [props.ambientLightIntensity=0.5] - The intensity of the ambient light.
+ * @param {number} [props.size=500] - The size of the square canvas in pixels.
  */
-export function Scene({ children, viewCoordinates = 'RIGHT_UP_FORWARD', ambientLightIntensity = 0.5 }) {
+export function Scene({ children, viewCoordinates = 'RIGHT_UP_FORWARD', ambientLightIntensity = 0.5, size = 500 }) {
   return (
-    <Canvas>
+    <Canvas style={{ width: size, height: size }}>
+      <PerspectiveCamera makeDefault position={[5, 5, 5]} />
       <CameraControls />
       <ambientLight intensity={ambientLightIntensity} />
+      <pointLight position={[10, 10, 10]} intensity={1} />
       <SceneContent viewCoordinates={viewCoordinates}>{children}</SceneContent>
     </Canvas>
   )
@@ -81,11 +85,14 @@ function SceneContent({ children, viewCoordinates }) {
  * @param {function} [props.onClick] - Click event handler for the points.
  */
 export function Points3D({ positions, colors, radii, onClick }) {
+  const positionArray = new Float32Array(positions.flat());
+  const colorArray = colors ? new Float32Array(colors.flat()) : undefined;
+
   return (
     <points onClick={onClick}>
       <bufferGeometry>
-        <bufferAttribute attachObject={['attributes', 'position']} count={positions.length / 3} array={new Float32Array(positions)} itemSize={3} />
-        {colors && <bufferAttribute attachObject={['attributes', 'color']} count={colors.length / 3} array={new Float32Array(colors)} itemSize={3} />}
+        <bufferAttribute attachObject={['attributes', 'position']} count={positionArray.length / 3} array={positionArray} itemSize={3} />
+        {colorArray && <bufferAttribute attachObject={['attributes', 'color']} count={colorArray.length / 3} array={colorArray} itemSize={3} />}
       </bufferGeometry>
       <pointsMaterial vertexColors={!!colors} size={radii} />
     </points>
@@ -135,18 +142,23 @@ export function Boxes3D({ sizes, half_sizes, centers, rotations, colors, labels,
   const boxSizes = sizes || half_sizes.map(hs => hs.map(v => v * 2));
   return (
     <group>
-      {boxSizes.map((size, index) => (
-        <group key={index}>
-          <Box args={size} position={centers[index]} rotation={rotations[index]} onClick={onClick}>
-            <meshStandardMaterial color={colors ? colors[index] : 'white'} />
-          </Box>
-          {labels && (
-            <Text position={centers[index]} fontSize={0.1} color="white">
-              {labels[index]}
-            </Text>
-          )}
-        </group>
-      ))}
+      {boxSizes.map((size, index) => {
+        const position = ensureVector3(centers[index]);
+        const rotation = ensureVector3(rotations[index]);
+        const color = ensureColor(colors ? colors[index] : 'white');
+        return (
+          <group key={index}>
+            <Box args={size} position={position} rotation={rotation} onClick={onClick}>
+              <meshStandardMaterial color={color} />
+            </Box>
+            {labels && (
+              <Text position={position} fontSize={0.1} color="white">
+                {labels[index]}
+              </Text>
+            )}
+          </group>
+        );
+      })}
     </group>
   )
 }
@@ -249,18 +261,23 @@ export function Mesh3D({ vertex_positions, vertex_normals, vertex_colors, indice
 export function Arrows3D({ origins, vectors, colors, onClick }) {
   return (
     <group>
-      {origins.map((origin, index) => (
-        <arrowHelper
-          key={index}
-          args={[
-            new THREE.Vector3(...vectors[index]).normalize(),
-            new THREE.Vector3(...origin),
-            vectors[index].length(),
-            colors ? colors[index] : 0xffff00
-          ]}
-          onClick={onClick}
-        />
-      ))}
+      {origins.map((origin, index) => {
+        const originVector = ensureVector3(origin);
+        const directionVector = ensureVector3(vectors[index]);
+        const color = ensureColor(colors ? colors[index] : 0xffff00);
+        return (
+          <arrowHelper
+            key={index}
+            args={[
+              directionVector.clone().normalize(),
+              originVector,
+              directionVector.length(),
+              color
+            ]}
+            onClick={onClick}
+          />
+        );
+      })}
     </group>
   )
 }
@@ -272,11 +289,23 @@ export function Arrows3D({ origins, vectors, colors, onClick }) {
  * @param {number[][]} props.axes - Array of [x, y, z] vectors defining the axes.
  */
 export function CoordinateAxes({ origin, axes }) {
+  const originVector = ensureVector3(origin);
   return (
-    <group position={origin}>
-      {axes.map((axis, index) => (
-        <arrowHelper key={index} args={[new THREE.Vector3(...axis).normalize(), new THREE.Vector3(0, 0, 0), axis.length(), ['red', 'green', 'blue'][index]]} />
-      ))}
+    <group position={originVector}>
+      {axes.map((axis, index) => {
+        const axisVector = ensureVector3(axis);
+        return (
+          <arrowHelper
+            key={index}
+            args={[
+              axisVector.clone().normalize(),
+              new THREE.Vector3(0, 0, 0),
+              axisVector.length(),
+              ['red', 'green', 'blue'][index]
+            ]}
+          />
+        );
+      })}
     </group>
   )
 }
@@ -290,46 +319,99 @@ export function CoordinateAxes({ origin, axes }) {
  * @param {React.ReactNode} props.children - The child components to transform.
  */
 export function Transform({ translation, rotation, scale, children }) {
-  return <group position={translation} rotation={rotation} scale={scale}>{children}</group>
+  const translationVector = translation ? ensureVector3(translation) : undefined;
+  const rotationVector = rotation ? ensureVector3(rotation) : undefined;
+  const scaleVector = scale ? ensureVector3(scale) : undefined;
+  return <group position={translationVector} rotation={rotationVector} scale={scaleVector}>{children}</group>
+}
+
+// Helper functions
+function ensureVector3(value) {
+  return value instanceof THREE.Vector3 ? value : new THREE.Vector3(...value);
+}
+
+function ensureColor(value) {
+  return value instanceof THREE.Color ? value : new THREE.Color(value);
+}
+
+function ensureArray(value) {
+  return Array.isArray(value) ? value : [value];
 }
 
 export function App() {
   const handleClick = (event) => {
     console.log('Clicked:', event.object);
   };
-
+  console.log("Rendering App")
   return (
-    <Scene viewCoordinates="RIGHT_UP_FORWARD">
+    <Scene viewCoordinates="RIGHT_UP_FORWARD" size={600}>
       <Transform translation={[0, 0, 0]}>
         <Points3D
-          positions={[0, 0, 0, 1, 1, 1, -1, 0, 1]}
+          positions={[0, 0, 0, 2, 2, 2, -2, 0, 2]}
           colors={[1, 0, 0, 0, 1, 0, 0, 0, 1]}
-          radii={[0.1, 0.2, 0.15]}
+          radii={[0.2, 0.3, 0.25]}
           onClick={handleClick}
         />
         <LineStrips3D
-          strips={[[0, 0, 0, 1, 1, 1], [-1, 0, 1, 0, 1, 0]]}
-          colors={[[1, 0, 0], [0, 1, 0]]}
-          radii={[0.05, 0.1]}
+          strips={[[0, 0, 0, 2, 2, 2], [-2, 0, 2, 0, 2, 0]]}
+          colors={[[1, 0, 0, 1], [0, 1, 0, 1]]}
+          radii={[0.1, 0.1]}
           labels={['Strip 1', 'Strip 2']}
         />
-        <Transform translation={[1, 1, 1]}>
-          <Boxes3D
-            sizes={[[1, 1, 1], [0.5, 0.5, 0.5]]}
-            centers={[[0, 0, 0], [1, 1, 1]]}
-            rotations={[[0, 0, 0], [Math.PI/4, 0, Math.PI/4]]}
-            colors={[[0, 0, 1], [1, 1, 0]]}
-            labels={['Box 1', 'Box 2']}
-            onClick={handleClick}
-          />
-        </Transform>
-        <Arrows3D
-          origins={[[0, 0, 0], [1, 1, 1]]}
-          vectors={[[1, 0, 0], [0, 1, 0]]}
-          colors={[0xff0000, 0x00ff00]}
+        <Boxes3D
+          sizes={[[1, 1, 1], [0.8, 0.8, 0.8]]}
+          centers={[[0, 0, 0], [2, 2, 2]]}
+          rotations={[[0, 0, 0], [Math.PI/4, 0, Math.PI/4]]}
+          colors={['#4287f5', '#f5d142']}
+          labels={['Box 1', 'Box 2']}
           onClick={handleClick}
         />
+        <Arrows3D
+          origins={[[0, 0, 0], [2, 2, 2]]}
+          vectors={[[1, 0, 0], [0, 1, 0]]}
+          colors={['#ff0000', '#00ff00']}
+          onClick={handleClick}
+        />
+        <CoordinateAxes origin={[0, 0, 0]} axes={[[3, 0, 0], [0, 3, 0], [0, 0, 3]]} />
       </Transform>
     </Scene>
   )
+}
+
+function PointCloud(props) {
+  const pointsRef = useRef()
+
+  useFrame((state, delta) => {
+    pointsRef.current.rotation.x += delta * 0.2
+    pointsRef.current.rotation.y += delta * 0.1
+  })
+
+  const pointCount = 1000
+  const positions = new Float32Array(pointCount * 3)
+
+  for (let i = 0; i < pointCount; i++) {
+    positions[i * 3] = (Math.random() - 0.5) * 2
+    positions[i * 3 + 1] = (Math.random() - 0.5) * 2
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 2
+  }
+
+  return (
+    <Points ref={pointsRef} positions={positions} {...props}>
+      <PointMaterial transparent color="#ff88cc" size={0.05} sizeAttenuation={true} depthWrite={false} />
+    </Points>
+  )
+}
+
+export function PointCloudExample({ size = 600 }) {
+  return (
+    <Canvas style={{ width: size, height: size }}>
+      <PerspectiveCamera position={[3, 3, 3]} fov={60} />
+      <OrbitControls enableZoom={true} enablePan={true} enableRotate={true} />
+      <ambientLight intensity={0.5} />
+      <pointLight position={[10, 10, 10]} intensity={0.8} />
+      <PointCloud />
+      <gridHelper args={[10, 10, '#888888', '#444444']} />
+      <axesHelper args={[2]} />
+    </Canvas>
+  );
 }

@@ -13,7 +13,9 @@ const options = {
   plugins: [cssModulesPlugin()],
 };
 
-if (watch) {
+// currently threejs cannot load from esm.sh due to
+// incompatible nested dependencies (@react-three/drei => zustand => react 18.2)
+if (watch && false) {
   importMap.load('src/genstudio/js/import-map.cdn.json');
   options.plugins.push(importMap.plugin());
 }
