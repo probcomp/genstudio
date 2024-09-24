@@ -1,18 +1,18 @@
-import { $StateContext, WidthContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
+import { $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH, WidthContext } from "./context";
 import { MarkSpec, PlotSpec } from "./plot";
 import { html } from "./utils";
 
-import * as React from "react";
-import * as ReactDOM from "react-dom/client";
-import * as mobxReact from "mobx-react-lite";
 import * as Plot from "@observablehq/plot";
+import bylight from "bylight";
 import * as d3 from "d3";
 import MarkdownIt from "markdown-it";
+import * as mobxReact from "mobx-react-lite";
+import * as React from "react";
+import * as ReactDOM from "react-dom/client";
+import * as render from "./plot/render";
+import { tw } from "./utils";
 
 const { useState, useEffect, useContext, useMemo, useCallback } = React
-import bylight from "bylight";
-import { tw } from "./utils";
-import * as render from "./plot/render";
 
 export { render };
 const DEFAULT_GRID_GAP = "10px"
@@ -175,7 +175,7 @@ export function repeat(data) {
     return (_, i) => data[i % length]
 
 }
-export { d3, Plot, React, ReactDOM, PlotSpec, MarkSpec };
+export { d3, MarkSpec, Plot, PlotSpec, React, ReactDOM };
 
 export function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEFAULT_GRID_GAP, aspectRatio = 1 }) {
     const availableWidth = useContext(WidthContext);

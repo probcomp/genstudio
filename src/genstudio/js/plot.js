@@ -1,12 +1,12 @@
-import * as mobx from "mobx";
 import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
+import * as mobx from "mobx";
 import * as React from "react";
-import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
+import { $StateContext, AUTOGRID_MIN, WidthContext } from "./context";
+import { draw } from "./plot/draw";
+import { ellipse } from "./plot/ellipse";
+import { img } from "./plot/img";
 import { binding, flatten, html, tw } from "./utils";
-import {ellipse} from "./plot/ellipse"
-import {draw} from "./plot/draw"
-import {img} from "./plot/img"
 
 const Marks = {...Plot, ellipse, draw, img}
 const { useEffect } = React
