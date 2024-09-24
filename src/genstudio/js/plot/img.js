@@ -10,7 +10,7 @@ const resolveChannel = (channel, data, index) => {
   if (typeof channel === 'number') return channel;
   if (typeof channel === 'string') return data[channel];
   if (typeof channel === 'function') return channel(data, index);
-  throw new Error('Invalid channel type');
+  throw new Error(`Invalid channel type: ${typeof channel}`);
 };
 
 const addChannels = (c1, c2) => {
@@ -35,9 +35,14 @@ export class Img extends Plot.Mark {
    * @param {ChannelValue} [options.y=0] - The y-coordinate of the top-left corner.
    * @param {ChannelValue} [options.width] - The width of the image in x-scale units.
    * @param {ChannelValue} [options.height] - The height of the image in y-scale units.
+   * @param {ChannelValue} [options.ariaLabel] - Custom aria-label for accessibility.
    */
   constructor(data, options = {}) {
-    const { src, x = 0, y = 0, width, height } = options;
+    const { src, x = 0, y = 0, width, height, ariaLabel } = options;
+
+    if (width === undefined || height === undefined) {
+      throw new Error("Both width and height must be specified for the Img mark.");
+    }
 
     const channels = {
       src: { value: src },
@@ -45,6 +50,7 @@ export class Img extends Plot.Mark {
       y1: { value: y, scale: "y" },
       x2: { value: addChannels(x, width), scale: "x" },
       y2: { value: addChannels(y, height), scale: "y" },
+      ariaLabel: { value: ariaLabel }
     }
     super(data, channels, options, {
       ariaLabel: "image",
@@ -52,7 +58,7 @@ export class Img extends Plot.Mark {
   }
 
   render(index, scales, channels, dimensions, context) {
-    const { src: SRC, x1: X1, y1: Y1, x2: X2, y2: Y2 } = channels;
+    const { src: SRC, x1: X1, y1: Y1, x2: X2, y2: Y2, ariaLabel: ARIA_LABEL } = channels;
     return d3.create("svg:g")
       .call(applyIndirectStyles, this, dimensions, context)
       .call(applyTransform, this, scales, 0, 0)
@@ -65,6 +71,7 @@ export class Img extends Plot.Mark {
         .attr("y", i => Y2[i])
         .attr("width", i => Math.abs(X2[i] - X1[i]))
         .attr("height", i => Math.abs(Y2[i] - Y1[i]))
+        .attr("aria-label", i => ARIA_LABEL ? ARIA_LABEL[i] : "image")
         .call(applyChannelStyles, this, channels)
       )
       .node();
