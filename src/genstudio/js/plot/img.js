@@ -1,9 +1,11 @@
-import { Plot, d3 } from "../imports"
+import * as Plot from "@observablehq/plot";
+import * as d3 from "d3";
+
 import {
-  applyIndirectStyles,
-  applyTransform,
+  applyChannelStyles,
   applyDirectStyles,
-  applyChannelStyles
+  applyIndirectStyles,
+  applyTransform
 } from "./style";
 
 const resolveChannel = (channel, data, index) => {

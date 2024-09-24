@@ -1,4 +1,9 @@
-import {React, htm, Twind, presetAutoprefix, presetTailwind, presetTypography} from "./imports"
+import * as Twind from "@twind/core";
+import presetAutoprefix from "@twind/preset-autoprefix";
+import presetTailwind from "@twind/preset-tailwind";
+import presetTypography from "@twind/preset-typography";
+import htm from "htm";
+import * as React from "react";
 const { useState, useEffect } = React
 
 

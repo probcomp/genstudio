@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Img, img } from '../../../src/genstudio/js/plot/img'
-import { Plot } from '../../../src/genstudio/js/imports.npm'
+import * as Plot from "@observablehq/plot";
 
 describe('Img', () => {
   it('should create an Img instance', () => {

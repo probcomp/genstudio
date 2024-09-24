@@ -26,6 +26,7 @@
     "@twind/preset-typography": "^1.0.7",
     "bylight": "^1.0.5",
     "d3": "^7.9.0",
+    "esbuild-plugin-import-map": "^2.1.0",
     "htm": "^3.1.1",
     "markdown-it": "^14.1.0",
     "mobx": "^6.13.1",
@@ -35,11 +36,10 @@
   },
   "scripts": {
     "release": "python scripts/release.py",
-    "build": "npx esbuild --bundle --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_build.js",
-    "watch": "npx esbuild --bundle --watch --format=esm src/genstudio/js/widget.js --outfile=src/genstudio/js/widget_build.js",
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
     "watch:docs": "poetry run mkdocs serve",
     "build:docs": "poetry run mkdocs build",
-    "inspect": "npx esbuild --bundle --minify --format=esm src/genstudio/js/widget.js --metafile=meta.json --outfile=src/genstudio/js/widget_build.js && open https://esbuild.github.io/analyze/",
     "test:js": "node --experimental-vm-modules node_modules/vitest/vitest.mjs"
   }
 }

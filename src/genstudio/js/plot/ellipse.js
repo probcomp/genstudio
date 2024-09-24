@@ -1,4 +1,5 @@
-import { Plot, d3 } from "../imports"
+import * as Plot from "@observablehq/plot";
+import * as d3 from "d3";
 
 import {
   applyChannelStyles,

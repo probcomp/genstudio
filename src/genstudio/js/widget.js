@@ -1,9 +1,16 @@
-import { WidthContext, CONTAINER_PADDING, $StateContext } from "./context";
-import { html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
-import { AnyWidgetReact, React, ReactDOM, Plot, d3, mobx, mobxReact } from "./imports";
+import * as AnyWidgetReact from "@anywidget/react";
+import * as Plot from "@observablehq/plot";
+import * as d3 from "d3";
+import * as mobx from "mobx";
+import * as mobxReact from "mobx-react-lite";
+import * as React from "react";
+import * as ReactDOM from "react-dom/client";
+import * as api from "./api";
+import { $StateContext, CONTAINER_PADDING, WidthContext } from "./context";
+import { html, serializeEvent, useCellUnmounted, useElementWidth } from "./utils";
+
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;
-import * as api from "./api";
 
 function resolveReference(path, obj) {
   return path.split('.').reduce((acc, key) => acc[key], obj);

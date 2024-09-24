@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { evaluate, createStateStore, StateProvider, renderData } from '../../src/genstudio/js/widget'
-import { React, Plot, ReactDOM } from '../../src/genstudio/js/imports.npm'
-import { render, act } from '@testing-library/react'
+import * as Plot from "@observablehq/plot";
+import { render } from '@testing-library/react';
+import * as React from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createStateStore, evaluate, StateProvider } from '../../src/genstudio/js/widget';
 
 // Add this at the top of the file
 beforeEach(() => {
