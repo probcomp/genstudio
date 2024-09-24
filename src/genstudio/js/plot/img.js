@@ -35,10 +35,10 @@ export class Img extends Plot.Mark {
    * @param {ChannelValue} [options.y=0] - The y-coordinate of the top-left corner.
    * @param {ChannelValue} [options.width] - The width of the image in x-scale units.
    * @param {ChannelValue} [options.height] - The height of the image in y-scale units.
-   * @param {ChannelValue} [options.ariaLabel] - Custom aria-label for accessibility.
+   * @param {ChannelValue} [options.ariaLabel='image'] - Custom aria-label for accessibility.
    */
   constructor(data, options = {}) {
-    const { src, x = 0, y = 0, width, height, ariaLabel } = options;
+    const { src, x = 0, y = 0, width, height, ariaLabel = 'image' } = options;
 
     if (width === undefined || height === undefined) {
       throw new Error("Both width and height must be specified for the Img mark.");
@@ -71,7 +71,7 @@ export class Img extends Plot.Mark {
         .attr("y", i => Y2[i])
         .attr("width", i => Math.abs(X2[i] - X1[i]))
         .attr("height", i => Math.abs(Y2[i] - Y1[i]))
-        .attr("aria-label", i => ARIA_LABEL ? ARIA_LABEL[i] : "image")
+        .attr("aria-label", i => ARIA_LABEL[i])
         .call(applyChannelStyles, this, channels)
       )
       .node();
