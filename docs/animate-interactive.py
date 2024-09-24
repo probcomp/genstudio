@@ -203,6 +203,8 @@ interactivity_warning
 # We first define a [reference](bylight:?match=Plot.ref) with initial point coordinates to represent the points that we want to interact with.
 
 # %%
+import genstudio.plot as Plot
+
 data = Plot.ref([[1, 1], [2, 2], [0, 2], [2, 0]])
 
 # %% [markdown]

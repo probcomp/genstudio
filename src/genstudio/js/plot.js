@@ -3,8 +3,9 @@ import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { binding, flatten, html, tw } from "./utils";
 import {ellipse} from "./plot/ellipse"
 import {draw} from "./plot/draw"
+import {img} from "./plot/img"
 
-const Marks = {...Plot, ellipse, draw}
+const Marks = {...Plot, ellipse, draw, img}
 const { useEffect } = React
 export const DEFAULT_PLOT_OPTIONS = { inset: 10 };
 const DEFAULT_ASPECT_RATIO = 1.5

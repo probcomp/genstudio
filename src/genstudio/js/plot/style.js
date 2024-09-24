@@ -144,3 +144,32 @@ export function applyDirectStyles(selection, mark) {
     applyStyle(selection, "mix-blend-mode", mark.mixBlendMode);
     applyAttr(selection, "opacity", mark.opacity);
 }
+
+/**
+ * Calculates scale factors to account for differences between
+ * SVG logical dimensions and actual rendered size.
+ * @param {SVGElement} svgElement - The SVG element to calculate scale factors for.
+ * @returns {{x: number, y: number}} The calculated scale factors.
+ */
+export function calculateScaleFactors(svgElement) {
+  const svgRect = svgElement.getBoundingClientRect();
+  return {
+    x: svgRect.width / svgElement.width.baseVal.value,
+    y: svgRect.height / svgElement.height.baseVal.value
+  };
+}
+
+/**
+ * Converts pixel coordinates to data coordinates using the provided scales and scale factors.
+ * @param {number} x - The x coordinate in pixels.
+ * @param {number} y - The y coordinate in pixels.
+ * @param {Object} scales - The scales object containing x and y scales.
+ * @param {{x: number, y: number}} scaleFactors - The scale factors object.
+ * @returns {[number, number]} The converted data coordinates.
+ */
+export function invertPoint(x, y, scales, scaleFactors) {
+  return [
+    scales.x.invert(x / scaleFactors.x),
+    scales.y.invert(y / scaleFactors.y)
+  ];
+}
