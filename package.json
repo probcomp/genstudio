@@ -18,6 +18,8 @@
   "dependencies": {
     "@anywidget/react": "^0.0.7",
     "@observablehq/plot": "^0.6.16",
+    "@react-three/drei": "^9.113.0",
+    "@react-three/fiber": "^8.17.8",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/react-hooks": "^8.0.1",
     "@twind/core": "^1.1.3",
@@ -32,7 +34,8 @@
     "mobx": "^6.13.1",
     "mobx-react-lite": "^4.0.7",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "three": "^0.168.0"
   },
   "scripts": {
     "release": "python scripts/release.py",

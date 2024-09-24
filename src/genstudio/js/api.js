@@ -1,7 +1,3 @@
-import { $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH, WidthContext } from "./context";
-import { MarkSpec, PlotSpec } from "./plot";
-import { html } from "./utils";
-
 import * as Plot from "@observablehq/plot";
 import bylight from "bylight";
 import * as d3 from "d3";
@@ -9,12 +5,14 @@ import MarkdownIt from "markdown-it";
 import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
+import { $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH, WidthContext } from "./context";
+import { MarkSpec, PlotSpec } from "./plot";
 import * as render from "./plot/render";
-import { tw } from "./utils";
-
+import * as p3d from "./plot3d";
+import { html, tw } from "./utils";
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 
-export { render };
+export { p3d, render };
 const DEFAULT_GRID_GAP = "10px"
 export const CONTAINER_PADDING = 10;
 
