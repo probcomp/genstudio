@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Draw, draw } from '../../../src/genstudio/js/plot/draw'
-import { Plot, d3 } from '../../../src/genstudio/js/imports.npm'
+import * as Plot from "@observablehq/plot";
 import { JSDOM } from 'jsdom'
 
 describe('Draw', () => {

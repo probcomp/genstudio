@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Ellipse, ellipse } from '../../../src/genstudio/js/plot/ellipse'
-import { Plot } from '../../../src/genstudio/js/imports.npm'
+import * as Plot from "@observablehq/plot";
 
 describe('Ellipse', () => {
   it('should create an Ellipse instance', () => {
