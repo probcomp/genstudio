@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { evaluate, createStateStore, StateProvider, renderData } from '../../src/genstudio/js/widget'
-import { React, Plot, ReactDOM } from '../../src/genstudio/js/imports.npm'
+import * as Plot from "@observablehq/plot";
+import * as React from "react";
 import { render, act } from '@testing-library/react'
 
 // Add this at the top of the file

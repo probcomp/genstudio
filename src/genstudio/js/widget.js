@@ -1,6 +1,14 @@
 import { WidthContext, CONTAINER_PADDING, $StateContext } from "./context";
 import { html, useCellUnmounted, useElementWidth, serializeEvent } from "./utils";
-import { AnyWidgetReact, React, ReactDOM, Plot, d3, mobx, mobxReact } from "./imports";
+
+import * as React from "react";
+import * as ReactDOM from "react-dom/client";
+import * as AnyWidgetReact from "@anywidget/react";
+import * as Plot from "@observablehq/plot";
+import * as d3 from "d3";
+import * as mobx from "mobx";
+import * as mobxReact from "mobx-react-lite";
+
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;
 import * as api from "./api";

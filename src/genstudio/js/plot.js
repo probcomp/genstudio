@@ -1,4 +1,7 @@
-import {Plot, d3, React, mobx} from "./imports"
+import * as mobx from "mobx";
+import * as Plot from "@observablehq/plot";
+import * as d3 from "d3";
+import * as React from "react";
 import { $StateContext, WidthContext, AUTOGRID_MIN } from "./context";
 import { binding, flatten, html, tw } from "./utils";
 import {ellipse} from "./plot/ellipse"

@@ -1,7 +1,14 @@
 import { $StateContext, WidthContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { MarkSpec, PlotSpec } from "./plot";
 import { html } from "./utils";
-import { Plot, d3, MarkdownIt, React, ReactDOM, mobxReact } from "./imports";
+
+import * as React from "react";
+import * as ReactDOM from "react-dom/client";
+import * as mobxReact from "mobx-react-lite";
+import * as Plot from "@observablehq/plot";
+import * as d3 from "d3";
+import MarkdownIt from "markdown-it";
+
 const { useState, useEffect, useContext, useMemo, useCallback } = React
 import bylight from "bylight";
 import { tw } from "./utils";

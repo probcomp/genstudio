@@ -1,4 +1,4 @@
-import {React} from "./imports"
+import * as React from "react";
 const {createContext} = React
 export const WidthContext = createContext(600);
 export const $StateContext = createContext();
