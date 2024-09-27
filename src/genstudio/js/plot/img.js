@@ -51,16 +51,13 @@ export class Img extends Plot.Mark {
       x1: { value: x, scale: "x" },
       y1: { value: y, scale: "y" },
       x2: { value: addChannels(x, width), scale: "x" },
-      y2: { value: addChannels(y, height), scale: "y" },
-      ariaLabel: { value: ariaLabel }
+      y2: { value: addChannels(y, height), scale: "y" }
     }
-    super(data, channels, options, {
-      ariaLabel: "image",
-    });
+    super(data, channels, options, {ariaLabel});
   }
 
   render(index, scales, channels, dimensions, context) {
-    const { src: SRC, x1: X1, y1: Y1, x2: X2, y2: Y2, ariaLabel: ARIA_LABEL } = channels;
+    const { src: SRC, x1: X1, y1: Y1, x2: X2, y2: Y2 } = channels;
     return d3.create("svg:g")
       .call(applyIndirectStyles, this, dimensions, context)
       .call(applyTransform, this, scales, 0, 0)
@@ -73,7 +70,6 @@ export class Img extends Plot.Mark {
         .attr("y", i => Y2[i])
         .attr("width", i => Math.abs(X2[i] - X1[i]))
         .attr("height", i => Math.abs(Y2[i] - Y1[i]))
-        .attr("aria-label", i => ARIA_LABEL[i])
         .call(applyChannelStyles, this, channels)
       )
       .node();

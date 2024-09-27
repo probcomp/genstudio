@@ -18,5 +18,3 @@ save_bw_image("docs/genjax-logo.png", "docs/genjax-logo-bw.png")
     Plot.img(["docs/genjax-logo-bw.png"], src=Plot.identity, width=1530, height=330)
     + Plot.aspectRatio(1)
 )
-
-Plot.image
