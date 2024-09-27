@@ -1,3 +1,12 @@
+### [2024.09.006] - Sep 27, 2024
+
+#### New Features
+- `Plot.img` mark for specifying image sizes in x/y coords
+- use import maps for js deps
+
+#### Bug Fixes
+- apply scale correction to Plot.render.childEvents
+
 ### [2024.09.005] - Sep 18, 2024
 
 - deps: add pillow as a required dependency
