@@ -1,3 +1,8 @@
+### [2024.09.007] - Sep 27, 2024
+
+#### Bug Fixes
+- ariaLabel is a default option, not a channel
+
 ### [2024.09.006] - Sep 27, 2024
 
 #### New Features
