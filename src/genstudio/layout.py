@@ -95,6 +95,16 @@ class LayoutItem:
     def _repr_mimebundle_(self, **kwargs: Any) -> Any:
         return self.repr()._repr_mimebundle_(**kwargs)
 
+    def _repr_html_(self, **kwargs: Any) -> str | None:
+        bundle = self.repr()._repr_mimebundle_(**kwargs)
+        if (
+            isinstance(bundle, tuple)
+            and len(bundle) > 0
+            and isinstance(bundle[0], dict)
+        ):
+            return bundle[0].get("text/html")
+        return None
+
     def html(self) -> HTML:
         """
         Lazily generate & cache the HTML for this LayoutItem.
