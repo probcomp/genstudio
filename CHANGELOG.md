@@ -1,3 +1,7 @@
+### [2024.10.001] - Oct 21, 2024
+
+- add _repr_html_ to LayoutItem (for treescope)
+
 ### [2024.09.007] - Sep 27, 2024
 
 #### Bug Fixes
