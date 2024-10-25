@@ -9,16 +9,19 @@ import {
 } from "./style";
 
 /**
- * A custom mark for interactive drawing on plots.
+ * A custom mark for mouse interaction on plots.
  * @extends Plot.Mark
  */
-export class Draw extends Plot.Mark {
+export class EventHandler extends Plot.Mark {
   /**
    * Creates a new Draw mark.
    * @param {Object} options - Configuration options for the Draw mark.
    * @param {Function} [options.onDrawStart] - Callback function called when drawing starts.
    * @param {Function} [options.onDraw] - Callback function called during drawing.
    * @param {Function} [options.onDrawEnd] - Callback function called when drawing ends.
+   * @param {Function} [options.onMouseMove] - Callback function called when the mouse moves over the drawing area.
+   * @param {Function} [options.onClick] - Callback function called when the drawing area is clicked.
+   * @param {Function} [options.onMouseDown] - Callback function called when the mouse button is pressed down.
    */
   constructor(options = {}) {
     super([null], {}, options, {
@@ -32,10 +35,13 @@ export class Draw extends Plot.Mark {
     this.onDrawStart = options.onDrawStart;
     this.onDraw = options.onDraw;
     this.onDrawEnd = options.onDrawEnd;
+    this.onMouseMove = options.onMouseMove;
+    this.onClick = options.onClick;
+    this.onMouseDown = options.onMouseDown;
   }
 
   /**
-   * Renders the Draw mark.
+   * Renders the MouseInteraction mark.
    * @param {number} index - The index of the mark.
    * @param {Object} scales - The scales for the plot.
    * @param {Object} channels - The channels for the plot.
@@ -45,28 +51,39 @@ export class Draw extends Plot.Mark {
    */
   render(index, scales, channels, dimensions, context) {
     const { width, height } = dimensions;
-    let path = [];
     let currentDrawingRect = null;
     let drawingArea = null;
     let scaleFactors;
+    let drawStartTime;
 
-    const eventData = (eventType, path) => ({ type: eventType, path: [...path] });
+    const eventData = (eventType, point) => ({
+      type: eventType,
+      point,
+      startTime: drawStartTime
+    });
 
     const isWithinDrawingArea = (rect, x, y) =>
       x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 
-    const handleDrawStart = (event) => {
+    const handleDrawStart = (point) => {
+      this.onDrawStart?.(eventData("drawstart", point));
+      document.addEventListener('mousemove', handleDraw);
+      document.addEventListener('mouseup', handleDrawEnd);
+    }
+
+    const handleMouseDown = (event) => {
       currentDrawingRect = drawingArea.getBoundingClientRect();
       if (!isWithinDrawingArea(currentDrawingRect, event.clientX, event.clientY)) return;
 
+      drawStartTime = Date.now();
       scaleFactors = calculateScaleFactors(drawingArea.ownerSVGElement);
       const offsetX = event.clientX - currentDrawingRect.left;
       const offsetY = event.clientY - currentDrawingRect.top;
-      path = [invertPoint(offsetX, offsetY, scales, scaleFactors)];
-      this.onDrawStart?.(eventData("drawstart", path));
+      const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
+      this.onMouseDown?.(eventData("mousedown", point));
 
-      document.addEventListener('mousemove', handleDraw);
-      document.addEventListener('mouseup', handleDrawEnd);
+      handleDrawStart(point)
+
     };
 
     const handleDraw = (event) => {
@@ -74,20 +91,43 @@ export class Draw extends Plot.Mark {
       event.preventDefault();
       const offsetX = event.clientX - currentDrawingRect.left;
       const offsetY = event.clientY - currentDrawingRect.top;
-      path.push(invertPoint(offsetX, offsetY, scales, scaleFactors));
-      this.onDraw?.(eventData("draw", path));
+      const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
+      this.onDraw?.(eventData("draw", point));
     };
 
     const handleDrawEnd = (event) => {
       if (!currentDrawingRect) return;
       const offsetX = event.clientX - currentDrawingRect.left;
       const offsetY = event.clientY - currentDrawingRect.top;
-      path.push(invertPoint(offsetX, offsetY, scales, scaleFactors));
-      this.onDrawEnd?.(eventData("drawend", path));
+      const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
+      this.onDrawEnd?.(eventData("drawend", point));
 
       document.removeEventListener('mousemove', handleDraw);
       document.removeEventListener('mouseup', handleDrawEnd);
       currentDrawingRect = null;
+      drawStartTime = null;
+    };
+
+    const handleMouseMove = (event) => {
+      if (this.onMouseMove) {
+        const rect = drawingArea.getBoundingClientRect();
+        const offsetX = event.clientX - rect.left;
+        const offsetY = event.clientY - rect.top;
+        const point = invertPoint(offsetX, offsetY, scales, calculateScaleFactors(drawingArea.ownerSVGElement));
+        this.onMouseMove({ type: "mousemove", point });
+      }
+    };
+
+    const handleClick = (event) => {
+      const rect = drawingArea.getBoundingClientRect();
+      if (!isWithinDrawingArea(rect, event.clientX, event.clientY)) return;
+
+      if (this.onClick) {
+        const offsetX = event.clientX - rect.left;
+        const offsetY = event.clientY - rect.top;
+        const point = invertPoint(offsetX, offsetY, scales, calculateScaleFactors(drawingArea.ownerSVGElement));
+        this.onClick({ type: "click", point });
+      }
     };
 
     const g = d3.create("svg:g")
@@ -99,9 +139,12 @@ export class Draw extends Plot.Mark {
       .attr("height", height)
       .attr("fill", "none")
       .attr("pointer-events", "all")
+      .on("mousemove", handleMouseMove)
       .node();
 
-    document.addEventListener('mousedown', handleDrawStart);
+    // We attach mousedown and click to document to allow interaction even when the cursor is over other elements
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('click', handleClick);
 
     return g.node();
   }
@@ -111,10 +154,10 @@ export class Draw extends Plot.Mark {
  * Returns a new draw mark for the given options.
  * @param {Object} _data - Unused parameter (maintained for consistency with other mark functions).
  * @param {DrawOptions} options - Options for the draw mark.
- * @returns {Draw} A new Draw mark.
+ * @returns {EventHandler} A new Draw mark.
  */
-export function draw(_data, options = {}) {
-  return new Draw(options);
+export function events(_data, options = {}) {
+  return new EventHandler(options);
 }
 
 /**
@@ -122,4 +165,7 @@ export function draw(_data, options = {}) {
  * @property {Function} [onDrawStart] - Callback function called when drawing starts.
  * @property {Function} [onDraw] - Callback function called during drawing.
  * @property {Function} [onDrawEnd] - Callback function called when drawing ends.
+ * @property {Function} [onMouseMove] - Callback function called when the mouse moves over the drawing area.
+ * @property {Function} [onClick] - Callback function called when the drawing area is clicked.
+ * @property {Function} [onMouseDown] - Callback function called when the mouse button is pressed down.
  */

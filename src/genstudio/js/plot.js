@@ -3,12 +3,12 @@ import * as d3 from "d3";
 import * as mobx from "mobx";
 import * as React from "react";
 import { $StateContext, AUTOGRID_MIN, WidthContext } from "./context";
-import { draw } from "./plot/draw";
+import { events } from "./plot/events";
 import { ellipse } from "./plot/ellipse";
 import { img } from "./plot/img";
 import { binding, flatten, html, tw } from "./utils";
 
-const Marks = {...Plot, ellipse, draw, img}
+const Marks = {...Plot, ellipse, events, img}
 const { useEffect } = React
 export const DEFAULT_PLOT_OPTIONS = { inset: 10 };
 const DEFAULT_ASPECT_RATIO = 1.5

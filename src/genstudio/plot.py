@@ -448,28 +448,31 @@ def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     return PlotSpec(MarkSpec("ellipse", values, {**options, **kwargs}))
 
 
-def draw(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
+def events(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     """
-    Returns a new draw mark for the given *options*.
+    Captures events on a plot.
 
-    The draw mark allows interactive drawing on the plot. It supports callbacks
-    for draw start, during drawing, and draw end events.
+    The following callback options are supported:
+    - onClick
+    - onMouseMove
+    - onMouseDown
+    - onDrawStart
+    - onDraw
+    - onDrawEnd
+
+    Each callback receives an event object with:
+    - `type`, the event name
+    - `point`, an [x, y] array
+    - for draw events, `startTime`
 
     Args:
-        options: Options for the draw mark, including callback functions.
+        options: Callback functions.
         **kwargs: Additional keyword arguments to be merged with options.
 
     Returns:
-        A PlotSpec object representing the draw mark.
-
-    The following callback options are supported:
-    - onDrawStart: Called when drawing starts.
-    - onDraw: Called during drawing.
-    - onDrawEnd: Called when drawing ends.
-
-    Each callback receives an event object with the current path data.
+        A PlotSpec object representing the events mark.
     """
-    return PlotSpec(MarkSpec("draw", [], {**options, **kwargs}))
+    return PlotSpec(MarkSpec("events", [], {**options, **kwargs}))
 
 
 def img(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
@@ -812,26 +815,36 @@ _InitialState = JSRef("InitialState")
 
 
 class InitialState(LayoutItem):
-    def __init__(self, key, init=None):
-        """
-        Initializes $state without returning a value.
-
-        Args:
-            key (str): The key for the reactive variable in the state.
-            init (Any, optional): Initial value for the variable.
-        """
-        self.key = key
-        self.init = RefObject(init, id=key)
+    def __init__(self, refs):
+        self.refs = refs
 
     def for_json(self):
-        return _InitialState(self.key, self.init)
+        return _InitialState(self.refs)
 
 
-def initial_state(key, value):
+def initial_state(key_or_values, value=None):
     """
-    Initialise $state without returning a value.
+    Initializes one or multiple $state variables without returning a value.
+
+    Args:
+        key_or_values (Union[str, dict]): Either a single key (str) for one state variable,
+                                          or a dictionary of key-value pairs to initialize multiple state variables.
+        value (Any, optional): Initial value for the variable when a single key is provided.
+                               Ignored if key_or_values is a dictionary.
+
+    Returns:
+        InitialState: An InitialState object containing the initialized state variables.
     """
-    return InitialState(key, init=value)
+    if isinstance(key_or_values, dict):
+        refs = [RefObject(v, id=k) for k, v in key_or_values.items()]
+    else:
+        if value is None:
+            raise ValueError(
+                "When providing a single key, a value must also be provided."
+            )
+        refs = [RefObject(value, id=key_or_values)]
+
+    return InitialState(refs)
 
 
 _Slider = JSRef("Slider")

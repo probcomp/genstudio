@@ -243,10 +243,15 @@ def update_position(event):
 
 
 # %% [markdown]
-# ## Interactive Drawing
+# ## Handling Events for Interactivity
 #
-# The `Plot.draw` mark allows users to draw lines on a plot. By default no line is "drawn"; it's up to you to do something with the `path` included in the event data.
-# Supported callbacks: `onDrawStart`, `onDraw`, and `onDrawEnd`.
+# The `Plot.events` mark supports mouse interactions via the following callbacks:
+# - `onDrawStart`
+# - `onDraw`
+# - `onDrawEnd`
+# - `onClick`
+# - `onMouseMove
+# Each callback receives an event object containing `type` (the event name), `point` (an `[x, y]` array for the current mouse position), and (for draw events only) `startTime`, which can distinguish one draw event from another.
 
 
 # %%
@@ -254,9 +259,12 @@ import genstudio.plot as Plot
 
 (
     Plot.initial_state("points", [])
-    # Use `Plot.draw`, setting $state.points in the `onDraw` callback,
-    # which is passed an event containing `path`, an array of [x, y] points.
-    + Plot.draw(onDraw=Plot.js("(event) => $state.points = event.path"))
+    # Use `Plot.events`, setting $state.points in the `onDraw` callback,
+    # which is passed an event containing a `point`, an `[x, y]` array.
+    + Plot.events(
+        onDrawStart=Plot.js("(event) => $state.points = [event.point]"),
+        onDraw=Plot.js("(event) => $state.points = [...$state.points, event.point]"),
+    )
     # Draw a line through all points
     + Plot.line(Plot.js("$state.points"), stroke="blue", strokeWidth=4)
     + Plot.ellipse([[1, 1]], r=1, opacity=0.5, fill="red")
@@ -275,26 +283,38 @@ interactivity_warning
 # Say we wanted to pass a drawn path back to Python. We can initialize a ref, with an initial value of an empty list, to hold drawn points. Then, we pass in a python `onDraw` callback to update the points using the widget's `update_state` method. This time, let's add some additional dot marks to make our line more interesting.
 
 # %%
-points = Plot.ref([])
+all_points = Plot.ref([])
+drawn_points = Plot.ref([])
+clicked_points = Plot.ref([])
 (
     # Create drawing area and update points on draw
-    Plot.draw(
+    Plot.events(
         onDraw=lambda event: event["widget"].update_state(
-            [points, "reset", event["path"]]
-        )
+            [drawn_points, "append", [*event["point"], event["startTime"]]]
+        ),
+        onMouseMove=lambda event: event["widget"].update_state(
+            [all_points, "append", event["point"]]
+        ),
+        onClick=lambda event: event["widget"].update_state(
+            [clicked_points, "append", event["point"]]
+        ),
     )
-    # Draw a continuous line through all points
-    + Plot.line(points)
-    # Add dots for all points
-    + Plot.dot(points)
-    # Highlight every 6th point in red
+    # Draw a continuous line through drawn points
+    + Plot.line(drawn_points, z="2")
+    # Add small dots for drawn points
+    + Plot.dot(drawn_points)
+    # Highlight every 6th drawn point in red
     + Plot.dot(
-        points,
+        drawn_points,
         Plot.select(
             Plot.js("(indexes) => indexes.filter(i => i % 6 === 0)"),
             {"fill": "red", "r": 10},
         ),
     )
+    # Add symbol for clicked points
+    + Plot.dot(clicked_points, r=10, symbol="star")
+    # Add light gray line for all points
+    + Plot.line(all_points, stroke="rgba(0, 0, 0, 0.2)")
     + Plot.domain([0, 2])
 )
 

@@ -88,8 +88,18 @@ class Widget(anywidget.AnyWidget):
         return "ok", []
 
     def update_state(self, *updates):
-        updates = [
-            [entry if isinstance(entry, str) else entry.id, operation, payload]
-            for [entry, operation, payload] in updates
-        ]
-        self.send({"type": "update_state", "updates": to_json(updates, widget=self)})
+        # an update can be a dict of {id, value} to reset, or
+        # a list, [id, operation, payload] where operations are
+        # "append", "concat", "reset", or "setAt". The payload for
+        # "setAt" should be a list [index, value].
+        def entry_id(key):
+            return key if isinstance(key, str) else key.id
+
+        out = []
+        for entry in updates:
+            if isinstance(entry, dict):
+                for key, value in entry.items():
+                    out.append([entry_id(key), "reset", value])
+            else:
+                out.append([entry_id(entry[0]), entry[1], entry[2]])
+        self.send({"type": "update_state", "updates": to_json(out, widget=self)})
