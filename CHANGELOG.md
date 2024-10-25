@@ -1,3 +1,10 @@
+### [2024.10.002] - Oct 25, 2024
+
+- BREAKING: rename `Plot.draw` to `Plot.events`
+- add `onClick`, `onMouseMove`, and `onMouseDown` callbacks
+- add `startTime` to draw event data
+- support dictionaries as arguments to Plot.initial_state and widget.update_state
+
 ### [2024.10.001] - Oct 21, 2024
 
 - add _repr_html_ to LayoutItem (for treescope)
