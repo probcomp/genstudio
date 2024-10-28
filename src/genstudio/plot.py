@@ -4,6 +4,7 @@ import copy
 import json
 import random
 from typing import Any, Dict, List, Literal, Sequence, TypeAlias, Union
+from typing_extensions import deprecated
 
 import genstudio.plot_defs as plot_defs
 from genstudio.layout import (
@@ -177,93 +178,19 @@ from genstudio.util import configure, deep_merge
 # - Easily create grids to compare small multiples
 # - Includes shortcuts for common options like grid lines, color legends, margins
 
-d3 = JSRef("d3")
-Math = JSRef("Math")
 html = Hiccup
-Bylight = JSRef("Bylight")
-md = JSRef("md")
+"""Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
 
-# For passing columnar data to Observable.Plot which should repeat/cycle.
-# eg. for a set of 'xs' that are to be repeated for each set of `ys`.
 repeat = JSRef("repeat")
+"""For passing columnar data to Observable.Plot which should repeat/cycle.
+eg. for a set of 'xs' that are to be repeated for each set of `ys`."""
 
 
-class Dimensioned:
-    def __init__(self, value, path):
-        self.value = value
-        self.dimensions = [
-            rename_key(segment, ..., "key")
-            for segment in path
-            if isinstance(segment, dict)
-        ]
-
-    def shape(self):
-        shape = ()
-        current_value = self.value
-        for dimension in self.dimensions:
-            if "leaves" not in dimension:
-                shape += (len(current_value),)
-                current_value = current_value[0]
-        return shape
-
-    def names(self):
-        return [
-            dimension.get("key", dimension.get("leaves"))
-            for dimension in self.dimensions
-        ]
-
-    def __repr__(self):
-        return f"<Dimensioned shape={self.shape()}, names={self.names()}>"
-
-    def size(self, name):
-        names = self.names()
-        shape = self.shape()
-        if name in names:
-            return shape[names.index(name)]
-        raise ValueError(f"Dimension with name '{name}' not found")
-
-    def flatten(self):
-        # flattens the data in python, rather than js.
-        # currently we are not using/recommending this
-        # but it may be useful later or for debugging.
-        leaf = (
-            self.dimensions[-1]["leaves"]
-            if isinstance(self.dimensions[-1], dict) and "leaves" in self.dimensions[-1]
-            else None
-        )
-        dimensions = self.dimensions[:-1] if leaf else self.dimensions
-
-        def _flatten(value, dims, prefix=None):
-            if not dims:
-                value = {leaf: value} if leaf else value
-                return [prefix | value] if prefix else [value]
-            results = []
-            dim_key = dims[0]["key"]
-            for i, v in enumerate(value):
-                new_prefix = {**prefix, dim_key: i} if prefix else {dim_key: i}
-                results.extend(_flatten(v, dims[1:], new_prefix))
-            return results
-
-        return _flatten(self.value, dimensions)
-
-    def for_json(self):
-        return {"value": self.value, "dimensions": self.dimensions}
-
-
-def dimensions(data, dimensions=[], leaves=None):
-    """
-    Attaches dimension metadata, for further processing in JavaScript.
-    """
-    dimensions = [{"key": d} for d in dimensions]
-    dimensions = [*dimensions, {"leaves": leaves}] if leaves else dimensions
-    return Dimensioned(data, dimensions)
-
-
-def rename_key(d, prev_k, new_k):
+def _rename_key(d, prev_k, new_k):
     return {k if k != prev_k else new_k: v for k, v in d.items()}
 
 
-def get_choice(ch, path):
+def _get_choice(ch, path):
     ch = ch.get_sample() if getattr(ch, "get_sample", None) else ch
 
     def _get(value, path):
@@ -293,7 +220,7 @@ def get_choice(ch, path):
         return value
 
 
-def is_choicemap(data):
+def _is_choicemap(data):
     current_class = data.__class__
     while current_class:
         if current_class.__name__ == "ChoiceMap":
@@ -303,9 +230,31 @@ def is_choicemap(data):
 
 
 def get_in(data: Union[Dict, Any], path: List[Union[str, Dict]]) -> Any:
+    """
+    Reads data from a nested structure, giving names to dimensions and leaves along the way.
+
+    This function traverses nested data structures like dictionaries and lists, allowing you to extract
+    and label nested dimensions. It supports Python dicts/lists as well as GenJAX traces and choicemaps.
+
+    Args:
+        data: The nested data structure to traverse. Can be a dict, list, or GenJAX object.
+        path: A list of path segments describing how to traverse the data. Each segment can be:
+            - A string key to index into a dict
+            - A dict with {...} to traverse a list dimension, giving it a name
+            - A dict with "leaves" to mark terminal values
+
+    Returns:
+        Either a Dimensioned object containing the extracted data and dimension metadata,
+        or the raw extracted value if no dimensions were named in the path.
+
+    Example:
+        data = {"a": [{"val": 1}, {"val": 2}]}
+        result = get_in(data, ["a", {...: "items"}, "val"])
+        # Returns Dimensioned object with value=[1, 2] and dimension named "items"
+    """
     data = data.get_sample() if getattr(data, "get_sample", None) else data  # type: ignore
-    if is_choicemap(data):
-        return get_choice(data, path)
+    if _is_choicemap(data):
+        return _get_choice(data, path)
 
     def process_segment(value: Any, remaining_path: List[Union[str, Dict]]) -> Any:
         for i, segment in enumerate(remaining_path):
@@ -338,7 +287,7 @@ def get_in(data: Union[Dict, Any], path: List[Union[str, Dict]]) -> Any:
 
 
 # Test case to verify traversal of more than one dimension
-def test_get_in():
+def _test_get_in():
     data = {"a": [{"b": [{"c": 1}, {"c": 2}]}, {"b": [{"c": 3}, {"c": 4}]}]}
 
     result = get_in(data, ["a", {...: "first"}, "b", {...: "second"}, "c"])
@@ -448,6 +397,24 @@ def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     return PlotSpec(MarkSpec("ellipse", values, {**options, **kwargs}))
 
 
+def scaled_circle(x, y, r, **kwargs):
+    """
+    Convenience function to create a single circular ellipse mark at position (x,y) with radius r.
+
+    See ellipse() for additional styling options that can be passed as kwargs.
+
+    Args:
+        x: X coordinate of circle center
+        y: Y coordinate of circle center
+        r: Radius of the circle
+        **kwargs: Additional styling options passed to ellipse()
+
+    Returns:
+        A PlotSpec object representing the circular ellipse mark.
+    """
+    return ellipse([[x, y]], r=r, **kwargs)
+
+
 def events(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     """
     Captures events on a plot.
@@ -502,10 +469,6 @@ def img(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     return PlotSpec(MarkSpec("img", values, {**options, **kwargs}))
 
 
-def scaled_circle(x, y, r, **kwargs):
-    return ellipse([[x, y]], r=r, **kwargs)
-
-
 def constantly(x):
     """
     Returns a javascript function which always returns `x`.
@@ -519,6 +482,23 @@ def constantly(x):
 
 
 def Grid(*children, **opts):
+    """
+    Creates a responsive grid layout that automatically arranges child elements in a grid pattern.
+
+    The grid adjusts the number of columns based on the available width and minimum width per item.
+    Each item maintains a consistent aspect ratio and spacing between items is controlled by the gap parameter.
+
+    Args:
+        *children: Child elements to arrange in the grid.
+        **opts: Grid options including:
+            - minWidth (int): Minimum width for each grid item in pixels. Default is AUTOGRID_MIN_WIDTH.
+            - gap (str): CSS gap value between grid items. Default is "10px".
+            - aspectRatio (float): Width/height ratio for grid items. Default is 1.
+            - style (dict): Additional CSS styles to apply to grid container.
+
+    Returns:
+        Hiccup: A grid layout component that will be rendered in the JavaScript runtime.
+    """
     return Hiccup(
         JSRef("Grid"),
         {"children": children, **opts},
@@ -526,6 +506,7 @@ def Grid(*children, **opts):
 
 
 def small_multiples(*specs, **options):
+    """Alias for [[Grid]]"""
     return Grid(*specs, **options)
 
 
@@ -570,9 +551,6 @@ def Histogram(
     if cumulative:
         bin_options["y"] = {"cumulative": True}
     return rectY(values, binX({"y": "count"}, bin_options)) + ruleY([0]) + layout
-
-
-histogram = Histogram  # Alias for backwards compatibility
 
 
 def identity():
@@ -730,22 +708,23 @@ def margin(*args):
         raise ValueError(f"Invalid number of arguments: {len(args)}")
 
 
-# barX
-# For reference - other options supported by plots
-example_plot_options = {
-    "title": "TITLE",
-    "subtitle": "SUBTITLE",
-    "caption": "CAPTION",
-    "width": "100px",
-    "height": "100px",
-    "grid": True,
-    "inset": 10,
-    "aspectRatio": 1,
-    "style": {"font-size": "100px"},  # css string also works
-    "clip": True,
-}
+# # For reference - other options supported by plots
+# example_plot_options = {
+#     "title": "TITLE",
+#     "subtitle": "SUBTITLE",
+#     "caption": "CAPTION",
+#     "width": "100px",
+#     "height": "100px",
+#     "grid": True,
+#     "inset": 10,
+#     "aspectRatio": 1,
+#     "style": {"font-size": "100px"},  # css string also works
+#     "clip": True,
+# }
 
 # dot([[0, 0], [0, 1], [1, 1], [2, 3], [4, 2], [4, 0]])
+
+md = JSRef("md")
 
 
 def doc(fn):
@@ -900,3 +879,75 @@ def Slider(
 
 
 render = JSRef("render")
+Bylight = JSRef("Bylight")
+
+
+class Dimensioned:
+    def __init__(self, value, path):
+        self.value = value
+        self.dimensions = [
+            _rename_key(segment, ..., "key")
+            for segment in path
+            if isinstance(segment, dict)
+        ]
+
+    def shape(self):
+        shape = ()
+        current_value = self.value
+        for dimension in self.dimensions:
+            if "leaves" not in dimension:
+                shape += (len(current_value),)
+                current_value = current_value[0]
+        return shape
+
+    def names(self):
+        return [
+            dimension.get("key", dimension.get("leaves"))
+            for dimension in self.dimensions
+        ]
+
+    def __repr__(self):
+        return f"<Dimensioned shape={self.shape()}, names={self.names()}>"
+
+    def size(self, name):
+        names = self.names()
+        shape = self.shape()
+        if name in names:
+            return shape[names.index(name)]
+        raise ValueError(f"Dimension with name '{name}' not found")
+
+    def flatten(self):
+        # flattens the data in python, rather than js.
+        # currently we are not using/recommending this
+        # but it may be useful later or for debugging.
+        leaf = (
+            self.dimensions[-1]["leaves"]
+            if isinstance(self.dimensions[-1], dict) and "leaves" in self.dimensions[-1]
+            else None
+        )
+        dimensions = self.dimensions[:-1] if leaf else self.dimensions
+
+        def _flatten(value, dims, prefix=None):
+            if not dims:
+                value = {leaf: value} if leaf else value
+                return [prefix | value] if prefix else [value]
+            results = []
+            dim_key = dims[0]["key"]
+            for i, v in enumerate(value):
+                new_prefix = {**prefix, dim_key: i} if prefix else {dim_key: i}
+                results.extend(_flatten(v, dims[1:], new_prefix))
+            return results
+
+        return _flatten(self.value, dimensions)
+
+    def for_json(self):
+        return {"value": self.value, "dimensions": self.dimensions}
+
+
+def dimensions(data, dimensions=[], leaves=None):
+    """
+    Attaches dimension metadata, for further processing in JavaScript.
+    """
+    dimensions = [{"key": d} for d in dimensions]
+    dimensions = [*dimensions, {"leaves": leaves}] if leaves else dimensions
+    return Dimensioned(data, dimensions)
