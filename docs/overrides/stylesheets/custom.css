@@ -191,3 +191,7 @@ body .jupyter-wrapper .jp-Notebook {
     }
 
 }
+
+p {
+    margin-bottom: 1em;
+}

@@ -262,8 +262,10 @@ import genstudio.plot as Plot
     # Use `Plot.events`, setting $state.points in the `onDraw` callback,
     # which is passed an event containing a `point`, an `[x, y]` array.
     + Plot.events(
-        onDrawStart=Plot.js("(event) => $state.points = [event.point]"),
-        onDraw=Plot.js("(event) => $state.points = [...$state.points, event.point]"),
+        onDrawStart=Plot.js("(event) => $state.points = [[event.x, event.y]]"),
+        onDraw=Plot.js(
+            "(event) => $state.points = [...$state.points, [event.x, event.y]]"
+        ),
     )
     # Draw a line through all points
     + Plot.line(Plot.js("$state.points"), stroke="blue", strokeWidth=4)
@@ -290,13 +292,13 @@ clicked_points = Plot.ref([])
     # Create drawing area and update points on draw
     Plot.events(
         onDraw=lambda event: event["widget"].update_state(
-            [drawn_points, "append", [*event["point"], event["startTime"]]]
+            [drawn_points, "append", [event["x"], event["y"], event["startTime"]]]
         ),
         onMouseMove=lambda event: event["widget"].update_state(
-            [all_points, "append", event["point"]]
+            [all_points, "append", [event["x"], event["y"]]]
         ),
         onClick=lambda event: event["widget"].update_state(
-            [clicked_points, "append", event["point"]]
+            [clicked_points, "append", [event["x"], event["y"]]]
         ),
     )
     # Draw a continuous line through drawn points
