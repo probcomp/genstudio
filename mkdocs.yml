@@ -24,15 +24,25 @@ theme:
 nav:
   - Home: index.md
   - Getting Started: getting-started.py
+  - Interactivity & Animation:
+    - Sliders: interactivity/sliders.py
+    - Re-rendering a plot: interactivity/reset.py
+    - Animating through Frames: interactivity/frames.py
+    - Mouse events: interactivity/events.py
+    - Refs: interactivity/refs.py
+    - Tailing data: interactivity/tail.py
   - API Docs: api/plot.md
-  - Animation & Interactivity: animate-interactive.py
-  - HTML with Hiccup: html-hiccup.py
-  - Python Event Loops: python-event-loop.py
-  - Compare with Observable Plot: comparison-with-observable.py
-  - More Examples:
-      - Additional Marks: additions-to-observable.py
-      - Timelines with barX: example-timelines.py
-      - Synchronized Highlights: synchronized-highlights.py
+  - Learn More:
+    - Working with Color: working-with-color.py
+    - HTML with Hiccup: html-hiccup.py
+    - Python Event Loops: python-event-loop.py
+    - Compare with Observable Plot: comparison-with-observable.py
+  - Examples:
+      - Ellipse Mark: examples/ellipse-mark.py
+      - Histogram Mark: examples/histogram-mark.py
+      - Image Mark: examples/image-mark.py
+      - Timelines with barX: examples/barx-timeline.py
+      - Highlighting Code: examples/bylight.py
   - Changelog: CHANGELOG.md
 markdown_extensions:
   - admonition
@@ -48,7 +58,7 @@ plugins:
           output: api/plot.md
   - mkdocs-jupyter:
       include: ["*.py"]
-      execute: false
+      execute: true
       allow_errors: false
       kernel_name: genstudio
       include_requirejs: true

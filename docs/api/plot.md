@@ -1,7 +1,7 @@
 # genstudio.plot {: .api .api-title }
 
 
-## ## Interactivity {: .api .api-section }
+## Interactivity
 
 ### events {: .api .api-member }
 
@@ -116,131 +116,10 @@ Returns
 
 
 
-## Utility functions {: .api .api-section }
+## Layout components
 
-### constantly {: .api .api-member }
 
-Returns a javascript function which always returns `x`.
-
-Typically used to specify a constant property for all values passed to a mark,
-eg. plot.dot(values, fill=plot.constantly('My Label')). In this example, the
-fill color will be assigned (from a color scale) and show up in the color legend.
-
-
-
-### identity {: .api .api-member }
-
-Returns a JavaScript identity function.
-
-This function creates a JavaScript snippet that represents an identity function,
-which returns its input unchanged.
-
-Returns
-{: .api .api-section }
-
-
-- A JavaScript function that returns its first argument unchanged.
-
-
-
-### index {: .api .api-member }
-
-Returns a JavaScript function that returns the index of each data point.
-
-In Observable Plot, this function is useful for creating channels based on
-the position of data points in the dataset, rather than their values.
-
-Returns
-{: .api .api-section }
-
-
-- A JavaScript function that takes two arguments (data, index) and returns the index.
-
-
-
-### doc {: .api .api-member }
-
-Decorator to display the docstring of a python function formatted as Markdown.
-
-Parameters
-{: .api .api-section }
-
-
-- `fn`: The function whose docstring to display.
-
-Returns
-{: .api .api-section }
-
-
-- A JSCall instance
-
-
-
-### initial_state {: .api .api-member }
-
-Initializes one or multiple $state variables without returning a value.
-
-Parameters
-{: .api .api-section }
-
-
-- `key_or_values` (Union[str, dict]): Either a single key (str) for one state variable, or a dictionary of key-value pairs to initialize multiple state variables.
-
-- `value` (Any): Initial value for the variable when a single key is provided. Ignored if key_or_values is a dictionary.
-
-Returns
-{: .api .api-section }
-
-
-- An InitialState object containing the initialized state variables.
-
-
-
-### get_in {: .api .api-member }
-
-Reads data from a nested structure, giving names to dimensions and leaves along the way.
-
-This function traverses nested data structures like dictionaries and lists, allowing you to extract
-and label nested dimensions. It supports Python dicts/lists as well as GenJAX traces and choicemaps.
-
-Parameters
-{: .api .api-section }
-
-
-- `data` (Union[Dict, Any]): The nested data structure to traverse. Can be a dict, list, or GenJAX object.
-
-- `path` (List[Union[str, Dict]]): A list of path segments describing how to traverse the data. Each segment can be:
-
-    - A string key to index into a dict
-
-    - A dict with {...} to traverse a list dimension, giving it a name
-
-    - A dict with "leaves" to mark terminal values
-
-Returns
-{: .api .api-section }
-
-
-- Either a Dimensioned object containing the extracted data and dimension metadata, (Any)
-
-- or the raw extracted value if no dimensions were named in the path. (Any)
-
-
-
-### dimensions {: .api .api-member }
-
-Attaches dimension metadata, for further processing in JavaScript.
-
-
-
-### new {: .api .api-member }
-
-Create a new PlotSpec from the given specs and options.
-
-
-
-
-## Layout components {: .api .api-section }
+Useful for layouts and custom views.
 
 ### Column {: .api .api-member }
 
@@ -293,12 +172,12 @@ Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScr
 
 ### md {: .api .api-member }
 
-Render a string as Markdown, in a LayoutItem
+Render a string as Markdown, in a LayoutItem.
 
 
 
 
-## JavaScript Interop {: .api .api-section }
+## JavaScript Interop
 
 ### js {: .api .api-member }
 
@@ -315,24 +194,64 @@ Parameters
 {: .api .api-section }
 
 
-- `value` (Any): Initial value for the reference. If this is already a RefObject
+- `value` (Any): Initial value for the reference. If this is already a RefObject and no id is provided, returns it unchanged.
 
-            and no id is provided, returns it unchanged.
+- `id` (str): Unique identifier for the reference. If not provided, a UUID will be generated.
 
-- `id` (str): Unique identifier for the reference. If not provided,
 
-                   a UUID will be generated.
+Returns:
+    RefObject: A reference object containing the initial value and id.
+
+
+
+
+## Plot: Mark utilities
+
+
+Useful for constructing arguments to pass to Mark functions.
+
+### constantly {: .api .api-member }
+
+Returns a javascript function which always returns `x`.
+
+Typically used to specify a constant property for all values passed to a mark,
+eg. `plot.dot(values, fill=plot.constantly('My Label'))`. In this example, the
+fill color will be assigned (from a color scale) and show up in the color legend.
+
+
+
+### identity {: .api .api-member }
+
+Returns a JavaScript identity function.
+
+This function creates a JavaScript snippet that represents an identity function,
+which returns its input unchanged.
 
 Returns
 {: .api .api-section }
 
 
-- A reference object containing the initial value and id. (RefObject)
+- A JavaScript function that returns its first argument unchanged.
+
+
+
+### index {: .api .api-member }
+
+Returns a JavaScript function that returns the index of each data point.
+
+In Observable Plot, this function is useful for creating channels based on
+the position of data points in the dataset, rather than their values.
+
+Returns
+{: .api .api-section }
+
+
+- A JavaScript function that takes two arguments (data, index) and returns the index.
 
 
 
 
-## Plot: Marks {: .api .api-section }
+## Plot: Marks
 
 ### area {: .api .api-member }
 
@@ -1048,7 +967,7 @@ Plot.waffleY([4, 9, 24, 46, 66, 7])
 
 
 
-## Plot: Transforms {: .api .api-section }
+## Plot: Transforms
 
 ### bin {: .api .api-member }
 
@@ -1773,7 +1692,7 @@ If *windowOptions* is a number, it is shorthand for the window size **k**.
 
 
 
-## Plot: Axes and grids {: .api .api-section }
+## Plot: Axes and grids
 
 ### axisFx {: .api .api-member }
 
@@ -1943,7 +1862,7 @@ If *x* represents quantitative or temporal values, use a ruleY mark instead.
 
 
 
-## Plot: Geo features {: .api .api-section }
+## Plot: Geo features
 
 ### geo {: .api .api-member }
 
@@ -1992,7 +1911,7 @@ projection’s plane. (For use with a spherical **projection** only.)
 
 
 
-## Plot: Delaunay/Voronoi {: .api .api-section }
+## Plot: Delaunay/Voronoi
 
 ### delaunayLink {: .api .api-member }
 
@@ -2048,7 +1967,7 @@ separate Voronoi tesselation for each group.
 
 
 
-## Plot: Trees and networks {: .api .api-section }
+## Plot: Trees and networks
 
 ### tree {: .api .api-member }
 
@@ -2120,7 +2039,7 @@ method for each node in the tree.
 
 
 
-## Plot: Interactivity {: .api .api-section }
+## Plot: Interactivity
 
 ### crosshair {: .api .api-member }
 
@@ -2194,7 +2113,7 @@ specified, *data* is assumed to be an array of pairs [[*x₀*, *y₀*], [*x₁*,
 
 
 
-## Plot: Formatting and interpolation {: .api .api-section }
+## Plot: Formatting and interpolation
 
 ### formatIsoDate {: .api .api-member }
 
@@ -2282,7 +2201,13 @@ Given a string *period*, returns a corresponding UTC nice interval.
 
 
 
-## Plot: Other utilities {: .api .api-section }
+## Plot: Other utilities
+
+### new {: .api .api-member }
+
+Create a new PlotSpec from the given specs and options.
+
+
 
 ### frame {: .api .api-member }
 
@@ -2419,29 +2344,29 @@ be returned as-is without making a copy.
 
 
 
-## Plot: Options Helpers {: .api .api-section }
+## Plot: Options Helpers
 
 ### aspectRatio {: .api .api-member }
 
-Sets `{"aspectRatio": r}`
+Sets `{"aspectRatio": r}`.
 
 
 
 ### caption {: .api .api-member }
 
-Sets `{"caption": caption}`
+Sets `{"caption": caption}`.
 
 
 
 ### clip {: .api .api-member }
 
-Sets `{"clip": True}`
+Sets `{"clip": True}`.
 
 
 
 ### colorLegend {: .api .api-member }
 
-Sets `{"color": {"legend": True}}`
+Sets `{"color": {"legend": True}}`.
 
 
 
@@ -2471,49 +2396,49 @@ In JavaScript, colors provided via `colorMap` are merged into a
 
 ### colorScheme {: .api .api-member }
 
-Sets `{"color": {"scheme": <name>}}`
+Sets `{"color": {"scheme": <name>}}`.
 
 
 
 ### domain {: .api .api-member }
 
-Sets domain for x and optionally y scales
+Sets domain for x and optionally y scales.
 
 
 
 ### domainX {: .api .api-member }
 
-Sets `{"x": {"domain": d}}`
+Sets `{"x": {"domain": d}}`.
 
 
 
 ### domainY {: .api .api-member }
 
-Sets `{"y": {"domain": d}}`
+Sets `{"y": {"domain": d}}`.
 
 
 
 ### grid {: .api .api-member }
 
-Sets grid lines for x and/or y axes
+Sets grid lines for x and/or y axes.
 
 
 
 ### height {: .api .api-member }
 
-Sets `{"height": height}`
+Sets `{"height": height}`.
 
 
 
 ### hideAxis {: .api .api-member }
 
-Sets `{"axis": None}` for specified axes
+Sets `{"axis": None}` for specified axes.
 
 
 
 ### inset {: .api .api-member }
 
-Sets `{"inset": i}`
+Sets `{"inset": i}`.
 
 
 
@@ -2532,30 +2457,30 @@ eg. for a set of 'xs' that are to be repeated for each set of `ys`.
 
 ### size {: .api .api-member }
 
-Sets width and height, using size for both if height not specified
+Sets width and height, using size for both if height not specified.
 
 
 
 ### subtitle {: .api .api-member }
 
-Sets `{"subtitle": subtitle}`
+Sets `{"subtitle": subtitle}`.
 
 
 
 ### title {: .api .api-member }
 
-Sets `{"title": title}`
+Sets `{"title": title}`.
 
 
 
 ### width {: .api .api-member }
 
-Sets `{"width": width}`
+Sets `{"width": width}`.
 
 
 
 
-## Custom plot functions {: .api .api-section }
+## Custom plot functions
 
 ### ellipse {: .api .api-member }
 
@@ -2600,10 +2525,10 @@ values (list or array-like): The data values to be binned and plotted.
 mark (str): 'rectY' or 'dot'.
 thresholds (str, int, list, or callable, optional): The thresholds option may be specified as a named method or a variety of other ways:
 
-- 'auto' (default): Scott’s rule, capped at 200.
-- 'freedman-diaconis': The Freedman–Diaconis rule.
-- 'scott': Scott’s normal reference rule.
-- 'sturges': Sturges’ formula.
+- `auto` (default): Scott’s rule, capped at 200.
+- `freedman-diaconis`: The Freedman–Diaconis rule.
+- `scott`: Scott’s normal reference rule.
+- `sturges`: Sturges’ formula.
 - A count (int) representing the desired number of bins.
 - An array of n threshold values for n - 1 bins.
 - An interval or time interval (for temporal binning).
@@ -2615,8 +2540,6 @@ thresholds (str, int, list, or callable, optional): The thresholds option may be
 
 
 ### img {: .api .api-member }
-
-Returns a new image mark for the given *values* and *options*.
 
 The image mark renders images on the plot. The **src** option specifies the
 image source, while **x**, **y**, **width**, and **height** define the image's
@@ -2641,11 +2564,11 @@ Returns
 
 
 The following options are supported:
-- src: The source path of the image.
-- x: The x-coordinate of the top-left corner.
-- y: The y-coordinate of the top-left corner.
-- width: The width of the image.
-- height: The height of the image.
+- `src`: The source path of the image.
+- `x`: The x-coordinate of the top-left corner.
+- `y`: The y-coordinate of the top-left corner.
+- `width`: The width of the image.
+- `height`: The height of the image.
 
 
 
@@ -2672,3 +2595,81 @@ Returns
 
 
 - A Bylight component that renders the highlighted code block.
+
+
+
+
+## Utility functions
+
+### doc {: .api .api-member }
+
+Decorator to display the docstring of a python function formatted as Markdown.
+
+Parameters
+{: .api .api-section }
+
+
+- `fn`: The function whose docstring to display.
+
+Returns
+{: .api .api-section }
+
+
+- A JSCall instance
+
+
+
+### initial_state {: .api .api-member }
+
+Initializes one or multiple $state variables without returning a value.
+
+Parameters
+{: .api .api-section }
+
+
+- `key_or_values` (Union[str, dict]): Either a single key (str) for one state variable, or a dictionary of key-value pairs to initialize multiple state variables.
+
+- `value` (Any): Initial value for the variable when a single key is provided. Ignored if key_or_values is a dictionary.
+
+Returns
+{: .api .api-section }
+
+
+- An InitialState object containing the initialized state variables.
+
+
+
+### get_in {: .api .api-member }
+
+Reads data from a nested structure, giving names to dimensions and leaves along the way.
+
+This function traverses nested data structures like dictionaries and lists, allowing you to extract
+and label nested dimensions. It supports Python dicts/lists as well as GenJAX traces and choicemaps.
+
+Parameters
+{: .api .api-section }
+
+
+- `data` (Union[Dict, Any]): The nested data structure to traverse. Can be a dict, list, or GenJAX object.
+
+- `path` (List[Union[str, Dict]]): A list of path segments describing how to traverse the data. Each segment can be:
+
+    - A string key to index into a dict
+
+    - A dict with {...} to traverse a list dimension, giving it a name
+
+    - A dict with "leaves" to mark terminal values
+
+Returns
+{: .api .api-section }
+
+
+- Either a Dimensioned object containing the extracted data and dimension metadata, (Any)
+
+- or the raw extracted value if no dimensions were named in the path. (Any)
+
+
+
+### dimensions {: .api .api-member }
+
+Attaches dimension metadata, for further processing in JavaScript.

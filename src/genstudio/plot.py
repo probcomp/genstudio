@@ -432,8 +432,6 @@ def events(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
 
 def img(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     """
-    Returns a new image mark for the given *values* and *options*.
-
     The image mark renders images on the plot. The **src** option specifies the
     image source, while **x**, **y**, **width**, and **height** define the image's
     position and size in the x/y scales. This differs from the built-in Observable Plot
@@ -448,11 +446,11 @@ def img(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
         A PlotSpec object representing the image mark.
 
     The following options are supported:
-    - src: The source path of the image.
-    - x: The x-coordinate of the top-left corner.
-    - y: The y-coordinate of the top-left corner.
-    - width: The width of the image.
-    - height: The height of the image.
+    - `src`: The source path of the image.
+    - `x`: The x-coordinate of the top-left corner.
+    - `y`: The y-coordinate of the top-left corner.
+    - `width`: The width of the image.
+    - `height`: The height of the image.
     """
     return PlotSpec(MarkSpec("img", values, {**options, **kwargs}))
 
@@ -462,7 +460,7 @@ def constantly(x):
     Returns a javascript function which always returns `x`.
 
     Typically used to specify a constant property for all values passed to a mark,
-    eg. plot.dot(values, fill=plot.constantly('My Label')). In this example, the
+    eg. `plot.dot(values, fill=plot.constantly('My Label'))`. In this example, the
     fill color will be assigned (from a color scale) and show up in the color legend.
     """
     x = json.dumps(x)
@@ -516,10 +514,10 @@ def histogram(
     mark (str): 'rectY' or 'dot'.
     thresholds (str, int, list, or callable, optional): The thresholds option may be specified as a named method or a variety of other ways:
 
-    - 'auto' (default): Scott’s rule, capped at 200.
-    - 'freedman-diaconis': The Freedman–Diaconis rule.
-    - 'scott': Scott’s normal reference rule.
-    - 'sturges': Sturges’ formula.
+    - `auto` (default): Scott’s rule, capped at 200.
+    - `freedman-diaconis`: The Freedman–Diaconis rule.
+    - `scott`: Scott’s normal reference rule.
+    - `sturges`: Sturges’ formula.
     - A count (int) representing the desired number of bins.
     - An array of n threshold values for n - 1 bins.
     - An interval or time interval (for temporal binning).
@@ -573,23 +571,21 @@ def index():
 
 index.for_json = lambda: index()
 
-# The following convenience dicts can be added directly to PlotSpec to declare additional behaviour.
-
 
 def grid(x=True, y=True):
-    """Sets grid lines for x and/or y axes"""
+    """Sets grid lines for x and/or y axes."""
     return {"grid": x and y} if x == y else {"x": {"grid": x}, "y": {"grid": y}}
 
 
 def hideAxis(x=None, y=None):
-    """Sets `{"axis": None}` for specified axes"""
+    """Sets `{"axis": None}` for specified axes."""
     if x is None and y is None:
         return {"axis": None}
     return {k: {"axis": None} for k in ["x", "y"] if locals()[k] is not None}
 
 
 def colorLegend():
-    """Sets `{"color": {"legend": True}}`"""
+    """Sets `{"color": {"legend": True}}`."""
     return {"color": {"legend": True}}
 
 
@@ -597,42 +593,42 @@ color_legend = colorLegend  # backwards compat
 
 
 def clip():
-    """Sets `{"clip": True}`"""
+    """Sets `{"clip": True}`."""
     return {"clip": True}
 
 
 def title(title):
-    """Sets `{"title": title}`"""
+    """Sets `{"title": title}`."""
     return {"title": title}
 
 
 def subtitle(subtitle):
-    """Sets `{"subtitle": subtitle}`"""
+    """Sets `{"subtitle": subtitle}`."""
     return {"subtitle": subtitle}
 
 
 def caption(caption):
-    """Sets `{"caption": caption}`"""
+    """Sets `{"caption": caption}`."""
     return {"caption": caption}
 
 
 def width(width):
-    """Sets `{"width": width}`"""
+    """Sets `{"width": width}`."""
     return {"width": width}
 
 
 def height(height):
-    """Sets `{"height": height}`"""
+    """Sets `{"height": height}`."""
     return {"height": height}
 
 
 def size(size, height=None):
-    """Sets width and height, using size for both if height not specified"""
+    """Sets width and height, using size for both if height not specified."""
     return {"width": size, "height": height or size}
 
 
 def aspectRatio(r):
-    """Sets `{"aspectRatio": r}`"""
+    """Sets `{"aspectRatio": r}`."""
     return {"aspectRatio": r}
 
 
@@ -640,28 +636,28 @@ aspect_ratio = aspectRatio  # backwards compat
 
 
 def inset(i):
-    """Sets `{"inset": i}`"""
+    """Sets `{"inset": i}`."""
     return {"inset": i}
 
 
 def colorScheme(name):
-    """Sets `{"color": {"scheme": <name>}}`"""
+    """Sets `{"color": {"scheme": <name>}}`."""
     # See https://observablehq.com/plot/features/scales#color-scales
     return {"color": {"scheme": name}}
 
 
 def domainX(d):
-    """Sets `{"x": {"domain": d}}`"""
+    """Sets `{"x": {"domain": d}}`."""
     return {"x": {"domain": d}}
 
 
 def domainY(d):
-    """Sets `{"y": {"domain": d}}`"""
+    """Sets `{"y": {"domain": d}}`."""
     return {"y": {"domain": d}}
 
 
 def domain(xd, yd=None):
-    """Sets domain for x and optionally y scales"""
+    """Sets domain for x and optionally y scales."""
     return {"x": {"domain": xd}, "y": {"domain": yd or xd}}
 
 
@@ -732,7 +728,7 @@ def margin(*args):
 
 
 md = JSRef("md")
-"""Render a string as Markdown, in a LayoutItem"""
+"""Render a string as Markdown, in a LayoutItem."""
 
 
 def doc(fn):
@@ -1003,25 +999,22 @@ __all__ = [
     "Frames",
     "Slider",
     "renderChildEvents",
-    # Utility functions
-    "constantly",
-    "identity",
-    "index",
-    "doc",
-    "initial_state",
-    "get_in",
-    "dimensions",
-    "new",
-    # Layout components
+    # ## Layout components
+    # Useful for layouts and custom views.
     "Column",
     "Grid",
     "Row",
     "html",
     "md",
-    # JavaScript Interop
+    # ## JavaScript Interop
     "js",
     "ref",
-    # Plot: Marks
+    # ## Plot: Mark utilities
+    # Useful for constructing arguments to pass to Mark functions.
+    "constantly",
+    "identity",
+    "index",
+    # ## Plot: Marks
     "area",
     "areaX",
     "areaY",
@@ -1057,7 +1050,7 @@ __all__ = [
     "vectorY",
     "waffleX",
     "waffleY",
-    # Plot: Transforms
+    # ## Plot: Transforms
     "bin",
     "binX",
     "binY",
@@ -1107,7 +1100,7 @@ __all__ = [
     "window",
     "windowX",
     "windowY",
-    # Plot: Axes and grids
+    # ## Plot: Axes and grids
     "axisFx",
     "axisFy",
     "axisX",
@@ -1118,21 +1111,21 @@ __all__ = [
     "gridY",
     "tickX",
     "tickY",
-    # Plot: Geo features
+    # ## Plot: Geo features
     "geo",
     "geoCentroid",
     "graticule",
     "sphere",
-    # Plot: Delaunay/Voronoi
+    # ## Plot: Delaunay/Voronoi
     "delaunayLink",
     "delaunayMesh",
     "voronoi",
     "voronoiMesh",
-    # Plot: Trees and networks
+    # ## Plot: Trees and networks
     "tree",
     "treeLink",
     "treeNode",
-    # Plot: Interactivity
+    # ## Plot: Interactivity
     "crosshair",
     "crosshairX",
     "crosshairY",
@@ -1140,7 +1133,7 @@ __all__ = [
     "pointerX",
     "pointerY",
     "tip",
-    # Plot: Formatting and interpolation
+    # ## Plot: Formatting and interpolation
     "formatIsoDate",
     "formatMonth",
     "formatNumber",
@@ -1150,7 +1143,8 @@ __all__ = [
     "numberInterval",
     "timeInterval",
     "utcInterval",
-    # Plot: Other utilities
+    # ## Plot: Other utilities
+    "new",
     "frame",
     "hexagon",
     "hexgrid",
@@ -1160,7 +1154,7 @@ __all__ = [
     "raster",
     "scale",
     "valueof",
-    # Plot: Options Helpers
+    # ## Plot: Options Helpers
     "aspectRatio",
     "caption",
     "clip",
@@ -1180,9 +1174,14 @@ __all__ = [
     "subtitle",
     "title",
     "width",
-    # Custom plot functions
+    # ## Custom plot functions
     "ellipse",
     "histogram",
     "img",
     "bylight",
+    # ## Utility functions
+    "doc",
+    "initial_state",
+    "get_in",
+    "dimensions",
 ]
