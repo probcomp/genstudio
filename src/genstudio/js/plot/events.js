@@ -14,14 +14,14 @@ import {
  */
 export class EventHandler extends Plot.Mark {
   /**
-   * Creates a new Draw mark.
-   * @param {Object} options - Configuration options for the Draw mark.
-   * @param {Function} [options.onDrawStart] - Callback function called when drawing starts.
-   * @param {Function} [options.onDraw] - Callback function called during drawing.
-   * @param {Function} [options.onDrawEnd] - Callback function called when drawing ends.
-   * @param {Function} [options.onMouseMove] - Callback function called when the mouse moves over the drawing area.
-   * @param {Function} [options.onClick] - Callback function called when the drawing area is clicked.
-   * @param {Function} [options.onMouseDown] - Callback function called when the mouse button is pressed down.
+   * Creates a new event handler mark.
+   * @param {Object} options - Configuration options for the event handler mark.
+   * @param {Function} [options.onDrawStart] - Callback function called when drawing starts. Receives an event object with {type: "drawstart", x, y, startTime}.
+   * @param {Function} [options.onDraw] - Callback function called during drawing. Receives an event object with {type: "draw", x, y, startTime}.
+   * @param {Function} [options.onDrawEnd] - Callback function called when drawing ends. Receives an event object with {type: "drawend", x, y, startTime}.
+   * @param {Function} [options.onMouseMove] - Callback function called when the mouse moves over the drawing area. Receives an event object with {type: "mousemove", x, y}.
+   * @param {Function} [options.onClick] - Callback function called when the drawing area is clicked. Receives an event object with {type: "click", x, y}.
+   * @param {Function} [options.onMouseDown] - Callback function called when the mouse button is pressed down. Receives an event object with {type: "mousedown", x, y, startTime}.
    */
   constructor(options = {}) {
     super([null], {}, options, {
@@ -41,7 +41,7 @@ export class EventHandler extends Plot.Mark {
   }
 
   /**
-   * Renders the MouseInteraction mark.
+   * Renders the event handler mark.
    * @param {number} index - The index of the mark.
    * @param {Object} scales - The scales for the plot.
    * @param {Object} channels - The channels for the plot.
@@ -58,7 +58,8 @@ export class EventHandler extends Plot.Mark {
 
     const eventData = (eventType, point) => ({
       type: eventType,
-      point,
+      x: point[0],
+      y: point[1],
       startTime: drawStartTime
     });
 
@@ -114,7 +115,7 @@ export class EventHandler extends Plot.Mark {
         const offsetX = event.clientX - rect.left;
         const offsetY = event.clientY - rect.top;
         const point = invertPoint(offsetX, offsetY, scales, calculateScaleFactors(drawingArea.ownerSVGElement));
-        this.onMouseMove({ type: "mousemove", point });
+        this.onMouseMove(eventData("mousemove", point));
       }
     };
 
@@ -126,7 +127,7 @@ export class EventHandler extends Plot.Mark {
         const offsetX = event.clientX - rect.left;
         const offsetY = event.clientY - rect.top;
         const point = invertPoint(offsetX, offsetY, scales, calculateScaleFactors(drawingArea.ownerSVGElement));
-        this.onClick({ type: "click", point });
+        this.onClick(eventData("click", point));
       }
     };
 
@@ -151,21 +152,21 @@ export class EventHandler extends Plot.Mark {
 }
 
 /**
- * Returns a new draw mark for the given options.
+ * Returns a new event handler mark for the given options.
  * @param {Object} _data - Unused parameter (maintained for consistency with other mark functions).
- * @param {DrawOptions} options - Options for the draw mark.
- * @returns {EventHandler} A new Draw mark.
+ * @param {EventHandlerOptions} options - Options for the event handler mark.
+ * @returns {EventHandler} A new event handler mark.
  */
 export function events(_data, options = {}) {
   return new EventHandler(options);
 }
 
 /**
- * @typedef {Object} DrawOptions
- * @property {Function} [onDrawStart] - Callback function called when drawing starts.
- * @property {Function} [onDraw] - Callback function called during drawing.
- * @property {Function} [onDrawEnd] - Callback function called when drawing ends.
- * @property {Function} [onMouseMove] - Callback function called when the mouse moves over the drawing area.
- * @property {Function} [onClick] - Callback function called when the drawing area is clicked.
- * @property {Function} [onMouseDown] - Callback function called when the mouse button is pressed down.
+ * @typedef {Object} EventHandlerOptions
+ * @property {Function} [onDrawStart] - Callback function called when drawing starts. Receives an event object with {type: "drawstart", x, y, startTime}.
+ * @property {Function} [onDraw] - Callback function called during drawing. Receives an event object with {type: "draw", x, y, startTime}.
+ * @property {Function} [onDrawEnd] - Callback function called when drawing ends. Receives an event object with {type: "drawend", x, y, startTime}.
+ * @property {Function} [onMouseMove] - Callback function called when the mouse moves over the drawing area. Receives an event object with {type: "mousemove", x, y}.
+ * @property {Function} [onClick] - Callback function called when the drawing area is clicked. Receives an event object with {type: "click", x, y}.
+ * @property {Function} [onMouseDown] - Callback function called when the mouse button is pressed down. Receives an event object with {type: "mousedown", x, y, startTime}.
  */

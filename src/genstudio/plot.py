@@ -1,10 +1,7 @@
 # %%
 # ruff: noqa: F401
-import copy
 import json
-import random
-from typing import Any, Dict, List, Literal, Sequence, TypeAlias, Union
-from typing_extensions import deprecated
+from typing import Any, Dict, List, Union
 
 import genstudio.plot_defs as plot_defs
 from genstudio.layout import (
@@ -160,7 +157,7 @@ from genstudio.plot_defs import (
     windowY,
 )
 from genstudio.plot_spec import MarkSpec, PlotSpec, new
-from genstudio.util import configure, deep_merge
+from genstudio.util import configure
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
@@ -419,17 +416,13 @@ def events(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     """
     Captures events on a plot.
 
-    The following callback options are supported:
-    - onClick
-    - onMouseMove
-    - onMouseDown
-    - onDrawStart
-    - onDraw
-    - onDrawEnd
+    The following callback options are supported: `onClick`, `onMouseMove`, `onMouseDown`, `onDrawStart`, `onDraw`, `onDrawEnd`.
 
     Each callback receives an event object with:
+
     - `type`, the event name
-    - `point`, an [x, y] array
+    - `x`, the x coordinate
+    - `y`, the y coordinate
     - for draw events, `startTime`
 
     Args:
@@ -497,7 +490,7 @@ def Grid(*children, **opts):
             - style (dict): Additional CSS styles to apply to grid container.
 
     Returns:
-        Hiccup: A grid layout component that will be rendered in the JavaScript runtime.
+        A grid layout component that will be rendered in the JavaScript runtime.
     """
     return Hiccup(
         JSRef("Grid"),
@@ -510,7 +503,7 @@ def small_multiples(*specs, **options):
     return Grid(*specs, **options)
 
 
-def Histogram(
+def histogram(
     values,
     thresholds=None,
     interval=None,
@@ -551,6 +544,9 @@ def Histogram(
     if cumulative:
         bin_options["y"] = {"cumulative": True}
     return rectY(values, binX({"y": "count"}, bin_options)) + ruleY([0]) + layout
+
+
+Histogram = histogram
 
 
 def identity():
@@ -599,7 +595,7 @@ def colorLegend():
     return {"color": {"legend": True}}
 
 
-color_legend = colorLegend
+color_legend = colorLegend  # backwards compat
 
 
 def clip():
@@ -634,9 +630,6 @@ def aspectRatio(r):
     return {"aspectRatio": r}
 
 
-aspect_ratio = aspectRatio
-
-
 def inset(i):
     return {"inset": i}
 
@@ -644,9 +637,6 @@ def inset(i):
 def colorScheme(name):
     # See https://observablehq.com/plot/features/scales#color-scales
     return {"color": {"scheme": name}}
-
-
-color_scheme = colorScheme
 
 
 def domainX(d):
@@ -667,7 +657,7 @@ def colorMap(mappings):
     return {"color_map": mappings}
 
 
-color_map = colorMap
+color_map = colorMap  # backwards compat
 
 
 def margin(*args):
@@ -790,26 +780,13 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
         return Hiccup(_Frames, {"state_key": key, "frames": frames})
 
 
-_InitialState = JSRef("InitialState")
-
-
-class InitialState(LayoutItem):
-    def __init__(self, refs):
-        self.refs = refs
-
-    def for_json(self):
-        return _InitialState(self.refs)
-
-
 def initial_state(key_or_values, value=None):
     """
     Initializes one or multiple $state variables without returning a value.
 
     Args:
-        key_or_values (Union[str, dict]): Either a single key (str) for one state variable,
-                                          or a dictionary of key-value pairs to initialize multiple state variables.
-        value (Any, optional): Initial value for the variable when a single key is provided.
-                               Ignored if key_or_values is a dictionary.
+        key_or_values (Union[str, dict]): Either a single key (str) for one state variable, or a dictionary of key-value pairs to initialize multiple state variables.
+        value (Any, optional): Initial value for the variable when a single key is provided. Ignored if key_or_values is a dictionary.
 
     Returns:
         InitialState: An InitialState object containing the initialized state variables.
@@ -823,7 +800,7 @@ def initial_state(key_or_values, value=None):
             )
         refs = [RefObject(value, id=key_or_values)]
 
-    return InitialState(refs)
+    return JSCall("InitialState", [refs])
 
 
 _Slider = JSRef("Slider")
@@ -878,8 +855,35 @@ def Slider(
     return Hiccup(_Slider, slider_options)
 
 
+renderChildEvents = JSRef("render.childEvents")
+"""
+Creates a render function that adds drag-and-drop and click functionality to child elements of a plot.
+Must be passed as the 'render' option to a mark, e.g.:
+
+    Plot.dot(data, render=Plot.render.childEvents({
+        "onDrag": update_position,
+        "onClick": handle_click
+    }))
+
+This function enhances the rendering of plot elements by adding interactive behaviors
+such as dragging, clicking, and tracking position changes. It's designed to work with
+Observable Plot's rendering pipeline.
+
+Args:
+    options (dict): Configuration options for the child events:
+        - `onDragStart` (callable): Callback function called when dragging starts
+        - `onDrag` (callable): Callback function called during dragging
+        - `onDragEnd` (callable): Callback function called when dragging ends
+        - `onClick` (callable): Callback function called when a child element is clicked
+
+Returns:
+    A render function to be used in the Observable Plot rendering pipeline.
+"""
+
+
 render = JSRef("render")
-Bylight = JSRef("Bylight")
+bylight = JSRef("Bylight")
+Bylight = bylight  # backwards compat
 
 
 class Dimensioned:
@@ -951,3 +955,195 @@ def dimensions(data, dimensions=[], leaves=None):
     dimensions = [{"key": d} for d in dimensions]
     dimensions = [*dimensions, {"leaves": leaves}] if leaves else dimensions
     return Dimensioned(data, dimensions)
+
+
+# Add this near the top of the file, after the imports
+__all__ = [
+    # Interactivity
+    "events",
+    "Frames",
+    "Slider",
+    "renderChildEvents",
+    # Utility functions
+    "constantly",
+    "identity",
+    "index",
+    "doc",
+    "initial_state",
+    "get_in",
+    "dimensions",
+    "new",
+    # Layout components
+    "Column",
+    "Grid",
+    "Row",
+    "html",
+    "md",
+    # JavaScript Interop
+    "js",
+    "ref",
+    # Plot: Marks
+    "area",
+    "areaX",
+    "areaY",
+    "arrow",
+    "auto",
+    "barX",
+    "barY",
+    "boxX",
+    "boxY",
+    "cell",
+    "cellX",
+    "cellY",
+    "circle",
+    "dot",
+    "dotX",
+    "dotY",
+    "image",
+    "line",
+    "lineX",
+    "lineY",
+    "link",
+    "rect",
+    "rectX",
+    "rectY",
+    "ruleX",
+    "ruleY",
+    "spike",
+    "text",
+    "textX",
+    "textY",
+    "vector",
+    "vectorX",
+    "vectorY",
+    "waffleX",
+    "waffleY",
+    # Plot: Transforms
+    "bin",
+    "binX",
+    "binY",
+    "bollinger",
+    "bollingerX",
+    "bollingerY",
+    "centroid",
+    "cluster",
+    "density",
+    "differenceX",
+    "differenceY",
+    "dodgeX",
+    "dodgeY",
+    "filter",
+    "find",
+    "group",
+    "groupX",
+    "groupY",
+    "groupZ",
+    "hexbin",
+    "hull",
+    "map",
+    "mapX",
+    "mapY",
+    "normalize",
+    "normalizeX",
+    "normalizeY",
+    "reverse",
+    "select",
+    "selectFirst",
+    "selectLast",
+    "selectMaxX",
+    "selectMaxY",
+    "selectMinX",
+    "selectMinY",
+    "shiftX",
+    "shiftY",
+    "shuffle",
+    "sort",
+    "stackX",
+    "stackX1",
+    "stackX2",
+    "stackY",
+    "stackY1",
+    "stackY2",
+    "transform",
+    "window",
+    "windowX",
+    "windowY",
+    # Plot: Axes and grids
+    "axisFx",
+    "axisFy",
+    "axisX",
+    "axisY",
+    "gridFx",
+    "gridFy",
+    "gridX",
+    "gridY",
+    "tickX",
+    "tickY",
+    # Plot: Geo features
+    "geo",
+    "geoCentroid",
+    "graticule",
+    "sphere",
+    # Plot: Delaunay/Voronoi
+    "delaunayLink",
+    "delaunayMesh",
+    "voronoi",
+    "voronoiMesh",
+    # Plot: Trees and networks
+    "tree",
+    "treeLink",
+    "treeNode",
+    # Plot: Interactivity
+    "crosshair",
+    "crosshairX",
+    "crosshairY",
+    "pointer",
+    "pointerX",
+    "pointerY",
+    "tip",
+    # Plot: Formatting and interpolation
+    "formatIsoDate",
+    "formatMonth",
+    "formatNumber",
+    "formatWeekday",
+    "interpolatorBarycentric",
+    "interpolatorRandomWalk",
+    "numberInterval",
+    "timeInterval",
+    "utcInterval",
+    # Plot: Other utilities
+    "frame",
+    "hexagon",
+    "hexgrid",
+    "legend",
+    "linearRegressionX",
+    "linearRegressionY",
+    "raster",
+    "scale",
+    "valueof",
+    # Plot: Options Helpers
+    "aspectRatio",
+    "caption",
+    "clip",
+    "colorLegend",
+    "colorMap",
+    "colorScheme",
+    "domain",
+    "domainX",
+    "domainY",
+    "grid",
+    "height",
+    "hideAxis",
+    "inset",
+    "margin",
+    "repeat",
+    "size",
+    "subtitle",
+    "title",
+    "width",
+    # Custom plot functions
+    "ellipse",
+    "histogram",
+    "img",
+    "bylight",
+]

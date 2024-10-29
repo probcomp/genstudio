@@ -22,8 +22,7 @@ theme:
     - content.action.edit
   logo: false
 nav:
-  - API Docs:
-    - genstudio.plot: api/plot.md
+  - API Docs: api/plot.md
   - Home: index.md
   - Getting Started: getting-started.py
   - Animation & Interactivity: animate-interactive.py
@@ -42,10 +41,13 @@ markdown_extensions:
   - attr_list
 plugins:
   - search
-  - mkdocstrings
+  - genstudio.docs.plugin:
+      modules:
+        - module: genstudio.plot
+          output: api/plot.md
   - mkdocs-jupyter:
-      include: ["*.pyx", "*plot.py"]
-      execute: true
+      include: ["*.md", "*.py"]
+      execute: false
       allow_errors: false
       kernel_name: genstudio
       include_requirejs: true
