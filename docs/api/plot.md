@@ -1,13 +1,20 @@
-# genstudio.plot API Reference
+# genstudio.plot {: .api .api-title }
 
 
-## Interactivity
+## ## Interactivity {: .api .api-section }
 
-### events
+### events {: .api .api-member }
 
 Captures events on a plot.
 
-The following callback options are supported: `onClick`, `onMouseMove`, `onMouseDown`, `onDrawStart`, `onDraw`, `onDrawEnd`.
+Parameters
+{: .api .api-section }
+
+
+- `options` (dict[str, Any]): Callback functions. Supported: `onClick`, `onMouseMove`, `onMouseDown`, `onDrawStart`, `onDraw`, `onDrawEnd`.
+
+- `**kwargs`: Additional keyword arguments to be merged with options.
+
 
 Each callback receives an event object with:
 
@@ -16,48 +23,40 @@ Each callback receives an event object with:
 - `y`, the y coordinate
 - for draw events, `startTime`
 
-
-**Parameters:**
-
-
-- `options` (dict[str, Any]): Callback functions.
-
-- `**kwargs`: Additional keyword arguments to be merged with options.
-
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - A PlotSpec object representing the events mark. (PlotSpec)
 
 
 
-### Frames
+### Frames {: .api .api-member }
 
 Create an animated plot that cycles through a list of frames.
 
-
-**Parameters:**
+Parameters
+{: .api .api-section }
 
 
 - `frames` (list): A list of plot specifications or renderable objects to animate.
 
 - `**opts`: Additional options for the animation, such as fps (frames per second).
 
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - A Hiccup-style representation of the animated plot.
 
 
 
-### Slider
+### Slider {: .api .api-member }
 
 Creates a slider with reactive functionality.
 
-
-**Parameters:**
+Parameters
+{: .api .api-section }
 
 
 - `key` (str): The key for the reactive variable in the state.
@@ -80,7 +79,7 @@ Creates a slider with reactive functionality.
 
 
 
-### renderChildEvents
+### renderChildEvents {: .api .api-member }
 
 Creates a render function that adds drag-and-drop and click functionality to child elements of a plot.
 Must be passed as the 'render' option to a mark, e.g.:
@@ -94,8 +93,8 @@ This function enhances the rendering of plot elements by adding interactive beha
 such as dragging, clicking, and tracking position changes. It's designed to work with
 Observable Plot's rendering pipeline.
 
-
-**Parameters:**
+Parameters
+{: .api .api-section }
 
 
 - `options` (dict): Configuration options for the child events:
@@ -108,8 +107,8 @@ Observable Plot's rendering pipeline.
 
     - `onClick` (callable): Callback function called when a child element is clicked
 
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - A render function to be used in the Observable Plot rendering pipeline.
@@ -117,9 +116,9 @@ Observable Plot's rendering pipeline.
 
 
 
-## Utility functions
+## Utility functions {: .api .api-section }
 
-### constantly
+### constantly {: .api .api-member }
 
 Returns a javascript function which always returns `x`.
 
@@ -129,83 +128,83 @@ fill color will be assigned (from a color scale) and show up in the color legend
 
 
 
-### identity
+### identity {: .api .api-member }
 
 Returns a JavaScript identity function.
 
 This function creates a JavaScript snippet that represents an identity function,
 which returns its input unchanged.
 
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - A JavaScript function that returns its first argument unchanged.
 
 
 
-### index
+### index {: .api .api-member }
 
 Returns a JavaScript function that returns the index of each data point.
 
 In Observable Plot, this function is useful for creating channels based on
 the position of data points in the dataset, rather than their values.
 
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - A JavaScript function that takes two arguments (data, index) and returns the index.
 
 
 
-### doc
+### doc {: .api .api-member }
 
 Decorator to display the docstring of a python function formatted as Markdown.
 
-
-**Parameters:**
+Parameters
+{: .api .api-section }
 
 
 - `fn`: The function whose docstring to display.
 
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - A JSCall instance
 
 
 
-### initial_state
+### initial_state {: .api .api-member }
 
 Initializes one or multiple $state variables without returning a value.
 
-
-**Parameters:**
+Parameters
+{: .api .api-section }
 
 
 - `key_or_values` (Union[str, dict]): Either a single key (str) for one state variable, or a dictionary of key-value pairs to initialize multiple state variables.
 
 - `value` (Any): Initial value for the variable when a single key is provided. Ignored if key_or_values is a dictionary.
 
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - An InitialState object containing the initialized state variables.
 
 
 
-### get_in
+### get_in {: .api .api-member }
 
 Reads data from a nested structure, giving names to dimensions and leaves along the way.
 
 This function traverses nested data structures like dictionaries and lists, allowing you to extract
 and label nested dimensions. It supports Python dicts/lists as well as GenJAX traces and choicemaps.
 
-
-**Parameters:**
+Parameters
+{: .api .api-section }
 
 
 - `data` (Union[Dict, Any]): The nested data structure to traverse. Can be a dict, list, or GenJAX object.
@@ -218,8 +217,8 @@ and label nested dimensions. It supports Python dicts/lists as well as GenJAX tr
 
     - A dict with "leaves" to mark terminal values
 
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - Either a Dimensioned object containing the extracted data and dimension metadata, (Any)
@@ -228,34 +227,36 @@ and label nested dimensions. It supports Python dicts/lists as well as GenJAX tr
 
 
 
-### dimensions
+### dimensions {: .api .api-member }
 
 Attaches dimension metadata, for further processing in JavaScript.
 
 
 
-### new
+### new {: .api .api-member }
 
 Create a new PlotSpec from the given specs and options.
 
 
 
 
-## Layout components
+## Layout components {: .api .api-section }
 
-### Column
+### Column {: .api .api-member }
+
+Render children in a column.
 
 
 
-### Grid
+### Grid {: .api .api-member }
 
 Creates a responsive grid layout that automatically arranges child elements in a grid pattern.
 
 The grid adjusts the number of columns based on the available width and minimum width per item.
 Each item maintains a consistent aspect ratio and spacing between items is controlled by the gap parameter.
 
-
-**Parameters:**
+Parameters
+{: .api .api-section }
 
 
 - `*children`: Child elements to arrange in the grid.
@@ -270,45 +271,70 @@ Each item maintains a consistent aspect ratio and spacing between items is contr
 
     - style (dict): Additional CSS styles to apply to grid container.
 
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - A grid layout component that will be rendered in the JavaScript runtime.
 
 
 
-### Row
+### Row {: .api .api-member }
+
+Render children in a row.
 
 
 
-### html
+### html {: .api .api-member }
 
 Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime.
 
 
 
-### md
+### md {: .api .api-member }
+
+Render a string as Markdown, in a LayoutItem
 
 
 
 
-## JavaScript Interop
+## JavaScript Interop {: .api .api-section }
 
-### js
+### js {: .api .api-member }
 
 Represents raw JavaScript code to be evaluated as a LayoutItem.
 
 
 
-### ref
+### ref {: .api .api-member }
+
+Wraps a value in a `RefObject`, which allows for (1) deduplication of re-used values
+during serialization, and (2) updating the value of refs in live widgets.
+
+Parameters
+{: .api .api-section }
+
+
+- `value` (Any): Initial value for the reference. If this is already a RefObject
+
+            and no id is provided, returns it unchanged.
+
+- `id` (str): Unique identifier for the reference. If not provided,
+
+                   a UUID will be generated.
+
+Returns
+{: .api .api-section }
+
+
+- A reference object containing the initial value and id. (RefObject)
 
 
 
 
-## Plot: Marks
+## Plot: Marks {: .api .api-section }
 
-### area
+### area {: .api .api-member }
 
 Returns a new area mark with the given *data* and *options*. The area mark is
 rarely used directly; it is only needed when the baseline and topline have
@@ -318,7 +344,7 @@ orientation where the baseline and topline share *y* values.
 
 
 
-### areaX
+### areaX {: .api .api-member }
 
 Returns a new vertically-oriented area mark for the given *data* and
 *options*, where the baseline and topline share **y** values, as in a
@@ -351,7 +377,7 @@ channel (possibly to null) is strongly recommended.
 
 
 
-### areaY
+### areaY {: .api .api-member }
 
 Returns a new horizontally-oriented area mark for the given *data* and
 *options*, where the baseline and topline share **x** values, as in a
@@ -384,7 +410,7 @@ channel (possibly to null) is strongly recommended.
 
 
 
-### arrow
+### arrow {: .api .api-member }
 
 Returns a new arrow mark for the given *data* and *options*, drawing
 (possibly swoopy) arrows connecting pairs of points. For example, to draw an
@@ -397,7 +423,7 @@ Plot.arrow(inequality, {x1: "POP_1980", y1: "R90_10_1980", x2: "POP_2015", y2: "
 
 
 
-### auto
+### auto {: .api .api-member }
 
 Returns a new mark whose implementation is chosen dynamically to best
 represent the dimensions of the given *data* specified in *options*,
@@ -412,7 +438,7 @@ Plot.auto(penguins, {x: "body_mass_g"})
 
 
 
-### barX
+### barX {: .api .api-member }
 
 Returns a new horizontal bar mark for the given *data* and *options*; the
 required *x* values should be quantitative or temporal, and the optional *y*
@@ -454,7 +480,7 @@ Plot.barX([4, 9, 24, 46, 66, 7])
 
 
 
-### barY
+### barY {: .api .api-member }
 
 Returns a new vertical bar mark for the given *data* and *options*; the
 required *y* values should be quantitative or temporal, and the optional *x*
@@ -496,7 +522,7 @@ Plot.barY([4, 9, 24, 46, 66, 7])
 
 
 
-### boxX
+### boxX {: .api .api-member }
 
 Returns a box mark that draws horizontal boxplots where **x** is quantitative
 or temporal and **y**, if present, is ordinal. The box mark is a compound
@@ -518,7 +544,7 @@ exception of the following options:
 
 
 
-### boxY
+### boxY {: .api .api-member }
 
 Returns a box mark that draws vertical boxplots where **y** is quantitative
 or temporal and **x**, if present, is ordinal. The box mark is a compound
@@ -540,7 +566,7 @@ exception of the following options:
 
 
 
-### cell
+### cell {: .api .api-member }
 
 Returns a rectangular cell mark for the given *data* and *options*. Along
 with **x** and/or **y**, a **fill** channel is typically specified to encode
@@ -561,7 +587,7 @@ if both are quantitative, use a rect mark.
 
 
 
-### cellX
+### cellX {: .api .api-member }
 
 Like cell, but **x** defaults to the zero-based index [0, 1, 2, …], and if
 **stroke** is not a channel, **fill** defaults to the identity function,
@@ -574,7 +600,7 @@ Plot.cellX(values)
 
 
 
-### cellY
+### cellY {: .api .api-member }
 
 Like cell, but **y** defaults to the zero-based index [0, 1, 2, …], and if
 **stroke** is not a channel, **fill** defaults to the identity function,
@@ -587,13 +613,13 @@ Plot.cellY(values)
 
 
 
-### circle
+### circle {: .api .api-member }
 
 Like dot, except that the **symbol** option is set to *circle*.
 
 
 
-### dot
+### dot {: .api .api-member }
 
 Returns a new dot mark for the given *data* and *options* that draws circles,
 or other symbols, as in a scatterplot. For example, a scatterplot of sales by
@@ -614,7 +640,7 @@ overplotting; set the **sort** option to null to draw them in input order.
 
 
 
-### dotX
+### dotX {: .api .api-member }
 
 Like dot, except that **x** defaults to the identity function, assuming that
 *data* = [*x₀*, *x₁*, *x₂*, …].
@@ -628,7 +654,7 @@ middle of the interval.
 
 
 
-### dotY
+### dotY {: .api .api-member }
 
 Like dot, except that **y** defaults to the identity function, assuming that
 *data* = [*y₀*, *y₁*, *y₂*, …].
@@ -642,7 +668,7 @@ middle of the interval.
 
 
 
-### image
+### image {: .api .api-member }
 
 Returns a new image mark for the given *data* and *options* that draws images
 as in a scatterplot. For example, portraits of U.S. presidents by date of
@@ -660,7 +686,7 @@ specified, *data* is assumed to be an array of pairs [[*x₀*, *y₀*], [*x₁*,
 
 
 
-### line
+### line {: .api .api-member }
 
 Returns a new line mark for the given *data* and *options* by connecting
 control points. If neither the **x** nor **y** options are specified, *data*
@@ -691,7 +717,7 @@ channel (possibly to null) is strongly recommended.
 
 
 
-### lineX
+### lineX {: .api .api-member }
 
 Like line, except that **x** defaults to the identity function assuming that
 *data* = [*x₀*, *x₁*, *x₂*, …] and **y** defaults to the zero-based index [0,
@@ -712,7 +738,7 @@ Plot.lineX(observations, {y: "date", x: "temperature", interval: "day"})
 
 
 
-### lineY
+### lineY {: .api .api-member }
 
 Like line, except **y** defaults to the identity function and assumes that
 *data* = [*y₀*, *y₁*, *y₂*, …] and **x** defaults to the zero-based index [0,
@@ -734,7 +760,7 @@ Plot.lineY(observations, {x: "date", y: "temperature", interval: "day"})
 
 
 
-### link
+### link {: .api .api-member }
 
 Returns a new link mark for the given *data* and *options*, drawing line
 segments (curves) connecting pairs of points. For example, to draw a link
@@ -751,7 +777,7 @@ will render links as geodesics; to draw a straight line instead, use the
 
 
 
-### rect
+### rect {: .api .api-member }
 
 Returns a rect mark for the given *data* and *options*. The rectangle extends
 horizontally from **x1** to **x2**, and vertically from **y1** to **y2**. The
@@ -776,7 +802,7 @@ cell mark.
 
 
 
-### rectX
+### rectX {: .api .api-member }
 
 Like rect, but if neither **x1** nor **x2** is specified, an implicit stackX
 transform is applied to **x**, and if **x** is not specified, it defaults to
@@ -790,7 +816,7 @@ Plot.rectX(olympians, Plot.binY({x: "count"}, {y: "height"}))
 
 
 
-### rectY
+### rectY {: .api .api-member }
 
 Like rect, but if neither **y1** nor **y2** is specified, apply an implicit
 stackY transform is applied to **y**, and if **y** is not specified, it
@@ -804,7 +830,7 @@ Plot.rectY(olympians, Plot.binX({y: "count"}, {x: "weight"}))
 
 
 
-### ruleX
+### ruleX {: .api .api-member }
 
 Returns a new horizontally-positioned ruleX mark (a vertical line, |) for the
 given *data* and *options*. The **x** channel specifies the rule’s horizontal
@@ -827,7 +853,7 @@ If *y* represents ordinal values, use a tickX mark instead.
 
 
 
-### ruleY
+### ruleY {: .api .api-member }
 
 Returns a new vertically-positioned ruleY mark (a horizontal line, —) for the
 given *data* and *options*. The **y** channel specifies the vertical position
@@ -851,7 +877,7 @@ If *x* represents ordinal values, use a tickY mark instead.
 
 
 
-### spike
+### spike {: .api .api-member }
 
 Like vector, but with default *options* suitable for drawing a spike map. For
 example, to show city populations:
@@ -862,7 +888,7 @@ Plot.spike(cities, {x: "longitude", y: "latitude", stroke: "red", length: "popul
 
 
 
-### text
+### text {: .api .api-member }
 
     Returns a new text mark for the given *data* and *options*. The **text**
     channel specifies the textual contents of the mark, which may be preformatted
@@ -892,7 +918,7 @@ Plot.spike(cities, {x: "longitude", y: "latitude", stroke: "red", length: "popul
 
 
 
-### textX
+### textX {: .api .api-member }
 
 Like text, but **x** defaults to the identity function, assuming that *data*
 = [*x₀*, *x₁*, *x₂*, …]. For example to display tick label-like marks at the
@@ -907,7 +933,7 @@ middle of the interval.
 
 
 
-### textY
+### textY {: .api .api-member }
 
 Like text, but **y** defaults to the identity function, assuming that *data*
 = [*y₀*, *y₁*, *y₂*, …]. For example to display tick label-like marks on the
@@ -922,7 +948,7 @@ middle of the interval.
 
 
 
-### vector
+### vector {: .api .api-member }
 
 Returns a new vector mark for the given *data* and *options*. For example, to
 create a vector field from spatial samples of wind observations:
@@ -937,7 +963,7 @@ If none of **frameAnchor**, **x**, and **y** are specified, then **x** and
 
 
 
-### vectorX
+### vectorX {: .api .api-member }
 
 Like vector, but **x** instead defaults to the identity function and **y**
 defaults to null, assuming that *data* is an array of numbers [*x₀*, *x₁*,
@@ -945,7 +971,7 @@ defaults to null, assuming that *data* is an array of numbers [*x₀*, *x₁*,
 
 
 
-### vectorY
+### vectorY {: .api .api-member }
 
 Like vector, but **y** instead defaults to the identity function and **x**
 defaults to null, assuming that *data* is an array of numbers [*y₀*, *y₁*,
@@ -953,7 +979,7 @@ defaults to null, assuming that *data* is an array of numbers [*y₀*, *y₁*,
 
 
 
-### waffleX
+### waffleX {: .api .api-member }
 
 Returns a new horizonta waffle mark for the given *data* and *options*; the
 required *x* values should be quantitative, and the optional *y* values
@@ -987,7 +1013,7 @@ Plot.waffleX([4, 9, 24, 46, 66, 7])
 
 
 
-### waffleY
+### waffleY {: .api .api-member }
 
 Returns a new vertical waffle mark for the given *data* and *options*; the
 required *y* values should be quantitative, and the optional *x* values
@@ -1022,9 +1048,9 @@ Plot.waffleY([4, 9, 24, 46, 66, 7])
 
 
 
-## Plot: Transforms
+## Plot: Transforms {: .api .api-section }
 
-### bin
+### bin {: .api .api-member }
 
 Bins on the **x** and **y** channels; then subdivides bins on the first
 channel of **z**, **fill**, or **stroke**, if any; and lastly for each
@@ -1059,7 +1085,7 @@ labels. Likewise if **y** is not in *outputs*, by default produces **y1** and
 
 
 
-### binX
+### binX {: .api .api-member }
 
 Bins on the **x** channel; then subdivides bins on the first channel of
 **z**, **fill**, or **stroke**, if any; then further subdivides bins on the
@@ -1092,7 +1118,7 @@ will be dropped from the returned *options*. The **insetLeft** and
 
 
 
-### binY
+### binY {: .api .api-member }
 
 Bins on the **y** channel; then subdivides bins on the first channel of
 **z**, **fill**, or **stroke**, if any; then further subdivides bins on the
@@ -1125,7 +1151,7 @@ will be dropped from the returned *options*. The **insetTop** and
 
 
 
-### bollinger
+### bollinger {: .api .api-member }
 
 Given the specified bollinger *options*, returns a corresponding map
 implementation for use with the map transform, allowing the bollinger
@@ -1140,7 +1166,7 @@ Here the *k* option defaults to zero instead of two.
 
 
 
-### bollingerX
+### bollingerX {: .api .api-member }
 
 Returns a new vertically-oriented bollinger mark for the given *data* and
 *options*, as in a time-series area chart where time goes up↑ (or down↓).
@@ -1151,7 +1177,7 @@ not specified, it defaults to [0, 1, 2, …].
 
 
 
-### bollingerY
+### bollingerY {: .api .api-member }
 
 Returns a new horizontally-oriented bollinger mark for the given *data* and
 *options*, as in a time-series area chart where time goes right→ (or ←left).
@@ -1162,7 +1188,7 @@ not specified, it defaults to [0, 1, 2, …].
 
 
 
-### centroid
+### centroid {: .api .api-member }
 
 Given a **geometry** input channel of GeoJSON geometry, derives **x** and
 **y** output channels representing the planar (projected) centroids of the
@@ -1173,7 +1199,7 @@ For centroids of spherical geometry, see Plot.geoCentroid.
 
 
 
-### cluster
+### cluster {: .api .api-member }
 
 Shorthand for the tree mark using [d3.cluster][1] as the **treeLayout**
 option, placing leaf nodes of the tree at the same depth. Equivalent to:
@@ -1186,7 +1212,7 @@ Plot.tree(data, {...options, treeLayout: d3.cluster, textLayout: "mirrored"})
 
 
 
-### density
+### density {: .api .api-member }
 
 Returns a mark that draws contours representing the estimated density of the
 two-dimensional points given by **x** and **y**, and possibly weighted by
@@ -1199,7 +1225,7 @@ contour.
 
 
 
-### differenceX
+### differenceX {: .api .api-member }
 
 Returns a new horizontal difference mark for the given the specified *data*
 and *options*, as in a time-series chart where time goes down↓ (or up↑).
@@ -1213,7 +1239,7 @@ frame.
 
 
 
-### differenceY
+### differenceY {: .api .api-member }
 
 Returns a new vertical difference mark for the given the specified *data* and
 *options*, as in a time-series chart where time goes right→ (or ←left).
@@ -1227,7 +1253,7 @@ frame.
 
 
 
-### dodgeX
+### dodgeX {: .api .api-member }
 
 Given a **y** position channel, derives a new **x** position channel that
 places circles of the given radius **r** to avoid overlap. The order in which
@@ -1239,7 +1265,7 @@ If *dodgeOptions* is a string, it is shorthand for the dodge **anchor**.
 
 
 
-### dodgeY
+### dodgeY {: .api .api-member }
 
 Given an **x** position channel, derives a new **y** position channel that
 places circles of the given radius **r** to avoid overlap. The order in which
@@ -1251,7 +1277,7 @@ If *dodgeOptions* is a string, it is shorthand for the dodge **anchor**.
 
 
 
-### filter
+### filter {: .api .api-member }
 
 Applies a transform to *options* to filter the mark’s index according to the
 given *test*, which can be a function (receiving the datum *d* and index *i*)
@@ -1268,7 +1294,7 @@ channel values, and thus has no effect on imputed scale domains.
 
 
 
-### find
+### find {: .api .api-member }
 
 Given the specified *test* function, returns a corresponding reducer
 implementation for use with the group or bin transform. The reducer returns
@@ -1276,7 +1302,7 @@ the first channel value for which the *test* function returns a truthy value.
 
 
 
-### group
+### group {: .api .api-member }
 
 Groups on the **x** and **y** channels; then subdivides groups on the first
 channel of **z**, **fill**, or **stroke**, if any; and then for each channel
@@ -1308,7 +1334,7 @@ the **y1** and **y2** channels, if any, will be dropped from the returned
 
 
 
-### groupX
+### groupX {: .api .api-member }
 
 Groups on the **x** channel; then subdivides groups on the first channel of
 **z**, **fill**, or **stroke**, if any; and then for each channel in the
@@ -1336,7 +1362,7 @@ any, will be dropped from the returned *options*.
 
 
 
-### groupY
+### groupY {: .api .api-member }
 
 Groups on the **y** channel; then subdivides groups on the first channel of
 **z**, **fill**, or **stroke**, if any; and then for each channel in the
@@ -1364,7 +1390,7 @@ any, will be dropped from the returned *options*.
 
 
 
-### groupZ
+### groupZ {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then for each channel in the specified *outputs*, applies the corresponding
@@ -1383,7 +1409,7 @@ Plot.barX(penguins, Plot.groupZ({x: "proportion"}, {fill: "species"}))
 
 
 
-### hexbin
+### hexbin {: .api .api-member }
 
 Bins hexagonally on the scaled **x** and **y** channels; then subdivides bins
 on the first channel of **z**, **fill**, or **stroke**, if any; and lastly
@@ -1413,7 +1439,7 @@ To draw empty hexagons, see the hexgrid mark.
 
 
 
-### hull
+### hull {: .api .api-member }
 
 Returns a mark that draws a convex hull around the points given by the **x**
 and **y** channels. The **stroke** option defaults to _currentColor_ and the
@@ -1427,7 +1453,7 @@ separate hull for each group. If **z** is not specified, it defaults to the
 
 
 
-### map
+### map {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then for each channel in the specified *outputs*, applies the corresponding
@@ -1447,7 +1473,7 @@ Plot.map({y: "cumsum"}, {y: d3.randomNormal()})
 
 
 
-### mapX
+### mapX {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then applies the specified *map* method to each of the **x**, **x1**, and
@@ -1467,7 +1493,7 @@ Plot.mapX("cumsum", {x: d3.randomNormal()})
 
 
 
-### mapY
+### mapY {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then applies the specified map method to each of the **y**, **y1**, and
@@ -1487,7 +1513,7 @@ Plot.mapY("cumsum", {y: d3.randomNormal()})
 
 
 
-### normalize
+### normalize {: .api .api-member }
 
 Given a normalize *basis*, returns a corresponding map implementation for use
 with the map transform, allowing the normalization of arbitrary channels
@@ -1500,7 +1526,7 @@ Plot.map({title: Plot.normalize("first")}, {x: "Date", title: "Close", stroke: "
 
 
 
-### normalizeX
+### normalizeX {: .api .api-member }
 
 Groups data into series using the first channel of **z**, **fill**, or
 **stroke** (if any), then derives new **x**, **x1**, and **x2** channels for
@@ -1511,7 +1537,7 @@ is used, the derived series values would be [*x₀* / *x₀*, *x₁* / *x₀*, *
 
 
 
-### normalizeY
+### normalizeY {: .api .api-member }
 
 Groups data into series using the first channel of **z**, **fill**, or
 **stroke** (if any), then derives new **y**, **y1**, and **y2** channels for
@@ -1522,14 +1548,14 @@ is used, the derived series values would be [*y₀* / *y₀*, *y₁* / *y₀*, *
 
 
 
-### reverse
+### reverse {: .api .api-member }
 
 Applies a transform to *options* to reverse the order of the mark’s index,
 say for reverse input order.
 
 
 
-### select
+### select {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then selects points from each series based on the given *selector*. For
@@ -1541,49 +1567,49 @@ Plot.text(data, Plot.select({y: "max"}, options))
 
 
 
-### selectFirst
+### selectFirst {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then selects the first point from each series in input order.
 
 
 
-### selectLast
+### selectLast {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then selects the last point from each series in input order.
 
 
 
-### selectMaxX
+### selectMaxX {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then selects the maximum point from each series based on **x** channel value.
 
 
 
-### selectMaxY
+### selectMaxY {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then selects the maximum point from each series based on **y** channel value.
 
 
 
-### selectMinX
+### selectMinX {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then selects the minimum point from each series based on **x** channel value.
 
 
 
-### selectMinY
+### selectMinY {: .api .api-member }
 
 Groups on the first channel of **z**, **fill**, or **stroke**, if any, and
 then selects the minimum point from each series based on **y** channel value.
 
 
 
-### shiftX
+### shiftX {: .api .api-member }
 
 Groups data into series using the first channel of *z*, *fill*, or *stroke*
 (if any), then derives *x1* and *x2* output channels by shifting the input
@@ -1591,7 +1617,7 @@ Groups data into series using the first channel of *z*, *fill*, or *stroke*
 
 
 
-### shiftY
+### shiftY {: .api .api-member }
 
 Groups data into series using the first channel of *z*, *fill*, or *stroke*
 (if any), then derives *y1* and *y2* output channels by shifting the input
@@ -1599,7 +1625,7 @@ Groups data into series using the first channel of *z*, *fill*, or *stroke*
 
 
 
-### shuffle
+### shuffle {: .api .api-member }
 
 Applies a transform to *options* to randomly shuffles the mark’s index. If a
 **seed** is specified, a linear congruential generator with the given seed is
@@ -1608,7 +1634,7 @@ used.
 
 
 
-### sort
+### sort {: .api .api-member }
 
 Applies a transform to *options* to sort the mark’s index by the specified
 *order*. The *order* is one of:
@@ -1626,7 +1652,7 @@ Plot.sort("body_mass_g", options)
 
 
 
-### stackX
+### stackX {: .api .api-member }
 
 Transforms a length channel **x** into starting and ending position channels
 **x1** and **x2** by “stacking” elements that share a given **y** position.
@@ -1639,7 +1665,7 @@ one.
 
 
 
-### stackX1
+### stackX1 {: .api .api-member }
 
 Like **stackX**, but returns the starting position **x1** as the **x**
 channel, for example to position a dot on the left-hand side of each element
@@ -1647,7 +1673,7 @@ of a stack.
 
 
 
-### stackX2
+### stackX2 {: .api .api-member }
 
 Like **stackX**, but returns the starting position **x2** as the **x**
 channel, for example to position a dot on the right-hand side of each element
@@ -1655,7 +1681,7 @@ of a stack.
 
 
 
-### stackY
+### stackY {: .api .api-member }
 
 Transforms a length channel **y** into starting and ending position channels
 **y1** and **y2** by “stacking” elements that share a given **x** position.
@@ -1667,7 +1693,7 @@ specified, the input channel **y** defaults to the constant one.
 
 
 
-### stackY1
+### stackY1 {: .api .api-member }
 
 Like **stackY**, but returns the starting position **y1** as the **y**
 channel, for example to position a dot at the bottom of each element of a
@@ -1675,14 +1701,14 @@ stack.
 
 
 
-### stackY2
+### stackY2 {: .api .api-member }
 
 Like **stackY**, but returns the ending position **y2** as the **y** channel,
 for example to position a dot at the top of each element of a stack.
 
 
 
-### transform
+### transform {: .api .api-member }
 
 Given an *options* object that may specify some basic transforms (**filter**,
 **sort**, or **reverse**) or a custom **transform**, composes those
@@ -1701,7 +1727,7 @@ transforms must run before mark initializers.
 
 
 
-### window
+### window {: .api .api-member }
 
 Given the specified window *options*, returns a corresponding map
 implementation for use with the map transform, allowing the window transform
@@ -1716,7 +1742,7 @@ If *options* is a number, it is shorthand for the window size **k**.
 
 
 
-### windowX
+### windowX {: .api .api-member }
 
 Groups data into series using the first channel of *z*, *fill*, or *stroke*
 (if any), then derives new *x*, *x1*, and *x2* channels by computing a moving
@@ -1731,7 +1757,7 @@ If *windowOptions* is a number, it is shorthand for the window size **k**.
 
 
 
-### windowY
+### windowY {: .api .api-member }
 
 Groups data into series using the first channel of *z*, *fill*, or *stroke*
 (if any), then derives new *y*, *y1*, and *y2* channels by computing a moving
@@ -1747,9 +1773,9 @@ If *windowOptions* is a number, it is shorthand for the window size **k**.
 
 
 
-## Plot: Axes and grids
+## Plot: Axes and grids {: .api .api-section }
 
-### axisFx
+### axisFx {: .api .api-member }
 
 Returns a new compound axis mark to document the visual encoding of the
 horizontal facet position *fx* scale, comprised of (up to) three marks: a
@@ -1773,7 +1799,7 @@ the margin or shorten the labels, say by using the **textOverflow** and
 
 
 
-### axisFy
+### axisFy {: .api .api-member }
 
 Returns a new compound axis mark to document the visual encoding of the
 vertical facet position *fy* scale, comprised of (up to) three marks: a
@@ -1797,7 +1823,7 @@ the margin or shorten the labels, say by using the **textOverflow** and
 
 
 
-### axisX
+### axisX {: .api .api-member }
 
 Returns a new compound axis mark to document the visual encoding of the
 horizontal position *x* scale, comprised of (up to) three marks: a vector for
@@ -1823,7 +1849,7 @@ option to rotate.
 
 
 
-### axisY
+### axisY {: .api .api-member }
 
 Returns a new compound axis mark to document the visual encoding of the
 vertical position *y* scale, comprised of (up to) three marks: a vector for
@@ -1848,7 +1874,7 @@ the margin or shorten the labels: use the *k* SI-prefix tick format; use the
 
 
 
-### gridFx
+### gridFx {: .api .api-member }
 
 Returns a new horizontally-positioned ruleX mark (a vertical line, |) that
 renders a grid for the *fx* scale. The *data* defaults to the *fx* scale’s
@@ -1857,7 +1883,7 @@ option.
 
 
 
-### gridFy
+### gridFy {: .api .api-member }
 
 Returns a new vertically-positioned ruleY mark (a horizontal line, —) that
 renders a grid for the *fy* scale. The *data* defaults to the *fy* scale’s
@@ -1866,7 +1892,7 @@ option.
 
 
 
-### gridX
+### gridX {: .api .api-member }
 
 Returns a new horizontally-positioned ruleX mark (a vertical line, |) that
 renders a grid for the *x* scale. The *data* defaults to tick values sampled
@@ -1875,7 +1901,7 @@ use one of the **ticks**, **tickSpacing**, or **interval** options.
 
 
 
-### gridY
+### gridY {: .api .api-member }
 
 Returns a new vertically-positioned ruleY mark (a horizontal line, —) that
 renders a grid for the *y* scale. The *data* defaults to tick values sampled
@@ -1884,7 +1910,7 @@ use one of the **ticks**, **tickSpacing**, or **interval** options.
 
 
 
-### tickX
+### tickX {: .api .api-member }
 
 Returns a new horizontally-positioned tickX mark (a vertical line, |) for the
 given *data* and *options*. The **x** channel specifies the tick’s horizontal
@@ -1900,7 +1926,7 @@ If *y* represents quantitative or temporal values, use a ruleX mark instead.
 
 
 
-### tickY
+### tickY {: .api .api-member }
 
 Returns a new vertically-positioned tickY mark (a horizontal line, —) for the
 given *data* and *options*. The **y** channel specifies the vertical position
@@ -1917,9 +1943,9 @@ If *x* represents quantitative or temporal values, use a ruleY mark instead.
 
 
 
-## Plot: Geo features
+## Plot: Geo features {: .api .api-section }
 
-### geo
+### geo {: .api .api-member }
 
 Returns a new geo mark with the given *data* and *options*. The **geometry**
 channel, which defaults to the identity function assuming that *data* is a
@@ -1938,7 +1964,7 @@ mark’s data is the single-element array [*data*].
 
 
 
-### geoCentroid
+### geoCentroid {: .api .api-member }
 
 Given a **geometry** input channel of spherical GeoJSON geometry, derives
 **x** and **y** output channels representing the spherical centroids of the
@@ -1948,7 +1974,7 @@ For planar (projected) centroids, see Plot.centroid.
 
 
 
-### graticule
+### graticule {: .api .api-member }
 
 Returns a new geo mark whose *data* is a 10° global graticule. (For use with
 a spherical **projection** only.) For more control, use [d3.geoGraticule][1]
@@ -1958,7 +1984,7 @@ with the geo mark.
 
 
 
-### sphere
+### sphere {: .api .api-member }
 
 Returns a new geo mark whose *data* is the outline of the sphere on the
 projection’s plane. (For use with a spherical **projection** only.)
@@ -1966,9 +1992,9 @@ projection’s plane. (For use with a spherical **projection** only.)
 
 
 
-## Plot: Delaunay/Voronoi
+## Plot: Delaunay/Voronoi {: .api .api-section }
 
-### delaunayLink
+### delaunayLink {: .api .api-member }
 
 Returns a mark that draws links for each edge of the Delaunay triangulation
 of the points given by the **x** and **y** channels. Like the link mark,
@@ -1982,7 +2008,7 @@ separate Delaunay triangulation for each group.
 
 
 
-### delaunayMesh
+### delaunayMesh {: .api .api-member }
 
 Returns a mark that draws a mesh of the Delaunay triangulation of the points
 given by the **x** and **y** channels. The **stroke** option defaults to
@@ -1996,7 +2022,7 @@ separate Delaunay triangulation for each group.
 
 
 
-### voronoi
+### voronoi {: .api .api-member }
 
 Returns a mark that draws polygons for each cell of the Voronoi tesselation
 of the points given by the **x** and **y** channels.
@@ -2006,7 +2032,7 @@ separate Voronoi tesselation for each group.
 
 
 
-### voronoiMesh
+### voronoiMesh {: .api .api-member }
 
 Returns a mark that draws a mesh for the cell boundaries of the Voronoi
 tesselation of the points given by the **x** and **y** channels. The
@@ -2022,9 +2048,9 @@ separate Voronoi tesselation for each group.
 
 
 
-## Plot: Trees and networks
+## Plot: Trees and networks {: .api .api-section }
 
-### tree
+### tree {: .api .api-member }
 
 Returns a compound tree mark, with a link to display edges from parent to
 child, a dot to display nodes, and a text to display node labels.
@@ -2039,7 +2065,7 @@ slash by default); then executes a tree layout algorithm, by default
 
 
 
-### treeLink
+### treeLink {: .api .api-member }
 
 Populates the *x1*, *y1*, *x2*, and *y2* channels, and applies the following
 defaults: **curve** is *bump-x*, **stroke** is #555, **strokeWidth** is 1.5,
@@ -2070,7 +2096,7 @@ passed two node arguments, the child and the parent.
 
 
 
-### treeNode
+### treeNode {: .api .api-member }
 
 Populates the *x* and *y* channels with the positions for each node, and
 applies a default **frameAnchor** based on the specified **treeAnchor**. This
@@ -2094,9 +2120,9 @@ method for each node in the tree.
 
 
 
-## Plot: Interactivity
+## Plot: Interactivity {: .api .api-section }
 
-### crosshair
+### crosshair {: .api .api-member }
 
 Returns a new crosshair mark for the given *data* and *options*, drawing
 horizontal and vertical rules centered at the point closest to the pointer.
@@ -2107,7 +2133,7 @@ one-dimensional.
 
 
 
-### crosshairX
+### crosshairX {: .api .api-member }
 
 Like crosshair, but uses the pointerX transform: the determination of the
 closest point is heavily weighted by the *x* (horizontal↔︎) position; this
@@ -2117,7 +2143,7 @@ binning.
 
 
 
-### crosshairY
+### crosshairY {: .api .api-member }
 
 Like crosshair, but uses the pointerY transform: the determination of the
 closest point is heavily weighted by the *y* (vertical↕︎) position; this
@@ -2127,7 +2153,7 @@ binning.
 
 
 
-### pointer
+### pointer {: .api .api-member }
 
 Applies a render transform to the specified *options* to filter the mark
 index such that only the point closest to the pointer is rendered; the mark
@@ -2135,7 +2161,7 @@ will re-render interactively in response to pointer events.
 
 
 
-### pointerX
+### pointerX {: .api .api-member }
 
 Like the pointer transform, except the determination of the closest point
 considers mostly the *x* (horizontal↔︎) position; this should be used for
@@ -2145,7 +2171,7 @@ dimension of a bar chart.
 
 
 
-### pointerY
+### pointerY {: .api .api-member }
 
 Like the pointer transform, except the determination of the closest point
 considers mostly the *y* (vertical↕︎) position; this should be used for plots
@@ -2155,7 +2181,7 @@ a bar chart.
 
 
 
-### tip
+### tip {: .api .api-member }
 
 Returns a new tip mark for the given *data* and *options*.
 
@@ -2168,16 +2194,16 @@ specified, *data* is assumed to be an array of pairs [[*x₀*, *y₀*], [*x₁*,
 
 
 
-## Plot: Formatting and interpolation
+## Plot: Formatting and interpolation {: .api .api-section }
 
-### formatIsoDate
+### formatIsoDate {: .api .api-member }
 
 Given a *date*, returns the shortest equivalent ISO 8601 UTC string. If the
 given *date* is not valid, returns `"Invalid Date"`.
 
 
 
-### formatMonth
+### formatMonth {: .api .api-member }
 
 Returns a function that formats a given month number (from 0 = January to 11
 = December) according to the specified *locale* and *format*.
@@ -2187,7 +2213,7 @@ Returns a function that formats a given month number (from 0 = January to 11
 
 
 
-### formatNumber
+### formatNumber {: .api .api-member }
 
 Returns a function that formats a given number according to the specified
 *locale*.
@@ -2196,7 +2222,7 @@ Returns a function that formats a given number according to the specified
 
 
 
-### formatWeekday
+### formatWeekday {: .api .api-member }
 
 Returns a function that formats a given week day number (from 0 = Sunday to 6
 = Saturday) according to the specified *locale* and *format*.
@@ -2206,7 +2232,7 @@ Returns a function that formats a given week day number (from 0 = Sunday to 6
 
 
 
-### interpolatorBarycentric
+### interpolatorBarycentric {: .api .api-member }
 
 Constructs a Delaunay triangulation of the samples, and then for each pixel
 in the raster grid, determines the triangle that covers the pixel’s centroid
@@ -2222,7 +2248,7 @@ congruential generator][2] with a fixed seed (for deterministic results).
 
 
 
-### interpolatorRandomWalk
+### interpolatorRandomWalk {: .api .api-member }
 
 For each pixel in the raster grid, initiates a random walk, stopping when
 either the walk is within a given distance (**minDistance**) of a sample or
@@ -2235,7 +2261,7 @@ and Crane][1], SIGGRAPH 2020.
 
 
 
-### numberInterval
+### numberInterval {: .api .api-member }
 
 Given a number *period*, returns a corresponding numeric range interval. If
 *period* is a negative number, the returned interval uses 1 / -*period*,
@@ -2243,22 +2269,22 @@ allowing greater precision when *period* is a negative integer.
 
 
 
-### timeInterval
+### timeInterval {: .api .api-member }
 
 Given a string *period*, returns a corresponding local time nice interval.
 
 
 
-### utcInterval
+### utcInterval {: .api .api-member }
 
 Given a string *period*, returns a corresponding UTC nice interval.
 
 
 
 
-## Plot: Other utilities
+## Plot: Other utilities {: .api .api-section }
 
-### frame
+### frame {: .api .api-member }
 
 Draws a rectangle around the plot’s frame, or if an **anchor** is given, a
 line on the given side. Useful for visual separation of facets, or in
@@ -2266,13 +2292,13 @@ conjunction with axes and grids to fill the frame’s background.
 
 
 
-### hexagon
+### hexagon {: .api .api-member }
 
 Like dot, except that the **symbol** option is set to *hexagon*.
 
 
 
-### hexgrid
+### hexgrid {: .api .api-member }
 
 The hexgrid decoration mark complements the hexbin transform, showing the
 outlines of all hexagons spanning the frame with a default **stroke** of
@@ -2294,7 +2320,7 @@ mark, and **fill** is not supported; to fill the frame, use the frame mark.
 
 
 
-### legend
+### legend {: .api .api-member }
 
 Generates a standalone legend for the scale defined by the given *options*,
 returning either an SVG or HTML element depending on the scale and the
@@ -2303,7 +2329,7 @@ scales.
 
 
 
-### linearRegressionX
+### linearRegressionX {: .api .api-member }
 
 Like linearRegressionY, but where *x* is the dependent variable and *y* is
 the independent variable. This orientation is infrequently used, but suitable
@@ -2312,7 +2338,7 @@ linearRegressionY instead if time goes right→.
 
 
 
-### linearRegressionY
+### linearRegressionY {: .api .api-member }
 
 Returns a mark that draws [linear regression][1] lines with confidence bands,
 representing the estimated relation of a dependent variable (*y*) on an
@@ -2337,7 +2363,7 @@ Multiple regressions can be produced by specifying a **z**, **fill**, or
 
 
 
-### raster
+### raster {: .api .api-member }
 
 Returns a raster mark which renders a raster image from spatial samples. If
 *data* is provided, it represents discrete samples in abstract coordinates
@@ -2367,7 +2393,7 @@ right, and bottom coordinates. Lastly, if *data* is not specified (as when
 
 
 
-### scale
+### scale {: .api .api-member }
 
 Returns a standalone scale given the specified scale *options*, which must
 define exactly one named scale. For example, for a default *linear* *color*
@@ -2379,7 +2405,7 @@ const color = Plot.scale({color: {type: "linear"}});
 
 
 
-### valueof
+### valueof {: .api .api-member }
 
 Given some *data* and a channel *value* definition (such as a field name or
 function accessor), returns an array of the specified *type* containing the
@@ -2393,93 +2419,145 @@ be returned as-is without making a copy.
 
 
 
-## Plot: Options Helpers
+## Plot: Options Helpers {: .api .api-section }
 
-### aspectRatio
+### aspectRatio {: .api .api-member }
 
-
-
-### caption
+Sets `{"aspectRatio": r}`
 
 
 
-### clip
+### caption {: .api .api-member }
+
+Sets `{"caption": caption}`
 
 
 
-### colorLegend
+### clip {: .api .api-member }
+
+Sets `{"clip": True}`
 
 
 
-### colorMap
+### colorLegend {: .api .api-member }
+
+Sets `{"color": {"legend": True}}`
 
 
 
-### colorScheme
+### colorMap {: .api .api-member }
+
+Adds colors to the plot's color_map. More than one colorMap can be specified
+and colors will be merged. This is a way of dynamically building up a color scale,
+keeping color definitions colocated with their use. The name used for a color
+will show up in the color legend, if displayed.
+
+Colors defined in this way must be used with `Plot.constantly(<name>)`.
+
+Example:
+
+```
+plot = (
+    Plot.dot(data, fill=Plot.constantly("car"))
+    + Plot.colorMap({"car": "blue"})
+    + Plot.colorLegend()
+)
+```
+
+In JavaScript, colors provided via `colorMap` are merged into a
+`{color: {domain: [...], range: [...]}}` object.
 
 
 
-### domain
+### colorScheme {: .api .api-member }
+
+Sets `{"color": {"scheme": <name>}}`
 
 
 
-### domainX
+### domain {: .api .api-member }
+
+Sets domain for x and optionally y scales
 
 
 
-### domainY
+### domainX {: .api .api-member }
+
+Sets `{"x": {"domain": d}}`
 
 
 
-### grid
+### domainY {: .api .api-member }
+
+Sets `{"y": {"domain": d}}`
 
 
 
-### height
+### grid {: .api .api-member }
+
+Sets grid lines for x and/or y axes
 
 
 
-### hideAxis
+### height {: .api .api-member }
+
+Sets `{"height": height}`
 
 
 
-### inset
+### hideAxis {: .api .api-member }
+
+Sets `{"axis": None}` for specified axes
 
 
 
-### margin
+### inset {: .api .api-member }
+
+Sets `{"inset": i}`
+
+
+
+### margin {: .api .api-member }
 
 Set margin values for a plot using CSS-style margin shorthand.
 
 
 
-### repeat
+### repeat {: .api .api-member }
 
 For passing columnar data to Observable.Plot which should repeat/cycle.
 eg. for a set of 'xs' that are to be repeated for each set of `ys`.
 
 
 
-### size
+### size {: .api .api-member }
+
+Sets width and height, using size for both if height not specified
 
 
 
-### subtitle
+### subtitle {: .api .api-member }
+
+Sets `{"subtitle": subtitle}`
 
 
 
-### title
+### title {: .api .api-member }
+
+Sets `{"title": title}`
 
 
 
-### width
+### width {: .api .api-member }
+
+Sets `{"width": width}`
 
 
 
 
-## Custom plot functions
+## Custom plot functions {: .api .api-section }
 
-### ellipse
+### ellipse {: .api .api-member }
 
 Returns a new ellipse mark for the given *values* and *options*.
 
@@ -2494,8 +2572,8 @@ specifies rotation in degrees.
 Additional styling options such as **fill**, **stroke**, and **strokeWidth**
 can be specified to customize the appearance of the ellipses.
 
-
-**Parameters:**
+Parameters
+{: .api .api-section }
 
 
 - `values`: The data for the ellipses.
@@ -2504,15 +2582,15 @@ can be specified to customize the appearance of the ellipses.
 
 - `**kwargs`: Additional keyword arguments to be merged with options.
 
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - A PlotSpec object representing the ellipse mark. (PlotSpec)
 
 
 
-### histogram
+### histogram {: .api .api-member }
 
 Create a histogram plot from the given values.
 
@@ -2536,7 +2614,7 @@ thresholds (str, int, list, or callable, optional): The thresholds option may be
 
 
 
-### img
+### img {: .api .api-member }
 
 Returns a new image mark for the given *values* and *options*.
 
@@ -2545,8 +2623,8 @@ image source, while **x**, **y**, **width**, and **height** define the image's
 position and size in the x/y scales. This differs from the built-in Observable Plot
 image mark, which specifies width/height in pixels.
 
-
-**Parameters:**
+Parameters
+{: .api .api-section }
 
 
 - `values`: The data for the images.
@@ -2555,8 +2633,8 @@ image mark, which specifies width/height in pixels.
 
 - `**kwargs`: Additional keyword arguments to be merged with options.
 
-
-**Returns:**
+Returns
+{: .api .api-section }
 
 
 - A PlotSpec object representing the image mark. (PlotSpec)
@@ -2571,4 +2649,26 @@ The following options are supported:
 
 
 
-### bylight
+### bylight {: .api .api-member }
+
+Creates a highlighted code block using the [Bylight library](https://mhuebert.github.io/bylight/).
+
+Parameters
+{: .api .api-section }
+
+
+- `source` (str): The source text/code to highlight
+
+- `patterns` (list): A list of patterns to highlight. Each pattern can be either:
+
+    - A string to match literally
+
+    - A dict with 'match' (required) and 'color' (optional) keys
+
+- `props` (dict): Additional properties to pass to the pre element. Defaults to {}.
+
+Returns
+{: .api .api-section }
+
+
+- A Bylight component that renders the highlighted code block.

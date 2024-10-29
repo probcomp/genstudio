@@ -15,10 +15,10 @@ Colors are misled!"""
 
 # %% [markdown]
 
-# Use the `Plot.Bylight` function to highlight specific words in our text:
+# Use the `Plot.bylight` function to highlight specific words in our text:
 
 # %%
-Plot.Bylight(rhyme, ["blue", "red", "Colors", "misled!"])
+Plot.bylight(rhyme, ["blue", "red", "Colors", "misled!"])
 
 # %% [markdown]
 # ## Animated Highlighting
@@ -30,7 +30,7 @@ Plot.Bylight(rhyme, ["blue", "red", "Colors", "misled!"])
 
 Plot.Frames(
     [
-        Plot.js("`frame: ${$state.frame}`") & Plot.Bylight(rhyme, pattern)
+        Plot.js("`frame: ${$state.frame}`") & Plot.bylight(rhyme, pattern)
         for pattern in rhyme.split()
     ],
     fps=2,

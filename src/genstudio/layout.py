@@ -272,6 +272,8 @@ _Row = JSRef("Row")
 
 
 class Row(LayoutItem):
+    "Render children in a row."
+
     def __init__(self, *items: Any):
         super().__init__()
         self.items, self.options = flatten_layout_items(items, Row)
@@ -284,6 +286,8 @@ _Column = JSRef("Column")
 
 
 class Column(LayoutItem):
+    """Render children in a column."""
+
     def __init__(self, *items: Any):
         super().__init__()
         self.items, self.options = flatten_layout_items(items, Column)
@@ -301,27 +305,40 @@ def unwrap_for_json(x):
 class RefObject(LayoutItem):
     def __init__(self, value, id=None):
         self.id = str(uuid.uuid1()) if id is None else id
-        self.init = value
+        self.value = value
 
     def ref_id(self):
         return self.id
 
     def for_json(self):
-        return unwrap_for_json(self.init)
+        return unwrap_for_json(self.value)
 
     def _repr_mimebundle_(self, **kwargs: Any) -> Any:
-        if hasattr(self.init, "_repr_mimebundle_"):
-            return self.init._repr_mimebundle_(**kwargs)
+        if hasattr(self.value, "_repr_mimebundle_"):
+            return self.value._repr_mimebundle_(**kwargs)
         return super()._repr_mimebundle_(**kwargs)
 
 
-def ref(init: Any, id=None) -> RefObject:
-    if id is None and isinstance(init, RefObject):
-        return init
-    return RefObject(init, id=id)
+def ref(value: Any, id=None) -> RefObject:
+    """
+    Wraps a value in a `RefObject`, which allows for (1) deduplication of re-used values
+    during serialization, and (2) updating the value of refs in live widgets.
+
+    Args:
+        value (Any): Initial value for the reference. If this is already a RefObject
+                    and no id is provided, returns it unchanged.
+        id (str, optional): Unique identifier for the reference. If not provided,
+                           a UUID will be generated.
+
+    Returns:
+        RefObject: A reference object containing the initial value and id.
+    """
+    if id is None and isinstance(value, RefObject):
+        return value
+    return RefObject(value, id=id)
 
 
-def cache(init: Any, id=None) -> RefObject:
+def cache(value: Any, id=None) -> RefObject:
     """
     Deprecated: Use `ref` instead.
     """
@@ -332,10 +349,10 @@ def cache(init: Any, id=None) -> RefObject:
         DeprecationWarning,
         stacklevel=2,
     )
-    return ref(init, id)
+    return ref(value, id)
 
 
-def unwrap_ref(obj: Any) -> Any:
+def unwrap_ref(maybeRef: Any) -> Any:
     """
     Unwraps a RefObject if the input is one.
 
@@ -345,6 +362,6 @@ def unwrap_ref(obj: Any) -> Any:
     Returns:
         Any: The unwrapped object if input was a RefObject, otherwise the input object.
     """
-    if isinstance(obj, RefObject):
-        return obj.init
-    return obj
+    if isinstance(maybeRef, RefObject):
+        return maybeRef.value
+    return maybeRef

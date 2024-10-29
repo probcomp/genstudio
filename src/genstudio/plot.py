@@ -9,13 +9,10 @@ from genstudio.layout import (
     Column,
     Hiccup,
     JSCall,
-    JSCode,
     JSRef,
-    LayoutItem,
     Row,
     ref,
     js,
-    unwrap_ref,
 )
 
 from genstudio.plot_defs import (
@@ -416,7 +413,9 @@ def events(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     """
     Captures events on a plot.
 
-    The following callback options are supported: `onClick`, `onMouseMove`, `onMouseDown`, `onDrawStart`, `onDraw`, `onDrawEnd`.
+    Args:
+        options: Callback functions. Supported: `onClick`, `onMouseMove`, `onMouseDown`, `onDrawStart`, `onDraw`, `onDrawEnd`.
+        **kwargs: Additional keyword arguments to be merged with options.
 
     Each callback receives an event object with:
 
@@ -424,10 +423,6 @@ def events(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     - `x`, the x coordinate
     - `y`, the y coordinate
     - for draw events, `startTime`
-
-    Args:
-        options: Callback functions.
-        **kwargs: Additional keyword arguments to be merged with options.
 
     Returns:
         A PlotSpec object representing the events mark.
@@ -582,16 +577,19 @@ index.for_json = lambda: index()
 
 
 def grid(x=True, y=True):
+    """Sets grid lines for x and/or y axes"""
     return {"grid": x and y} if x == y else {"x": {"grid": x}, "y": {"grid": y}}
 
 
 def hideAxis(x=None, y=None):
+    """Sets `{"axis": None}` for specified axes"""
     if x is None and y is None:
         return {"axis": None}
     return {k: {"axis": None} for k in ["x", "y"] if locals()[k] is not None}
 
 
 def colorLegend():
+    """Sets `{"color": {"legend": True}}`"""
     return {"color": {"legend": True}}
 
 
@@ -599,61 +597,96 @@ color_legend = colorLegend  # backwards compat
 
 
 def clip():
+    """Sets `{"clip": True}`"""
     return {"clip": True}
 
 
 def title(title):
+    """Sets `{"title": title}`"""
     return {"title": title}
 
 
 def subtitle(subtitle):
+    """Sets `{"subtitle": subtitle}`"""
     return {"subtitle": subtitle}
 
 
 def caption(caption):
+    """Sets `{"caption": caption}`"""
     return {"caption": caption}
 
 
 def width(width):
+    """Sets `{"width": width}`"""
     return {"width": width}
 
 
 def height(height):
+    """Sets `{"height": height}`"""
     return {"height": height}
 
 
 def size(size, height=None):
+    """Sets width and height, using size for both if height not specified"""
     return {"width": size, "height": height or size}
 
 
 def aspectRatio(r):
+    """Sets `{"aspectRatio": r}`"""
     return {"aspectRatio": r}
 
 
+aspect_ratio = aspectRatio  # backwards compat
+
+
 def inset(i):
+    """Sets `{"inset": i}`"""
     return {"inset": i}
 
 
 def colorScheme(name):
+    """Sets `{"color": {"scheme": <name>}}`"""
     # See https://observablehq.com/plot/features/scales#color-scales
     return {"color": {"scheme": name}}
 
 
 def domainX(d):
+    """Sets `{"x": {"domain": d}}`"""
     return {"x": {"domain": d}}
 
 
 def domainY(d):
+    """Sets `{"y": {"domain": d}}`"""
     return {"y": {"domain": d}}
 
 
 def domain(xd, yd=None):
+    """Sets domain for x and optionally y scales"""
     return {"x": {"domain": xd}, "y": {"domain": yd or xd}}
 
 
 def colorMap(mappings):
-    # these will be merged & so are composable. in plot.js they are
-    # converted to a {color: {domain: [...], range: [...]}} object.
+    """
+    Adds colors to the plot's color_map. More than one colorMap can be specified
+    and colors will be merged. This is a way of dynamically building up a color scale,
+    keeping color definitions colocated with their use. The name used for a color
+    will show up in the color legend, if displayed.
+
+    Colors defined in this way must be used with `Plot.constantly(<name>)`.
+
+    Example:
+
+    ```
+    plot = (
+        Plot.dot(data, fill=Plot.constantly("car"))
+        + Plot.colorMap({"car": "blue"})
+        + Plot.colorLegend()
+    )
+    ```
+
+    In JavaScript, colors provided via `colorMap` are merged into a
+    `{color: {domain: [...], range: [...]}}` object.
+    """
     return {"color_map": mappings}
 
 
@@ -698,23 +731,8 @@ def margin(*args):
         raise ValueError(f"Invalid number of arguments: {len(args)}")
 
 
-# # For reference - other options supported by plots
-# example_plot_options = {
-#     "title": "TITLE",
-#     "subtitle": "SUBTITLE",
-#     "caption": "CAPTION",
-#     "width": "100px",
-#     "height": "100px",
-#     "grid": True,
-#     "inset": 10,
-#     "aspectRatio": 1,
-#     "style": {"font-size": "100px"},  # css string also works
-#     "clip": True,
-# }
-
-# dot([[0, 0], [0, 1], [1, 1], [2, 3], [4, 2], [4, 0]])
-
 md = JSRef("md")
+"""Render a string as Markdown, in a LayoutItem"""
 
 
 def doc(fn):
@@ -883,6 +901,27 @@ Returns:
 
 render = JSRef("render")
 bylight = JSRef("Bylight")
+"""Creates a highlighted code block using the [Bylight library](https://mhuebert.github.io/bylight/).
+
+Args:
+    source (str): The source text/code to highlight
+    patterns (list): A list of patterns to highlight. Each pattern can be either:
+        - A string to match literally
+        - A dict with 'match' (required) and 'color' (optional) keys
+    props (dict, optional): Additional properties to pass to the pre element. Defaults to {}.
+
+Example:
+    ```python
+    Plot.bylight('''
+        def hello():
+            print("Hello World!")
+    ''', ["def", "print"])
+    ```
+
+Returns:
+    A Bylight component that renders the highlighted code block.
+"""
+
 Bylight = bylight  # backwards compat
 
 
@@ -959,7 +998,7 @@ def dimensions(data, dimensions=[], leaves=None):
 
 # Add this near the top of the file, after the imports
 __all__ = [
-    # Interactivity
+    # ## Interactivity
     "events",
     "Frames",
     "Slider",
