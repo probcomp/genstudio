@@ -325,11 +325,8 @@ def ref(value: Any, id=None) -> RefObject:
     during serialization, and (2) updating the value of refs in live widgets.
 
     Args:
-        value (Any): Initial value for the reference. If this is already a RefObject
-                    and no id is provided, returns it unchanged.
-        id (str, optional): Unique identifier for the reference. If not provided,
-                           a UUID will be generated.
-
+        value (Any): Initial value for the reference. If this is already a RefObject and no id is provided, returns it unchanged.
+        id (str, optional): Unique identifier for the reference. If not provided, a UUID will be generated.
     Returns:
         RefObject: A reference object containing the initial value and id.
     """

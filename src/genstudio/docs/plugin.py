@@ -90,7 +90,7 @@ class APIDocPlugin(BasePlugin):
         return "\n".join(content)
 
     def _render_group_header(self, group_name: str) -> list[str]:
-        return [f"\n## {group_name} {{: .api .api-section }}\n"]
+        return [f"\n{group_name}\n"]
 
     def _render_member(self, module, member_name: str) -> list[str]:
         if member_name not in module.members:
