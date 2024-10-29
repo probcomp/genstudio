@@ -22,9 +22,9 @@ theme:
     - content.action.edit
   logo: false
 nav:
-  - API Docs: api/plot.md
   - Home: index.md
   - Getting Started: getting-started.py
+  - API Docs: api/plot.md
   - Animation & Interactivity: animate-interactive.py
   - HTML with Hiccup: html-hiccup.py
   - Python Event Loops: python-event-loop.py
@@ -39,6 +39,7 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.superfences
   - attr_list
+  - md_in_html
 plugins:
   - search
   - genstudio.docs.plugin:
@@ -46,7 +47,7 @@ plugins:
         - module: genstudio.plot
           output: api/plot.md
   - mkdocs-jupyter:
-      include: ["*.md", "*.py"]
+      include: ["*.py"]
       execute: false
       allow_errors: false
       kernel_name: genstudio
@@ -66,6 +67,6 @@ extra_javascript:
   - https://unpkg.com/bylight/dist/index.global.js
   - js/scroll-fix.js
   - js/bylight.js
-  - https://cdn.twind.style
+  - js/command-k.js
 hooks:
   - src/genstudio/scripts/css_modifier.py

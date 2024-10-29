@@ -7,6 +7,13 @@
     --md-border-radius: 6px;
 }
 
+.md-search-result mark {
+    color: black;
+    background-color: var(--md-accent-fg-color);
+    border-radius: 3px;
+    padding: 0 3px;
+}
+
 
 /* Global styles */
 .md-sidebar {
@@ -194,4 +201,42 @@ body .jupyter-wrapper .jp-Notebook {
 
 p {
     margin-bottom: 1em;
+}
+
+h2.api.api-section {
+    margin-top: 3rem;
+}
+
+h1.api {
+    font-family: var(--md-code-font-family);
+    color: #333;
+    font-size: 24px;
+    font-weight: bold;
+}
+
+h3.api {
+    font-family: var(--md-code-font-family);
+    font-size: 15px;
+    font-weight: bold;
+    padding: 10px 10px 5px;
+    border-top: 4px solid #d8d8d8;
+    margin: 0 0 0 -10px;
+
+}
+
+h3.api + * {
+    margin-top: 0;
+}
+
+p.api-section {
+    font-family: var(--sans-font);
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 5px;
+    color: #7a7a7a;
+}
+
+p.api-section + * {
+    margin-top: 0;
+    list-style: none;
 }

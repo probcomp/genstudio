@@ -19,6 +19,7 @@ class APIDocPlugin(BasePlugin):
         if not hasattr(config, "watch"):
             setattr(config, "watch", [])
 
+        # Add source files to watch list
         for module_config in self.config.get("modules", []):
             module_name = module_config["module"]
             module = importlib.import_module(module_name)
@@ -73,7 +74,7 @@ class APIDocPlugin(BasePlugin):
         return files
 
     def generate_docs(self, griffe_module, source_module) -> str:
-        content = [f"# {source_module.__name__} API Reference\n"]
+        content = [f"# {source_module.__name__} {{: .api .api-title }}\n"]
 
         # Get the ordered members and groups from __all__
         all_defs = get_all_definition_with_comments(source_module)
@@ -89,7 +90,7 @@ class APIDocPlugin(BasePlugin):
         return "\n".join(content)
 
     def _render_group_header(self, group_name: str) -> list[str]:
-        return [f"\n## {group_name}\n"]
+        return [f"\n## {group_name} {{: .api .api-section }}\n"]
 
     def _render_member(self, module, member_name: str) -> list[str]:
         if member_name not in module.members:
@@ -100,14 +101,18 @@ class APIDocPlugin(BasePlugin):
             return []
 
         content = []
-        content.append(f"### {member_name}\n")
+        content.append(f"### {member_name} {{: .api .api-member }}\n")
 
         if member.docstring:
             parsed = member.docstring.parsed
             content.extend(self._render_docstring_sections(parsed))
+        else:
+            print(f"Warning: No docstring found for {member_name}")
 
         if hasattr(member, "signature"):
-            content.append(f"\n```python\n{member.signature}\n```\n")
+            content.append(
+                f"```python\n{member.signature}\n``` {{: .api .api-signature }}\n"
+            )
 
         content.append("\n")
         return content
@@ -127,33 +132,33 @@ class APIDocPlugin(BasePlugin):
                 content.extend(self._render_parameters_section(section))
 
             elif section.kind.lower() == "returns":
-                content.append("\n**Returns:**\n\n")
+                content.append("Returns\n{: .api .api-section }\n\n")
                 for ret in section.value:
                     ret_type = f" ({ret.annotation})" if ret.annotation else ""
                     content.append(f"- {ret.description}{ret_type}\n")
 
             elif section.kind.lower() == "raises":
-                content.append("\n**Raises:**\n\n")
+                content.append("Raises\n{: .api .api-section }\n\n")
                 for exc in section.value:
                     content.append(f"- `{exc.annotation}`: {exc.description}\n")
 
             elif section.kind.lower() == "examples":
-                content.append("\n**Examples:**\n\n")
+                content.append("Examples\n{: .api .api-section }\n\n")
                 content.append(f"```python\n{section.value}\n```\n")
 
             elif section.kind.lower() == "notes":
-                content.append("\n**Notes:**\n\n")
+                content.append("Notes\n{: .api .api-section }\n\n")
                 content.append(f"{section.value}\n")
 
             elif section.kind.lower() == "warnings":
-                content.append("\n**Warnings:**\n\n")
+                content.append("Warnings\n{: .api .api-section }\n\n")
                 content.append(f"{section.value}\n")
 
         return content
 
     def _render_parameters_section(self, section) -> list[str]:
         content = []
-        content.append("\n**Parameters:**\n\n")
+        content.append("Parameters\n{: .api .api-section }\n\n")
         for param in section.value:
             param_type = f" ({param.annotation})" if param.annotation else ""
             # Handle parameter description, checking if it contains newlines
