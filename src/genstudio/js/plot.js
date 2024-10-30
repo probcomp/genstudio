@@ -2,33 +2,21 @@ import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import * as mobx from "mobx";
 import * as React from "react";
-import { $StateContext, AUTOGRID_MIN, WidthContext } from "./context";
+import { $StateContext, AUTOGRID_MIN } from "./context";
 import { events } from "./plot/events";
 import { ellipse } from "./plot/ellipse";
 import { img } from "./plot/img";
-import { binding, flatten, html, tw } from "./utils";
+import { binding, flatten, html, tw, useContainerWidth } from "./utils";
 
 const Marks = {...Plot, ellipse, events, img}
 const { useEffect } = React
 export const DEFAULT_PLOT_OPTIONS = { inset: 10 };
-const DEFAULT_ASPECT_RATIO = 1.5
 
 // Add per-mark defaults
 const PER_MARK_DEFAULTS = {
     "dot": {"fill": "currentColor"},
     "frame": {"stroke": "#dddddd"}
 };
-
-export function PlotWrapper({spec}) {
-    const $state = React.useContext($StateContext)
-    const availableWidth = React.useContext(WidthContext)
-    spec = prepareSpec(spec, spec.width ?? availableWidth)
-    // if (!spec.height && !spec.aspectRatio){
-    //     spec.height = spec.width / DEFAULT_ASPECT_RATIO
-    // }
-    // spec.height = spec.height ?? spec.width / (spec.aspectRatio ?? 2)
-    return html`<${PlotView} spec=${spec} $state=${$state} />`
-}
 
 function deepMergeLayers(target, source) {
   if (!source || typeof source !== 'object') return target;
@@ -165,7 +153,6 @@ function someObject(obj) {
 }
 
 export function readMark(mark, width) {
-
     if (!(mark instanceof MarkSpec)) {
         return mark;
     }
@@ -175,37 +162,14 @@ export function readMark(mark, width) {
     return [mark, ...extraMarks]
 }
 
-export function PlotView ({ spec, $state, width }) {
-        const [parent, setParent] = React.useState(null)
-        const ref = React.useCallback(setParent)
-        useEffect(() => {
-            if (parent) {
-                return mobx.autorun(
-                    () => {
-                        const startTime = performance.now();
-                        const plot = binding("$state", $state, () => Plot.plot(spec));
-                        const endTime = performance.now();
-                        plot.setAttribute('data-render-time-ms', `${endTime - startTime}`);
-                        parent.innerHTML = '';
-                        parent.appendChild(plot)    ;
-                    }
-                )
-            }
-        }, [spec, parent, width])
-        return html`
-          <div className=${tw('relative')} ref=${ref}></div>
-        `
-    }
-
-
-function prepareSpec(spec, availableWidth) {
-    if (!spec.height) spec.width = spec.width ?? availableWidth;
-    const marks = spec.marks.flatMap((m) => readMark(m, availableWidth))
+function prepareSpec(spec, containerWidth) {
+    const marks = spec.marks.flatMap((m) => readMark(m, containerWidth))
     spec = {...spec,
+            width: spec.width ?? containerWidth,
             ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
             marks: marks
     }
-    // handle color_map
+
     if (spec.color_map) {
         const [domain, range] = [Object.keys(spec.color_map), Object.values(spec.color_map)];
         spec.color = spec.color
@@ -219,3 +183,28 @@ function prepareSpec(spec, availableWidth) {
     }
     return spec
 }
+
+export function PlotWrapper({spec}) {
+    const $state = React.useContext($StateContext)
+    return html`<${PlotView} spec=${spec} $state=${$state} />`
+}
+export function PlotView ({ spec, $state }) {
+        const [ref, width] = useContainerWidth()
+        useEffect(() => {
+            const parent = ref.current
+            if (parent && width > 0) {
+                return mobx.autorun(() => {
+                    const preparedSpec = prepareSpec(spec, width)
+                    const startTime = performance.now();
+                    const plot = binding("$state", $state, () => Plot.plot(preparedSpec));
+                    const endTime = performance.now();
+                    plot.setAttribute('data-render-time-ms', `${endTime - startTime}`);
+                    parent.innerHTML = '';
+                    parent.appendChild(plot);
+                })
+            }
+        }, [spec, width])
+        return html`
+          <div className=${tw('relative')} ref=${ref}></div>
+        `
+    }

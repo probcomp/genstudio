@@ -4,7 +4,7 @@ import presetTailwind from "@twind/preset-tailwind";
 import presetTypography from "@twind/preset-typography";
 import htm from "htm";
 import * as React from "react";
-const { useState, useEffect } = React
+const { useState, useEffect, useRef } = React
 
 
 const twindConfig = Twind.defineConfig({
@@ -149,4 +149,36 @@ export function serializeEvent(e) {
     ...inputStateData,
     ...eventData
   };
+}
+
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+export function useContainerWidth() {
+  const containerRef = React.useRef(null);
+  const [containerWidth, setContainerWidth] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+
+    const debouncedSetWidth = debounce(width => setContainerWidth(width), 100);
+
+    const observer = new ResizeObserver(entries =>
+      debouncedSetWidth(entries[0].contentRect.width)
+    );
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return [containerRef, containerWidth];
 }

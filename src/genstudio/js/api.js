@@ -1,4 +1,4 @@
-import { $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH, WidthContext } from "./context";
+import { $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { MarkSpec, PlotSpec } from "./plot";
 import { html } from "./utils";
 
@@ -10,7 +10,7 @@ import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as render from "./plot/render";
-import { tw } from "./utils";
+import { tw, useContainerWidth } from "./utils";
 const { useState, useEffect, useContext, useMemo, useRef, useCallback } = React
 import Katex from "katex";
 
@@ -96,7 +96,6 @@ export const Slider = mobxReact.observer(
         step = step || 1;
 
         const $state = useContext($StateContext);
-        const availableWidth = useContext(WidthContext);
         const isAnimated = typeof fps === 'number' && fps > 0;
         const [isPlaying, setIsPlaying] = useState(isAnimated);
 
@@ -132,7 +131,7 @@ export const Slider = mobxReact.observer(
         const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
         if (options.visible !== true) return;
         return html`
-        <div className=${tw("text-base flex flex-col my-2 gap-2")} style=${{ width: availableWidth }}>
+        <div className=${tw("text-base flex flex-col my-2 gap-2 w-full")}>
           <div className=${tw("flex items-center justify-between")}>
             <span className=${tw("flex gap-2")}>
               <label>${label}</label>
@@ -219,12 +218,13 @@ export function repeat(data) {
 export { d3, MarkSpec, Plot, PlotSpec, React, ReactDOM };
 
 export function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEFAULT_GRID_GAP, aspectRatio = 1 }) {
-    const availableWidth = useContext(WidthContext);
-    const effectiveMinWidth = Math.min(minWidth, availableWidth);
+    const [containerRef, containerWidth] = useContainerWidth();
+
+    const effectiveMinWidth = Math.min(minWidth, containerWidth);
     const gapSize = parseInt(gap);
 
-    const numColumns = Math.max(1, Math.min(Math.floor(availableWidth / effectiveMinWidth), children.length));
-    const itemWidth = (availableWidth - (numColumns - 1) * gapSize) / numColumns;
+    const numColumns = Math.max(1, Math.min(Math.floor(containerWidth / effectiveMinWidth), children.length));
+    const itemWidth = (containerWidth - (numColumns - 1) * gapSize) / numColumns;
     const itemHeight = itemWidth / aspectRatio;
     const numRows = Math.ceil(children.length / numColumns);
     const layoutHeight = numRows * itemHeight + (numRows - 1) * gapSize;
@@ -235,38 +235,31 @@ export function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEF
         gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
         gridAutoRows: `${itemHeight}px`,
         height: `${layoutHeight}px`,
-        width: `${availableWidth}px`,
+        width: '100%',
         overflowX: 'auto',
         ...style
     };
 
     return html`
-    <${WidthContext.Provider} value=${itemWidth}>
-      <div style=${containerStyle}>
+    <div ref=${containerRef} style=${containerStyle}>
         ${children.map((value, index) => html`<${Node} key=${index}
                                                        style=${{ width: itemWidth }}
                                                        value=${value}/>`)}
       </div>
-    </>
   `;
 }
 
 export function Row({ children, ...props }) {
-    const availableWidth = useContext(WidthContext);
-    const childCount = React.Children.count(children);
-    const childWidth = availableWidth / childCount;
     const className = `flex flex-row ${props.className || ''}`
     delete props["className"]
 
     return html`
-    <div ...${props} className=${tw(className)}>
-      <${WidthContext.Provider} value=${childWidth}>
-        ${React.Children.map(children, (child, index) => html`
-          <div className=${tw("flex-1")} key=${index}>
-            ${child}
-          </div>
-        `)}
-      </${WidthContext.Provider}>
+    <div ref=${containerRef} ...${props} className=${tw(className)}>
+      ${React.Children.map(children, (child, index) => html`
+        <div className=${tw("flex-1")} key=${index}>
+          ${child}
+        </div>
+      `)}
     </div>
   `;
 }
