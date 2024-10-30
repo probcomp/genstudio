@@ -6,8 +6,8 @@ import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
-import { $StateContext, CONTAINER_PADDING, WidthContext } from "./context";
-import { html, serializeEvent, useCellUnmounted, useElementWidth } from "./utils";
+import { $StateContext, CONTAINER_PADDING } from "./context";
+import { html, serializeEvent, useCellUnmounted, useElementWidth, tw } from "./utils";
 
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;
@@ -200,12 +200,10 @@ function DataViewer(data) {
   const adjustedWidth = width ? width - CONTAINER_PADDING : undefined;
 
   return html`
-    <${WidthContext.Provider} value=${adjustedWidth}>
       <div className="genstudio-container" style=${{ "padding": CONTAINER_PADDING }} ref=${elRef}>
         ${el && html`<${StateProvider} ...${data}/>`}
+        ${data.size && data.dev && html`<div className=${tw("text-xl p-3")}>${data.size}</div>`}
       </div>
-      ${data.size && data.dev && html`<div className=${tw("text-xl p-3")}>${data.size}</div>`}
-    </${WidthContext.Provider}>
   `;
 }
 
