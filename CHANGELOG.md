@@ -1,4 +1,4 @@
-### [2024.10.004] - Oct 30, 2024
+### [2024.10.005] - Oct 30, 2024
 
 - use `containerWidth` instead of a React context to set widths
 - improve rendering of custom "height" on a plot
