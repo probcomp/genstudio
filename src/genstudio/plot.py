@@ -829,6 +829,8 @@ def Slider(
     step=1.0,
     tail=False,
     label=None,
+    show_value=True,
+    show_slider=True,
     visible=True,
     **kwargs,
 ):
@@ -862,6 +864,8 @@ def Slider(
         "tail": tail,
         "label": label,
         "visible": visible,
+        "showValue": show_value,
+        "showSlider": show_slider,
         "kind": "Slider",
         **kwargs,
     }

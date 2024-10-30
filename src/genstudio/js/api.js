@@ -34,7 +34,7 @@ export const Slider = mobxReact.observer(
             fps,
             label,
             loop = true,
-            init, range, rangeFrom, tail, step } = options;
+            init, range, rangeFrom, showValue, showSlider, tail, step } = options;
 
         if (init === undefined && rangeFrom === undefined && range === undefined) {
             throw new Error("Slider: 'init', 'rangeFrom', or 'range' must be defined");
@@ -95,7 +95,7 @@ export const Slider = mobxReact.observer(
           <div className=${tw("flex items-center justify-between")}>
             <span className=${tw("flex gap-2")}>
               <label>${label}</label>
-              <span>${$state[state_key]}</span>
+              <span>${showValue && $state[state_key]}</span>
             </span>
             ${isAnimated && html`
               <div onClick=${togglePlayPause} className=${tw("cursor-pointer")}>
@@ -103,7 +103,7 @@ export const Slider = mobxReact.observer(
               </div>
             `}
           </div>
-          <input
+          ${showSlider && html`<input
             type="range"
             min=${rangeMin}
             max=${rangeMax}
@@ -111,7 +111,7 @@ export const Slider = mobxReact.observer(
             value=${sliderValue}
             onChange=${(e) => handleSliderChange(e.target.value)}
             className=${tw("w-full outline-none")}
-          />
+          />`}
         </div>
       `;
     }

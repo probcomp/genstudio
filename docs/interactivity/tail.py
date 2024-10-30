@@ -1,7 +1,6 @@
 import genstudio.plot as Plot
 
 # %% [markdown]
-# ## Tail Data
 
 # %% tags=["hide_source"]
 Plot.html(

@@ -1,3 +1,5 @@
+# %%
+
 import genstudio.plot as Plot
 from genstudio.plot import js
 
@@ -8,14 +10,12 @@ interactivity_warning = Plot.html(
 )
 
 # %% [markdown]
-#
+# ## Overview
+
 # The `Plot.events` mark supports mouse interactions via the following callbacks:
-# - `onDrawStart`
-# - `onDraw`
-# - `onDrawEnd`
-# - `onClick`
-# - `onMouseMove
-# Each callback receives an event object containing `type` (the event name), `point` (an `[x, y]` array for the current mouse position), and (for draw events only) `startTime`, which can distinguish one draw event from another.
+# `onDrawStart`, `onDraw`, `onDrawEnd`, `onClick`, and `onMouseMove`.
+
+# Each callback receives an event object containing `type` (the event name), `x`, `y`, and `startTime` (for draw events only, to distinguish one draw event from another).
 
 # %%
 
@@ -34,7 +34,7 @@ interactivity_warning = Plot.html(
 )
 
 # %% [markdown]
-# ## Drawing
+# ## Drawing Example
 
 # %%
 interactivity_warning

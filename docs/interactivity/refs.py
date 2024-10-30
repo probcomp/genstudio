@@ -1,5 +1,4 @@
 # %% [markdown]
-# ## Plot.ref
 #
 # We can refer to the same value more than once in a plot by wrapping it in `Plot.ref`. The value will only be serialized once. Plot marks are automatically referenced in this way.
 #

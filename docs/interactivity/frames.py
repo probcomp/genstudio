@@ -1,37 +1,51 @@
 # %% [markdown]
-# ## Plot.Frames
 #
 # `Plot.Frames` provides a convenient way to scrub or animate over a sequence of arbitrary plots. Each frame is rendered individually. It implicitly creates a slider and cycles through the provided frames. Here's a basic example:
 
 # %%
 import genstudio.plot as Plot
 
-shapes = [
-    [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)],  # Square
-    [(0, 0), (1, 0), (0.5, 1), (0, 0)],  # Triangle
-    [(0, 0.5), (0.5, 0), (1, 0.5), (0.5, 1), (0, 0.5)],  # Diamond
+Plot.Frames(
     [
-        (0, 0.5),
-        (0.33, 0),
-        (0.66, 0),
-        (1, 0.5),
-        (0.66, 1),
-        (0.33, 1),
-        (0, 0.5),
-    ],  # Hexagon
-]
+        Plot.html(["div.p-4.bg-gray-200", number])
+        for number in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ],
+    fps=2,
+)
 
+# %% [markdown]
+# A slider is implicitly created to control animation. Pass `slider=False` to hide it.
 
-def show_shapes(color):
-    return Plot.Frames(
+Plot.Frames(
+    [
+        Plot.html(["div.p-4.bg-gray-200", number])
+        for number in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    ],
+    fps=2,
+    slider=False,
+)
+
+# %% [markdown]
+# Or, pass a `key` param to specify a `$state` variable that should be used to control the current frame. The current frame can then be controlled from elsewhere. In the following example we increment the `$state.frame` variable using a button, and pass `key="frame"` to `Plot.Frames`.
+
+# %%
+
+(
+    Plot.initial_state({"frame": 0})
+    | Plot.Frames(
         [
-            Plot.line(shape, fill=color)
-            + Plot.domain([-0.1, 1.1], [-0.1, 1.1])
-            + {"height": 300, "width": 300, "aspectRatio": 1}
-            for shape in shapes
+            Plot.html(["div.p-4.bg-gray-200", number])
+            for number in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         ],
-        fps=2,  # Change shape every 0.5 seconds
+        key="frame",
     )
-
-
-show_shapes("blue")
+    | [
+        "div.text-white.bg-blue-500.hover:bg-blue-600.p-3.cursor-default",
+        {
+            "onClick": Plot.js("""(e) => {
+            $state.frame = $state.frame < 9 ? $state.frame + 1 : 0
+            }""")
+        },
+        "Next Frame",
+    ]
+)
