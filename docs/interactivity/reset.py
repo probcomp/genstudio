@@ -6,7 +6,6 @@ Plot.html(
     """This example depends on communication with a python backend, and will not be interactive on the docs website.""",
 )
 # %% [markdown]
-# ## Reset a Plot
 #
 # When using the widget display mode, we can reset the contents of a plot in-place. Reactive variables _maintain their current values_ even when a plot is reset. This allows us to update an in-progress animation without restarting the animation.
 

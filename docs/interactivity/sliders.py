@@ -1,7 +1,6 @@
 import genstudio.plot as Plot
 
 # %% [markdown]
-# ## Sliders
 #
 # Sliders allow users to dynamically adjust parameters. Each slider is bound to a reactive variable in `$state`, accessible in Plot.js functions as `$state.{key}`.
 #

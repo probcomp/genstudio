@@ -1,7 +1,6 @@
 import genstudio.plot as Plot
 
 # %% [markdown]
-# ### Ellipse
 
 # The `Plot.ellipse` mark allows you to create ellipses or circles on your plot, with sizes that correspond to the x and y domains. This differs from `Plot.dot`, which specifies its radius in pixels.
 
