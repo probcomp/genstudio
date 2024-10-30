@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { Draw, draw } from '../../../src/genstudio/js/plot/draw'
+import { EventHandler, events } from '../../../src/genstudio/js/plot/events'
 import * as Plot from "@observablehq/plot";
 import { JSDOM } from 'jsdom'
 
@@ -16,14 +16,14 @@ describe('Draw', () => {
   });
 
   it('should create a Draw instance', () => {
-    const drawMark = new Draw()
+    const drawMark = new EventHandler()
 
-    expect(drawMark).toBeInstanceOf(Draw)
+    expect(drawMark).toBeInstanceOf(EventHandler)
     expect(drawMark).toBeInstanceOf(Plot.Mark)
   })
 
   it('should render a drawing area', () => {
-    const drawMark = new Draw()
+    const drawMark = new EventHandler()
     const mockScales = { x: vi.fn(x => x), y: vi.fn(y => y) }
 
     const result = drawMark.render([0], mockScales, {}, { width: 500, height: 300 }, {})
@@ -42,7 +42,7 @@ describe('Draw', () => {
     const onDraw = vi.fn()
     const onDrawEnd = vi.fn()
 
-    const drawMark = new Draw({ onDrawStart, onDraw, onDrawEnd })
+    const drawMark = new EventHandler({ onDrawStart, onDraw, onDrawEnd })
 
     expect(drawMark.onDrawStart).toBe(onDrawStart)
     expect(drawMark.onDraw).toBe(onDraw)
@@ -52,8 +52,8 @@ describe('Draw', () => {
 
 describe('draw function', () => {
   it('should return a Draw instance', () => {
-    const result = draw({})
+    const result = events({})
 
-    expect(result).toBeInstanceOf(Draw)
+    expect(result).toBeInstanceOf(EventHandler)
   })
 })

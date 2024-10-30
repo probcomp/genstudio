@@ -47,7 +47,10 @@ export function evaluate(node, $state, experimental) {
       return resolveReference(node.path, api);
     case "js_source":
       const source = node.expression ? `return ${node.value}` : node.value;
-      return (new Function('$state', 'd3', 'Plot', source))($state, d3, Plot);
+      const params = (node.params || []).map(p => evaluate(p, $state, experimental));
+      const paramVars = params.map((_, i) => `p${i}`);
+      const code = source.replace(/%(\d+)/g, (_, i) => `p${parseInt(i) - 1}`);
+      return (new Function('$state', 'd3', 'Plot', ...paramVars, code))($state, d3, Plot, ...params);
     case "datetime":
       return new Date(node.value);
     case "ref":

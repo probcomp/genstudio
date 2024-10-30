@@ -218,22 +218,30 @@ def js_ref(path: str) -> "JSRef":
 
 
 class JSCode(LayoutItem):
-    def __init__(self, code: str, expression: bool):
+    def __init__(self, code: str, params: tuple, expression: bool):
         super().__init__()
         self.code = code
+        self.params = params
         self.expression = expression
 
     def for_json(self) -> dict:
         return {
             "__type__": "js_source",
             "value": self.code,
+            "params": self.params,
             "expression": self.expression,
         }
 
 
-def js(txt: str, expression=True) -> JSCode:
-    """Represents raw JavaScript code to be evaluated as a LayoutItem."""
-    return JSCode(txt, expression=expression)
+def js(txt: str, *params, expression=True) -> JSCode:
+    """Represents raw JavaScript code to be evaluated as a LayoutItem.
+
+    Args:
+        txt (str): JavaScript code with optional %1, %2, etc. placeholders
+        *params: Values to substitute for %1, %2, etc. placeholders
+        expression (bool): Whether to evaluate as expression or statement
+    """
+    return JSCode(txt, params, expression=expression)
 
 
 class Hiccup(LayoutItem):
