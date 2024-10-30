@@ -16,6 +16,8 @@ Plot.Frames(
 # %% [markdown]
 # A slider is implicitly created to control animation. Pass `slider=False` to hide it.
 
+# %%
+
 Plot.Frames(
     [
         Plot.html(["div.p-4.bg-gray-200", number])
