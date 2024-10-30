@@ -47,6 +47,39 @@ describe('Widget', () => {
       expect(result).toBe(4)
     })
 
+    it('should evaluate a js expression with params', () => {
+      const ast = {
+        __type__: "js_source",
+        expression: true,
+        value: '%1 + %2',
+        params: [2, 3]
+      }
+      const result = evaluate(ast, {}, null)
+      expect(result).toBe(5)
+    })
+
+    it('should evaluate a js expression with complex params', () => {
+      const ast = {
+        __type__: "js_source",
+        expression: true,
+        value: '%1.map(x => x * %2)',
+        params: [[1, 2, 3], 2]
+      }
+      const result = evaluate(ast, {}, null)
+      expect(result).toEqual([2, 4, 6])
+    })
+    it('should preserve object identity in params', () => {
+      const obj = new Date('2024-01-01')
+      const ast = {
+        __type__: "js_source",
+        expression: true,
+        value: '%1 === %2',
+        params: [obj, obj]
+      }
+      const result = evaluate(ast, {}, null)
+      expect(result).toBe(true)
+    })
+
     it('should evaluate a multi-line js source (requires explicit return)', () => {
       const ast = {
         __type__: "js_source",
@@ -54,6 +87,16 @@ describe('Widget', () => {
       }
       const result = evaluate(ast, {}, {}, null)
       expect(result).toBe(1)
+    })
+
+    it('should evaluate a multi-line js source with params', () => {
+      const ast = {
+        __type__: "js_source",
+        value: 'let x = %1\n x += %2\n return x',
+        params: [5, 3]
+      }
+      const result = evaluate(ast, {}, null)
+      expect(result).toBe(8)
     })
 
     it('should handle datetime objects', () => {
