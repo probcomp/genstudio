@@ -96,7 +96,7 @@ def test_sugar():
     ps = Plot.new() + Plot.inset(10)
     assert {"inset": 10} in ps.layers
 
-    ps = Plot.new() + Plot.color_scheme("blues")
+    ps = Plot.new() + Plot.colorScheme("blues")
     assert {"color": {"scheme": "blues"}} in ps.layers
 
     ps = Plot.new() + Plot.domainX([0, 10])
