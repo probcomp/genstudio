@@ -28,7 +28,7 @@ nav:
     - Sliders: interactivity/sliders.py
     - Re-rendering a plot: interactivity/reset.py
     - Animating through Frames: interactivity/frames.py
-    - Mouse events: interactivity/events.py
+    - Browser events: interactivity/events.py
     - Refs: interactivity/refs.py
     - Tailing data: interactivity/tail.py
   - API Docs: api/plot.md

@@ -813,7 +813,8 @@ Plot.spike(cities, {x: "longitude", y: "latitude", stroke: "red", length: "popul
     channel specifies the textual contents of the mark, which may be preformatted
     with line breaks (
 ,
-, or ), or wrapped or clipped using the
+, or
+), or wrapped or clipped using the
     **lineWidth** and **textOverflow** options.
 
     If **text** contains numbers or dates, a default formatter will be applied,

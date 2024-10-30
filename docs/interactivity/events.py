@@ -8,7 +8,6 @@ interactivity_warning = Plot.html(
 )
 
 # %% [markdown]
-# ## Mouse Events
 #
 # The `Plot.events` mark supports mouse interactions via the following callbacks:
 # - `onDrawStart`
@@ -22,7 +21,7 @@ interactivity_warning = Plot.html(
 
 (
     Plot.initial_state("points", [])
-    # Use `Plot.events`, setting $state.points in the `onDraw` callback,
+    # setting $state.points in the `onDraw` callback,
     # which is passed an event containing a `point`, an `[x, y]` array.
     + Plot.events(
         onDrawStart=js("(event) => $state.points = [[event.x, event.y]]"),
@@ -36,7 +35,6 @@ interactivity_warning = Plot.html(
 
 # %% [markdown]
 # ## Drawing
-
 
 # %%
 interactivity_warning

@@ -69,6 +69,7 @@ class APIDocPlugin(BasePlugin):
                 dest_dir=getattr(config, "site_dir"),
                 use_directory_urls=getattr(config, "use_directory_urls"),
             )
+            files.remove(new_file)
             files.append(new_file)
 
         return files
