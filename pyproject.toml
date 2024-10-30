@@ -42,7 +42,6 @@ ignore = [ "E402",]
 [tool.poetry.group.dev.dependencies]
 jax = "^0.4.24"
 jaxlib = "^0.4.24"
-ipykernel = "^6.29.4"
 watchfiles = "^0.21.0"
 jupyter-client = "^8.6.2"
 nbformat = "^5.10.4"
