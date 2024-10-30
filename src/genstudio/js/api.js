@@ -11,12 +11,53 @@ import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as render from "./plot/render";
 import { tw } from "./utils";
-
-const { useState, useEffect, useContext, useMemo, useCallback } = React
+const { useState, useEffect, useContext, useMemo, useRef, useCallback } = React
+import Katex from "katex";
 
 export { render };
 const DEFAULT_GRID_GAP = "10px"
 export const CONTAINER_PADDING = 10;
+
+const KATEX_CSS_URL = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
+
+let katexCssLoaded = false;
+
+async function loadKatexCss() {
+    if (katexCssLoaded) return;
+
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = KATEX_CSS_URL;
+    document.head.appendChild(link);
+
+    katexCssLoaded = true;
+}
+
+export function katex(tex) {
+    const containerRef = useRef(null);
+    const [isCssLoaded, setIsCssLoaded] = useState(false);
+
+    useEffect(() => {
+        loadKatexCss()
+            .then(() => setIsCssLoaded(true))
+            .catch(error => console.error('Error loading KaTeX CSS:', error));
+    }, []);
+
+    useEffect(() => {
+        if (isCssLoaded && containerRef.current) {
+            try {
+                Katex.render(tex, containerRef.current, {
+                    throwOnError: false
+                });
+            } catch (error) {
+                console.error('Error rendering KaTeX:', error);
+            }
+        }
+    }, [tex, isCssLoaded]);
+
+    return html`<div ref=${containerRef} />`;
+}
+
 
 const MarkdownItInstance = new MarkdownIt({
     html: true,
@@ -214,9 +255,11 @@ export function Row({ children, ...props }) {
     const availableWidth = useContext(WidthContext);
     const childCount = React.Children.count(children);
     const childWidth = availableWidth / childCount;
+    const className = `flex flex-row ${props.className || ''}`
+    delete props["className"]
 
     return html`
-    <div ...${props} className=${tw("flex flex-row")}>
+    <div ...${props} className=${tw(className)}>
       <${WidthContext.Provider} value=${childWidth}>
         ${React.Children.map(children, (child, index) => html`
           <div className=${tw("flex-1")} key=${index}>

@@ -46,14 +46,13 @@ function deepMergeLayers(target, source) {
 }
 
 function mergePlotSpec(layers) {
-
   return layers.flat().reduce((mergedSpec, layer) => {
+    if (!layer) return mergedSpec;
     if (layer instanceof MarkSpec) {
       mergedSpec.marks.push(layer);
       return mergedSpec;
-    } else {
-      return deepMergeLayers(mergedSpec, layer.spec || layer);
     }
+    return deepMergeLayers(mergedSpec, layer.spec || layer);
   }, {"marks": []});
 }
 
