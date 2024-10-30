@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "genstudio"
-version = "2024.10.002"
+version = "2024.10.003"
 description = ""
 authors = [ "Matthew Huebert <me@matt.is>",]
 license = "MIT"
@@ -39,6 +39,9 @@ pillow = "^10.4.0"
 [tool.ruff.lint]
 ignore = [ "E402",]
 
+[tool.poetry.plugins."mkdocs.plugins"]
+"genstudio.docs.plugin" = "genstudio.docs.plugin:APIDocPlugin"
+
 [tool.poetry.group.dev.dependencies]
 jax = "^0.4.24"
 jaxlib = "^0.4.24"
@@ -57,6 +60,3 @@ griffe = "^1.5.1"
 [tool.poetry.group.dev.dependencies.genjax]
 version = "0.6.1"
 source = "gcp"
-
-[tool.poetry.plugins."mkdocs.plugins"]
-"genstudio.docs.plugin" = "genstudio.docs.plugin:APIDocPlugin"
