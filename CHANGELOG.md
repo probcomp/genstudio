@@ -1,3 +1,8 @@
+### [2024.10.004] - Oct 30, 2024
+
+- use `containerWidth` instead of a React context to set widths
+- improve rendering of custom "height" on a plot
+
 ### [2024.10.003] - Oct 30, 2024
 
 - Add API documentation to website
