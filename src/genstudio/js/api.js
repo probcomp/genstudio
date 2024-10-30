@@ -254,7 +254,7 @@ export function Row({ children, ...props }) {
     delete props["className"]
 
     return html`
-    <div ref=${containerRef} ...${props} className=${tw(className)}>
+    <div ...${props} className=${tw(className)}>
       ${React.Children.map(children, (child, index) => html`
         <div className=${tw("flex-1")} key=${index}>
           ${child}
