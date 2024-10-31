@@ -113,6 +113,7 @@ class WidgetState:
         self._state = {}
         self._widget = widget
         self._on_change = {}
+        self._synced_vars = set()
 
     def __getattr__(self, name):
         if name in self._state:
@@ -135,11 +136,21 @@ class WidgetState:
     # update values from python - send to js
     def update(self, *updates):
         updates = normalize_updates(updates)
-        apply_updates(self._state, updates)
+
+        # apply updates locally for synced state
+        synced_updates = [
+            [name, op, payload]
+            for name, op, payload in updates
+            if entry_id(name) in self._synced_vars
+        ]
+        apply_updates(self._state, synced_updates)
+
+        # send all updates to JS regardless of sync status
         self._widget.send(
             {"type": "update_state", "updates": to_json(updates, widget=self)}
         )
-        self.notify_callbacks(updates)
+
+        self.notify_callbacks(synced_updates)
 
     # accept updates from js - notify callbacks
     def accept_js_updates(self, updates):
@@ -150,10 +161,15 @@ class WidgetState:
         self._on_change.update(callbacks)
 
     def backfill(self, cache):
-        # add initial values to WidgetState
         for key, entry in cache.items():
-            if key not in self._state:
-                self._state[key] = entry["value"]
+            if entry["sync"]:
+                self._synced_vars.add(key)
+                if key not in self._state:
+                    self._state[key] = entry["value"]
+            else:
+                if key in self._state:
+                    del self._state[key]
+                self._synced_vars.discard(key)
 
 
 class Widget(anywidget.AnyWidget):
