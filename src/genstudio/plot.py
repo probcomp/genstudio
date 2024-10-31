@@ -800,33 +800,31 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
         return Hiccup(_Frames, {"state_key": key, "frames": frames})
 
 
-def initialState(key_or_values, value=None, sync=None):
+def initialState(values: dict, sync=None):
     """
-    Initializes one or multiple $state variables without returning a value.
+    Initializes state variables in the Plot widget.
 
     Args:
-        key_or_values (Union[str, dict]): Either a single key (str) for one state variable, or a dictionary of key-value pairs to initialize multiple state variables.
-        value (Any, optional): Initial value for the variable when a single key is provided. Ignored if key_or_values is a dictionary.
-        sync (Union[set, bool, None]): If key_or_values is a dict, sync can be True (sync all) or a set of keys to sync. If key_or_values is a string, sync is a boolean flag.
+        values (dict): A dictionary mapping state variable names to their initial values.
+        sync (Union[set, bool, None], optional): Controls which state variables are synced between Python and JavaScript.
+            If True, all variables are synced. If a set, only variables in the set are synced.
+            If None or False, no variables are synced. Defaults to None.
 
     Returns:
-        InitialState: An InitialState object containing the initialized state variables.
+        InitialState: An object that initializes the state variables when rendered.
+
+    Example:
+        >>> Plot.initialState({"count": 0, "name": "foo"})  # Initialize without sync
+        >>> Plot.initialState({"count": 0}, sync=True)  # Sync all variables
+        >>> Plot.initialState({"x": 0, "y": 1}, sync={"x"})  # Only sync "x"
     """
 
-    if isinstance(key_or_values, dict):
-        sync_set = set(key_or_values.keys()) if sync is True else (sync or set())
-        refs = [
-            RefObject(v, id=k, sync=(k in sync_set)) for k, v in key_or_values.items()
-        ]
-    else:
-        if value is None:
-            raise ValueError(
-                "When providing a single key, a value must also be provided."
-            )
+    sync_set = set(values.keys()) if sync is True else (sync or set())
 
-        refs = [RefObject(value, id=key_or_values, sync=bool(sync))]
-
-    return JSCall("InitialState", [refs])
+    return JSCall(
+        "InitialState",
+        [RefObject(v, id=k, sync=(k in sync_set)) for k, v in values.items()],
+    )
 
 
 initial_state = initialState

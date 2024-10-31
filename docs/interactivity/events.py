@@ -20,7 +20,7 @@ interactivity_warning = Plot.html(
 # %%
 
 (
-    Plot.initialState("points", [])
+    Plot.initialState({"points": []})
     # setting $state.points in the `onDraw` callback,
     # which is passed an event containing a `point`, an `[x, y]` array.
     + Plot.events(

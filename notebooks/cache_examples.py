@@ -62,7 +62,7 @@ render_2 = Plot.ref(
 
 # %% initialize a variable
 # We should see '123' logged once.
-Plot.initialState("foo", 123) & Plot.js("console.log($state.foo) || $state.foo")
+Plot.initialState({"foo": 123}) & Plot.js("console.log($state.foo) || $state.foo")
 
 import genstudio.plot as Plot
 from IPython.display import display
@@ -70,9 +70,9 @@ from IPython.display import display
 p = Plot.new()
 display(p)
 
-p.reset(Plot.initialState("foo", "foo") | Plot.js("$state.foo"))
+p.reset(Plot.initialState({"foo": "foo"}) | Plot.js("$state.foo"))
 
-p.reset(Plot.initialState("blah", "blah") | Plot.js("$state.blah"))
+p.reset(Plot.initialState({"blah": "blah"}) | Plot.js("$state.blah"))
 
 # %%
 
