@@ -20,7 +20,7 @@ interactivity_warning = Plot.html(
 # %%
 
 (
-    Plot.initial_state("points", [])
+    Plot.initialState("points", [])
     # setting $state.points in the `onDraw` callback,
     # which is passed an event containing a `point`, an `[x, y]` array.
     + Plot.events(
@@ -41,42 +41,53 @@ interactivity_warning
 
 
 # %% [markdown]
-# Say we wanted to pass a drawn path back to Python. We can initialize a ref, with an initial value of an empty list, to hold drawn points. Then, we pass in a python `onDraw` callback to update the points using the widget's `update_state` method. This time, let's add some additional dot marks to make our line more interesting.
+# Say we wanted to pass a drawn path back to Python. We can initialize a ref, with an initial value of an empty list, to hold drawn points. Then, we pass in a python `onDraw` callback to update the points using the widget's `state.update` method. This time, let's add some additional dot marks to make our line more interesting.
 
 # %%
-all_points = Plot.ref([])
-drawn_points = Plot.ref([])
-clicked_points = Plot.ref([])
+
 (
+    Plot.initialState(
+        {"all_points": [], "drawn_points": [], "clicked_points": []}, sync=True
+    )
     # Create drawing area and update points on draw
-    Plot.events(
-        onDraw=lambda event: event["widget"].update_state(
-            [drawn_points, "append", [event["x"], event["y"], event["startTime"]]]
+    | Plot.events(
+        onDraw=js(
+            "(e) => $state.update(['drawn_points', 'append', [e.x, e.y, e.startTime]])"
         ),
-        onMouseMove=lambda event: event["widget"].update_state(
-            [all_points, "append", [event["x"], event["y"]]]
-        ),
-        onClick=lambda event: event["widget"].update_state(
-            [clicked_points, "append", [event["x"], event["y"]]]
-        ),
+        onMouseMove=js("(e) => $state.update(['all_points', 'append', [e.x, e.y]])"),
+        onClick=js("(e) => $state.update(['clicked_points', 'append', [e.x, e.y]])"),
     )
     # Draw a continuous line through drawn points
-    + Plot.line(drawn_points, z="2")
+    + Plot.line(js("$state.drawn_points"), z="2")
     # Add small dots for drawn points
-    + Plot.dot(drawn_points)
+    + Plot.dot(js("$state.drawn_points"))
     # Highlight every 6th drawn point in red
     + Plot.dot(
-        drawn_points,
+        js("$state.drawn_points"),
         Plot.select(
             js("(indexes) => indexes.filter(i => i % 6 === 0)"),
             {"fill": "red", "r": 10},
         ),
     )
     # Add symbol for clicked points
-    + Plot.dot(clicked_points, r=10, symbol="star")
+    + Plot.dot(js("$state.clicked_points"), r=10, symbol="star")
     # Add light gray line for all points
-    + Plot.line(all_points, stroke="rgba(0, 0, 0, 0.2)")
+    + Plot.line(js("$state.all_points"), stroke="rgba(0, 0, 0, 0.2)")
     + Plot.domain([0, 2])
+    | [
+        "div.bg-blue-500.text-white.p-3.rounded-sm",
+        {"onClick": lambda e: print(e["widget"].state.clicked_points)},
+        "Print clicked points",
+    ]
+    | [
+        "div.bg-blue-500.text-white.p-3.rounded-sm",
+        {
+            "onClick": lambda e: e["widget"].state.update(
+                {"all_points": [], "drawn_points": []}
+            )
+        },
+        "Clear Line",
+    ]
 )
 
 # %% [markdown]
@@ -104,7 +115,7 @@ data = Plot.ref([[1, 1], [2, 2], [0, 2], [2, 0]])
 # %% [markdown]
 # Next we define a callback function, which will receive mouse events from our plot. Each event will contain
 # information about the child that triggered the event, as well as a reference to the current widget, which has
-# a `.update_state` method. This is what allows us to modify the plot in response to user actions.
+# a `.state.update` method. This is what allows us to modify the plot in response to user actions.
 
 
 # %%
@@ -113,7 +124,7 @@ def update_position(event):
     x = event["x"]
     y = event["y"]
     index = event["index"]
-    widget.update_state([data, "setAt", [index, [x, y]]])
+    widget.state.update([data, "setAt", [index, [x, y]]])
 
 
 # %% [markdown]

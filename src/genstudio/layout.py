@@ -166,18 +166,26 @@ class LayoutItem:
         Args:
             new_item: A LayoutItem to reset to.
         """
-        if self._html is not None:
-            raise ValueError(
-                "Cannot reset an HTML widget. Use display_as='widget' or foo.widget() to create a resettable widget."
-            )
-        self.widget().set_ast(other.for_json())
+        ensure_widget(self).set_ast(other.for_json())
 
-    def update_state(self, *updates):
-        if self._html is not None:
-            raise ValueError(
-                "Cannot reset an HTML widget. Use display_as='widget' or foo.widget() to create a resettable widget."
-            )
-        self.widget().update_state(*updates)
+    def onChange(self, listeners: dict):
+        ensure_widget(self).state.onChange(listeners)
+        return self
+
+    @property
+    def state(self):
+        """
+        Get the widget state. Raises ValueError if widget is not initialized.
+        """
+        return ensure_widget(self).state
+
+
+def ensure_widget(self):
+    if self._html is not None:
+        raise ValueError(
+            "Cannot reset an HTML widget. Use display_as='widget' or foo.widget() to create a resettable widget."
+        )
+    return self.widget()
 
 
 class JSCall(LayoutItem):
@@ -325,9 +333,11 @@ def unwrap_for_json(x):
 
 
 class RefObject(LayoutItem):
-    def __init__(self, value, id=None):
+    def __init__(self, value, id=None, sync=False):
         self.id = str(uuid.uuid1()) if id is None else id
         self.value = value
+        if sync:
+            self.ref_sync = sync
 
     def ref_id(self):
         return self.id
@@ -341,7 +351,7 @@ class RefObject(LayoutItem):
         return super()._repr_mimebundle_(**kwargs)
 
 
-def ref(value: Any, id=None) -> RefObject:
+def ref(value: Any, id=None, sync=False) -> RefObject:
     """
     Wraps a value in a `RefObject`, which allows for (1) deduplication of re-used values
     during serialization, and (2) updating the value of refs in live widgets.
@@ -354,7 +364,7 @@ def ref(value: Any, id=None) -> RefObject:
     """
     if id is None and isinstance(value, RefObject):
         return value
-    return RefObject(value, id=id)
+    return RefObject(value, id=id, sync=sync)
 
 
 def cache(value: Any, id=None) -> RefObject:

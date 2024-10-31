@@ -68,7 +68,7 @@ export function evaluate(node, $state, experimental) {
   }
 }
 
-function applyOperation($state, init, op, payload) {
+function applyUpdate($state, init, op, payload) {
   const evaluatedPayload = $state.evaluate(payload);
   switch (op) {
     case "append":
@@ -87,11 +87,35 @@ function applyOperation($state, init, op, payload) {
   }
 }
 
-// This function creates a reactive state management system.
-// It maintains a graph of AST fragments, evaluates them on-demand,
-// and allows for efficient updates to the underlying ASTs.
-// The system supports lazy evaluation and interdependent state management.
-export function createStateStore(initialState, experimental) {
+// normalize updates to handle both dict and array formats
+function normalizeUpdates(updates) {
+  return updates.flatMap(entry => {
+    if (entry.constructor === Object) {
+      return Object.entries(entry).map(([key, value]) => [key,'reset',value]);
+    }
+    // handle array format [key, operation, payload]
+    const [key, operation, payload] = entry;
+    return [[typeof key === 'string' ? key : key.id, operation, payload]];
+  });
+}
+
+/**
+ * Creates a reactive state store with optional sync capabilities
+ * @param {Object.<string, {sync?: boolean, value: any}>} cache - The initial cache object
+ * @param {Object} experimental - The experimental interface for sync operations
+ * @returns {Proxy} A proxied state store with reactive capabilities
+ */
+export function createStateStore(cache, experimental) {
+
+  const [syncKeys, initialState] = Object.entries(cache).reduce(
+    ([keys, state], [key, entry]) => {
+      if (entry.sync) keys.add(key);
+      state[key] = entry.value;
+      return [keys, state];
+    },
+    [new Set(), {}]
+  );
+
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
 
@@ -101,7 +125,15 @@ export function createStateStore(initialState, experimental) {
       return target.computed(key);
     },
     set: mobx.action((_target, key, value) => {
-      initialStateMap.set(key, typeof value === 'function' ? value(initialStateMap.get(key)) : value);
+      const newValue = typeof value === 'function' ? value(initialStateMap.get(key)) : value;
+      initialStateMap.set(key, newValue);
+
+      // Send sync update if this key should be synced
+      if (experimental && syncKeys.has(key)) {
+        experimental.invoke("handle_updates", {
+          updates: JSON.stringify([[key, "reset", newValue]])
+        });
+      }
       return true;
     }),
     ownKeys(_target) {
@@ -116,13 +148,29 @@ export function createStateStore(initialState, experimental) {
     }
   };
 
+  const applyUpdates = (updates) => {
+    for (const update of updates) {
+      const [key, operation, payload] = update
+      initialStateMap.set(key, applyUpdate($state, initialStateMap.get(key), operation, payload));
+    }
+  }
+
+  const notifyPython = (updates) => {
+    if (!experimental) return;
+    const syncUpdates = updates.filter((([key]) => syncKeys.has(key)))
+    if (syncUpdates?.length > 0) {
+      experimental.invoke("handle_updates", { updates: syncUpdates });
+    }
+  }
+
   const $state = new Proxy({
     evaluate: (ast) => evaluate(ast, $state, experimental),
 
     backfill: function(cache) {
-      for (const key in cache) {
+      for (const [key, value] of Object.entries(cache)) {
         if (!initialStateMap.has(key)) {
-          initialStateMap.set(key, cache[key]);
+          if (value.sync) syncKeys.add(key);
+          initialStateMap.set(key, value.value);
         }
       }
     },
@@ -136,10 +184,12 @@ export function createStateStore(initialState, experimental) {
       return computeds[key].get();
     },
 
-    update: mobx.action(updates => {
-      for (const [key, operation, payload] of updates) {
-        initialStateMap.set(key, applyOperation($state, initialStateMap.get(key), operation, payload));
-      }
+    updateLocal: mobx.action(applyUpdates),
+
+    update: mobx.action((...updates) => {
+      const all_updates = normalizeUpdates(updates)
+      applyUpdates(all_updates)
+      notifyPython(all_updates)
     })
   }, stateHandler);
 
@@ -169,7 +219,7 @@ export const StateProvider = mobxReact.observer(
       if (model) {
         const cb = (msg) => {
           if (msg.type === 'update_state') {
-            $state.update(JSON.parse(msg.updates))
+            $state.updateLocal(JSON.parse(msg.updates))
           }
         }
         model.on("msg:custom", cb);

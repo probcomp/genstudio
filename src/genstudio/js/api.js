@@ -166,6 +166,34 @@ export class InitialState {
     render() { }
 }
 
+export class OnStateChange {
+    // this could be a way of "mounting" a ref callback. eg.
+    // a_plot | Plot.onChange({})
+
+    // alternatively, on a widget we could do something like
+    // widget.onChange({"foo": cb})
+
+    // alternatively, one might want to sync some state, like
+    // widget.sync("foo", "bar")
+    // and then read the synced values via widget.foo
+
+    constructor(name, callback) {
+        this.name = name
+        this.callback = callback
+    }
+    render() {
+
+        const $state = useContext($StateContext);
+        useEffect(() => {
+            return mobx.autorun(() => {
+                this.callback($state[this.name])
+            })
+        },
+            [this.name, this.callback])
+    }
+}
+
+
 const playIcon = html`<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
 const pauseIcon = html`<svg viewBox="0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`;
 
@@ -246,8 +274,8 @@ export function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = 2, 
   `;
 }
 
-export function Row({ children, ...props }) {
-    const className = `flex flex-row ${props.className || ''}`
+export function Row({ children, gap=1, ...props }) {
+    const className = `flex flex-row gap-${gap} ${props.className || props.class || ''}`
     delete props["className"]
 
     return html`
@@ -261,9 +289,9 @@ export function Row({ children, ...props }) {
   `;
 }
 
-export function Column({ children, ...props }) {
+export function Column({ children, gap=1, ...props }) {
     return html`
-    <div ...${props} className=${tw("flex flex-col")}>
+    <div ...${props} className=${tw(`flex flex-col gap-${gap}`)}>
     ${React.Children.map(children, (child, index) => html`
         <div key=${index}>
           ${child}

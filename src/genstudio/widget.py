@@ -13,16 +13,19 @@ from genstudio.util import PARENT_PATH, CONFIG
 class Cache:
     # a Cache is used to store "refs" off to the side while serializing data.
     def __init__(self):
-        self.cache = {}
+        self.cache_entries = {}
+        self.cache_json = {}
 
-    def entry(self, id, value, **kwargs):
-        if id not in self.cache:
+    def entry(self, id, value, sync=False, **kwargs):
+        if id not in self.cache_entries:
+            _entry = {"sync": sync, "value": value}
+            self.cache_entries[id] = _entry
             # perform to_json conversion for cache entries immediately
-            self.cache[id] = orjson.Fragment(to_json(value, **kwargs))
+            self.cache_json[id] = orjson.Fragment(to_json(_entry, **kwargs))
         return {"__type__": "ref", "id": id}
 
     def for_json(self):
-        return self.cache
+        return self.cache_json
 
 
 def to_json(data, widget=None, cache=None):
@@ -30,7 +33,11 @@ def to_json(data, widget=None, cache=None):
         if hasattr(obj, "ref_id"):
             if cache is not None:
                 return cache.entry(
-                    obj.ref_id(), obj.for_json(), widget=widget, cache=cache
+                    id=obj.ref_id(),
+                    value=obj.for_json(),
+                    sync=getattr(obj, "ref_sync", False),
+                    widget=widget,
+                    cache=cache,
                 )
         if hasattr(obj, "for_json"):
             return obj.for_json()
@@ -59,7 +66,93 @@ def to_json(data, widget=None, cache=None):
 
 def to_json_with_cache(data: Any, widget: "Widget | None" = None):
     cache = Cache()
-    return to_json({"ast": data, "cache": cache, **CONFIG}, widget=widget, cache=cache)
+    json = to_json({"ast": data, "cache": cache, **CONFIG}, widget=widget, cache=cache)
+    if widget is not None:
+        widget.set_initial_state(cache.cache_entries)
+    return json
+
+
+def entry_id(key):
+    return key if isinstance(key, str) else key.id
+
+
+def normalize_updates(updates):
+    out = []
+    for entry in updates:
+        if isinstance(entry, dict):
+            for key, value in entry.items():
+                out.append([entry_id(key), "reset", value])
+        else:
+            out.append([entry_id(entry[0]), entry[1], entry[2]])
+    return out
+
+
+def apply_updates(state, updates):
+    for name, operation, payload in updates:
+        if operation == "append":
+            if name not in state:
+                state[name] = []
+            state[name].append(payload)
+        elif operation == "concat":
+            if name not in state:
+                state[name] = []
+            state[name].extend(payload)
+        elif operation == "reset":
+            state[name] = payload
+        elif operation == "setAt":
+            index, value = payload
+            if name not in state:
+                state[name] = []
+            state[name][index] = value
+        else:
+            raise ValueError(f"Unknown operation: {operation}")
+
+
+class WidgetState:
+    def __init__(self, widget):
+        self._state = {}
+        self._widget = widget
+        self._on_change = {}
+
+    def __getattr__(self, name):
+        if name in self._state:
+            return self._state[name]
+        raise AttributeError(f"'{self.__class__.__name__}' has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        if name.startswith("_"):
+            super().__setattr__(name, value)
+        else:
+            self._state[name] = value
+            self.update([name, "reset", value])
+
+    def notify_callbacks(self, updates):
+        for name, operation, value in updates:
+            callback = self._on_change.get(name)
+            if callback:
+                callback({"id": name, "value": self._state[name]})
+
+    # update values from python - send to js
+    def update(self, *updates):
+        updates = normalize_updates(updates)
+        apply_updates(self._state, updates)
+        self._widget.send(
+            {"type": "update_state", "updates": to_json(updates, widget=self)}
+        )
+        self.notify_callbacks(updates)
+
+    # accept updates from js - notify callbacks
+    def accept_js_updates(self, updates):
+        apply_updates(self._state, updates)
+        self.notify_callbacks(updates)
+
+    def onChange(self, callbacks):
+        self._on_change.update(callbacks)
+
+    def backfill(self, cache):
+        for key, entry in cache.items():
+            if entry["sync"] and key not in self._state:
+                self._state[key] = entry["value"]
 
 
 class Widget(anywidget.AnyWidget):
@@ -69,6 +162,7 @@ class Widget(anywidget.AnyWidget):
     data = traitlets.Any().tag(sync=True, to_json=to_json_with_cache)
 
     def __init__(self, ast: Any):
+        self.state = WidgetState(self)
         super().__init__()
         self.data = ast
 
@@ -77,6 +171,9 @@ class Widget(anywidget.AnyWidget):
 
     def _repr_mimebundle_(self, **kwargs):  # type: ignore
         return super()._repr_mimebundle_(**kwargs)
+
+    def set_initial_state(self, cache):
+        self.state.backfill(cache)
 
     @anywidget.experimental.command  # type: ignore
     def handle_callback(
@@ -87,19 +184,17 @@ class Widget(anywidget.AnyWidget):
             f({**params["event"], "widget": self})
         return "ok", []
 
+    @anywidget.experimental.command  # type: ignore
+    def handle_updates(
+        self, params: dict[str, Any], buffers: list[bytes]
+    ) -> tuple[str, list[bytes]]:
+        self.state.accept_js_updates(params["updates"])
+
+        return "ok", []
+
     def update_state(self, *updates):
         # an update can be a dict of {id, value} to reset, or
         # a list, [id, operation, payload] where operations are
         # "append", "concat", "reset", or "setAt". The payload for
         # "setAt" should be a list [index, value].
-        def entry_id(key):
-            return key if isinstance(key, str) else key.id
-
-        out = []
-        for entry in updates:
-            if isinstance(entry, dict):
-                for key, value in entry.items():
-                    out.append([entry_id(key), "reset", value])
-            else:
-                out.append([entry_id(entry[0]), entry[1], entry[2]])
-        self.send({"type": "update_state", "updates": to_json(out, widget=self)})
+        self.state.update(*updates)
