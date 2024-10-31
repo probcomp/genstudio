@@ -150,8 +150,9 @@ class WidgetState:
         self._on_change.update(callbacks)
 
     def backfill(self, cache):
+        # add initial values to WidgetState
         for key, entry in cache.items():
-            if entry["sync"] and key not in self._state:
+            if key not in self._state:
                 self._state[key] = entry["value"]
 
 
