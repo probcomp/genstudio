@@ -57,7 +57,7 @@ jobs:
         path: ./site
 
   publish:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/huebert/api-docs'
     permissions:
         contents: read
         id-token: write
