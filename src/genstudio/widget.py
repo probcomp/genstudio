@@ -16,13 +16,13 @@ class Cache:
         self.cache_entries = {}
         self.cache_json = {}
 
-    def entry(self, id, value, sync=False, **kwargs):
-        if id not in self.cache_entries:
+    def entry(self, state_key, value, sync=False, **kwargs):
+        if state_key not in self.cache_entries:
             _entry = {"sync": sync, "value": value}
-            self.cache_entries[id] = _entry
+            self.cache_entries[state_key] = _entry
             # perform to_json conversion for cache entries immediately
-            self.cache_json[id] = orjson.Fragment(to_json(_entry, **kwargs))
-        return {"__type__": "ref", "id": id}
+            self.cache_json[state_key] = orjson.Fragment(to_json(_entry, **kwargs))
+        return {"__type__": "ref", "state_key": state_key}
 
     def for_json(self):
         return self.cache_json
@@ -30,10 +30,10 @@ class Cache:
 
 def to_json(data, widget=None, cache=None):
     def default(obj):
-        if hasattr(obj, "ref_id"):
+        if hasattr(obj, "state_key"):
             if cache is not None:
                 return cache.entry(
-                    id=obj.ref_id(),
+                    state_key=obj.state_key(),
                     value=obj.for_json(),
                     sync=getattr(obj, "ref_sync", False),
                     widget=widget,
@@ -198,7 +198,7 @@ class Widget(anywidget.AnyWidget):
     ) -> tuple[str, list[bytes]]:
         f = self.callback_registry[params["id"]]
         if f is not None:
-            f({**params["event"], "widget": self})
+            f(self, params["event"])
         return "ok", []
 
     @anywidget.experimental.command  # type: ignore
@@ -208,10 +208,3 @@ class Widget(anywidget.AnyWidget):
         self.state.accept_js_updates(params["updates"])
 
         return "ok", []
-
-    def update_state(self, *updates):
-        # an update can be a dict of {id, value} to reset, or
-        # a list, [id, operation, payload] where operations are
-        # "append", "concat", "reset", or "setAt". The payload for
-        # "setAt" should be a list [index, value].
-        self.state.update(*updates)

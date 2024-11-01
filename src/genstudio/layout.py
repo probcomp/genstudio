@@ -224,9 +224,9 @@ class JSRef(LayoutItem):
 
     def __getattr__(self, name: str) -> "JSRef":
         """Returns a reference to a nested property or method of the JavaScript object."""
-        if name == "ref_id":
+        if name == "state_key":
             raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute 'ref_id'"
+                f"'{self.__class__.__name__}' object has no attribute 'state_key'"
             )
         return JSRef(f"{self.path}.{name}")
 
@@ -340,7 +340,7 @@ class RefObject(LayoutItem):
         if sync:
             self.ref_sync = sync
 
-    def ref_id(self):
+    def state_key(self):
         return self.id
 
     def for_json(self):

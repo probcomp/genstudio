@@ -76,13 +76,13 @@ interactivity_warning
     + Plot.domain([0, 2])
     | [
         "div.bg-blue-500.text-white.p-3.rounded-sm",
-        {"onClick": lambda e: print(e["widget"].state.clicked_points)},
+        {"onClick": lambda widget, e: print(widget.state.clicked_points)},
         "Print clicked points",
     ]
     | [
         "div.bg-blue-500.text-white.p-3.rounded-sm",
         {
-            "onClick": lambda e: e["widget"].state.update(
+            "onClick": lambda widget, e: widget.state.update(
                 {"all_points": [], "drawn_points": []}
             )
         },
@@ -119,8 +119,7 @@ data = Plot.ref([[1, 1], [2, 2], [0, 2], [2, 0]])
 
 
 # %%
-def update_position(event):
-    widget = event["widget"]
+def update_position(widget, event):
     x = event["x"]
     y = event["y"]
     index = event["index"]

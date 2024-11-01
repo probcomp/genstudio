@@ -169,7 +169,7 @@ def test_mark_spec():
     ms = MarkSpec("dot", {"x": xs, "y": ys}, {"fill": "red"})
     assert isinstance(ms.id, str)
     assert isinstance(ms.ast, JSCall)
-    assert ms.ref_id() == ms.id
+    assert ms.state_key() == ms.id
     assert ms.for_json() == ms.ast
 
 

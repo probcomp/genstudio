@@ -18,7 +18,7 @@ function resolveReference(path, obj) {
 
 function resolveRef(node, $state) {
   if (node && typeof node === 'object' && node["__type__"] === "ref") {
-    return resolveRef($state[node.id], $state);
+    return resolveRef($state[node.state_key], $state);
   }
   return node;
 }
@@ -54,7 +54,7 @@ export function evaluate(node, $state, experimental) {
     case "datetime":
       return new Date(node.value);
     case "ref":
-      return $state.computed(node.id);
+      return $state.computed(node.state_key);
     case "callback":
       if (experimental) {
         return (e) => experimental.invoke("handle_callback", { id: node.id, event: serializeEvent(e) });
