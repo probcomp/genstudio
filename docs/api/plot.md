@@ -209,20 +209,20 @@ Parameters
 
 ### ref {: .api .api-member }
 
-Wraps a value in a `RefObject`, which allows for (1) deduplication of re-used values
+Wraps a value in a `Ref`, which allows for (1) deduplication of re-used values
 during serialization, and (2) updating the value of refs in live widgets.
 
 Parameters
 {: .api .api-section }
 
 
-- `value` (Any): Initial value for the reference. If this is already a RefObject and no id is provided, returns it unchanged.
+- `value` (Any): Initial value for the reference. If this is already a Ref and no id is provided, returns it unchanged.
 
 - `id` (str): Unique identifier for the reference. If not provided, a UUID will be generated.
 
 
 Returns:
-    RefObject: A reference object containing the initial value and id.
+    Ref: A reference object containing the initial value and id.
 
 
 

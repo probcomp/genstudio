@@ -83,7 +83,7 @@ class LayoutItem:
         self._display_as = display_as
         return self
 
-    def for_json(self) -> dict[str, Any]:
+    def for_json(self) -> dict[str, Any] | None:
         raise NotImplementedError("Subclasses must implement for_json method")
 
     def __and__(self, other: Any) -> "Row":
@@ -224,9 +224,9 @@ class JSRef(LayoutItem):
 
     def __getattr__(self, name: str) -> "JSRef":
         """Returns a reference to a nested property or method of the JavaScript object."""
-        if name == "state_key":
+        if name.startswith("_state_"):
             raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute 'state_key'"
+                f"'{self.__class__.__name__}' object has no attribute {name}"
             )
         return JSRef(f"{self.path}.{name}")
 
@@ -333,14 +333,25 @@ def unwrap_for_json(x):
     return x
 
 
-class RefObject(LayoutItem):
+class Listener(LayoutItem):
+    def __init__(self, listeners: dict):
+        self.listeners = listeners
+
+    def _state_listeners(self):
+        return self.listeners
+
+    def for_json(self):
+        return None
+
+
+class Ref(LayoutItem):
     def __init__(self, value, id=None, sync=False):
         self.id = str(uuid.uuid1()) if id is None else id
         self.value = value
         if sync:
             self.ref_sync = sync
 
-    def state_key(self):
+    def _state_key(self):
         return self.id
 
     def for_json(self):
@@ -352,32 +363,32 @@ class RefObject(LayoutItem):
         return super()._repr_mimebundle_(**kwargs)
 
 
-def ref(value: Any, id=None, sync=False) -> RefObject:
+def ref(value: Any, id=None, sync=False) -> Ref:
     """
-    Wraps a value in a `RefObject`, which allows for (1) deduplication of re-used values
+    Wraps a value in a `Ref`, which allows for (1) deduplication of re-used values
     during serialization, and (2) updating the value of refs in live widgets.
 
     Args:
-        value (Any): Initial value for the reference. If this is already a RefObject and no id is provided, returns it unchanged.
+        value (Any): Initial value for the reference. If this is already a Ref and no id is provided, returns it unchanged.
         id (str, optional): Unique identifier for the reference. If not provided, a UUID will be generated.
     Returns:
-        RefObject: A reference object containing the initial value and id.
+        Ref: A reference object containing the initial value and id.
     """
-    if id is None and isinstance(value, RefObject):
+    if id is None and isinstance(value, Ref):
         return value
-    return RefObject(value, id=id, sync=sync)
+    return Ref(value, id=id, sync=sync)
 
 
 def unwrap_ref(maybeRef: Any) -> Any:
     """
-    Unwraps a RefObject if the input is one.
+    Unwraps a Ref if the input is one.
 
     Args:
         obj (Any): The object to unwrap.
 
     Returns:
-        Any: The unwrapped object if input was a RefObject, otherwise the input object.
+        Any: The unwrapped object if input was a Ref, otherwise the input object.
     """
-    if isinstance(maybeRef, RefObject):
+    if isinstance(maybeRef, Ref):
         return maybeRef.value
     return maybeRef

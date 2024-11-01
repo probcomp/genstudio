@@ -10,35 +10,44 @@ import traitlets
 from genstudio.util import PARENT_PATH, CONFIG
 
 
-class InitialState:
+class CollectedState:
     # collect initial state while serializing data.
     def __init__(self):
-        self.entries = {}
-        self.entries_json = {}
+        self.initialState = {}
+        self.initialStateJSON = {}
+        self.listeners = {}
 
-    def entry(self, state_key, value, sync=False, **kwargs):
-        if state_key not in self.entries:
+    def state_entry(self, state_key, value, sync=False, **kwargs):
+        if state_key not in self.initialState:
             _entry = {"sync": sync, "value": value}
-            self.entries[state_key] = _entry
+            self.initialState[state_key] = _entry
             # perform to_json conversion immediately
-            self.entries_json[state_key] = orjson.Fragment(to_json(_entry, **kwargs))
+            self.initialStateJSON[state_key] = orjson.Fragment(
+                to_json(_entry, **kwargs)
+            )
         return {"__type__": "ref", "state_key": state_key}
 
-    def for_json(self):
-        return self.entries_json
+    def add_listeners(self, listeners):
+        for state_key, listener in listeners.items():
+            if state_key not in self.listeners:
+                self.listeners[state_key] = []
+            self.listeners[state_key].append(listener)
+        return None
 
 
-def to_json(data, widget=None, initialState=None):
+def to_json(data, collected_state=None, widget=None):
     def default(obj):
-        if hasattr(obj, "state_key"):
-            if initialState is not None:
-                return initialState.entry(
-                    state_key=obj.state_key(),
+        if collected_state is not None:
+            if hasattr(obj, "_state_key"):
+                return collected_state.state_entry(
+                    state_key=obj._state_key(),
                     value=obj.for_json(),
                     sync=getattr(obj, "ref_sync", False),
                     widget=widget,
-                    initialState=initialState,
+                    collected_state=collected_state,
                 )
+            if hasattr(obj, "_state_listeners"):
+                return collected_state.add_listeners(obj.state_listeners)
         if hasattr(obj, "for_json"):
             return obj.for_json()
         if hasattr(obj, "tolist"):
@@ -64,15 +73,28 @@ def to_json(data, widget=None, initialState=None):
     return orjson.dumps(data, default=default).decode("utf-8")
 
 
-def to_json_with_initialState(data: Any, widget: "Widget | None" = None):
-    initialState = InitialState()
-    json = to_json(
-        {"ast": data, "initialState": initialState, **CONFIG},
-        widget=widget,
-        initialState=initialState,
+def to_json_with_initialState(ast: Any, widget: "Widget | None" = None):
+    collected_state = CollectedState()
+    astJSON = orjson.Fragment(
+        to_json(ast, widget=widget, collected_state=collected_state)
     )
+    listenersJSON = orjson.Fragment(
+        to_json(
+            collected_state.listeners, widget=widget, collected_state=collected_state
+        )
+    )
+
+    json = to_json(
+        {
+            "ast": astJSON,
+            "initialState": collected_state.initialStateJSON,
+            "listeners": listenersJSON,
+            **CONFIG,
+        }
+    )
+
     if widget is not None:
-        widget.set_initialState(initialState.entries)
+        widget.set_initialState(collected_state.initialState)
     return json
 
 

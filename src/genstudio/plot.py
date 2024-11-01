@@ -5,7 +5,8 @@ from typing import Any, Dict, List, Union
 
 import genstudio.plot_defs as plot_defs
 from genstudio.layout import (
-    RefObject,
+    Listener,
+    Ref,
     Column,
     Hiccup,
     JSCall,
@@ -823,11 +824,31 @@ def initialState(values: dict, sync=None):
 
     return JSCall(
         "InitialState",
-        [RefObject(v, id=k, sync=(k in sync_set)) for k, v in values.items()],
+        [Ref(v, id=k, sync=(k in sync_set)) for k, v in values.items()],
     )
 
 
 initial_state = initialState
+
+
+def onChange(listeners):
+    """
+    Adds listeners to a plot which will be invoked when the given state changes.
+
+    Args:
+        listeners (dict): A dictionary mapping state keys to listener functions. Each listener is called with (widget, event) when the corresponding state changes.
+
+    Returns:
+        Listener: A Listener object that will be rendered to set up the event handlers.
+
+    Example:
+        >>> plot.onChange({
+        ...     "x": lambda w, e: print(f"x changed to {e}"),
+        ...     "y": lambda w, e: print(f"y changed to {e}")
+        ... })
+    """
+    return Listener(listeners)
+
 
 _Slider = JSRef("Slider")
 
@@ -868,7 +889,7 @@ def Slider(
 
     slider_options = {
         "state_key": key,
-        "init": RefObject(init, id=key),
+        "init": Ref(init, id=key),
         "range": range,
         "rangeFrom": rangeFrom,
         "fps": fps,
