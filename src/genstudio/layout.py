@@ -168,10 +168,6 @@ class LayoutItem:
         """
         ensure_widget(self).set_ast(other.for_json())
 
-    def onChange(self, listeners: dict):
-        ensure_widget(self).state.onChange(listeners)
-        return self
-
     @property
     def state(self):
         """
@@ -335,24 +331,17 @@ def unwrap_for_json(x):
 
 class Listener(LayoutItem):
     def __init__(self, listeners: dict):
-        self.listeners = listeners
-
-    def _state_listeners(self):
-        return self.listeners
+        self._state_listeners = listeners
 
     def for_json(self):
         return None
 
 
 class Ref(LayoutItem):
-    def __init__(self, value, id=None, sync=False):
-        self.id = str(uuid.uuid1()) if id is None else id
+    def __init__(self, value, state_key=None, sync=False):
+        self._state_key = str(uuid.uuid1()) if state_key is None else state_key
+        self._state_sync = sync
         self.value = value
-        if sync:
-            self.ref_sync = sync
-
-    def _state_key(self):
-        return self.id
 
     def for_json(self):
         return unwrap_for_json(self.value)
@@ -363,7 +352,7 @@ class Ref(LayoutItem):
         return super()._repr_mimebundle_(**kwargs)
 
 
-def ref(value: Any, id=None, sync=False) -> Ref:
+def ref(value: Any, state_key=None, sync=False) -> Ref:
     """
     Wraps a value in a `Ref`, which allows for (1) deduplication of re-used values
     during serialization, and (2) updating the value of refs in live widgets.
@@ -376,7 +365,7 @@ def ref(value: Any, id=None, sync=False) -> Ref:
     """
     if id is None and isinstance(value, Ref):
         return value
-    return Ref(value, id=id, sync=sync)
+    return Ref(value, state_key=state_key, sync=sync)
 
 
 def unwrap_ref(maybeRef: Any) -> Any:

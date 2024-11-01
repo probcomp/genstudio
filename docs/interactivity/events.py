@@ -44,6 +44,8 @@ interactivity_warning
 # Say we wanted to pass a drawn path back to Python. We can initialize a ref, with an initial value of an empty list, to hold drawn points. Then, we pass in a python `onDraw` callback to update the points using the widget's `state.update` method. This time, let's add some additional dot marks to make our line more interesting.
 
 # %%
+import genstudio.plot as Plot
+from genstudio.plot import js
 
 (
     Plot.initialState(
@@ -88,7 +90,7 @@ interactivity_warning
         },
         "Clear Line",
     ]
-)
+) | Plot.listen({"clicked_points": print})
 
 # %% [markdown]
 # The `onDraw` callback function updates the `points` state with the newly drawn path.

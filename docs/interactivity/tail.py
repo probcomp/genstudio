@@ -14,7 +14,7 @@ Plot.html(
 # %%
 from genstudio.plot import js
 
-letters = Plot.ref(["A", "B", "C"], id="letters")
+letters = Plot.ref(["A", "B", "C"], state_key="letters")
 
 tailedSlider = (
     Plot.Slider("n", fps=2, rangeFrom=letters, tail=True, visible=False)

@@ -91,7 +91,7 @@ function applyUpdate($state, init, op, payload) {
 function normalizeUpdates(updates) {
   return updates.flatMap(entry => {
     if (entry.constructor === Object) {
-      return Object.entries(entry).map(([key, value]) => [key,'reset',value]);
+      return Object.entries(entry).map(([key, value]) => [key, 'reset', value]);
     }
     // handle array format [key, operation, payload]
     const [key, operation, payload] = entry;
@@ -101,22 +101,13 @@ function normalizeUpdates(updates) {
 
 /**
  * Creates a reactive state store with optional sync capabilities
- * @param {Object.<string, {sync?: boolean, value: any}>} initialState
+ * @param {Object.<string, any>} initialState
  * @param {Object} experimental - The experimental interface for sync operations
  * @returns {Proxy} A proxied state store with reactive capabilities
  */
-export function createStateStore(initialState, experimental) {
-
-  const [syncKeys, initialStateValues] = Object.entries(initialState).reduce(
-    ([keys, state], [key, entry]) => {
-      if (entry.sync) keys.add(key);
-      state[key] = entry.value;
-      return [keys, state];
-    },
-    [new Set(), {}]
-  );
-
-  const initialStateMap = mobx.observable.map(initialStateValues, { deep: false });
+export function createStateStore({ initialState, syncedKeys, experimental }) {
+  syncedKeys = new Set(syncedKeys)
+  const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
 
   const stateHandler = {
@@ -129,7 +120,7 @@ export function createStateStore(initialState, experimental) {
       initialStateMap.set(key, newValue);
 
       // Send sync update if this key should be synced
-      if (experimental && syncKeys.has(key)) {
+      if (experimental && syncedKeys.has(key)) {
         experimental.invoke("handle_updates", {
           updates: JSON.stringify([[key, "reset", newValue]])
         });
@@ -157,7 +148,7 @@ export function createStateStore(initialState, experimental) {
 
   const notifyPython = (updates) => {
     if (!experimental) return;
-    const syncUpdates = updates.filter((([key]) => syncKeys.has(key)))
+    const syncUpdates = updates.filter((([key]) => syncedKeys.has(key)))
     if (syncUpdates?.length > 0) {
       experimental.invoke("handle_updates", { updates: syncUpdates });
     }
@@ -166,18 +157,18 @@ export function createStateStore(initialState, experimental) {
   const $state = new Proxy({
     evaluate: (ast) => evaluate(ast, $state, experimental),
 
-    backfill: function(initialState) {
-      for (const [key, value] of Object.entries(initialState)) {
+    backfill: function (data) {
+      syncedKeys = new Set(data.syncedKeys)
+      for (const [key, value] of Object.entries(data.initialState)) {
         if (!initialStateMap.has(key)) {
-          if (value.sync) syncKeys.add(key);
-          initialStateMap.set(key, value.value);
+          initialStateMap.set(key, value);
         }
       }
     },
 
-    resolveRef: function(node) { return resolveRef(node, $state); },
+    resolveRef: function (node) { return resolveRef(node, $state); },
 
-    computed: function(key) {
+    computed: function (key) {
       if (!(key in computeds)) {
         computeds[key] = mobx.computed(() => $state.evaluate(initialStateMap.get(key)));
       }
@@ -197,9 +188,11 @@ export function createStateStore(initialState, experimental) {
 }
 
 export const StateProvider = mobxReact.observer(
-  function ({ ast, initialState, experimental, model }) {
+  function (data) {
 
-    const $state = useMemo(() => createStateStore(initialState, experimental), [])
+    const { ast, initialState, experimental, model } = data
+
+    const $state = useMemo(() => createStateStore(data), [])
 
     // a currentAst state field managed by the following useEffect hook,
     // to ensure that an ast is only rendered after $state has been populated
@@ -209,7 +202,7 @@ export const StateProvider = mobxReact.observer(
     useEffect(() => {
       // when the widget is reset with a new ast/initialState, add missing entries
       // to the initialState and then reset the current ast.
-      $state.backfill(initialState)
+      $state.backfill(data)
       setCurrentAst(ast)
     }, [ast, initialState])
 

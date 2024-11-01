@@ -13,25 +13,25 @@ from genstudio.util import PARENT_PATH, CONFIG
 class CollectedState:
     # collect initial state while serializing data.
     def __init__(self):
+        self.syncedKeys = set()
         self.initialState = {}
         self.initialStateJSON = {}
-        self.listeners = {}
+        self.stateListeners = {}
 
     def state_entry(self, state_key, value, sync=False, **kwargs):
-        if state_key not in self.initialState:
-            _entry = {"sync": sync, "value": value}
-            self.initialState[state_key] = _entry
-            # perform to_json conversion immediately
-            self.initialStateJSON[state_key] = orjson.Fragment(
-                to_json(_entry, **kwargs)
-            )
+        if sync:
+            self.syncedKeys.add(state_key)
+        if state_key not in self.initialStateJSON:
+            self.initialState[state_key] = value
+            self.initialStateJSON[state_key] = orjson.Fragment(to_json(value, **kwargs))
         return {"__type__": "ref", "state_key": state_key}
 
     def add_listeners(self, listeners):
         for state_key, listener in listeners.items():
-            if state_key not in self.listeners:
-                self.listeners[state_key] = []
-            self.listeners[state_key].append(listener)
+            self.syncedKeys.add(state_key)
+            if state_key not in self.stateListeners:
+                self.stateListeners[state_key] = []
+            self.stateListeners[state_key].append(listener)
         return None
 
 
@@ -40,14 +40,14 @@ def to_json(data, collected_state=None, widget=None):
         if collected_state is not None:
             if hasattr(obj, "_state_key"):
                 return collected_state.state_entry(
-                    state_key=obj._state_key(),
+                    state_key=obj._state_key,
                     value=obj.for_json(),
-                    sync=getattr(obj, "ref_sync", False),
+                    sync=getattr(obj, "_state_sync", False),
                     widget=widget,
                     collected_state=collected_state,
                 )
             if hasattr(obj, "_state_listeners"):
-                return collected_state.add_listeners(obj.state_listeners)
+                return collected_state.add_listeners(obj._state_listeners)
         if hasattr(obj, "for_json"):
             return obj.for_json()
         if hasattr(obj, "tolist"):
@@ -78,28 +78,23 @@ def to_json_with_initialState(ast: Any, widget: "Widget | None" = None):
     astJSON = orjson.Fragment(
         to_json(ast, widget=widget, collected_state=collected_state)
     )
-    listenersJSON = orjson.Fragment(
-        to_json(
-            collected_state.listeners, widget=widget, collected_state=collected_state
-        )
-    )
 
     json = to_json(
         {
             "ast": astJSON,
             "initialState": collected_state.initialStateJSON,
-            "listeners": listenersJSON,
+            "syncedKeys": collected_state.syncedKeys,
             **CONFIG,
         }
     )
 
     if widget is not None:
-        widget.set_initialState(collected_state.initialState)
+        widget.state.init_state(collected_state)
     return json
 
 
 def entry_id(key):
-    return key if isinstance(key, str) else key.id
+    return key if isinstance(key, str) else key._state_key
 
 
 def normalize_updates(updates):
@@ -138,8 +133,8 @@ class WidgetState:
     def __init__(self, widget):
         self._state = {}
         self._widget = widget
-        self._on_change = {}
-        self._synced_vars = set()
+        self._syncedKeys = set()
+        self._listeners = {}
 
     def __getattr__(self, name):
         if name in self._state:
@@ -153,11 +148,10 @@ class WidgetState:
             self._state[name] = value
             self.update([name, "reset", value])
 
-    def notify_callbacks(self, updates):
+    def notify_listeners(self, updates):
         for name, operation, value in updates:
-            callback = self._on_change.get(name)
-            if callback:
-                callback({"id": name, "value": self._state[name]})
+            for listener in self._listeners.get(name, []):
+                listener(self._widget, {"id": name, "value": self._state[name]})
 
     # update values from python - send to js
     def update(self, *updates):
@@ -167,7 +161,7 @@ class WidgetState:
         synced_updates = [
             [name, op, payload]
             for name, op, payload in updates
-            if entry_id(name) in self._synced_vars
+            if entry_id(name) in self._syncedKeys
         ]
         apply_updates(self._state, synced_updates)
 
@@ -176,26 +170,20 @@ class WidgetState:
             {"type": "update_state", "updates": to_json(updates, widget=self)}
         )
 
-        self.notify_callbacks(synced_updates)
+        self.notify_listeners(synced_updates)
 
     # accept updates from js - notify callbacks
     def accept_js_updates(self, updates):
         apply_updates(self._state, updates)
-        self.notify_callbacks(updates)
+        self.notify_listeners(updates)
 
-    def onChange(self, callbacks):
-        self._on_change.update(callbacks)
+    def init_state(self, collected_state):
+        self._listeners = collected_state.stateListeners or {}
+        self._syncedKeys = syncedKeys = collected_state.syncedKeys
 
-    def backfill(self, initialState):
-        for key, entry in initialState.items():
-            if entry["sync"]:
-                self._synced_vars.add(key)
-                if key not in self._state:
-                    self._state[key] = entry["value"]
-            else:
-                if key in self._state:
-                    del self._state[key]
-                self._synced_vars.discard(key)
+        for key, value in collected_state.initialState.items():
+            if key in syncedKeys and key not in self._state:
+                self._state[key] = value
 
 
 class Widget(anywidget.AnyWidget):
@@ -214,9 +202,6 @@ class Widget(anywidget.AnyWidget):
 
     def _repr_mimebundle_(self, **kwargs):  # type: ignore
         return super()._repr_mimebundle_(**kwargs)
-
-    def set_initialState(self, initialState):
-        self.state.backfill(initialState)
 
     @anywidget.experimental.command  # type: ignore
     def handle_callback(

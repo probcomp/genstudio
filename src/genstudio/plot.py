@@ -824,14 +824,14 @@ def initialState(values: dict, sync=None):
 
     return JSCall(
         "InitialState",
-        [Ref(v, id=k, sync=(k in sync_set)) for k, v in values.items()],
+        [Ref(v, state_key=k, sync=(k in sync_set)) for k, v in values.items()],
     )
 
 
 initial_state = initialState
 
 
-def onChange(listeners):
+def listen(listeners):
     """
     Adds listeners to a plot which will be invoked when the given state changes.
 
@@ -842,7 +842,7 @@ def onChange(listeners):
         Listener: A Listener object that will be rendered to set up the event handlers.
 
     Example:
-        >>> plot.onChange({
+        >>> plot.listen({
         ...     "x": lambda w, e: print(f"x changed to {e}"),
         ...     "y": lambda w, e: print(f"y changed to {e}")
         ... })
@@ -889,7 +889,7 @@ def Slider(
 
     slider_options = {
         "state_key": key,
-        "init": Ref(init, id=key),
+        "init": Ref(init, state_key=key),
         "range": range,
         "rangeFrom": rangeFrom,
         "fps": fps,
