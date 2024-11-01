@@ -19,23 +19,22 @@ export { render };
 export const CONTAINER_PADDING = 10;
 const KATEX_CSS_URL = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
 
-window.katexCssLoaded = false;
+let katexCssLoaded = false;
 function loadKatexCss() {
-    if (window.katexCssLoaded) return;
-    window.katexCssLoaded = true;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = KATEX_CSS_URL;
-    document.head.appendChild(link);
-
+    if (katexCssLoaded) return;
+    if (!document.querySelector(`link[href="${KATEX_CSS_URL}"]`)) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = KATEX_CSS_URL;
+        document.head.appendChild(link);
+    }
+    katexCssLoaded = true;
 }
 
 export function katex(tex) {
     const containerRef = useRef(null);
 
-    useEffect(() => {
-        loadKatexCss();
-    }, []);
+    loadKatexCss();
 
     useEffect(() => {
         if (containerRef.current) {
@@ -61,9 +60,7 @@ const MarkdownItInstance = new MarkdownIt({
 MarkdownItInstance.use(markdownItKatex)
 
 export function md(text) {
-    useEffect(() => {
-        loadKatexCss();
-    }, []);
+    loadKatexCss();
 
     return html`<div className=${tw("prose")} dangerouslySetInnerHTML=${{ __html: MarkdownItInstance.render(text) }} />`;
 }

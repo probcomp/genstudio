@@ -101,13 +101,13 @@ function normalizeUpdates(updates) {
 
 /**
  * Creates a reactive state store with optional sync capabilities
- * @param {Object.<string, {sync?: boolean, value: any}>} cache - The initial cache object
+ * @param {Object.<string, {sync?: boolean, value: any}>} initialState
  * @param {Object} experimental - The experimental interface for sync operations
  * @returns {Proxy} A proxied state store with reactive capabilities
  */
-export function createStateStore(cache, experimental) {
+export function createStateStore(initialState, experimental) {
 
-  const [syncKeys, initialState] = Object.entries(cache).reduce(
+  const [syncKeys, initialStateValues] = Object.entries(initialState).reduce(
     ([keys, state], [key, entry]) => {
       if (entry.sync) keys.add(key);
       state[key] = entry.value;
@@ -116,7 +116,7 @@ export function createStateStore(cache, experimental) {
     [new Set(), {}]
   );
 
-  const initialStateMap = mobx.observable.map(initialState, { deep: false });
+  const initialStateMap = mobx.observable.map(initialStateValues, { deep: false });
   const computeds = {};
 
   const stateHandler = {
@@ -166,8 +166,8 @@ export function createStateStore(cache, experimental) {
   const $state = new Proxy({
     evaluate: (ast) => evaluate(ast, $state, experimental),
 
-    backfill: function(cache) {
-      for (const [key, value] of Object.entries(cache)) {
+    backfill: function(initialState) {
+      for (const [key, value] of Object.entries(initialState)) {
         if (!initialStateMap.has(key)) {
           if (value.sync) syncKeys.add(key);
           initialStateMap.set(key, value.value);
@@ -197,21 +197,21 @@ export function createStateStore(cache, experimental) {
 }
 
 export const StateProvider = mobxReact.observer(
-  function ({ ast, cache, experimental, model }) {
+  function ({ ast, initialState, experimental, model }) {
 
-    const $state = useMemo(() => createStateStore(cache, experimental), [])
+    const $state = useMemo(() => createStateStore(initialState, experimental), [])
 
     // a currentAst state field managed by the following useEffect hook,
     // to ensure that an ast is only rendered after $state has been populated
-    // with the associated cache entries.
+    // with the associated initialState entries.
     const [currentAst, setCurrentAst] = useState(null)
 
     useEffect(() => {
-      // when the widget is reset with a new ast/cache, add missing entries
-      // to the cache and then reset the current ast.
-      $state.backfill(cache)
+      // when the widget is reset with a new ast/initialState, add missing entries
+      // to the initialState and then reset the current ast.
+      $state.backfill(initialState)
       setCurrentAst(ast)
-    }, [ast, cache])
+    }, [ast, initialState])
 
     useEffect(() => {
       // if we have an AnyWidget model (ie. we are in widget model),
@@ -225,7 +225,7 @@ export const StateProvider = mobxReact.observer(
         model.on("msg:custom", cb);
         return () => model.off("msg:custom", cb)
       }
-    }, [cache, model])
+    }, [initialState, model])
 
     if (!currentAst) return;
 

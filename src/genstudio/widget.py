@@ -10,34 +10,34 @@ import traitlets
 from genstudio.util import PARENT_PATH, CONFIG
 
 
-class Cache:
-    # a Cache is used to store "refs" off to the side while serializing data.
+class InitialState:
+    # collect initial state while serializing data.
     def __init__(self):
-        self.cache_entries = {}
-        self.cache_json = {}
+        self.entries = {}
+        self.entries_json = {}
 
     def entry(self, state_key, value, sync=False, **kwargs):
-        if state_key not in self.cache_entries:
+        if state_key not in self.entries:
             _entry = {"sync": sync, "value": value}
-            self.cache_entries[state_key] = _entry
-            # perform to_json conversion for cache entries immediately
-            self.cache_json[state_key] = orjson.Fragment(to_json(_entry, **kwargs))
+            self.entries[state_key] = _entry
+            # perform to_json conversion immediately
+            self.entries_json[state_key] = orjson.Fragment(to_json(_entry, **kwargs))
         return {"__type__": "ref", "state_key": state_key}
 
     def for_json(self):
-        return self.cache_json
+        return self.entries_json
 
 
-def to_json(data, widget=None, cache=None):
+def to_json(data, widget=None, initialState=None):
     def default(obj):
         if hasattr(obj, "state_key"):
-            if cache is not None:
-                return cache.entry(
+            if initialState is not None:
+                return initialState.entry(
                     state_key=obj.state_key(),
                     value=obj.for_json(),
                     sync=getattr(obj, "ref_sync", False),
                     widget=widget,
-                    cache=cache,
+                    initialState=initialState,
                 )
         if hasattr(obj, "for_json"):
             return obj.for_json()
@@ -64,11 +64,15 @@ def to_json(data, widget=None, cache=None):
     return orjson.dumps(data, default=default).decode("utf-8")
 
 
-def to_json_with_cache(data: Any, widget: "Widget | None" = None):
-    cache = Cache()
-    json = to_json({"ast": data, "cache": cache, **CONFIG}, widget=widget, cache=cache)
+def to_json_with_initialState(data: Any, widget: "Widget | None" = None):
+    initialState = InitialState()
+    json = to_json(
+        {"ast": data, "initialState": initialState, **CONFIG},
+        widget=widget,
+        initialState=initialState,
+    )
     if widget is not None:
-        widget.set_initial_state(cache.cache_entries)
+        widget.set_initialState(initialState.entries)
     return json
 
 
@@ -160,8 +164,8 @@ class WidgetState:
     def onChange(self, callbacks):
         self._on_change.update(callbacks)
 
-    def backfill(self, cache):
-        for key, entry in cache.items():
+    def backfill(self, initialState):
+        for key, entry in initialState.items():
             if entry["sync"]:
                 self._synced_vars.add(key)
                 if key not in self._state:
@@ -176,7 +180,7 @@ class Widget(anywidget.AnyWidget):
     _esm = PARENT_PATH / "js/widget_build.js"
     _css = PARENT_PATH / "widget.css"
     callback_registry: Dict[str, Callable] = {}
-    data = traitlets.Any().tag(sync=True, to_json=to_json_with_cache)
+    data = traitlets.Any().tag(sync=True, to_json=to_json_with_initialState)
 
     def __init__(self, ast: Any):
         self.state = WidgetState(self)
@@ -189,8 +193,8 @@ class Widget(anywidget.AnyWidget):
     def _repr_mimebundle_(self, **kwargs):  # type: ignore
         return super()._repr_mimebundle_(**kwargs)
 
-    def set_initial_state(self, cache):
-        self.state.backfill(cache)
+    def set_initialState(self, initialState):
+        self.state.backfill(initialState)
 
     @anywidget.experimental.command  # type: ignore
     def handle_callback(

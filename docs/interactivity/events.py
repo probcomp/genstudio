@@ -91,7 +91,7 @@ interactivity_warning
 )
 
 # %% [markdown]
-# The `onDraw` callback function updates the `points` cache with the newly drawn path.
+# The `onDraw` callback function updates the `points` state with the newly drawn path.
 # This triggers a re-render of the plot, immediately reflecting the user's drawing.
 
 

@@ -5,8 +5,8 @@ from typing import Any, List, Optional, Sequence, Tuple, Union
 from html2image import Html2Image
 from PIL import Image
 
-from genstudio.util import CONFIG, PARENT_PATH
-from genstudio.widget import Widget, to_json_with_cache
+from genstudio.util import PARENT_PATH, CONFIG
+from genstudio.widget import Widget, to_json_with_initialState
 
 
 def create_parent_dir(path: str) -> None:
@@ -16,7 +16,7 @@ def create_parent_dir(path: str) -> None:
 
 def html_snippet(ast, id=None):
     id = id or f"genstudio-widget-{uuid.uuid4().hex}"
-    data = to_json_with_cache(ast)
+    data = to_json_with_initialState(ast)
 
     # Read and inline the JS and CSS files
     with open(PARENT_PATH / "js/widget_build.js", "r") as js_file:
@@ -366,20 +366,6 @@ def ref(value: Any, id=None, sync=False) -> RefObject:
     if id is None and isinstance(value, RefObject):
         return value
     return RefObject(value, id=id, sync=sync)
-
-
-def cache(value: Any, id=None) -> RefObject:
-    """
-    Deprecated: Use `ref` instead.
-    """
-    import warnings
-
-    warnings.warn(
-        "The 'cache' function is deprecated. Use 'ref' instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return ref(value, id)
 
 
 def unwrap_ref(maybeRef: Any) -> Any:

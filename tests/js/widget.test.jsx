@@ -144,12 +144,12 @@ describe('Widget', () => {
           }
         ]
       };
-      const cache = {"count": {value: 0, sync: false}};
+      const initialState = {"count": {value: 0, sync: false}};
       const experimental = null;
       const model = { on: vi.fn(), off: vi.fn() };
 
       const { container, rerender } = render(
-        <StateProvider ast={ast} cache={cache} experimental={experimental} model={model} />
+        <StateProvider ast={ast} initialState={initialState} experimental={experimental} model={model} />
       );
 
       expect(container.innerHTML).toContain('Count: 0');
@@ -169,19 +169,19 @@ describe('Widget', () => {
           {
             __type__: 'function',
             path: 'InitialState',
-            args: ['foo', {__type__: 'ref', id: 'foo'}]
+            args: ['foo', {__type__: 'ref', state_key: 'foo'}]
           },
           {__type__: "js_source", value: 'console.log($state.foo) || $state.foo'}
         ]
       };
 
-      const cache = {
+      const initialState = {
         'foo': {value: 123, sync: false}
       };
 
 
       render(
-        <StateProvider ast={ast} cache={cache} />
+        <StateProvider ast={ast} initialState={initialState} />
       );
       // Check that console.log was called with the correct value
       expect(consoleSpy).toHaveBeenCalledWith(123);
@@ -222,7 +222,7 @@ describe('Widget', () => {
     it('should handle references', () => {
       const $state = createStateStore({
         original: {value: 10, sync: false},
-        reference: {value: { __type__: 'ref', id: 'original' }, sync: false},
+        reference: {value: { __type__: 'ref', state_key: 'original' }, sync: false},
         c: {value: 10, sync: false}
       });
       expect($state.reference).toBe(10);
@@ -249,8 +249,8 @@ describe('Widget', () => {
 
     it('should throw if circular reference is detected', () => {
       const $state = createStateStore({
-        a: {value: { __type__: 'ref', id: 'b' }, sync: false},
-        b: {value: { __type__: 'ref', id: 'a' }, sync: false},
+        a: {value: { __type__: 'ref', state_key: 'b' }, sync: false},
+        b: {value: { __type__: 'ref', state_key: 'a' }, sync: false},
         c: {value: 10, sync: false}
       });
       expect(() => $state.a).toThrow(/Cycle detected in computation/);
