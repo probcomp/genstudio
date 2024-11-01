@@ -17,7 +17,7 @@ six_points = [[1, 1], [2, 4], [1.5, 7], [3, 10], [2, 13], [4, 15]]
 Plot.line(six_points)
 
 # %% [markdown]
-# ## Understanding Marks
+# ## Plotting with Marks
 #
 # In GenStudio (and Observable Plot), [marks](https://observablehq.com/plot/features/marks) are the basic visual elements used to represent data. The `line` we just used is one type of mark. Other common marks include `dot` for scatter plots, `bar` for bar charts, and `text` for adding labels.
 #
@@ -36,7 +36,7 @@ Plot.line(
 # %% [markdown]
 # To learn more, refer to the [marks documentation](https://observablehq.com/plot/features/marks).
 #
-# ## Layering Marks and Options
+# ## Layering Marks & Options
 #
 # We can layer multiple marks and add options to plots using the `+` operator. For example, here we compose a [line mark](bylight?match=Plot.line(...\)) with a [dot mark](bylight?match=Plot.dot(...\)), then add a [frame](bylight?match=Plot.frame(\)):
 
@@ -77,7 +77,7 @@ positions = Plot.dot(
 walls + positions
 
 # %% [markdown]
-# ## Specifying Data and Channels
+# ## Data & Channels
 #
 # Channels are how we map our data to visual properties of the mark. For many marks, `x` and `y` are the primary channels, but others like `color`, `size`, or `opacity` are also common. We typically specify our _data_ and _channels_ separately.
 #

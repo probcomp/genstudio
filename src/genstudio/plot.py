@@ -491,6 +491,9 @@ def Grid(*children, **opts):
     )
 
 
+Grid.for_json = lambda: JSRef("Grid")  # allow Grid to be used in hiccup
+
+
 def small_multiples(*specs, **options):
     """Alias for [[Grid]]"""
     return Grid(*specs, **options)
@@ -1003,8 +1006,12 @@ __all__ = [
     "Frames",
     "Slider",
     "renderChildEvents",
-    # ## Layout components
+    # ## Layout
     # Useful for layouts and custom views.
+    # Note that syntax sugar exists for `Column` (`|`) and `Row` (`&`) using operator overloading.
+    # ```
+    # (A & B) | C # A & B on one row, with C below.
+    # ```
     "Column",
     "Grid",
     "Row",

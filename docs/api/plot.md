@@ -116,10 +116,22 @@ Returns
 
 
 
-## Layout components
+## Layout
 
 
 Useful for layouts and custom views.
+
+
+Note that syntax sugar exists for `Column` (`|`) and `Row` (`&`) using operator overloading.
+
+
+```
+
+
+(A & B) | C # A & B on one row, with C below.
+
+
+```
 
 ### Column {: .api .api-member }
 
