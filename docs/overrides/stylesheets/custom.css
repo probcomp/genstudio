@@ -5,19 +5,47 @@
     --md-accent-fg-color--dark: #9d9d9d;
     --sans-font: Roboto, sans-serif;
     --md-border-radius: 6px;
+    --ui-font-size: 14px;
 }
 
-.md-search-result mark {
-    color: black;
-    background-color: var(--md-accent-fg-color);
-    border-radius: 3px;
-    padding: 0 3px;
+.md-search-result {
+    font-family: var(--sans-font);
+
+    .md-search-result__meta {
+        display: none;
+    }
+    mark {
+        color: black;
+        background-color: var(--md-accent-fg-color);
+        border-radius: 3px;
+        padding: 0 3px;
+    }
+
+    .md-typeset {
+        color: inherit;
+        p, ul {
+            margin: 0.5em 0;
+        }
+        h2 {
+            margin: 0;
+
+            mark {
+                font-size: 16px;
+                font-family: var(--md-code-font-family);
+
+            }
+        }
+    }
 }
 
 
 /* Global styles */
-.md-sidebar {
+.md-sidebar, .md-header, input {
     font-family: var(--sans-font);
+}
+
+.md-header .md-header__topic {
+    font-family: var(--md-text-font-family);
 }
 
 .md-footer {
@@ -62,7 +90,6 @@
         }
     }
 }
-
 
 /* Typography */
 .md-typeset {
@@ -135,6 +162,9 @@ body .jupyter-wrapper .jp-Notebook {
     color: color-mix(in srgb, var(--md-typeset-a-color) 70%, white);
 }
 
+.md-button {
+    font-size: 16px;
+}
 /* Button styles */
 [data-md-color-primary=white] .md-button--primary {
     background-color: var(--md-accent-fg-color);
@@ -242,7 +272,7 @@ h3.api+* {
 p.api-section {
     font-family: var(--sans-font);
     font-weight: bold;
-    font-size: 14px;
+    font-size: var(--ui-font-size);
     margin-bottom: 5px;
     color: #7a7a7a;
 }
@@ -255,5 +285,34 @@ p.api-section+* {
 @media screen and (min-width:55em) {
     .md-nav--integrated>.md-nav__list>.md-nav__item--active .md-nav--secondary {
         margin-bottom: 0.25em;
+    }
+}
+
+.md-nav {
+    font-size: var(--ui-font-size);
+}
+.md-search__form {
+    position: relative;
+    .md-search__input {
+        font-size: var(--ui-font-size);
+    }
+}
+
+.md-search__form::after {
+    content: "⌘K";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-family: var(--sans-font);
+    font-size: 12px;
+    color: var(--md-default-fg-color--lighter);
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+@media (not (platform: "mac")) {
+    .md-search__form::after {
+        content: "Ctrl+K";
     }
 }
