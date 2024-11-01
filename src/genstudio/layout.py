@@ -304,9 +304,10 @@ _Row = JSRef("Row")
 class Row(LayoutItem):
     "Render children in a row."
 
-    def __init__(self, *items: Any):
+    def __init__(self, *items: Any, **kwargs):
         super().__init__()
-        self.items, self.options = flatten_layout_items(items, Row)
+        self.items, options = flatten_layout_items(items, Row)
+        self.options = options | kwargs
 
     def for_json(self) -> Any:
         return Hiccup(_Row, self.options, *self.items)

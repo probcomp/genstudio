@@ -244,29 +244,51 @@ export function repeat(data) {
 }
 export { d3, MarkSpec, Plot, PlotSpec, React, ReactDOM };
 
-export function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = 2, aspectRatio = 1 }) {
+export function Grid({
+    children,
+    style,
+    minWidth = AUTOGRID_MIN_WIDTH,
+    gap = 1,
+    rowGap,
+    colGap,
+    cols,
+    minCols = 1,
+    maxCols
+}) {
     const [containerRef, containerWidth] = useContainerWidth();
 
-    const effectiveMinWidth = Math.min(minWidth, containerWidth);
-    const gapSize = parseInt(gap);
+    // Handle gap values
+    const gapX = colGap ?? gap;
+    const gapY = rowGap ?? gap;
+    const gapClass = `gap-x-${gapX} gap-y-${gapY}`;
+    const gapSize = parseInt(gap); // Keep for width calculations
 
-    const numColumns = Math.max(1, Math.min(Math.floor(containerWidth / effectiveMinWidth), children.length));
+    // Calculate number of columns
+    let numColumns;
+    if (cols) {
+        numColumns = cols;
+    } else {
+        const effectiveMinWidth = Math.min(minWidth, containerWidth);
+        const autoColumns = Math.floor(containerWidth / effectiveMinWidth);
+        numColumns = Math.max(
+            minCols,
+            maxCols ? Math.min(autoColumns, maxCols) : autoColumns,
+            1
+        );
+        numColumns = Math.min(numColumns, children.length);
+    }
+
     const itemWidth = (containerWidth - (numColumns - 1) * gapSize) / numColumns;
-    const itemHeight = itemWidth / aspectRatio;
-    const numRows = Math.ceil(children.length / numColumns);
-    const layoutHeight = numRows * itemHeight + (numRows - 1) * gapSize;
 
     const containerStyle = {
         display: 'grid',
         gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
-        gridAutoRows: `${itemHeight}px`,
         width: '100%',
-        overflowX: 'auto',
         ...style
     };
 
     return html`
-    <div ref=${containerRef} class=${tw(`gap-${gap}`)} style=${containerStyle}>
+    <div ref=${containerRef} class=${tw(gapClass)} style=${containerStyle}>
         ${children.map((value, index) => html`<${Node} key=${index}
                                                        style=${{ width: itemWidth }}
                                                        value=${value}/>`)}
@@ -274,14 +296,26 @@ export function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = 2, 
   `;
 }
 
-export function Row({ children, gap=1, ...props }) {
+export function Row({ children, gap=1, widths, ...props }) {
     const className = `flex flex-row gap-${gap} ${props.className || props.class || ''}`
     delete props["className"]
+
+    let flexClasses = []
+    if (widths) {
+        flexClasses = widths.map(w => {
+            if (typeof w === 'string') {
+                return w.includes('/') ? `w-${w}` : `w-[${w}]`
+            }
+            return `flex-[${w}]`
+        })
+    } else {
+        flexClasses = Array(React.Children.count(children)).fill("flex-1")
+    }
 
     return html`
     <div ...${props} className=${tw(className)}>
       ${React.Children.map(children, (child, index) => html`
-        <div className=${tw("flex-1")} key=${index}>
+        <div className=${tw(flexClasses[index])} key=${index}>
           ${child}
         </div>
       `)}
