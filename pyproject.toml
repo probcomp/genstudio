@@ -42,7 +42,6 @@ ignore = [ "E402",]
 [tool.poetry.group.dev.dependencies]
 jax = "^0.4.24"
 jaxlib = "^0.4.24"
-ipykernel = "^6.29.4"
 watchfiles = "^0.21.0"
 jupyter-client = "^8.6.2"
 nbformat = "^5.10.4"
@@ -52,7 +51,12 @@ mkdocs-terminal = "^4.4.0"
 mkdocs-material = "^9.5.32"
 mkdocs-material-extensions = "^1.3.1"
 numpy = ">=1.22,<2.0.0"
+mkdocstrings-python = "^1.12.2"
+griffe = "^1.5.1"
 
 [tool.poetry.group.dev.dependencies.genjax]
 version = "0.6.1"
 source = "gcp"
+
+[tool.poetry.plugins."mkdocs.plugins"]
+"genstudio.docs.plugin" = "genstudio.docs.plugin:APIDocPlugin"

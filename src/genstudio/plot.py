@@ -1,9 +1,7 @@
 # %%
 # ruff: noqa: F401
-import copy
 import json
-import random
-from typing import Any, Dict, List, Literal, Sequence, TypeAlias, Union
+from typing import Any, Dict, List, Union
 
 import genstudio.plot_defs as plot_defs
 from genstudio.layout import (
@@ -11,13 +9,10 @@ from genstudio.layout import (
     Column,
     Hiccup,
     JSCall,
-    JSCode,
     JSRef,
-    LayoutItem,
     Row,
     ref,
     js,
-    unwrap_ref,
 )
 
 from genstudio.plot_defs import (
@@ -159,7 +154,7 @@ from genstudio.plot_defs import (
     windowY,
 )
 from genstudio.plot_spec import MarkSpec, PlotSpec, new
-from genstudio.util import configure, deep_merge
+from genstudio.util import configure
 
 # This module provides a composable way to create interactive plots using Observable Plot
 # and AnyWidget, built on the work of pyobsplot.
@@ -177,93 +172,19 @@ from genstudio.util import configure, deep_merge
 # - Easily create grids to compare small multiples
 # - Includes shortcuts for common options like grid lines, color legends, margins
 
-d3 = JSRef("d3")
-Math = JSRef("Math")
 html = Hiccup
-Bylight = JSRef("Bylight")
-md = JSRef("md")
+"""Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
 
-# For passing columnar data to Observable.Plot which should repeat/cycle.
-# eg. for a set of 'xs' that are to be repeated for each set of `ys`.
 repeat = JSRef("repeat")
+"""For passing columnar data to Observable.Plot which should repeat/cycle.
+eg. for a set of 'xs' that are to be repeated for each set of `ys`."""
 
 
-class Dimensioned:
-    def __init__(self, value, path):
-        self.value = value
-        self.dimensions = [
-            rename_key(segment, ..., "key")
-            for segment in path
-            if isinstance(segment, dict)
-        ]
-
-    def shape(self):
-        shape = ()
-        current_value = self.value
-        for dimension in self.dimensions:
-            if "leaves" not in dimension:
-                shape += (len(current_value),)
-                current_value = current_value[0]
-        return shape
-
-    def names(self):
-        return [
-            dimension.get("key", dimension.get("leaves"))
-            for dimension in self.dimensions
-        ]
-
-    def __repr__(self):
-        return f"<Dimensioned shape={self.shape()}, names={self.names()}>"
-
-    def size(self, name):
-        names = self.names()
-        shape = self.shape()
-        if name in names:
-            return shape[names.index(name)]
-        raise ValueError(f"Dimension with name '{name}' not found")
-
-    def flatten(self):
-        # flattens the data in python, rather than js.
-        # currently we are not using/recommending this
-        # but it may be useful later or for debugging.
-        leaf = (
-            self.dimensions[-1]["leaves"]
-            if isinstance(self.dimensions[-1], dict) and "leaves" in self.dimensions[-1]
-            else None
-        )
-        dimensions = self.dimensions[:-1] if leaf else self.dimensions
-
-        def _flatten(value, dims, prefix=None):
-            if not dims:
-                value = {leaf: value} if leaf else value
-                return [prefix | value] if prefix else [value]
-            results = []
-            dim_key = dims[0]["key"]
-            for i, v in enumerate(value):
-                new_prefix = {**prefix, dim_key: i} if prefix else {dim_key: i}
-                results.extend(_flatten(v, dims[1:], new_prefix))
-            return results
-
-        return _flatten(self.value, dimensions)
-
-    def for_json(self):
-        return {"value": self.value, "dimensions": self.dimensions}
-
-
-def dimensions(data, dimensions=[], leaves=None):
-    """
-    Attaches dimension metadata, for further processing in JavaScript.
-    """
-    dimensions = [{"key": d} for d in dimensions]
-    dimensions = [*dimensions, {"leaves": leaves}] if leaves else dimensions
-    return Dimensioned(data, dimensions)
-
-
-def rename_key(d, prev_k, new_k):
+def _rename_key(d, prev_k, new_k):
     return {k if k != prev_k else new_k: v for k, v in d.items()}
 
 
-def get_choice(ch, path):
+def _get_choice(ch, path):
     ch = ch.get_sample() if getattr(ch, "get_sample", None) else ch
 
     def _get(value, path):
@@ -293,7 +214,7 @@ def get_choice(ch, path):
         return value
 
 
-def is_choicemap(data):
+def _is_choicemap(data):
     current_class = data.__class__
     while current_class:
         if current_class.__name__ == "ChoiceMap":
@@ -303,9 +224,31 @@ def is_choicemap(data):
 
 
 def get_in(data: Union[Dict, Any], path: List[Union[str, Dict]]) -> Any:
+    """
+    Reads data from a nested structure, giving names to dimensions and leaves along the way.
+
+    This function traverses nested data structures like dictionaries and lists, allowing you to extract
+    and label nested dimensions. It supports Python dicts/lists as well as GenJAX traces and choicemaps.
+
+    Args:
+        data: The nested data structure to traverse. Can be a dict, list, or GenJAX object.
+        path: A list of path segments describing how to traverse the data. Each segment can be:
+            - A string key to index into a dict
+            - A dict with {...} to traverse a list dimension, giving it a name
+            - A dict with "leaves" to mark terminal values
+
+    Returns:
+        Either a Dimensioned object containing the extracted data and dimension metadata,
+        or the raw extracted value if no dimensions were named in the path.
+
+    Example:
+        data = {"a": [{"val": 1}, {"val": 2}]}
+        result = get_in(data, ["a", {...: "items"}, "val"])
+        # Returns Dimensioned object with value=[1, 2] and dimension named "items"
+    """
     data = data.get_sample() if getattr(data, "get_sample", None) else data  # type: ignore
-    if is_choicemap(data):
-        return get_choice(data, path)
+    if _is_choicemap(data):
+        return _get_choice(data, path)
 
     def process_segment(value: Any, remaining_path: List[Union[str, Dict]]) -> Any:
         for i, segment in enumerate(remaining_path):
@@ -338,7 +281,7 @@ def get_in(data: Union[Dict, Any], path: List[Union[str, Dict]]) -> Any:
 
 
 # Test case to verify traversal of more than one dimension
-def test_get_in():
+def _test_get_in():
     data = {"a": [{"b": [{"c": 1}, {"c": 2}]}, {"b": [{"c": 3}, {"c": 4}]}]}
 
     result = get_in(data, ["a", {...: "first"}, "b", {...: "second"}, "c"])
@@ -448,26 +391,38 @@ def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     return PlotSpec(MarkSpec("ellipse", values, {**options, **kwargs}))
 
 
+def scaled_circle(x, y, r, **kwargs):
+    """
+    Convenience function to create a single circular ellipse mark at position (x,y) with radius r.
+
+    See ellipse() for additional styling options that can be passed as kwargs.
+
+    Args:
+        x: X coordinate of circle center
+        y: Y coordinate of circle center
+        r: Radius of the circle
+        **kwargs: Additional styling options passed to ellipse()
+
+    Returns:
+        A PlotSpec object representing the circular ellipse mark.
+    """
+    return ellipse([[x, y]], r=r, **kwargs)
+
+
 def events(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     """
     Captures events on a plot.
 
-    The following callback options are supported:
-    - onClick
-    - onMouseMove
-    - onMouseDown
-    - onDrawStart
-    - onDraw
-    - onDrawEnd
+    Args:
+        options: Callback functions. Supported: `onClick`, `onMouseMove`, `onMouseDown`, `onDrawStart`, `onDraw`, `onDrawEnd`.
+        **kwargs: Additional keyword arguments to be merged with options.
 
     Each callback receives an event object with:
-    - `type`, the event name
-    - `point`, an [x, y] array
-    - for draw events, `startTime`
 
-    Args:
-        options: Callback functions.
-        **kwargs: Additional keyword arguments to be merged with options.
+    - `type`, the event name
+    - `x`, the x coordinate
+    - `y`, the y coordinate
+    - for draw events, `startTime`
 
     Returns:
         A PlotSpec object representing the events mark.
@@ -477,8 +432,6 @@ def events(options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
 
 def img(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     """
-    Returns a new image mark for the given *values* and *options*.
-
     The image mark renders images on the plot. The **src** option specifies the
     image source, while **x**, **y**, **width**, and **height** define the image's
     position and size in the x/y scales. This differs from the built-in Observable Plot
@@ -493,17 +446,13 @@ def img(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
         A PlotSpec object representing the image mark.
 
     The following options are supported:
-    - src: The source path of the image.
-    - x: The x-coordinate of the top-left corner.
-    - y: The y-coordinate of the top-left corner.
-    - width: The width of the image.
-    - height: The height of the image.
+    - `src`: The source path of the image.
+    - `x`: The x-coordinate of the top-left corner.
+    - `y`: The y-coordinate of the top-left corner.
+    - `width`: The width of the image.
+    - `height`: The height of the image.
     """
     return PlotSpec(MarkSpec("img", values, {**options, **kwargs}))
-
-
-def scaled_circle(x, y, r, **kwargs):
-    return ellipse([[x, y]], r=r, **kwargs)
 
 
 def constantly(x):
@@ -511,7 +460,7 @@ def constantly(x):
     Returns a javascript function which always returns `x`.
 
     Typically used to specify a constant property for all values passed to a mark,
-    eg. plot.dot(values, fill=plot.constantly('My Label')). In this example, the
+    eg. `plot.dot(values, fill=plot.constantly('My Label'))`. In this example, the
     fill color will be assigned (from a color scale) and show up in the color legend.
     """
     x = json.dumps(x)
@@ -519,17 +468,38 @@ def constantly(x):
 
 
 def Grid(*children, **opts):
+    """
+    Creates a responsive grid layout that automatically arranges child elements in a grid pattern.
+
+    The grid adjusts the number of columns based on the available width and minimum width per item.
+    Each item maintains a consistent aspect ratio and spacing between items is controlled by the gap parameter.
+
+    Args:
+        *children: Child elements to arrange in the grid.
+        **opts: Grid options including:
+            - minWidth (int): Minimum width for each grid item in pixels. Default is AUTOGRID_MIN_WIDTH.
+            - gap (str): CSS gap value between grid items. Default is "10px".
+            - aspectRatio (float): Width/height ratio for grid items. Default is 1.
+            - style (dict): Additional CSS styles to apply to grid container.
+
+    Returns:
+        A grid layout component that will be rendered in the JavaScript runtime.
+    """
     return Hiccup(
         JSRef("Grid"),
         {"children": children, **opts},
     )
 
 
+Grid.for_json = lambda: JSRef("Grid")  # allow Grid to be used in hiccup
+
+
 def small_multiples(*specs, **options):
+    """Alias for [[Grid]]"""
     return Grid(*specs, **options)
 
 
-def Histogram(
+def histogram(
     values,
     thresholds=None,
     interval=None,
@@ -547,10 +517,10 @@ def Histogram(
     mark (str): 'rectY' or 'dot'.
     thresholds (str, int, list, or callable, optional): The thresholds option may be specified as a named method or a variety of other ways:
 
-    - 'auto' (default): Scott’s rule, capped at 200.
-    - 'freedman-diaconis': The Freedman–Diaconis rule.
-    - 'scott': Scott’s normal reference rule.
-    - 'sturges': Sturges’ formula.
+    - `auto` (default): Scott’s rule, capped at 200.
+    - `freedman-diaconis`: The Freedman–Diaconis rule.
+    - `scott`: Scott’s normal reference rule.
+    - `sturges`: Sturges’ formula.
     - A count (int) representing the desired number of bins.
     - An array of n threshold values for n - 1 bins.
     - An interval or time interval (for temporal binning).
@@ -572,7 +542,7 @@ def Histogram(
     return rectY(values, binX({"y": "count"}, bin_options)) + ruleY([0]) + layout
 
 
-histogram = Histogram  # Alias for backwards compatibility
+Histogram = histogram
 
 
 def identity():
@@ -604,92 +574,122 @@ def index():
 
 index.for_json = lambda: index()
 
-# The following convenience dicts can be added directly to PlotSpec to declare additional behaviour.
-
 
 def grid(x=True, y=True):
+    """Sets grid lines for x and/or y axes."""
     return {"grid": x and y} if x == y else {"x": {"grid": x}, "y": {"grid": y}}
 
 
 def hideAxis(x=None, y=None):
+    """Sets `{"axis": None}` for specified axes."""
     if x is None and y is None:
         return {"axis": None}
     return {k: {"axis": None} for k in ["x", "y"] if locals()[k] is not None}
 
 
 def colorLegend():
+    """Sets `{"color": {"legend": True}}`."""
     return {"color": {"legend": True}}
 
 
-color_legend = colorLegend
+color_legend = colorLegend  # backwards compat
 
 
 def clip():
+    """Sets `{"clip": True}`."""
     return {"clip": True}
 
 
 def title(title):
+    """Sets `{"title": title}`."""
     return {"title": title}
 
 
 def subtitle(subtitle):
+    """Sets `{"subtitle": subtitle}`."""
     return {"subtitle": subtitle}
 
 
 def caption(caption):
+    """Sets `{"caption": caption}`."""
     return {"caption": caption}
 
 
 def width(width):
+    """Sets `{"width": width}`."""
     return {"width": width}
 
 
 def height(height):
+    """Sets `{"height": height}`."""
     return {"height": height}
 
 
 def size(size, height=None):
+    """Sets width and height, using size for both if height not specified."""
     return {"width": size, "height": height or size}
 
 
 def aspectRatio(r):
+    """Sets `{"aspectRatio": r}`."""
     return {"aspectRatio": r}
 
 
-aspect_ratio = aspectRatio
+aspect_ratio = aspectRatio  # backwards compat
 
 
 def inset(i):
+    """Sets `{"inset": i}`."""
     return {"inset": i}
 
 
 def colorScheme(name):
+    """Sets `{"color": {"scheme": <name>}}`."""
     # See https://observablehq.com/plot/features/scales#color-scales
     return {"color": {"scheme": name}}
 
 
-color_scheme = colorScheme
-
-
 def domainX(d):
+    """Sets `{"x": {"domain": d}}`."""
     return {"x": {"domain": d}}
 
 
 def domainY(d):
+    """Sets `{"y": {"domain": d}}`."""
     return {"y": {"domain": d}}
 
 
 def domain(xd, yd=None):
+    """Sets domain for x and optionally y scales."""
     return {"x": {"domain": xd}, "y": {"domain": yd or xd}}
 
 
 def colorMap(mappings):
-    # these will be merged & so are composable. in plot.js they are
-    # converted to a {color: {domain: [...], range: [...]}} object.
+    """
+    Adds colors to the plot's color_map. More than one colorMap can be specified
+    and colors will be merged. This is a way of dynamically building up a color scale,
+    keeping color definitions colocated with their use. The name used for a color
+    will show up in the color legend, if displayed.
+
+    Colors defined in this way must be used with `Plot.constantly(<name>)`.
+
+    Example:
+
+    ```
+    plot = (
+        Plot.dot(data, fill=Plot.constantly("car"))
+        + Plot.colorMap({"car": "blue"})
+        + Plot.colorLegend()
+    )
+    ```
+
+    In JavaScript, colors provided via `colorMap` are merged into a
+    `{color: {domain: [...], range: [...]}}` object.
+    """
     return {"color_map": mappings}
 
 
-color_map = colorMap
+color_map = colorMap  # backwards compat
 
 
 def margin(*args):
@@ -730,22 +730,8 @@ def margin(*args):
         raise ValueError(f"Invalid number of arguments: {len(args)}")
 
 
-# barX
-# For reference - other options supported by plots
-example_plot_options = {
-    "title": "TITLE",
-    "subtitle": "SUBTITLE",
-    "caption": "CAPTION",
-    "width": "100px",
-    "height": "100px",
-    "grid": True,
-    "inset": 10,
-    "aspectRatio": 1,
-    "style": {"font-size": "100px"},  # css string also works
-    "clip": True,
-}
-
-# dot([[0, 0], [0, 1], [1, 1], [2, 3], [4, 2], [4, 0]])
+md = JSRef("md")
+"""Render a string as Markdown, in a LayoutItem."""
 
 
 def doc(fn):
@@ -811,26 +797,13 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
         return Hiccup(_Frames, {"state_key": key, "frames": frames})
 
 
-_InitialState = JSRef("InitialState")
-
-
-class InitialState(LayoutItem):
-    def __init__(self, refs):
-        self.refs = refs
-
-    def for_json(self):
-        return _InitialState(self.refs)
-
-
 def initial_state(key_or_values, value=None):
     """
     Initializes one or multiple $state variables without returning a value.
 
     Args:
-        key_or_values (Union[str, dict]): Either a single key (str) for one state variable,
-                                          or a dictionary of key-value pairs to initialize multiple state variables.
-        value (Any, optional): Initial value for the variable when a single key is provided.
-                               Ignored if key_or_values is a dictionary.
+        key_or_values (Union[str, dict]): Either a single key (str) for one state variable, or a dictionary of key-value pairs to initialize multiple state variables.
+        value (Any, optional): Initial value for the variable when a single key is provided. Ignored if key_or_values is a dictionary.
 
     Returns:
         InitialState: An InitialState object containing the initialized state variables.
@@ -844,7 +817,7 @@ def initial_state(key_or_values, value=None):
             )
         refs = [RefObject(value, id=key_or_values)]
 
-    return InitialState(refs)
+    return JSCall("InitialState", [refs])
 
 
 _Slider = JSRef("Slider")
@@ -859,6 +832,8 @@ def Slider(
     step=1.0,
     tail=False,
     label=None,
+    show_value=True,
+    show_slider=True,
     visible=True,
     **kwargs,
 ):
@@ -892,6 +867,8 @@ def Slider(
         "tail": tail,
         "label": label,
         "visible": visible,
+        "showValue": show_value,
+        "showSlider": show_slider,
         "kind": "Slider",
         **kwargs,
     }
@@ -899,4 +876,323 @@ def Slider(
     return Hiccup(_Slider, slider_options)
 
 
+renderChildEvents = JSRef("render.childEvents")
+"""
+Creates a render function that adds drag-and-drop and click functionality to child elements of a plot.
+Must be passed as the 'render' option to a mark, e.g.:
+
+    Plot.dot(data, render=Plot.render.childEvents({
+        "onDrag": update_position,
+        "onClick": handle_click
+    }))
+
+This function enhances the rendering of plot elements by adding interactive behaviors
+such as dragging, clicking, and tracking position changes. It's designed to work with
+Observable Plot's rendering pipeline.
+
+Args:
+    options (dict): Configuration options for the child events:
+        - `onDragStart` (callable): Callback function called when dragging starts
+        - `onDrag` (callable): Callback function called during dragging
+        - `onDragEnd` (callable): Callback function called when dragging ends
+        - `onClick` (callable): Callback function called when a child element is clicked
+
+Returns:
+    A render function to be used in the Observable Plot rendering pipeline.
+"""
+
+
 render = JSRef("render")
+bylight = JSRef("Bylight")
+"""Creates a highlighted code block using the [Bylight library](https://mhuebert.github.io/bylight/).
+
+Args:
+    source (str): The source text/code to highlight
+    patterns (list): A list of patterns to highlight. Each pattern can be either:
+        - A string to match literally
+        - A dict with 'match' (required) and 'color' (optional) keys
+    props (dict, optional): Additional properties to pass to the pre element. Defaults to {}.
+
+Example:
+    ```python
+    Plot.bylight('''
+        def hello():
+            print("Hello World!")
+    ''', ["def", "print"])
+    ```
+
+Returns:
+    A Bylight component that renders the highlighted code block.
+"""
+
+Bylight = bylight  # backwards compat
+
+
+class Dimensioned:
+    def __init__(self, value, path):
+        self.value = value
+        self.dimensions = [
+            _rename_key(segment, ..., "key")
+            for segment in path
+            if isinstance(segment, dict)
+        ]
+
+    def shape(self):
+        shape = ()
+        current_value = self.value
+        for dimension in self.dimensions:
+            if "leaves" not in dimension:
+                shape += (len(current_value),)
+                current_value = current_value[0]
+        return shape
+
+    def names(self):
+        return [
+            dimension.get("key", dimension.get("leaves"))
+            for dimension in self.dimensions
+        ]
+
+    def __repr__(self):
+        return f"<Dimensioned shape={self.shape()}, names={self.names()}>"
+
+    def size(self, name):
+        names = self.names()
+        shape = self.shape()
+        if name in names:
+            return shape[names.index(name)]
+        raise ValueError(f"Dimension with name '{name}' not found")
+
+    def flatten(self):
+        # flattens the data in python, rather than js.
+        # currently we are not using/recommending this
+        # but it may be useful later or for debugging.
+        leaf = (
+            self.dimensions[-1]["leaves"]
+            if isinstance(self.dimensions[-1], dict) and "leaves" in self.dimensions[-1]
+            else None
+        )
+        dimensions = self.dimensions[:-1] if leaf else self.dimensions
+
+        def _flatten(value, dims, prefix=None):
+            if not dims:
+                value = {leaf: value} if leaf else value
+                return [prefix | value] if prefix else [value]
+            results = []
+            dim_key = dims[0]["key"]
+            for i, v in enumerate(value):
+                new_prefix = {**prefix, dim_key: i} if prefix else {dim_key: i}
+                results.extend(_flatten(v, dims[1:], new_prefix))
+            return results
+
+        return _flatten(self.value, dimensions)
+
+    def for_json(self):
+        return {"value": self.value, "dimensions": self.dimensions}
+
+
+def dimensions(data, dimensions=[], leaves=None):
+    """
+    Attaches dimension metadata, for further processing in JavaScript.
+    """
+    dimensions = [{"key": d} for d in dimensions]
+    dimensions = [*dimensions, {"leaves": leaves}] if leaves else dimensions
+    return Dimensioned(data, dimensions)
+
+
+# Add this near the top of the file, after the imports
+__all__ = [
+    # ## Interactivity
+    "events",
+    "Frames",
+    "Slider",
+    "renderChildEvents",
+    # ## Layout
+    # Useful for layouts and custom views.
+    # Note that syntax sugar exists for `Column` (`|`) and `Row` (`&`) using operator overloading.
+    # ```
+    # (A & B) | C # A & B on one row, with C below.
+    # ```
+    "Column",
+    "Grid",
+    "Row",
+    "html",
+    "md",
+    # ## JavaScript Interop
+    "js",
+    "ref",
+    # ## Plot: Mark utilities
+    # Useful for constructing arguments to pass to Mark functions.
+    "constantly",
+    "identity",
+    "index",
+    # ## Plot: Marks
+    "area",
+    "areaX",
+    "areaY",
+    "arrow",
+    "auto",
+    "barX",
+    "barY",
+    "boxX",
+    "boxY",
+    "cell",
+    "cellX",
+    "cellY",
+    "circle",
+    "dot",
+    "dotX",
+    "dotY",
+    "image",
+    "line",
+    "lineX",
+    "lineY",
+    "link",
+    "rect",
+    "rectX",
+    "rectY",
+    "ruleX",
+    "ruleY",
+    "spike",
+    "text",
+    "textX",
+    "textY",
+    "vector",
+    "vectorX",
+    "vectorY",
+    "waffleX",
+    "waffleY",
+    # ## Plot: Transforms
+    "bin",
+    "binX",
+    "binY",
+    "bollinger",
+    "bollingerX",
+    "bollingerY",
+    "centroid",
+    "cluster",
+    "density",
+    "differenceX",
+    "differenceY",
+    "dodgeX",
+    "dodgeY",
+    "filter",
+    "find",
+    "group",
+    "groupX",
+    "groupY",
+    "groupZ",
+    "hexbin",
+    "hull",
+    "map",
+    "mapX",
+    "mapY",
+    "normalize",
+    "normalizeX",
+    "normalizeY",
+    "reverse",
+    "select",
+    "selectFirst",
+    "selectLast",
+    "selectMaxX",
+    "selectMaxY",
+    "selectMinX",
+    "selectMinY",
+    "shiftX",
+    "shiftY",
+    "shuffle",
+    "sort",
+    "stackX",
+    "stackX1",
+    "stackX2",
+    "stackY",
+    "stackY1",
+    "stackY2",
+    "transform",
+    "window",
+    "windowX",
+    "windowY",
+    # ## Plot: Axes and grids
+    "axisFx",
+    "axisFy",
+    "axisX",
+    "axisY",
+    "gridFx",
+    "gridFy",
+    "gridX",
+    "gridY",
+    "tickX",
+    "tickY",
+    # ## Plot: Geo features
+    "geo",
+    "geoCentroid",
+    "graticule",
+    "sphere",
+    # ## Plot: Delaunay/Voronoi
+    "delaunayLink",
+    "delaunayMesh",
+    "voronoi",
+    "voronoiMesh",
+    # ## Plot: Trees and networks
+    "tree",
+    "treeLink",
+    "treeNode",
+    # ## Plot: Interactivity
+    "crosshair",
+    "crosshairX",
+    "crosshairY",
+    "pointer",
+    "pointerX",
+    "pointerY",
+    "tip",
+    # ## Plot: Formatting and interpolation
+    "formatIsoDate",
+    "formatMonth",
+    "formatNumber",
+    "formatWeekday",
+    "interpolatorBarycentric",
+    "interpolatorRandomWalk",
+    "numberInterval",
+    "timeInterval",
+    "utcInterval",
+    # ## Plot: Other utilities
+    "new",
+    "frame",
+    "hexagon",
+    "hexgrid",
+    "legend",
+    "linearRegressionX",
+    "linearRegressionY",
+    "raster",
+    "scale",
+    "valueof",
+    # ## Plot: Options Helpers
+    "aspectRatio",
+    "caption",
+    "clip",
+    "colorLegend",
+    "colorMap",
+    "colorScheme",
+    "domain",
+    "domainX",
+    "domainY",
+    "grid",
+    "height",
+    "hideAxis",
+    "inset",
+    "margin",
+    "repeat",
+    "size",
+    "subtitle",
+    "title",
+    "width",
+    # ## Custom plot functions
+    "ellipse",
+    "histogram",
+    "img",
+    "bylight",
+    # ## Utility functions
+    "doc",
+    "initial_state",
+    "get_in",
+    "dimensions",
+]
