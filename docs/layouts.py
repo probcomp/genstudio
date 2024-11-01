@@ -9,30 +9,35 @@ import genstudio.plot as Plot
 # - Arranging items using `&` (row) and `|` (column) operators
 # - Serializing to JSON for rendering via `for_json()`
 #
-# The most common layout items you'll see are Plot marks (eg. `Plot.line`) and `Plot.html`.
+# The most common layout items you'll see are Plot marks (eg. `Plot.line`), `Plot.html`, and `Plot.md`.
 #
 # ## Using & and |
 #
 # Here's a simple example combining two plots into a row:
 
 # %%
-plot1 = Plot.html(
+item1 = Plot.html(
     ["div.bg-blue-200.flex.items-center.justify-center.p-5", "Hello, world."]
 )
-plot2 = Plot.dot([[1, 2], [2, 1]], {"fill": "red"}) + {"height": 200}
+item2 = Plot.dot([[1, 2], [2, 1]], {"fill": "red"}) + {"height": 200}
 
-plot1 & plot2  # Displays plots side-by-side in a row
+item1 & item2  # Displays plots side-by-side in a row
 
 # %% [markdown]
 # We can also combine them in a column:
 # %%
-plot1 | plot2  # Displays plots stacked in a column
+item1 | item2  # Displays plots stacked in a column
 
 # %% [markdown]
 # Or, use both together:
 # %%
-(plot1 & plot2) | Plot.html(
-    ["div.bg-green-300.p-5", "Welcome to layouts in GenStudio!"]
+(item1 & item2) | Plot.html(
+    [
+        "div.bg-green-300.p-5",
+        Plot.md(r"""
+$$\oint_{\partial \Omega} \mathbf{E} \cdot d\mathbf{S} = \frac{1}{\epsilon_0} \int_\Omega \rho \, dV$$
+"""),
+    ]
 )
 
 # %% [markdown]

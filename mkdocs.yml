@@ -16,7 +16,6 @@ theme:
   font:
     text: Crimson Pro
   features:
-    # - navigation.tracking
     - navigation.indexes
     - toc.integrate
     - content.action.edit
@@ -44,6 +43,7 @@ nav:
       - Image Mark: examples/image-mark.py
       - Timelines with barX: examples/barx-timeline.py
       - Highlighting Code: examples/bylight.py
+      - Rendering LaTeX: examples/katex.py
   - Changelog: CHANGELOG.md
 markdown_extensions:
   - admonition

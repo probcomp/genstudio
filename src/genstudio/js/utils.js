@@ -12,9 +12,8 @@ const twindConfig = Twind.defineConfig({
 })
 
 export const tw = Twind.twind(twindConfig, Twind.cssom())
-export const twInstall = Twind.injectGlobal.bind(tw)
-export const twKeyframes = Twind.keyframes.bind(tw)
-
+const twKeyframes = Twind.keyframes.bind(tw)
+const injectGlobal = Twind.injectGlobal.bind(tw)
 export const  html = htm.bind(React.createElement)
 
 export const flatten = (data, dimensions) => {

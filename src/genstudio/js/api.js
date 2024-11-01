@@ -13,38 +13,32 @@ import * as render from "./plot/render";
 import { tw, useContainerWidth } from "./utils";
 const { useState, useEffect, useContext, useMemo, useRef, useCallback } = React
 import Katex from "katex";
+import markdownItKatex from "./markdown-it-katex";
 
 export { render };
-const DEFAULT_GRID_GAP = "10px"
 export const CONTAINER_PADDING = 10;
-
 const KATEX_CSS_URL = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
 
-let katexCssLoaded = false;
-
-async function loadKatexCss() {
-    if (katexCssLoaded) return;
-
+window.katexCssLoaded = false;
+function loadKatexCss() {
+    if (window.katexCssLoaded) return;
+    window.katexCssLoaded = true;
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = KATEX_CSS_URL;
     document.head.appendChild(link);
 
-    katexCssLoaded = true;
 }
 
 export function katex(tex) {
     const containerRef = useRef(null);
-    const [isCssLoaded, setIsCssLoaded] = useState(false);
 
     useEffect(() => {
-        loadKatexCss()
-            .then(() => setIsCssLoaded(true))
-            .catch(error => console.error('Error loading KaTeX CSS:', error));
+        loadKatexCss();
     }, []);
 
     useEffect(() => {
-        if (isCssLoaded && containerRef.current) {
+        if (containerRef.current) {
             try {
                 Katex.render(tex, containerRef.current, {
                     throwOnError: false
@@ -53,11 +47,10 @@ export function katex(tex) {
                 console.error('Error rendering KaTeX:', error);
             }
         }
-    }, [tex, isCssLoaded]);
+    }, [tex]);
 
     return html`<div ref=${containerRef} />`;
 }
-
 
 const MarkdownItInstance = new MarkdownIt({
     html: true,
@@ -65,7 +58,13 @@ const MarkdownItInstance = new MarkdownIt({
     typographer: true
 });
 
+MarkdownItInstance.use(markdownItKatex)
+
 export function md(text) {
+    useEffect(() => {
+        loadKatexCss();
+    }, []);
+
     return html`<div className=${tw("prose")} dangerouslySetInnerHTML=${{ __html: MarkdownItInstance.render(text) }} />`;
 }
 
@@ -217,7 +216,7 @@ export function repeat(data) {
 }
 export { d3, MarkSpec, Plot, PlotSpec, React, ReactDOM };
 
-export function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEFAULT_GRID_GAP, aspectRatio = 1 }) {
+export function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = 2, aspectRatio = 1 }) {
     const [containerRef, containerWidth] = useContainerWidth();
 
     const effectiveMinWidth = Math.min(minWidth, containerWidth);
@@ -231,17 +230,15 @@ export function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = DEF
 
     const containerStyle = {
         display: 'grid',
-        gap,
         gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
         gridAutoRows: `${itemHeight}px`,
-        height: `${layoutHeight}px`,
         width: '100%',
         overflowX: 'auto',
         ...style
     };
 
     return html`
-    <div ref=${containerRef} style=${containerStyle}>
+    <div ref=${containerRef} class=${tw(`gap-${gap}`)} style=${containerStyle}>
         ${children.map((value, index) => html`<${Node} key=${index}
                                                        style=${{ width: itemWidth }}
                                                        value=${value}/>`)}
