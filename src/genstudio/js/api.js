@@ -373,7 +373,9 @@ export function Hiccup(tag, props, ...children) {
     }
 
     let baseTag = tag;
-    if (typeof tag === 'string') {
+    if (tag === "<>") {
+        baseTag = React.Fragment;
+    } else if (typeof tag === 'string') {
         let id, classes
         [baseTag, ...classes] = tag.split('.');
         [baseTag, id] = baseTag.split('#');

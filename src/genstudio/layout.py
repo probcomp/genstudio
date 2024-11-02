@@ -265,17 +265,16 @@ def js(txt: str, *params, expression=True) -> JSCode:
 class Hiccup(LayoutItem):
     """Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
 
-    def __init__(self, *args: Any) -> None:
+    def __init__(self, *hiccup_elements) -> None:
         LayoutItem.__init__(self)
-        if len(args) == 0:
-            self.child = None
-        elif len(args) == 1:
-            self.child = args[0]
-        else:
-            self.child = args
+        self.hiccup_element = (
+            hiccup_elements[0]
+            if len(hiccup_elements) == 1
+            else ["<>", *hiccup_elements]
+        )
 
     def for_json(self) -> Any:
-        return self.child
+        return self.hiccup_element
 
 
 def flatten_layout_items(
@@ -306,7 +305,7 @@ class Row(LayoutItem):
         self.options = options | kwargs
 
     def for_json(self) -> Any:
-        return Hiccup(_Row, self.options, *self.items)
+        return Hiccup([_Row, self.options, *self.items])
 
 
 _Column = JSRef("Column")
@@ -320,7 +319,7 @@ class Column(LayoutItem):
         self.items, self.options = flatten_layout_items(items, Column)
 
     def for_json(self) -> Any:
-        return Hiccup(_Column, self.options, *self.items)
+        return Hiccup([_Column, self.options, *self.items])
 
 
 def unwrap_for_json(x):

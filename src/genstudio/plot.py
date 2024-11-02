@@ -487,8 +487,7 @@ def Grid(*children, **opts):
         A grid layout component that will be rendered in the JavaScript runtime.
     """
     return Hiccup(
-        JSRef("Grid"),
-        {"children": children, **opts},
+        [JSRef("Grid"), {"children": children, **opts}],
     )
 
 
@@ -790,7 +789,7 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
     frames = ref(frames)
     if key is None:
         key = "frame"
-        return Hiccup(_Frames, {"state_key": key, "frames": frames}) | Slider(
+        return Hiccup([_Frames, {"state_key": key, "frames": frames}]) | Slider(
             key,
             rangeFrom=frames,
             tail=tail,
@@ -798,7 +797,7 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
             **opts,
         )
     else:
-        return Hiccup(_Frames, {"state_key": key, "frames": frames})
+        return Hiccup([_Frames, {"state_key": key, "frames": frames}])
 
 
 def initialState(values: dict, sync=None):
@@ -903,7 +902,7 @@ def Slider(
         **kwargs,
     }
 
-    return Hiccup(_Slider, slider_options)
+    return Hiccup([_Slider, slider_options])
 
 
 renderChildEvents = JSRef("render.childEvents")
