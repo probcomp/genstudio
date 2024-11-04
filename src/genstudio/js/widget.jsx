@@ -6,7 +6,7 @@ import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
-import { $StateContext, CONTAINER_PADDING } from "./context";
+import { $StateContext, CONTAINER_PADDING, NodeContext } from "./context";
 import { serializeEvent, useCellUnmounted, useElementWidth, tw } from "./utils";
 
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
@@ -189,15 +189,17 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
 
 export const StateProvider = mobxReact.observer(
   function (data) {
-
     const { ast, initialState, experimental, model } = data
-
     const $state = useMemo(() => createStateStore(data), [])
 
     // a currentAst state field managed by the following useEffect hook,
     // to ensure that an ast is only rendered after $state has been populated
     // with the associated initialState entries.
     const [currentAst, setCurrentAst] = useState(null)
+
+    const renderNode = useCallback((value, props = {}) => {
+      return <api.Node value={value} {...props} />;
+    }, []);
 
     useEffect(() => {
       // when the widget is reset with a new ast/initialState, add missing entries
@@ -224,7 +226,9 @@ export const StateProvider = mobxReact.observer(
 
     return (
       <$StateContext.Provider value={$state}>
-        <api.Node value={currentAst} />
+        <NodeContext.Provider value={renderNode}>
+          <api.Node value={currentAst} />
+        </NodeContext.Provider>
       </$StateContext.Provider>
     );
   }

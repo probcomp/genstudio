@@ -8,6 +8,7 @@ import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as render from "./plot/render";
+import {Grid, Row, Column} from "./layout"
 import { tw, useContainerWidth } from "./utils";
 const { useState, useEffect, useContext, useRef, useCallback } = React
 import Katex from "katex";
@@ -237,100 +238,7 @@ export function repeat(data) {
     return (_, i) => data[i % length]
 
 }
-export { d3, MarkSpec, Plot, PlotSpec, React, ReactDOM };
-
-export function Grid({
-    children,
-    style,
-    minWidth = AUTOGRID_MIN_WIDTH,
-    gap = 1,
-    rowGap,
-    colGap,
-    cols,
-    minCols = 1,
-    maxCols
-}) {
-    const [containerRef, containerWidth] = useContainerWidth();
-
-    // Handle gap values
-    const gapX = colGap ?? gap;
-    const gapY = rowGap ?? gap;
-    const gapClass = `gap-x-${gapX} gap-y-${gapY}`;
-    const gapSize = parseInt(gap); // Keep for width calculations
-
-    // Calculate number of columns
-    let numColumns;
-    if (cols) {
-        numColumns = cols;
-    } else {
-        const effectiveMinWidth = Math.min(minWidth, containerWidth);
-        const autoColumns = Math.floor(containerWidth / effectiveMinWidth);
-        numColumns = Math.max(
-            minCols,
-            maxCols ? Math.min(autoColumns, maxCols) : autoColumns,
-            1
-        );
-        numColumns = Math.min(numColumns, children.length);
-    }
-
-    const itemWidth = (containerWidth - (numColumns - 1) * gapSize) / numColumns;
-
-    const containerStyle = {
-        display: 'grid',
-        gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
-        width: '100%',
-        ...style
-    };
-
-    return (
-        <div ref={containerRef} className={tw(gapClass)} style={containerStyle}>
-            {children.map((value, index) => (
-                <Node key={index}
-                    style={{ width: itemWidth }}
-                    value={value}/>
-            ))}
-        </div>
-    );
-}
-
-export function Row({ children, gap=1, widths, ...props }) {
-    const className = `flex flex-row gap-${gap} ${props.className || props.class || ''}`
-    delete props["className"]
-
-    let flexClasses = []
-    if (widths) {
-        flexClasses = widths.map(w => {
-            if (typeof w === 'string') {
-                return w.includes('/') ? `w-${w}` : `w-[${w}]`
-            }
-            return `flex-[${w}]`
-        })
-    } else {
-        flexClasses = Array(React.Children.count(children)).fill("flex-1")
-    }
-
-    return (
-        <div {...props} className={tw(className)}>
-            {React.Children.map(children, (child, index) => (
-                <div className={tw(flexClasses[index])} key={index}>
-                    {child}
-                </div>
-            ))}
-        </div>
-    );
-}
-
-export function Column({ children, gap=1, ...props }) {
-    return (
-        <div {...props} className={tw(`flex flex-col gap-${gap}`)}>
-            {React.Children.map(children, (child, index) => (
-                <div key={index}>
-                    {child}
-                </div>
-            ))}
-        </div>
-    );
-}
+export { d3, MarkSpec, Plot, PlotSpec, React, ReactDOM, Row, Column, Grid };
 
 export const Node = mobxReact.observer(
     function ({ value }) {
