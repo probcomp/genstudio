@@ -1,11 +1,17 @@
+import os
 import uuid
-from typing import Any, List, Optional, Tuple, Sequence, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 from html2image import Html2Image
 from PIL import Image
 
-from genstudio.util import PARENT_PATH, CONFIG
+from genstudio.util import CONFIG, PARENT_PATH
 from genstudio.widget import Widget, to_json_with_cache
+
+
+def create_parent_dir(path: str) -> None:
+    """Create parent directory if it doesn't exist."""
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
 
 
 def html_snippet(ast, id=None):
@@ -129,20 +135,28 @@ class LayoutItem:
             return self.html()
 
     def save_html(self, path: str) -> None:
+        create_parent_dir(path)
         with open(path, "w") as f:
             f.write(html_standalone(self.for_json()))
         print(f"HTML saved to {path}")
 
     def save_image(self, path, width=500, height=1000):
         # Save image using headless browser
+        create_parent_dir(path)
+
         hti = Html2Image()
         hti.size = (width, height)
-        hti.screenshot(html_str=html_standalone(self.for_json()), save_as=path)
+        hti.output_path = os.path.dirname(os.path.abspath(path))
+
+        hti.screenshot(
+            html_str=html_standalone(self.for_json()), save_as=os.path.basename(path)
+        )
+
         # Crop transparent regions
         img = Image.open(path)
-        content = img.getbbox()
-        img = img.crop(content)
+        img = img.crop(img.getbbox())
         img.save(path)
+
         print(f"Image saved to {path}")
 
     def reset(self, other: "LayoutItem") -> None:
