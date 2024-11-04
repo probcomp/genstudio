@@ -6,7 +6,7 @@ import { $StateContext, AUTOGRID_MIN } from "./context";
 import { events } from "./plot/events";
 import { ellipse } from "./plot/ellipse";
 import { img } from "./plot/img";
-import { binding, flatten, html, tw, useContainerWidth } from "./utils";
+import { binding, flatten, tw, useContainerWidth } from "./utils";
 
 const Marks = {...Plot, ellipse, events, img}
 const { useEffect } = React
@@ -50,7 +50,7 @@ export class PlotSpec {
     }
 
     render() {
-        return html`<${PlotWrapper} spec=${this.spec}/>`;
+        return <PlotWrapper spec={this.spec}/>;
     }
 }
 
@@ -80,7 +80,7 @@ export class MarkSpec {
     }
 
     render() {
-        return html`<${PlotWrapper} spec=${{ marks: [this] }}/>`;
+        return <PlotWrapper spec={{ marks: [this] }}/>;
     }
 
     compute(width) {
@@ -186,7 +186,7 @@ function prepareSpec(spec, containerWidth) {
 
 export function PlotWrapper({spec}) {
     const $state = React.useContext($StateContext)
-    return html`<${PlotView} spec=${spec} $state=${$state} />`
+    return <PlotView spec={spec} $state={$state} />
 }
 export function PlotView ({ spec, $state }) {
         const [ref, width] = useContainerWidth()
@@ -204,7 +204,5 @@ export function PlotView ({ spec, $state }) {
                 })
             }
         }, [spec, width])
-        return html`
-          <div className=${tw('relative')} ref=${ref}></div>
-        `
+        return <div className={tw('relative')} ref={ref}></div>
     }

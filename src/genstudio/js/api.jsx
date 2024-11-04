@@ -1,7 +1,5 @@
 import { $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { MarkSpec, PlotSpec } from "./plot";
-import { html } from "./utils";
-
 import * as Plot from "@observablehq/plot";
 import bylight from "bylight";
 import * as d3 from "d3";
@@ -11,7 +9,7 @@ import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as render from "./plot/render";
 import { tw, useContainerWidth } from "./utils";
-const { useState, useEffect, useContext, useMemo, useRef, useCallback } = React
+const { useState, useEffect, useContext, useRef, useCallback } = React
 import Katex from "katex";
 import markdownItKatex from "./markdown-it-katex";
 
@@ -48,7 +46,7 @@ export function katex(tex) {
         }
     }, [tex]);
 
-    return html`<div ref=${containerRef} />`;
+    return <div ref={containerRef} />;
 }
 
 const MarkdownItInstance = new MarkdownIt({
@@ -62,7 +60,7 @@ MarkdownItInstance.use(markdownItKatex)
 export function md(text) {
     loadKatexCss();
 
-    return html`<div className=${tw("prose")} dangerouslySetInnerHTML=${{ __html: MarkdownItInstance.render(text) }} />`;
+    return <div className={tw("prose")} dangerouslySetInnerHTML={{ __html: MarkdownItInstance.render(text) }} />;
 }
 
 export const Slider = mobxReact.observer(
@@ -126,30 +124,32 @@ export const Slider = mobxReact.observer(
 
         const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
         if (options.visible !== true) return;
-        return html`
-        <div className=${tw("text-base flex flex-col my-2 gap-2 w-full")}>
-          <div className=${tw("flex items-center justify-between")}>
-            <span className=${tw("flex gap-2")}>
-              <label>${label}</label>
-              <span>${showValue && $state[state_key]}</span>
-            </span>
-            ${isAnimated && html`
-              <div onClick=${togglePlayPause} className=${tw("cursor-pointer")}>
-                ${isPlaying ? pauseIcon : playIcon}
-              </div>
-            `}
-          </div>
-          ${showSlider && html`<input
-            type="range"
-            min=${rangeMin}
-            max=${rangeMax}
-            step=${step}
-            value=${sliderValue}
-            onChange=${(e) => handleSliderChange(e.target.value)}
-            className=${tw("w-full outline-none")}
-          />`}
-        </div>
-      `;
+        return (
+            <div className={tw("text-base flex flex-col my-2 gap-2 w-full")}>
+                <div className={tw("flex items-center justify-between")}>
+                    <span className={tw("flex gap-2")}>
+                        <label>{label}</label>
+                        <span>{showValue && $state[state_key]}</span>
+                    </span>
+                    {isAnimated && (
+                        <div onClick={togglePlayPause} className={tw("cursor-pointer")}>
+                            {isPlaying ? pauseIcon : playIcon}
+                        </div>
+                    )}
+                </div>
+                {showSlider && (
+                    <input
+                        type="range"
+                        min={rangeMin}
+                        max={rangeMax}
+                        step={step}
+                        value={sliderValue}
+                        onChange={(e) => handleSliderChange(e.target.value)}
+                        className={tw("w-full outline-none")}
+                    />
+                )}
+            </div>
+        );
     }
 )
 
@@ -179,7 +179,6 @@ export class OnStateChange {
         this.callback = callback
     }
     render() {
-
         const $state = useContext($StateContext);
         useEffect(() => {
             return mobx.autorun(() => {
@@ -190,9 +189,8 @@ export class OnStateChange {
     }
 }
 
-
-const playIcon = html`<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
-const pauseIcon = html`<svg viewBox="0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`;
+const playIcon = <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>;
+const pauseIcon = <svg viewBox="0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>;
 
 export const Frames = mobxReact.observer(
     function (props) {
@@ -200,15 +198,15 @@ export const Frames = mobxReact.observer(
         const $state = useContext($StateContext);
 
         if (!Array.isArray(frames)) {
-            return html`<div className=${tw("text-red-500")}>Error: 'frames' must be an array.</div>`;
+            return <div className={tw("text-red-500")}>Error: 'frames' must be an array.</div>;
         }
 
         const index = $state[state_key];
         if (!Number.isInteger(index) || index < 0 || index >= frames.length) {
-            return html`<div className=${tw("text-red-500")}>Error: Invalid index. $state[${state_key}] (${index}) must be a valid index of the frames array (length: ${frames.length}).</div>`;
+            return <div className={tw("text-red-500")}>Error: Invalid index. $state[{state_key}] ({index}) must be a valid index of the frames array (length: {frames.length}).</div>;
         }
 
-        return html`<${Node} value=${frames[index]} />`;
+        return <Node value={frames[index]} />;
     }
 )
 export class Bylight {
@@ -284,13 +282,15 @@ export function Grid({
         ...style
     };
 
-    return html`
-    <div ref=${containerRef} class=${tw(gapClass)} style=${containerStyle}>
-        ${children.map((value, index) => html`<${Node} key=${index}
-                                                       style=${{ width: itemWidth }}
-                                                       value=${value}/>`)}
-      </div>
-  `;
+    return (
+        <div ref={containerRef} className={tw(gapClass)} style={containerStyle}>
+            {children.map((value, index) => (
+                <Node key={index}
+                    style={{ width: itemWidth }}
+                    value={value}/>
+            ))}
+        </div>
+    );
 }
 
 export function Row({ children, gap=1, widths, ...props }) {
@@ -309,27 +309,27 @@ export function Row({ children, gap=1, widths, ...props }) {
         flexClasses = Array(React.Children.count(children)).fill("flex-1")
     }
 
-    return html`
-    <div ...${props} className=${tw(className)}>
-      ${React.Children.map(children, (child, index) => html`
-        <div className=${tw(flexClasses[index])} key=${index}>
-          ${child}
+    return (
+        <div {...props} className={tw(className)}>
+            {React.Children.map(children, (child, index) => (
+                <div className={tw(flexClasses[index])} key={index}>
+                    {child}
+                </div>
+            ))}
         </div>
-      `)}
-    </div>
-  `;
+    );
 }
 
 export function Column({ children, gap=1, ...props }) {
-    return html`
-    <div ...${props} className=${tw(`flex flex-col gap-${gap}`)}>
-    ${React.Children.map(children, (child, index) => html`
-        <div key=${index}>
-          ${child}
+    return (
+        <div {...props} className={tw(`flex flex-col gap-${gap}`)}>
+            {React.Children.map(children, (child, index) => (
+                <div key={index}>
+                    {child}
+                </div>
+            ))}
         </div>
-      `)}
-    </div>
-  `;
+    );
 }
 
 export const Node = mobxReact.observer(
@@ -344,9 +344,11 @@ export const Node = mobxReact.observer(
             if (elementType === 'string' || elementType === 'function' || (typeof maybeElement === 'object' && maybeElement !== null && "$$typeof" in maybeElement)) {
                 return Hiccup(maybeElement, ...args)
             } else {
-                return html`<${React.Fragment} children=${value.map(item =>
-                    typeof item !== 'object' || item === null ? item : html`<${Node} value=${item} />`
-                )} />`;
+                return <React.Fragment>
+                    {value.map(item =>
+                        typeof item !== 'object' || item === null ? item : <Node value={item} />
+                    )}
+                </React.Fragment>;
             }
         }
         const evaluatedValue = $state.evaluate(value)
@@ -395,8 +397,8 @@ export function Hiccup(tag, props, ...children) {
     }
 
     return children.length > 0
-        ? html`<${baseTag} ...${props}>
-            ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
-          </>`
-        : html`<${baseTag} ...${props} />`;
+        ? React.createElement(baseTag, props,
+            ...children.map((child, index) => <Node key={index} value={child}/>)
+          )
+        : React.createElement(baseTag, props);
 }

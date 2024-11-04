@@ -7,7 +7,7 @@ import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
 import { $StateContext, CONTAINER_PADDING } from "./context";
-import { html, serializeEvent, useCellUnmounted, useElementWidth, tw } from "./utils";
+import { serializeEvent, useCellUnmounted, useElementWidth, tw } from "./utils";
 
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;
@@ -222,11 +222,11 @@ export const StateProvider = mobxReact.observer(
 
     if (!currentAst) return;
 
-    return html`
-    <${$StateContext.Provider} value=${$state}>
-      <${api.Node} value=${currentAst} />
-    </${$StateContext.Provider}>
-  `;
+    return (
+      <$StateContext.Provider value={$state}>
+        <api.Node value={currentAst} />
+      </$StateContext.Provider>
+    );
   }
 )
 
@@ -242,12 +242,12 @@ function DataViewer(data) {
 
   const adjustedWidth = width ? width - CONTAINER_PADDING : undefined;
 
-  return html`
-      <div className="genstudio-container" style=${{ "padding": CONTAINER_PADDING }} ref=${elRef}>
-        ${el && html`<${StateProvider} ...${data}/>`}
-        ${data.size && data.dev && html`<div className=${tw("text-xl p-3")}>${data.size}</div>`}
-      </div>
-  `;
+  return (
+    <div className="genstudio-container" style={{ "padding": CONTAINER_PADDING }} ref={elRef}>
+      {el && <StateProvider {...data}/>}
+      {data.size && data.dev && <div className={tw("text-xl p-3")}>{data.size}</div>}
+    </div>
+  );
 }
 
 function estimateJSONSize(jsonString) {
@@ -267,8 +267,6 @@ function estimateJSONSize(jsonString) {
   }
 }
 
-
-
 function Viewer({ jsonString, ...data }) {
   const parsedData = useMemo(() => {
     if (jsonString) {
@@ -281,7 +279,7 @@ function Viewer({ jsonString, ...data }) {
     }
     return data;
   }, [jsonString]);
-  return html`<${DataViewer} ...${parsedData} />`;
+  return <DataViewer {...parsedData} />;
 }
 
 function parseJSON(jsonString) {
@@ -341,56 +339,56 @@ function FileViewer() {
     reader.readAsText(file);
   };
 
-  return html`
-    <div className=${tw("p-3")}>
+  return (
+    <div className={tw("p-3")}>
       <div
-        className=${tw(`border-2 border-dashed rounded-lg p-5 text-center ${dragActive ? 'border-blue-500' : 'border-gray-300'}`)}
-        onDragEnter=${handleDrag}
-        onDragLeave=${handleDrag}
-        onDragOver=${handleDrag}
-        onDrop=${handleDrop}
+        className={tw(`border-2 border-dashed rounded-lg p-5 text-center ${dragActive ? 'border-blue-500' : 'border-gray-300'}`)}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
       >
-        <label htmlFor="file-upload" className=${tw("text-sm inline-block px-3 py-2 mb-2 text-white bg-blue-600 rounded-full cursor-pointer hover:bg-blue-700")}>
+        <label htmlFor="file-upload" className={tw("text-sm inline-block px-3 py-2 mb-2 text-white bg-blue-600 rounded-full cursor-pointer hover:bg-blue-700")}>
           Choose a JSON file
         </label>
         <input
           type="file"
           id="file-upload"
           accept=".json"
-          onChange=${handleChange}
-          className=${tw("hidden")}
+          onChange={handleChange}
+          className={tw("hidden")}
         />
-        <p className=${tw("text-sm text-gray-600")}>or drag and drop a JSON file here</p>
+        <p className={tw("text-sm text-gray-600")}>or drag and drop a JSON file here</p>
       </div>
-      ${data && html`
-        <div className=${tw("mt-4")}>
-          <h2 className=${tw("text-lg mb-3")}>Loaded JSON Data:</h2>
-          <${Viewer} ...${data} />
+      {data && (
+        <div className={tw("mt-4")}>
+          <h2 className={tw("text-lg mb-3")}>Loaded JSON Data:</h2>
+          <Viewer {...data} />
         </div>
-      `}
+      )}
     </div>
-  `;
+  );
 }
 
 function AnyWidgetApp() {
   let [jsonString] = useModelState("data");
   const experimental = useExperimental();
   const model = useModel();
-  return html`<${Viewer} ...${{ jsonString, experimental, model }} />`;
+  return <Viewer jsonString={jsonString} experimental={experimental} model={model} />;
 }
 
 export const renderData = (element, data) => {
   const root = ReactDOM.createRoot(element);
   if (typeof data === 'string') {
-    root.render(html`<${Viewer} jsonString=${data} />`);
+    root.render(<Viewer jsonString={data} />);
   } else {
-    root.render(html`<${Viewer} ...${data} />`);
+    root.render(<Viewer {...data} />);
   }
 };
 
 export const renderFile = (element) => {
   const root = ReactDOM.createRoot(element);
-  root.render(html`<${FileViewer} />`);
+  root.render(<FileViewer />);
 };
 
 export default {

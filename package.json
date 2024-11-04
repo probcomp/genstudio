@@ -27,7 +27,6 @@
     "bylight": "^1.0.5",
     "d3": "^7.9.0",
     "esbuild-plugin-import-map": "^2.1.0",
-    "htm": "^3.1.1",
     "katex": "^0.16.11",
     "markdown-it": "^14.1.0",
     "mobx": "^6.13.1",

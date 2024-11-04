@@ -6,7 +6,7 @@ const args = process.argv.slice(2);
 const watch = args.includes('--watch');
 
 const options = {
-  entryPoints: ['src/genstudio/js/widget.js'],
+  entryPoints: ['src/genstudio/js/widget.jsx'],
   bundle: true,
   format: 'esm',
   outfile: 'src/genstudio/js/widget_build.js',
