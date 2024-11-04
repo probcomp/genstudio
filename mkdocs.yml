@@ -38,6 +38,7 @@ nav:
     - HTML with Hiccup: learn-more/hiccup.py
     - Python Event Loops: learn-more/python-event-loop.py
     - Compare with Observable Plot: learn-more/vs-observable.py
+    - Save / Export Images: learn-more/save-as-image.py
   - Examples:
       - Ellipse Mark: examples/ellipse-mark.py
       - Histogram Mark: examples/histogram-mark.py
