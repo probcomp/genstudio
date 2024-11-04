@@ -106,3 +106,22 @@ import random
     + Plot.colorLegend()
     + {"width": 400, "height": 400, "aspectRatio": 1}
 )
+
+
+# %% [markdown]
+# ### Using RGB(A) Colors
+#
+# You can specify colors using RGB or RGBA values by specifying color channel value as CSS rgb/rgba syntax: `"rgb(255, 0, 0)"` or `"rgba(255, 0, 0, 0.5)"`. For example:
+
+# %%
+x = [0, 1, 2, 3, 4]
+y = [0, 1, 2, 3, 4]
+colors = [
+    (255, 0, 0),  # Red
+    (0, 255, 0),  # Green
+    (0, 0, 255),  # Blue
+    (255, 255, 0),  # Yellow
+    (255, 0, 255),  # Magenta
+]
+
+Plot.dot({"x": x, "y": y, "fill": [f"rgb({r}, {g}, {b})" for (r, g, b) in colors]})
