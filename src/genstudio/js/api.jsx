@@ -268,10 +268,14 @@ export const Node = mobxReact.observer(
     }
 )
 
+function isProps(props) {
+    return props?.constructor === Object && !props.__type__ && !React.isValidElement(props);
+}
+
 export function Hiccup(tag, props, ...children) {
     const $state = useContext($StateContext)
 
-    if (props?.constructor !== Object || props.__type__ || React.isValidElement(props)) {
+    if (!isProps(props)) {
         children.unshift(props);
         props = {};
     }

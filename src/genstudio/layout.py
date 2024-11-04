@@ -297,7 +297,18 @@ _Row = JSRef("Row")
 
 
 class Row(LayoutItem):
-    "Render children in a row."
+    """Render children in a row.
+
+    Args:
+        *items: Items to render in the row
+        **kwargs: Additional options including:
+            widths: List of flex sizes for each child. Can be:
+                - Numbers for flex ratios (e.g. [1, 2] means second item is twice as wide)
+                - Strings with fractions (e.g. ["1/2", "1/2"] for equal halves)
+                - Strings with explicit sizes (e.g. ["100px", "200px"])
+            gap: Gap size between items (default: 1)
+            className: Additional CSS classes
+    """
 
     def __init__(self, *items: Any, **kwargs):
         super().__init__()
@@ -312,11 +323,23 @@ _Column = JSRef("Column")
 
 
 class Column(LayoutItem):
-    """Render children in a column."""
+    """Render children in a column.
 
-    def __init__(self, *items: Any):
+    Args:
+        *items: Items to render in the column
+        **kwargs: Additional options including:
+            heights: List of flex sizes for each child. Can be:
+                - Numbers for flex ratios (e.g. [1, 2] means second item is twice as tall)
+                - Strings with fractions (e.g. ["1/2", "1/2"] for equal halves)
+                - Strings with explicit sizes (e.g. ["100px", "200px"])
+            gap: Gap size between items (default: 1)
+            className: Additional CSS classes
+    """
+
+    def __init__(self, *items: Any, **kwargs):
         super().__init__()
-        self.items, self.options = flatten_layout_items(items, Column)
+        self.items, options = flatten_layout_items(items, Column)
+        self.options = options | kwargs
 
     def for_json(self) -> Any:
         return Hiccup([_Column, self.options, *self.items])

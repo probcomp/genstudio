@@ -90,7 +90,7 @@ Plot.Column(
 )
 
 # %% [markdown]
-# The `widths` option in Plot.Row allows you to specify the width of each child element:
+# The `widths` option in `Plot.Row` allows you to specify the width of each child element:
 # - Numbers like `1` or `3` are treated as flex grow values, determining how remaining space is distributed
 # - String values like `"30px"` set fixed pixel widths
 # - String values like `"1/2"` set fractional widths
@@ -102,4 +102,27 @@ Plot.Column(
 # - The fourth element gets 2 part of the remaining space
 
 # %%
-Plot.Row(1, 2, 3, 4, widths=["1/2", "30px", 1, 3])
+Plot.Row(
+    Plot.html(["div.bg-red-200.p-5", "half width"]),
+    Plot.html(["div.bg-orange-200.p-5", "70px"]),
+    Plot.html(["div.bg-yellow-200.p-5", "flex-1"]),
+    Plot.html(["div.bg-green-200.p-5", "flex-2"]),
+    widths=["1/2", "70px", 1, 2],
+    height="200px",
+)
+
+# %% [markdown]
+# The `heights` option of `Plot.Column` works the same way:
+
+# %%
+import genstudio.plot as Plot
+
+Plot.Column(
+    Plot.html(["div.bg-red-200.p-2", "1/2 height"]),
+    Plot.html(["div.bg-orange-200.p-2", "70px"]),
+    Plot.html(["div.bg-yellow-200.p-2", "1 flex"]),
+    Plot.html(["div.bg-green-200.p-2", "2 flex"]),
+    heights=["1/2", "70px", 1, 2],
+    height="400px",
+    width="400px",
+) & ["div.flex.items-center.justify-center.h-full", "Hello, world."]
