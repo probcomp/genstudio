@@ -6,7 +6,7 @@ import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
-import { $StateContext, CONTAINER_PADDING, NodeContext } from "./context";
+import { $StateContext, CONTAINER_PADDING } from "./context";
 import { serializeEvent, useCellUnmounted, useElementWidth, tw } from "./utils";
 
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
@@ -226,9 +226,7 @@ export const StateProvider = mobxReact.observer(
 
     return (
       <$StateContext.Provider value={$state}>
-        <NodeContext.Provider value={renderNode}>
-          <api.Node value={currentAst} />
-        </NodeContext.Provider>
+        <api.Node value={currentAst} />
       </$StateContext.Provider>
     );
   }

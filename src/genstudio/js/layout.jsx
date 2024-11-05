@@ -1,8 +1,55 @@
 import * as React from "react";
-import { useContext } from "react";
-import { NodeContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
+import { AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { tw, useContainerWidth } from "./utils";
 
+/**
+ * Converts width values into CSS grid-compatible values.
+ * @param {number|string} width - The width value to convert
+ * @returns {string} CSS grid-compatible width value
+ */
+function getGridValue(width) {
+  if (typeof width === "number") {
+    return `${width}fr`;
+  }
+  if (typeof width === "string") {
+    if (width.includes("/")) {
+      const [num, denom] = width.split("/");
+      return `${(Number(num) / Number(denom)) * 100}%`;
+    }
+    return width;
+  }
+  return width;
+}
+
+/**
+ * Joins CSS class names, filtering out falsy values.
+ * @param {...string} classes - Class names to join
+ * @returns {string} Combined class names string
+ */
+function joinClasses(...classes) {
+  let result = classes[0] || "";
+  for (let i = 1; i < classes.length; i++) {
+    if (classes[i]) result += " " + classes[i];
+  }
+  return result;
+}
+
+/**
+ * A responsive grid layout component that automatically arranges children in a grid.
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child elements to arrange in the grid
+ * @param {Object} [props.style] - Additional CSS styles
+ * @param {number} [props.minWidth=165] - Minimum width for auto-calculated columns
+ * @param {number} [props.gap=1] - Grid gap size (applies to both row and column gaps)
+ * @param {number} [props.rowGap] - Vertical gap between rows
+ * @param {number} [props.colGap] - Horizontal gap between columns
+ * @param {number} [props.cols] - Fixed number of columns
+ * @param {number} [props.minCols=1] - Minimum number of columns
+ * @param {number} [props.maxCols] - Maximum number of columns
+ * @param {Array<number|string>} [props.widths] - Array of column widths
+ * @param {Array<number|string>} [props.heights] - Array of row heights
+ * @param {string} [props.height] - Container height
+ */
 export function Grid({
   children,
   style,
@@ -13,17 +60,18 @@ export function Grid({
   cols,
   minCols = 1,
   maxCols,
+  widths,
+  heights,
+  height,
 }) {
   const [containerRef, containerWidth] = useContainerWidth();
-  const renderNode = useContext(NodeContext);
 
   // Handle gap values
   const gapX = colGap ?? gap;
   const gapY = rowGap ?? gap;
   const gapClass = `gap-x-${gapX} gap-y-${gapY}`;
-  const gapSize = parseInt(gap); // Keep for width calculations
 
-  // Calculate number of columns
+  // Calculate number of columns if not explicitly set
   let numColumns;
   if (cols) {
     numColumns = cols;
@@ -35,42 +83,51 @@ export function Grid({
       maxCols ? Math.min(autoColumns, maxCols) : autoColumns,
       1
     );
-    numColumns = Math.min(numColumns, children.length);
+    numColumns = Math.min(numColumns, React.Children.count(children));
   }
 
-  const itemWidth = (containerWidth - (numColumns - 1) * gapSize) / numColumns;
+  const gridCols = widths
+    ? `grid-cols-[${widths.map(getGridValue).join('_')}]`
+    : `grid-cols-${numColumns}`;
+
+  const gridRows = heights
+    ? `grid-rows-[${heights.map(getGridValue).join('_')}]`
+    : 'grid-rows-[auto]';
 
   const containerStyle = {
-    display: "grid",
-    gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
     width: "100%",
     ...style,
   };
 
+  const classes = joinClasses(
+    "grid",
+    gridCols,
+    gridRows,
+    gapClass,
+    height && `h-[${height}]`
+  );
+
   return (
-    <div ref={containerRef} className={tw(gapClass)} style={containerStyle}>
-      {children.map((value, index) =>
-        renderNode(value, { key: index, style: { width: itemWidth } })
-      )}
+    <div
+      ref={containerRef}
+      className={tw(classes)}
+      style={containerStyle}
+    >
+      {React.Children.map(children, (child) => child)}
     </div>
   );
 }
 
-function getFlexClass(prefix, size) {
-  if (typeof size === "string") {
-    return size.includes("/") ? `${prefix}-${size}` : `${prefix}-[${size}]`;
-  }
-  return `flex-[${size}]`;
-}
-
-function joinClasses(...classes) {
-  let result = classes[0] || "";
-  for (let i = 1; i < classes.length; i++) {
-    if (classes[i]) result += " " + classes[i];
-  }
-  return result;
-}
-
+/**
+ * A component that arranges children in a horizontal row using CSS Grid.
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child elements to arrange in the row
+ * @param {number} [props.gap=1] - Gap between row items
+ * @param {Array<number|string>} [props.widths] - Array of column widths
+ * @param {string} [props.height] - Container height
+ * @param {string} [props.width] - Container width
+ * @param {string} [props.className] - Additional CSS classes
+ */
 export function Row({
   children,
   gap = 1,
@@ -80,28 +137,37 @@ export function Row({
   className,
   ...props
 }) {
-  const renderNode = useContext(NodeContext);
+
+  const gridCols = widths
+    ? `grid-cols-[${widths.map(getGridValue).join('_')}]`
+    : `grid-cols-[${Array(React.Children.count(children)).fill('auto').join('_')}]`;
+
   const classes = joinClasses(
-    "flex flex-row",
+    "grid",
     gap && `gap-${gap}`,
     height && `h-[${height}]`,
     width && `w-[${width}]`,
+    gridCols,
     className
   );
 
-  const flexClasses = widths ? widths.map(w => getFlexClass("w", w)) : null;
-
   return (
     <div {...props} className={tw(classes)}>
-      {React.Children.map(children, (child, index) => (
-        <div className={flexClasses && tw(flexClasses[index])} key={index}>
-          {renderNode(child)}
-        </div>
-      ))}
+      {React.Children.map(children, (child) => child)}
     </div>
   );
 }
 
+/**
+ * A component that arranges children in a vertical column using CSS Grid.
+ * @param {Object} props
+ * @param {React.ReactNode} props.children - Child elements to arrange in the column
+ * @param {number} [props.gap=1] - Gap between column items
+ * @param {Array<number|string>} [props.heights] - Array of row heights
+ * @param {string} [props.height] - Container height
+ * @param {string} [props.width] - Container width
+ * @param {string} [props.className] - Additional CSS classes
+ */
 export function Column({
   children,
   gap = 1,
@@ -111,24 +177,24 @@ export function Column({
   className,
   ...props
 }) {
-  const renderNode = useContext(NodeContext);
+
+
+  const gridRows = heights
+    ? `grid-rows-[${heights.map(getGridValue).join('_')}]`
+    : `grid-rows-[${Array(React.Children.count(children)).fill('auto').join('_')}]`;
+
   const classes = joinClasses(
-    "flex flex-col",
+    "grid",
     gap && `gap-${gap}`,
     height ? `h-[${height}]` : 'h-full',
     width && `w-[${width}]`,
+    gridRows,
     className
   );
 
-  const flexClasses = heights ? heights.map(h => getFlexClass("h", h)) : null;
-
   return (
     <div {...props} className={tw(classes)}>
-      {React.Children.map(children, (child, index) => (
-        <div key={index} className={flexClasses && tw(flexClasses[index])}>
-          {renderNode(child)}
-        </div>
-      ))}
+      {React.Children.map(children, (child) => child)}
     </div>
   );
 }

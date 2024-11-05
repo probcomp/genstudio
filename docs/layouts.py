@@ -42,7 +42,20 @@ $$\oint_{\partial \Omega} \mathbf{E} \cdot d\mathbf{S} = \frac{1}{\epsilon_0} \i
 
 # %% [markdown]
 # ## Plot.Grid
-# `Plot.Grid` accepts any number of children and automatically lays them out in a grid based on a minimum width (default: 165px), overridable using the `minWidth` keyword argument.
+# A responsive grid layout component that automatically arranges children in a grid.
+#
+# Key options:
+# - `minWidth`: Minimum width for auto-calculated columns (default: 165px)
+# - `gap`: Grid gap size that applies to both row and column gaps (default: 1)
+# - `rowGap`: Vertical gap between rows (overrides `gap`)
+# - `colGap`: Horizontal gap between columns (overrides `gap`)
+# - `cols`: Fixed number of columns (by default, columns are calculated based on container width)
+# - `minCols`: Minimum number of columns (default: 1)
+# - `maxCols`: Maximum number of columns
+# - `widths`: Array of column widths
+# - `heights`: Array of row heights
+# - `height`: Container height
+# - `style`: Additional CSS styles
 
 # %%
 Plot.Grid(
@@ -57,13 +70,7 @@ Plot.Grid(
 )
 
 # %% [markdown]
-# `Plot.Grid` accepts several options to control the layout:
-# - `gap`: Sets both horizontal and vertical spacing between items (default: 1)
-# - `rowGap`: Vertical spacing between rows, overrides `gap`
-# - `colGap`: Horizontal spacing between columns, overrides `gap`
-# - `cols`: Fixed number of columns (by default, columns are calculated based on container width)
-# - `minCols`: Minimum number of columns (default: 1)
-# - `maxCols`: Maximum number of columns
+# Here's an example using some of the grid options:
 
 # %%
 Plot.Grid(
@@ -75,6 +82,22 @@ Plot.Grid(
     colGap=8,
     cols=2,
 )
+
+# %% [markdown]
+# Here's an example specifying both widths and heights:
+
+# %%
+Plot.Grid(
+    Plot.html(["div.bg-red-200.p-5", "A"]),
+    Plot.html(["div.bg-orange-200.p-5", "B"]),
+    Plot.html(["div.bg-yellow-200.p-5", "C"]),
+    Plot.html(["div.bg-green-200.p-5", "D"]),
+    widths=["2fr", "1fr"],
+    heights=["100px", "200px"],
+    height="300px",
+    gap=4,
+)
+
 # %% [markdown]
 # ## Plot.Row and Plot.Column
 # `&` and `|` are implemented on top of `Plot.Row` and `Plot.Column`, which can also be used directly:
@@ -125,4 +148,10 @@ Plot.Column(
     heights=["1/2", "70px", 1, 2],
     height="400px",
     width="400px",
-) & ["div.flex.items-center.justify-center.h-full", "Hello, world."]
+) & ["div.flex.items-center", "Hello, world."]
+
+# %% [markdown]
+# Hint: to use primitives with `&` or `|`, wrap the first value in `Plot.html(...)`.
+
+# %%
+Plot.html("Hello") & "World"

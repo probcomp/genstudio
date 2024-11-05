@@ -5,9 +5,10 @@ from typing import Any, Dict, List, Union
 
 import genstudio.plot_defs as plot_defs
 from genstudio.layout import (
+    Column,
     Listener,
     Ref,
-    Column,
+    Grid,
     Hiccup,
     JSCall,
     JSRef,
@@ -466,32 +467,6 @@ def constantly(x):
     """
     x = json.dumps(x)
     return js(f"()=>{x}")
-
-
-def Grid(*children, **opts):
-    """
-    Creates a responsive grid layout that automatically arranges child elements in a grid pattern.
-
-    The grid adjusts the number of columns based on the available width and minimum width per item.
-    Each item maintains a consistent aspect ratio and spacing between items is controlled by the gap parameter.
-
-    Args:
-        *children: Child elements to arrange in the grid.
-        **opts: Grid options including:
-            - minWidth (int): Minimum width for each grid item in pixels. Default is AUTOGRID_MIN_WIDTH.
-            - gap (str): CSS gap value between grid items. Default is "10px".
-            - aspectRatio (float): Width/height ratio for grid items. Default is 1.
-            - style (dict): Additional CSS styles to apply to grid container.
-
-    Returns:
-        A grid layout component that will be rendered in the JavaScript runtime.
-    """
-    return Hiccup(
-        [JSRef("Grid"), {"children": children, **opts}],
-    )
-
-
-Grid.for_json = lambda: JSRef("Grid")  # allow Grid to be used in hiccup
 
 
 def small_multiples(*specs, **options):
