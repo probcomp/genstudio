@@ -162,12 +162,15 @@ export function readMark(mark, width) {
     return [mark, ...extraMarks]
 }
 
-function prepareSpec(spec, containerWidth) {
+function prepareSpec(spec, containerWidth, containerHeight) {
     const marks = spec.marks.flatMap((m) => readMark(m, containerWidth))
     spec = {...spec,
             width: spec.width ?? containerWidth,
             ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
             marks: marks
+    }
+    if (!spec.height && containerHeight && !spec.aspectRatio) {
+        spec.height = containerHeight
     }
 
     if (spec.color_map) {
@@ -192,9 +195,9 @@ export function PlotView ({ spec, $state }) {
         const [ref, width] = useContainerWidth()
         useEffect(() => {
             const parent = ref.current
-            if (parent && width > 0) {
+            if (parent && width) {
                 return mobx.autorun(() => {
-                    const preparedSpec = prepareSpec(spec, width)
+                    const preparedSpec = prepareSpec(spec, width, ref.current.clientHeight)
                     const startTime = performance.now();
                     const plot = binding("$state", $state, () => Plot.plot(preparedSpec));
                     const endTime = performance.now();
