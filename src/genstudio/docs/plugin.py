@@ -42,11 +42,12 @@ class APIDocPlugin(BasePlugin):
             source_path = inspect.getfile(module)
             full_output_path = Path(getattr(config, "docs_dir")) / output_path
 
-            # Only regenerate docs if source file is newer than output file
-            # or if output file doesn't exist
-            should_generate = not full_output_path.exists() or os.path.getmtime(
-                source_path
-            ) > os.path.getmtime(full_output_path)
+            # Generate docs if output doesn't exist or source is newer
+            should_generate = True
+            if full_output_path.exists():
+                should_generate = os.path.getmtime(source_path) > os.path.getmtime(
+                    full_output_path
+                )
 
             if should_generate:
                 # Initialize the loader with Google docstring parser
