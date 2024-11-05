@@ -1,5 +1,4 @@
 import datetime
-import orjson
 import uuid
 
 from typing import Any, Iterable, Callable, Dict
@@ -23,7 +22,7 @@ class CollectedState:
             self.syncedKeys.add(state_key)
         if state_key not in self.initialStateJSON:
             self.initialState[state_key] = value
-            self.initialStateJSON[state_key] = orjson.Fragment(to_json(value, **kwargs))
+            self.initialStateJSON[state_key] = to_json(value, **kwargs)
         return {"__type__": "ref", "state_key": state_key}
 
     def add_listeners(self, listeners):
@@ -36,52 +35,68 @@ class CollectedState:
 
 
 def to_json(data, collected_state=None, widget=None):
-    def default(obj):
-        if collected_state is not None:
-            if hasattr(obj, "_state_key"):
-                return collected_state.state_entry(
-                    state_key=obj._state_key,
-                    value=obj.for_json(),
-                    sync=getattr(obj, "_state_sync", False),
-                    widget=widget,
-                    collected_state=collected_state,
-                )
-            if hasattr(obj, "_state_listeners"):
-                return collected_state.add_listeners(obj._state_listeners)
-        if hasattr(obj, "for_json"):
-            return obj.for_json()
-        if hasattr(obj, "tolist"):
-            return obj.tolist()
-        if isinstance(obj, Iterable):
-            # Check if the iterable might be exhaustible
-            if not hasattr(obj, "__len__") and not hasattr(obj, "__getitem__"):
-                print(
-                    f"Warning: Potentially exhaustible iterator encountered: {type(obj).__name__}"
-                )
-            return list(obj)
-        elif isinstance(obj, (datetime.date, datetime.datetime)):
-            return {"__type__": "datetime", "value": obj.isoformat()}
-        elif callable(obj):
-            if widget is not None:
-                id = str(uuid.uuid4())
-                widget.callback_registry[id] = obj
-                return {"__type__": "callback", "id": id}
-            return None
-        else:
-            raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+    # Handle basic JSON-serializable types first since they're most common
+    if isinstance(data, (str, int, float, bool)):
+        return data
 
-    return orjson.dumps(data, default=default).decode("utf-8")
+    # Handle None case
+    if data is None:
+        return None
+
+    # Handle datetime objects early since isinstance check is fast
+    if isinstance(data, (datetime.date, datetime.datetime)):
+        return {"__type__": "datetime", "value": data.isoformat()}
+
+    # Handle state-related objects
+    if collected_state is not None:
+        if hasattr(data, "_state_key"):
+            return collected_state.state_entry(
+                state_key=data._state_key,
+                value=data.for_json(),
+                sync=getattr(data, "_state_sync", False),
+                widget=widget,
+                collected_state=collected_state,
+            )
+        if hasattr(data, "_state_listeners"):
+            return collected_state.add_listeners(data._state_listeners)
+
+    # Handle objects with custom serialization
+    if hasattr(data, "for_json"):
+        return to_json(data.for_json(), collected_state=collected_state, widget=widget)
+    if hasattr(data, "tolist"):
+        return data.tolist()
+
+    # Handle containers
+    if isinstance(data, dict):
+        return {k: to_json(v, collected_state, widget) for k, v in data.items()}
+    if isinstance(data, (list, tuple)):
+        return [to_json(x, collected_state, widget) for x in data]
+    if isinstance(data, Iterable):
+        if not hasattr(data, "__len__") and not hasattr(data, "__getitem__"):
+            print(
+                f"Warning: Potentially exhaustible iterator encountered: {type(data).__name__}"
+            )
+        return [to_json(x, collected_state, widget) for x in data]
+
+    # Handle callable objects
+    if callable(data):
+        if widget is not None:
+            id = str(uuid.uuid4())
+            widget.callback_registry[id] = data
+            return {"__type__": "callback", "id": id}
+        return None
+
+    # Raise error for unsupported types
+    raise TypeError(f"Object of type {type(data)} is not JSON serializable")
 
 
 def to_json_with_initialState(ast: Any, widget: "Widget | None" = None):
     collected_state = CollectedState()
-    astJSON = orjson.Fragment(
-        to_json(ast, widget=widget, collected_state=collected_state)
-    )
+    ast = to_json(ast, widget=widget, collected_state=collected_state)
 
     json = to_json(
         {
-            "ast": astJSON,
+            "ast": ast,
             "initialState": collected_state.initialStateJSON,
             "syncedKeys": collected_state.syncedKeys,
             **CONFIG,

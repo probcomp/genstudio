@@ -197,10 +197,6 @@ export const StateProvider = mobxReact.observer(
     // with the associated initialState entries.
     const [currentAst, setCurrentAst] = useState(null)
 
-    const renderNode = useCallback((value, props = {}) => {
-      return <api.Node value={value} {...props} />;
-    }, []);
-
     useEffect(() => {
       // when the widget is reset with a new ast/initialState, add missing entries
       // to the initialState and then reset the current ast.
@@ -214,7 +210,7 @@ export const StateProvider = mobxReact.observer(
       if (model) {
         const cb = (msg) => {
           if (msg.type === 'update_state') {
-            $state.updateLocal(JSON.parse(msg.updates))
+            $state.updateLocal(msg.updates)
           }
         }
         model.on("msg:custom", cb);
@@ -232,7 +228,7 @@ export const StateProvider = mobxReact.observer(
   }
 )
 
-function DataViewer(data) {
+function Viewer(data) {
   const [el, setEl] = useState();
   const elRef = useCallback((element) => element && setEl(element), [setEl])
   const width = useElementWidth(el)
@@ -265,21 +261,6 @@ function estimateJSONSize(jsonString) {
   } else {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
-}
-
-function Viewer({ jsonString, ...data }) {
-  const parsedData = useMemo(() => {
-    if (jsonString) {
-      try {
-        return { ...data, size: estimateJSONSize(jsonString), ...JSON.parse(jsonString) };
-      } catch (error) {
-        console.error("Error parsing JSON:", error);
-        return null;
-      }
-    }
-    return data;
-  }, [jsonString]);
-  return <DataViewer {...parsedData} />;
 }
 
 function parseJSON(jsonString) {
@@ -371,16 +352,17 @@ function FileViewer() {
 }
 
 function AnyWidgetApp() {
-  let [jsonString] = useModelState("data");
+  const [data, _setData] = useModelState("data");
   const experimental = useExperimental();
   const model = useModel();
-  return <Viewer jsonString={jsonString} experimental={experimental} model={model} />;
+
+  return <Viewer {...data} experimental={experimental} model={model} />;
 }
 
 export const renderData = (element, data) => {
   const root = ReactDOM.createRoot(element);
   if (typeof data === 'string') {
-    root.render(<Viewer jsonString={data} />);
+    root.render(<Viewer {...JSON.parse(data)} />);
   } else {
     root.render(<Viewer {...data} />);
   }
