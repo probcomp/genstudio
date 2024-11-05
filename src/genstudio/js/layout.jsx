@@ -56,18 +56,13 @@ export function Grid({
   );
 }
 
-function getFlexClasses(prefix, sizes, count) {
-  if (!sizes) {
-    return Array(count).fill("flex-1");
+function getFlexClass(prefix, size) {
+  if (typeof size === "string") {
+    return size.includes("/") ? `${prefix}-${size}` : `${prefix}-[${size}]`;
   }
-
-  return sizes.map((size) => {
-    if (typeof size === "string") {
-      return size.includes("/") ? `${prefix}-${size}` : `${prefix}-[${size}]`;
-    }
-    return `flex-[${size}]`;
-  });
+  return `flex-[${size}]`;
 }
+
 function joinClasses(...classes) {
   let result = classes[0] || "";
   for (let i = 1; i < classes.length; i++) {
@@ -94,16 +89,12 @@ export function Row({
     className
   );
 
-  const flexClasses = getFlexClasses(
-    "w",
-    widths,
-    React.Children.count(children)
-  );
+  const flexClasses = widths ? widths.map(w => getFlexClass("w", w)) : null;
 
   return (
     <div {...props} className={tw(classes)}>
       {React.Children.map(children, (child, index) => (
-        <div className={tw(flexClasses[index])} key={index}>
+        <div className={flexClasses && tw(flexClasses[index])} key={index}>
           {renderNode(child)}
         </div>
       ))}
@@ -124,21 +115,17 @@ export function Column({
   const classes = joinClasses(
     "flex flex-col",
     gap && `gap-${gap}`,
-    height ? `h-[${height}]` : "h-full",
+    height ? `h-[${height}]` : 'h-full',
     width && `w-[${width}]`,
     className
   );
 
-  const flexClasses = getFlexClasses(
-    "h",
-    heights,
-    React.Children.count(children)
-  );
+  const flexClasses = heights ? heights.map(h => getFlexClass("h", h)) : null;
 
   return (
     <div {...props} className={tw(classes)}>
       {React.Children.map(children, (child, index) => (
-        <div key={index} className={tw(flexClasses[index])}>
+        <div key={index} className={flexClasses && tw(flexClasses[index])}>
           {renderNode(child)}
         </div>
       ))}
