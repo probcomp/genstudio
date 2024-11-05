@@ -244,8 +244,6 @@ function DataViewer(data) {
     return null;
   }
 
-  const adjustedWidth = width ? width - CONTAINER_PADDING : undefined;
-
   return (
     <div className="genstudio-container" style={{ "padding": CONTAINER_PADDING }} ref={elRef}>
       {el && <StateProvider {...data}/>}

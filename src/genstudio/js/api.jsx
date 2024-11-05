@@ -9,7 +9,7 @@ import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as render from "./plot/render";
 import {Grid, Row, Column} from "./layout"
-import { tw, useContainerWidth } from "./utils";
+import { tw } from "./utils";
 const { useState, useEffect, useContext, useRef, useCallback } = React
 import Katex from "katex";
 import markdownItKatex from "./markdown-it-katex";
@@ -279,7 +279,10 @@ export function Hiccup(tag, props, ...children) {
         children.unshift(props);
         props = {};
     }
+
     props = $state.evaluate(props)
+
+
 
     if (props.class) {
         props.className = props.class;
