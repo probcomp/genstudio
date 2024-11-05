@@ -1,5 +1,6 @@
 import datetime
 import uuid
+import numpy as np
 
 from typing import Any, Iterable, Callable, Dict
 
@@ -59,6 +60,20 @@ def to_json(data, collected_state=None, widget=None):
             )
         if hasattr(data, "_state_listeners"):
             return collected_state.add_listeners(data._state_listeners)
+
+    # Handle numpy and jax arrays
+    if isinstance(data, np.ndarray) or type(data).__name__ in ("DeviceArray", "Array"):
+        try:
+            if data.ndim == 0:  # It's a scalar
+                return data.item()
+        except AttributeError:
+            pass
+        return {
+            "__type__": "ndarray",
+            "data": memoryview(data.tobytes()),
+            "dtype": str(data.dtype),
+            "shape": data.shape,
+        }
 
     # Handle objects with custom serialization
     if hasattr(data, "for_json"):

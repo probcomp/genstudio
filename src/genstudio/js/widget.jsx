@@ -27,6 +27,9 @@ export function evaluate(node, $state, experimental) {
   if (node === null || typeof node !== 'object') return node;
   if (Array.isArray(node)) return node.map(item => evaluate(item, $state, experimental));
   if (node.constructor !== Object) {
+    if (node instanceof DataView) {
+      return node;
+    }
     return node;
   }
 
@@ -61,6 +64,21 @@ export function evaluate(node, $state, experimental) {
       } else {
         return undefined;
       }
+    case "ndarray":
+      const { data, dtype, shape } = node;
+      const dtypeMap = {
+        'float32': Float32Array,
+        'float64': Float64Array,
+        'int8': Int8Array,
+        'int16': Int16Array,
+        'int32': Int32Array,
+        'uint8': Uint8Array,
+        'uint16': Uint16Array,
+        'uint32': Uint32Array,
+      };
+      const ArrayConstructor = dtypeMap[dtype] || Float64Array;
+      const array = new ArrayConstructor(data.buffer);
+      return { data: array, shape, dtype };
     default:
       return Object.fromEntries(
         Object.entries(node).map(([key, value]) => [key, evaluate(value, $state, experimental)])
