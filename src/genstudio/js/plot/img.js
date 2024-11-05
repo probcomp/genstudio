@@ -6,7 +6,7 @@ import {
   applyDirectStyles,
   applyIndirectStyles,
   applyTransform
-} from "./style";
+} from "./plot_util";
 
 const resolveChannel = (channel, data, index) => {
   if (typeof channel === 'number') return channel;

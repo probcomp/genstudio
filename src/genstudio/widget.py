@@ -44,6 +44,10 @@ def to_json(data, collected_state=None, widget=None):
     if data is None:
         return None
 
+    # Handle bytes-like objects
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        return data
+
     # Handle datetime objects early since isinstance check is fast
     if isinstance(data, (datetime.date, datetime.datetime)):
         return {"__type__": "datetime", "value": data.isoformat()}
@@ -68,9 +72,20 @@ def to_json(data, collected_state=None, widget=None):
                 return data.item()
         except AttributeError:
             pass
+
+        bytes_data = data.tobytes()
+        print("Python side - Array info:")
+        print(f"  Shape: {data.shape}")
+        print(f"  Dtype: {data.dtype}")
+        print(f"  Total elements: {data.size}")
+        print(f"  Buffer size: {len(bytes_data)} bytes")
+        print(f"  Size (MB): {len(bytes_data) / (1024 * 1024):.2f}")
+        print(f"  Strides: {data.strides}")
+        print(f"  Contiguous: {data.flags.c_contiguous}")
+
         return {
             "__type__": "ndarray",
-            "data": memoryview(data.tobytes()),
+            "data": bytes_data,
             "dtype": str(data.dtype),
             "shape": data.shape,
         }
@@ -78,11 +93,11 @@ def to_json(data, collected_state=None, widget=None):
     # Handle objects with custom serialization
     if hasattr(data, "for_json"):
         return to_json(data.for_json(), collected_state=collected_state, widget=widget)
-    if hasattr(data, "tolist"):
-        return data.tolist()
 
     # Handle containers
     if isinstance(data, dict):
+        # if "__type__" in data and data["__type__"] == "ndarray":
+        #     raise ValueError("Found __type__ in dict - this indicates double serialization")
         return {k: to_json(v, collected_state, widget) for k, v in data.items()}
     if isinstance(data, (list, tuple)):
         return [to_json(x, collected_state, widget) for x in data]

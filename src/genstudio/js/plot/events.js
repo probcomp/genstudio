@@ -6,7 +6,7 @@ import {
   applyTransform,
   calculateScaleFactors,
   invertPoint
-} from "./style";
+} from "./plot_util";
 
 /**
  * A custom mark for mouse interaction on plots.

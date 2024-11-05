@@ -23,6 +23,61 @@ function resolveRef(node, $state) {
   return node;
 }
 
+function evaluateNdarray(node) {
+  const { data, dtype, shape } = node;
+  console.log("JS side - Array info:");
+  console.log("  Shape:", shape);
+  console.log("  Dtype:", dtype);
+  console.log("  Data type:", typeof data);
+  console.log("  Data constructor:", data?.constructor?.name);
+  console.log("  DataView byteLength:", data?.byteLength);
+  console.log("  DataView buffer size:", data?.buffer?.byteLength);
+
+  const dtypeMap = {
+    'float32': Float32Array,
+    'float64': Float64Array,
+    'int8': Int8Array,
+    'int16': Int16Array,
+    'int32': Int32Array,
+    'uint8': Uint8Array,
+    'uint16': Uint16Array,
+    'uint32': Uint32Array,
+  };
+  const ArrayConstructor = dtypeMap[dtype] || Float64Array;
+
+  // Create typed array directly from the DataView's buffer
+  const flatArray = new ArrayConstructor(
+    data.buffer,
+    data.byteOffset,
+    data.byteLength / ArrayConstructor.BYTES_PER_ELEMENT
+  );
+
+  console.log("  Flat array length:", flatArray.length);
+  console.log("  Expected total elements:", shape.reduce((a, b) => a * b, 1));
+
+  // If 1D, return the typed array directly
+  if (shape.length <= 1) {
+    return { data: flatArray, shape, dtype };
+  }
+
+  function reshapeArray(flat, dims, offset = 0) {
+    const [dim, ...restDims] = dims;
+
+    if (restDims.length === 0) {
+      const start = offset;
+      const end = offset + dim;
+      return flat.slice(start, end);
+    }
+
+    const stride = restDims.reduce((a, b) => a * b, 1);
+    return Array.from({ length: dim }, (_, i) =>
+      reshapeArray(flat, restDims, offset + i * stride)
+    );
+  }
+
+  return reshapeArray(flatArray, shape);
+}
+
 export function evaluate(node, $state, experimental) {
   if (node === null || typeof node !== 'object') return node;
   if (Array.isArray(node)) return node.map(item => evaluate(item, $state, experimental));
@@ -65,20 +120,7 @@ export function evaluate(node, $state, experimental) {
         return undefined;
       }
     case "ndarray":
-      const { data, dtype, shape } = node;
-      const dtypeMap = {
-        'float32': Float32Array,
-        'float64': Float64Array,
-        'int8': Int8Array,
-        'int16': Int16Array,
-        'int32': Int32Array,
-        'uint8': Uint8Array,
-        'uint16': Uint16Array,
-        'uint32': Uint32Array,
-      };
-      const ArrayConstructor = dtypeMap[dtype] || Float64Array;
-      const array = new ArrayConstructor(data.buffer);
-      return { data: array, shape, dtype };
+      return evaluateNdarray(node);
     default:
       return Object.fromEntries(
         Object.entries(node).map(([key, value]) => [key, evaluate(value, $state, experimental)])
@@ -228,6 +270,7 @@ export const StateProvider = mobxReact.observer(
       if (model) {
         const cb = (msg) => {
           if (msg.type === 'update_state') {
+            console.log("update_state", msg)
             $state.updateLocal(msg.updates)
           }
         }
@@ -249,8 +292,9 @@ export const StateProvider = mobxReact.observer(
 function Viewer(data) {
   const [el, setEl] = useState();
   const elRef = useCallback((element) => element && setEl(element), [setEl])
-  const width = useElementWidth(el)
   const isUnmounted = useCellUnmounted(el?.parentNode);
+
+  console.log(data)
 
   if (isUnmounted || !data) {
     return null;
@@ -371,6 +415,7 @@ function FileViewer() {
 
 function AnyWidgetApp() {
   const [data, _setData] = useModelState("data");
+  console.log({data})
   const experimental = useExperimental();
   const model = useModel();
 

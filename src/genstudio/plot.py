@@ -11,6 +11,7 @@ from genstudio.layout import (
     Grid,
     Hiccup,
     JSCall,
+    JSCode,
     JSRef,
     Row,
     ref,
@@ -391,6 +392,44 @@ def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
         A PlotSpec object representing the ellipse mark.
     """
     return PlotSpec(MarkSpec("ellipse", values, {**options, **kwargs}))
+
+
+def pixels(
+    pixelData: list[float] | JSCode,  # Flat array of RGB(A) values (0-255) or JSCode
+    *,
+    imageWidth: int | JSCode,
+    imageHeight: int | JSCode,
+    x: float | JSCode = 0,
+    y: float | JSCode = 0,
+    width: float | JSCode | None = None,
+    height: float | JSCode | None = None,
+) -> PlotSpec:
+    """
+    Returns a new pixel image mark for rendering RGB(A) pixel data efficiently using canvas.
+
+    Args:
+        values: List of RGB(A) values (0-255) as either:
+            - [r,g,b,r,g,b,...] for RGB data
+            - [r,g,b,a,r,g,b,a,...] for RGBA data with alpha channel
+        imageWidth: Width of the image in pixels
+        imageHeight: Height of the image in pixels
+        x: X coordinate of top-left corner (default 0)
+        y: Y coordinate of top-left corner (default 0)
+        width: Width in x-scale units (defaults to imageWidth)
+        height: Height in y-scale units (defaults to imageHeight)
+
+    Returns:
+        A PlotSpec object representing the pixel image mark
+    """
+    options = {
+        "imageWidth": imageWidth,
+        "imageHeight": imageHeight,
+        "x": x,
+        "y": y,
+        "width": width,
+        "height": height,
+    }
+    return PlotSpec(MarkSpec("pixels", pixelData, options))
 
 
 def scaled_circle(x, y, r, **kwargs):

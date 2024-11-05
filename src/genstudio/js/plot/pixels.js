@@ -1,0 +1,125 @@
+import * as Plot from "@observablehq/plot";
+import * as d3 from "d3";
+
+import {
+  applyChannelStyles,
+  applyDirectStyles,
+  applyIndirectStyles,
+  applyTransform
+} from "./plot_util";
+
+/**
+ * A custom mark for rendering RGB pixel data efficiently using canvas.
+ * @extends Plot.Mark
+ */
+export class Pixels extends Plot.Mark {
+  /**
+   * Creates a new PixelImg mark.
+   * @param {Object|Array} data - The data containing RGB values as a flat array [r,g,b,r,g,b,...]
+   * @param {Object} options - Configuration options
+   * @param {number} options.imageWidth - Width of the image in pixels
+   * @param {number} options.imageHeight - Height of the image in pixels
+   * @param {ChannelValue} [options.x=0] - X coordinate of image
+   * @param {ChannelValue} [options.y=height] - Y coordinate of image
+   * @param {ChannelValue} [options.width] - Width in x-scale units (defaults to imageWidth)
+   * @param {ChannelValue} [options.height] - Height in y-scale units (defaults to imageHeight)
+   */
+  constructor(_, { pixelData, x = 0, y = 0, width, height, imageWidth, imageHeight, ...options }) {
+    if (typeof imageWidth !== 'number' || typeof imageHeight !== 'number') {
+      throw new Error("imageWidth and imageHeight must be specified as numbers");
+    }
+
+    width = width || imageWidth;
+    height = height || imageHeight;
+
+    const channels = {
+      x: { value: "0", scale: "x" },
+      y: { value: "1", scale: "y" }
+    };
+
+    const data = [[x, y], [x + width, y + height]];
+    super(data, channels, options, { ariaLabel: "pixel image" });
+
+    this.imageWidth = imageWidth;
+    this.imageHeight = imageHeight;
+    this.pixelData = pixelData;
+  }
+
+  getChannelValue(channel, dataPoint, index) {
+    if (typeof channel === 'function') {
+      return channel(dataPoint, index);
+    }
+    if (typeof channel === 'string') {
+      return dataPoint[channel];
+    }
+    return channel[index];
+  }
+
+  render(index, scales, channels, dimensions, context) {
+    const { pixelData, imageWidth, imageHeight } = this;
+
+    const [x1, x2] = channels.x
+    const [y1, y2] = channels.y
+    const width = Math.abs(x1 - x2)
+    const height = Math.abs(y1 - y2)
+
+    // Return empty SVG if width or height is 0
+    if (width === 0 || height === 0) {
+      return d3.create("svg:g").node();
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = imageWidth;
+    canvas.height = imageHeight;
+    const ctx = canvas.getContext("2d");
+    const imageData = ctx.createImageData(imageWidth, imageHeight);
+    const data = imageData.data;
+
+    // Check if alpha channel is provided (4 values per pixel instead of 3)
+    const hasAlpha = pixelData.length === imageWidth * imageHeight * 4;
+    const stride = hasAlpha ? 4 : 3;
+
+    // Fill from flat array of [r,g,b,r,g,b,...] or [r,g,b,a,r,g,b,a,...]
+    for (let i = 0; i < pixelData.length; i += stride) {
+      const idx = (i / stride) * 4;
+
+      // Get RGB values from flat array
+      data[idx] = pixelData[i];       // Red
+      data[idx + 1] = pixelData[i+1]; // Green
+      data[idx + 2] = pixelData[i+2]; // Blue
+      data[idx + 3] = hasAlpha ? pixelData[i+3] : 255; // Alpha
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+
+    return d3.create("svg:g")
+      .call(applyIndirectStyles, this, dimensions, context)
+      .call(applyTransform, this, scales, 0, 0)
+      .call(g => g.selectAll()
+        .data([0]) // Single image
+        .join("image")
+        .call(applyDirectStyles, this)
+        .attr("transform", `translate(${x1},${y1}) scale(${Math.sign(x2-x1)},${Math.sign(y2-y1)})`)
+        .attr("width", width)
+        .attr("height", height)
+        .attr("preserveAspectRatio", "none")
+        .attr("xlink:href", canvas.toDataURL())
+        .call(applyChannelStyles, this, channels)
+      )
+      .node();
+  }
+}
+
+/**
+ * Returns a new pixel image mark for the given data and options.
+ * @param {Object|Array} data - The data containing RGB values as a flat array of (r,g,b) tuples
+ * @param {Object} options - Options for customizing the pixel image
+ * @returns {Pixels} A new PixelImg mark
+ */
+export function pixels(data, options = {}) {
+  return new Pixels([], {...options, pixelData: data});
+}
+
+/**
+ * @typedef {(number|string|function)} ChannelValue
+ */

@@ -6,7 +6,7 @@ import {
   applyDirectStyles,
   applyIndirectStyles,
   applyTransform
-} from "./style";
+} from "./plot_util";
 
 export class Ellipse extends Plot.Mark {
   /**
