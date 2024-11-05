@@ -733,6 +733,9 @@ def margin(*args):
 md = JSRef("md")
 """Render a string as Markdown, in a LayoutItem."""
 
+katex = JSRef("katex")
+"""Render a TeX string, in a LayoutItem."""
+
 
 def doc(fn):
     """

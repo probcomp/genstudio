@@ -4,7 +4,7 @@ import presetTailwind from "@twind/preset-tailwind";
 import presetTypography from "@twind/preset-typography";
 import htm from "htm";
 import * as React from "react";
-const { useState, useEffect } = React
+const { useState, useEffect, useRef } = React
 
 
 const twindConfig = Twind.defineConfig({
@@ -12,9 +12,8 @@ const twindConfig = Twind.defineConfig({
 })
 
 export const tw = Twind.twind(twindConfig, Twind.cssom())
-export const twInstall = Twind.injectGlobal.bind(tw)
-export const twKeyframes = Twind.keyframes.bind(tw)
-
+const twKeyframes = Twind.keyframes.bind(tw)
+const injectGlobal = Twind.injectGlobal.bind(tw)
 export const  html = htm.bind(React.createElement)
 
 export const flatten = (data, dimensions) => {
@@ -95,82 +94,90 @@ export function useElementWidth(el) {
 }
 
 export function serializeEvent(e) {
-
   if (e.constructor === Object) {
     return e;
   }
-  e = e.nativeEvent || e;
 
+  // Handle React synthetic events and native events
+  const event = e?.nativeEvent || e;
+  const target = event?.target || event;
+
+  // Base event data that's common across all events
   const baseEventData = {
-    type: e.type,
-    altKey: e.altKey,
-    ctrlKey: e.ctrlKey,
-    shiftKey: e.shiftKey
+    type: event.type,
+    altKey: event.altKey,
+    ctrlKey: event.ctrlKey,
+    shiftKey: event.shiftKey
   };
 
-  switch (e.type) {
-    case 'mousedown':
-    case 'mouseup':
-    case 'mousemove':
-    case 'click':
-      return {
-        ...baseEventData,
-        clientX: e.clientX,
-        clientY: e.clientY,
-        button: e.button
-      };
-    case 'keydown':
-    case 'keyup':
-    case 'keypress':
-      return {
-        ...baseEventData,
-        key: e.key,
-        code: e.code
-      };
-    case 'submit':
-      e.preventDefault(); // Cancel form submit event by default
-      return {
-        ...baseEventData,
-        formData: Object.fromEntries(new FormData(e.target))
-      };
-    case 'input':
-    case 'change':
-      if (e.target.type === 'checkbox' || e.target.type === 'radio') {
-        return {
-          ...baseEventData,
-          checked: e.target.checked,
-          value: e.target.value
-        };
-      } else if (e.target.type === 'select-one' || e.target.type === 'select-multiple') {
-        return {
-          ...baseEventData,
-          value: Array.from(e.target.selectedOptions, option => option.value)
-        };
-      } else if (e.target.type === 'file') {
-        return {
-          ...baseEventData,
-          files: Array.from(e.target.files, file => ({
-            name: file.name,
-            type: file.type,
-            size: file.size
-          }))
-        };
-      } else {
-        return {
-          ...baseEventData,
-          value: e.target.value
-        };
-      }
-    case 'focus':
-    case 'blur':
-      return {
-        ...baseEventData,
-        target: e.target.id || e.target.name || undefined
-      };
-    default:
-      return {
-        ...baseEventData,
-        target: e.target.id || e.target.name || undefined
-      };
-  }
+  // Input state data if the event comes from a form control
+  const inputStateData = target?.tagName?.match(/^(INPUT|SELECT|TEXTAREA)$/i) ? {
+    value: target.type === 'select-multiple'
+      ? Array.from(target.selectedOptions || [], opt => opt.value)
+      : target.value,
+    checked: target.type === 'checkbox' || target.type === 'radio'
+      ? target.checked
+      : undefined,
+    files: target.type === 'file'
+      ? Array.from(target.files || [], file => ({
+          name: file.name,
+          type: file.type,
+          size: file.size
+        }))
+      : undefined,
+    target: target.id || target.name || undefined
+  } : {};
+
+  // Event-specific data
+  const eventData = {
+    mousedown: () => ({ clientX: event.clientX, clientY: event.clientY, button: event.button }),
+    mouseup: () => ({ clientX: event.clientX, clientY: event.clientY, button: event.button }),
+    mousemove: () => ({ clientX: event.clientX, clientY: event.clientY, button: event.button }),
+    click: () => ({ clientX: event.clientX, clientY: event.clientY, button: event.button }),
+    keydown: () => ({ key: event.key, code: event.code }),
+    keyup: () => ({ key: event.key, code: event.code }),
+    keypress: () => ({ key: event.key, code: event.code }),
+    submit: () => {
+      event.preventDefault();
+      return { formData: Object.fromEntries(new FormData(target)) };
+    }
+  }[event.type]?.() || {};
+
+  return {
+    ...baseEventData,
+    ...inputStateData,
+    ...eventData
+  };
+}
+
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+export function useContainerWidth() {
+  const containerRef = React.useRef(null);
+  const [containerWidth, setContainerWidth] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+
+    const debouncedSetWidth = debounce(width => setContainerWidth(width), 100);
+
+    const observer = new ResizeObserver(entries =>
+      debouncedSetWidth(entries[0].contentRect.width)
+    );
+
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  return [containerRef, containerWidth];
 }

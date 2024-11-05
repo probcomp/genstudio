@@ -195,6 +195,16 @@ Render a string as Markdown, in a LayoutItem.
 
 Represents raw JavaScript code to be evaluated as a LayoutItem.
 
+Parameters
+{: .api .api-section }
+
+
+- `txt` (str): JavaScript code with optional %1, %2, etc. placeholders
+
+- `*params`: Values to substitute for %1, %2, etc. placeholders
+
+- `expression` (bool): Whether to evaluate as expression or statement
+
 
 
 ### ref {: .api .api-member }

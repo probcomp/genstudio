@@ -1,3 +1,15 @@
+### [2024.10.005] - Oct 30, 2024
+
+- use `containerWidth` instead of a React context to set widths
+- improve rendering of custom "height" on a plot
+
+### [2024.10.003] - Oct 30, 2024
+
+- Add API documentation to website
+- Add `Plot.katex`
+- Plot.js supports parameters
+- Improved js event data parsing
+
 ### [2024.10.002] - Oct 25, 2024
 
 - BREAKING: rename `Plot.draw` to `Plot.events`
