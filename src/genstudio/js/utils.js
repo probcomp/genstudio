@@ -146,15 +146,21 @@ export function serializeEvent(e) {
   };
 }
 
-function debounce(func, wait) {
+function debounce(func, wait, leading = true) {
   let timeout;
+  let isInitial = true;
+
   return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
+    if (leading && isInitial) {
+      isInitial = false;
       func(...args);
-    };
+      return;
+    }
+
     clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
   };
 }
 
