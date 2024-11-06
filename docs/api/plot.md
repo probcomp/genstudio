@@ -67,13 +67,23 @@ Parameters
 
 - `rangeFrom` (Any): Derive the range from the length of this (ref) argument.
 
-- `fps` (int): Frames per second for animation through the range.
+- `fps` (int): Frames per second for animation through the range. If > 0, enables animation.
 
 - `step` (int): Step size for the range. Defaults to 1.
 
 - `tail` (bool): If True, animation stops at the end of the range. Defaults to False.
 
+- `loop` (bool): If True, animation loops back to start when reaching the end. Defaults to True.
+
 - `label` (str): Label for the slider.
+
+- `showValue` (bool): If True, shows the current value.
+
+- `showSlider` (bool): If True, shows the slider control.
+
+- `showFps` (bool): If True, shows current FPS when animating.
+
+- `visible` (bool): If True, shows the slider component. Defaults to True.
 
 - `**kwargs`: Additional keyword arguments.
 
@@ -84,10 +94,10 @@ Parameters
 Creates a render function that adds drag-and-drop and click functionality to child elements of a plot.
 Must be passed as the 'render' option to a mark, e.g.:
 
-    Plot.dot(data, render=Plot.render.childEvents({
-        "onDrag": update_position,
-        "onClick": handle_click
-    }))
+    Plot.dot(data, render=Plot.renderChildEvents(
+        onDrag=update_position,
+        onClick=handle_click
+    ))
 
 This function enhances the rendering of plot elements by adding interactive behaviors
 such as dragging, clicking, and tracking position changes. It's designed to work with
@@ -97,7 +107,9 @@ Parameters
 {: .api .api-section }
 
 
-- `options` (dict): Configuration options for the child events:
+- `options` (dict): Configuration options for the child events
+
+- `**kwargs`: Event handlers passed as keyword arguments:
 
     - `onDragStart` (callable): Callback function called when dragging starts
 
@@ -111,7 +123,7 @@ Returns
 {: .api .api-section }
 
 
-- A render function to be used in the Observable Plot rendering pipeline.
+- A render function to be used in the Observable Plot rendering pipeline. (JSRef)
 
 
 
@@ -314,6 +326,12 @@ Returns
 
 
 ## Plot: Marks
+
+
+The following are the original JavaScript docs for the built-in Observable Plot marks.
+
+
+Usage is slightly different from Python.
 
 ### area {: .api .api-member }
 

@@ -912,30 +912,32 @@ def Slider(
     return Hiccup([_Slider, slider_options])
 
 
-renderChildEvents = JSRef("render.childEvents")
-"""
-Creates a render function that adds drag-and-drop and click functionality to child elements of a plot.
-Must be passed as the 'render' option to a mark, e.g.:
+def renderChildEvents(options: dict[str, Any] = {}, **kwargs) -> JSRef:
+    """
+    Creates a render function that adds drag-and-drop and click functionality to child elements of a plot.
+    Must be passed as the 'render' option to a mark, e.g.:
 
-    Plot.dot(data, render=Plot.render.childEvents({
-        "onDrag": update_position,
-        "onClick": handle_click
-    }))
+        Plot.dot(data, render=Plot.renderChildEvents(
+            onDrag=update_position,
+            onClick=handle_click
+        ))
 
-This function enhances the rendering of plot elements by adding interactive behaviors
-such as dragging, clicking, and tracking position changes. It's designed to work with
-Observable Plot's rendering pipeline.
+    This function enhances the rendering of plot elements by adding interactive behaviors
+    such as dragging, clicking, and tracking position changes. It's designed to work with
+    Observable Plot's rendering pipeline.
 
-Args:
-    options (dict): Configuration options for the child events:
-        - `onDragStart` (callable): Callback function called when dragging starts
-        - `onDrag` (callable): Callback function called during dragging
-        - `onDragEnd` (callable): Callback function called when dragging ends
-        - `onClick` (callable): Callback function called when a child element is clicked
+    Args:
+        options (dict): Configuration options for the child events
+        **kwargs: Event handlers passed as keyword arguments:
+            - `onDragStart` (callable): Callback function called when dragging starts
+            - `onDrag` (callable): Callback function called during dragging
+            - `onDragEnd` (callable): Callback function called when dragging ends
+            - `onClick` (callable): Callback function called when a child element is clicked
 
-Returns:
-    A render function to be used in the Observable Plot rendering pipeline.
-"""
+    Returns:
+        A render function to be used in the Observable Plot rendering pipeline.
+    """
+    return JSRef("render.childEvents")({**options, **kwargs})
 
 
 render = JSRef("render")
@@ -1062,6 +1064,8 @@ __all__ = [
     "identity",
     "index",
     # ## Plot: Marks
+    # The following are the original JavaScript docs for the built-in Observable Plot marks.
+    # Usage is slightly different from Python.
     "area",
     "areaX",
     "areaY",

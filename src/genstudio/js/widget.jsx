@@ -85,7 +85,7 @@ function applyUpdate($state, init, op, payload) {
       return evaluatedPayload;
     case "setAt":
       const [i, v] = evaluatedPayload;
-      const newArray = [...init];
+      const newArray = init.slice();
       newArray[i] = v;
       return newArray;
     default:
@@ -106,10 +106,35 @@ function normalizeUpdates(updates) {
 }
 
 function collectBuffers(data) {
-  // not implemented
-  // this would traverse data, identify binary data, replace it with a placeholder object
-  // {"__buffer_index__": _} and add it to a buffers array.
-  return [data, []]
+  const buffers = [];
+
+  function traverse(value) {
+    // Handle ArrayBuffer and TypedArray instances
+    if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+      const index = buffers.length;
+      buffers.push(value);
+      return { "__buffer_index__": index };
+    }
+
+    // Handle arrays recursively
+    if (Array.isArray(value)) {
+      return value.map(traverse);
+    }
+
+    // Handle objects recursively
+    if (value && typeof value === 'object') {
+      const result = {};
+      for (const [key, val] of Object.entries(value)) {
+        result[key] = traverse(val);
+      }
+      return result;
+    }
+
+    // Return primitives as-is
+    return value;
+  }
+
+  return [traverse(data), buffers];
 }
 
 /**
@@ -156,7 +181,7 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
   const applyUpdates = (updates) => {
     for (const update of updates) {
       const [key, operation, payload] = update
-      initialStateMap.set(key, applyUpdate($state, initialStateMap.get(key), operation, payload));
+      initialStateMap.set(key, applyUpdate($state, $state[key], operation, payload));
     }
   }
 
