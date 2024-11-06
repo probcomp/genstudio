@@ -39,6 +39,26 @@ def generate_pixels(width=100, height=100, num_frames=60):
 
 
 def render(width=100, height=100, num_frames=30, fps=30):
+    """
+    Renders an animated visualization of pixel data with interactive controls.
+
+    Creates an interactive plot showing animated pixel data with a purple background,
+    frame slider control, and data size indicator. The pixel data is generated using
+    the generate_pixels() function.
+
+    Args:
+        width (int, optional): Width of the pixel grid in pixels. Defaults to 100.
+        height (int, optional): Height of the pixel grid in pixels. Defaults to 100.
+        num_frames (int, optional): Number of animation frames to generate. Defaults to 30.
+        fps (int, optional): Frames per second for animation playback. Defaults to 30.
+
+    Returns:
+        PlotSpec: A composable plot specification containing:
+            - Black background rectangle
+            - Animated pixel data display
+            - Frame slider control
+            - Data size indicator in MB
+    """
     data = generate_pixels(width=width, height=height, num_frames=num_frames)
     initial_state = Plot.initial_state(
         {"pixels": data, "width": width, "height": height, "frame": 0, "fps": fps}
@@ -50,7 +70,7 @@ def render(width=100, height=100, num_frames=30, fps=30):
             y1="1",
             x2="2",
             y2="3",
-            fill="black",
+            fill="purple",
         )
         + Plot.pixels(
             js("$state.pixels[$state.frame]"),
@@ -79,7 +99,7 @@ plot
 # just under 100mb.
 W = 1000
 H = 1000
-N = 27
+N = 26
 plot.state.update(
     {"pixels": generate_pixels(W, H, N), "width": W, "height": H, "fps": 60}
 )

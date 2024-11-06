@@ -61,7 +61,7 @@ def to_json(
     if data is None:
         return None
 
-    # Handle bytes-like objects
+    # Handle binary data
     if isinstance(data, (bytes, bytearray, memoryview)):
         if buffers is not None:
             # Store binary data in buffers and return reference
@@ -96,15 +96,6 @@ def to_json(
             pass
 
         bytes_data = data.tobytes()
-        print("Python side - Array info:")
-        print(f"  Shape: {data.shape}")
-        print(f"  Dtype: {data.dtype}")
-        print(f"  Total elements: {data.size}")
-        print(f"  Buffer size: {len(bytes_data)} bytes")
-        print(f"  Size (MB): {len(bytes_data) / (1024 * 1024):.2f}")
-        print(f"  Strides: {data.strides}")
-        print(f"  Contiguous: {data.flags.c_contiguous}")
-
         return serialize_binary_data(
             buffers,
             {
@@ -114,7 +105,6 @@ def to_json(
                 "shape": data.shape,
             },
         )
-
     # Handle objects with custom serialization
     if hasattr(data, "for_json"):
         return to_json(
@@ -208,10 +198,6 @@ def apply_updates(state, updates):
 
 def replace_buffers(data: Any, buffers: List[bytes]) -> Any:
     """Replace buffer indices with actual buffer data in a nested data structure."""
-    import time
-
-    start = time.time()
-    print("Python side - replace_buffers starting")
 
     if not buffers:
         return data
@@ -255,7 +241,6 @@ def replace_buffers(data: Any, buffers: List[bytes]) -> Any:
                 result[i] = new_val
                 modified = True
 
-    print(f"Python side - replace_buffers took {time.time() - start:.3f}s")
     return tuple(result) if modified else data
 
 

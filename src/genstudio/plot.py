@@ -405,18 +405,19 @@ def pixels(
     height: float | JSCode | None = None,
 ) -> PlotSpec:
     """
-    Returns a new pixel image mark for rendering RGB(A) pixel data efficiently using canvas.
+    A custom mark for efficiently rendering a single image from raw RGB(A) pixel data.
+    Unlike most Observable Plot marks which render multiple elements from data arrays,
+    this mark renders a single image from a flat array of pixel values.
 
     Args:
-        values: List of RGB(A) values (0-255) as either:
-            - [r,g,b,r,g,b,...] for RGB data
-            - [r,g,b,a,r,g,b,a,...] for RGBA data with alpha channel
-        imageWidth: Width of the image in pixels
-        imageHeight: Height of the image in pixels
-        x: X coordinate of top-left corner (default 0)
-        y: Y coordinate of top-left corner (default 0)
-        width: Width in x-scale units (defaults to imageWidth)
-        height: Height in y-scale units (defaults to imageHeight)
+        pixelData: Raw pixel data as a flat array in either RGB format [r,g,b,r,g,b,...]
+                  or RGBA format [r,g,b,a,r,g,b,a,...]. Each value should be 0-255.
+        imageWidth: Width of the source image in pixels
+        imageHeight: Height of the source image in pixels
+        x: X coordinate of top-left corner in plot coordinates (default: 0)
+        y: Y coordinate of top-left corner in plot coordinates (default: 0)
+        width: Displayed width in plot coordinates (defaults to imageWidth)
+        height: Displayed height in plot coordinates (defaults to imageHeight)
 
     Returns:
         A PlotSpec object representing the pixel image mark

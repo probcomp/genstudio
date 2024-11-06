@@ -14,17 +14,21 @@ import {
  */
 export class Pixels extends Plot.Mark {
   /**
-   * Creates a new PixelImg mark.
-   * @param {Object|Array} data - The data containing RGB values as a flat array [r,g,b,r,g,b,...]
+   * A custom mark for efficiently rendering a single image from raw RGB(A) pixel data.
+   * Unlike most Observable Plot marks which render multiple elements from data arrays,
+   * this mark renders a single image from a flat array of pixel values.
+   *
+   * @param {Object|Array} pixelData - Raw pixel data as a flat array in either RGB format [r,g,b,r,g,b,...]
+   *                                   or RGBA format [r,g,b,a,r,g,b,a,...]. Each value should be 0-255.
    * @param {Object} options - Configuration options
-   * @param {number} options.imageWidth - Width of the image in pixels
-   * @param {number} options.imageHeight - Height of the image in pixels
-   * @param {ChannelValue} [options.x=0] - X coordinate of image
-   * @param {ChannelValue} [options.y=height] - Y coordinate of image
-   * @param {ChannelValue} [options.width] - Width in x-scale units (defaults to imageWidth)
-   * @param {ChannelValue} [options.height] - Height in y-scale units (defaults to imageHeight)
+   * @param {number} options.imageWidth - Width of the source image in pixels
+   * @param {number} options.imageHeight - Height of the source image in pixels
+   * @param {ChannelValue} [options.x=0] - X coordinate of top-left corner in plot coordinates
+   * @param {ChannelValue} [options.y=0] - Y coordinate of top-left corner in plot coordinates
+   * @param {ChannelValue} [options.width] - Displayed width in plot coordinates (defaults to imageWidth)
+   * @param {ChannelValue} [options.height] - Displayed height in plot coordinates (defaults to imageHeight)
    */
-  constructor(_, { pixelData, x = 0, y = 0, width, height, imageWidth, imageHeight, ...options }) {
+  constructor(pixelData, {x = 0, y = 0, width, height, imageWidth, imageHeight, ...options }) {
     if (typeof imageWidth !== 'number' || typeof imageHeight !== 'number') {
       throw new Error("imageWidth and imageHeight must be specified as numbers");
     }
@@ -114,10 +118,10 @@ export class Pixels extends Plot.Mark {
  * Returns a new pixel image mark for the given data and options.
  * @param {Object|Array} data - The data containing RGB values as a flat array of (r,g,b) tuples
  * @param {Object} options - Options for customizing the pixel image
- * @returns {Pixels} A new PixelImg mark
+ * @returns {Pixels} A new Pixels mark
  */
 export function pixels(data, options = {}) {
-  return new Pixels([], {...options, pixelData: data});
+  return new Pixels(data, options);
 }
 
 /**

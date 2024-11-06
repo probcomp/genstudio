@@ -23,6 +23,29 @@ function resolveRef(node, $state) {
   return node;
 }
 
+/**
+ * Reshapes a flat array into a nested array structure based on the provided dimensions.
+ * The input array can be either a TypedArray (like Float32Array) or regular JavaScript Array.
+ * The leaf arrays (deepest level) maintain the original array type, while the nested structure
+ * uses regular JavaScript arrays.
+ *
+ * @param {TypedArray|Array} flat - The flat array to reshape
+ * @param {number[]} dims - Array of dimensions specifying the desired shape
+ * @param {number} [offset=0] - Starting offset into the flat array (used internally for recursion)
+ * @returns {Array} A nested array matching the specified dimensions, with leaves maintaining the original type
+ *
+ * @example
+ * // With regular Array
+ * reshapeArray([1,2,3,4], [2,2])
+ * // Returns: [[1,2], [3,4]]
+ *
+ * @example
+ * // With TypedArray
+ * const data = new Float32Array([1,2,3,4])
+ * reshapeArray(data, [2,2])
+ * // Returns nested arrays containing Float32Array slices:
+ * // [Float32Array[1,2], Float32Array[3,4]]
+ */
 function reshapeArray(flat, dims, offset = 0) {
   const [dim, ...restDims] = dims;
 
@@ -38,18 +61,19 @@ function reshapeArray(flat, dims, offset = 0) {
   );
 }
 
+/**
+ * Evaluates an ndarray node by converting the DataView buffer into a typed array
+ * and optionally reshaping it into a multidimensional array.
+ *
+ * @param {Object} node - The ndarray node to evaluate
+ * @param {DataView} node.data - The raw binary data as a DataView
+ * @param {string} node.dtype - The data type (e.g. 'float32', 'int32')
+ * @param {number[]} node.shape - The shape of the array
+ * @returns {TypedArray|Array} For 1D arrays, returns a typed array. For higher dimensions,
+ *                            returns a nested JavaScript array matching the shape.
+ */
 function evaluateNdarray(node) {
   const { data, dtype, shape } = node;
-  console.log("JS side - ndarray info:");
-  console.log("  Shape:", shape);
-  console.log("  Dtype:", dtype);
-  console.log("  Data type:", typeof data);
-  console.log("  Data constructor:", data?.constructor?.name);
-  console.log("  DataView byteLength:", data?.byteLength);
-  console.log("  DataView buffer size:", data?.buffer?.byteLength);
-  console.log("  DataView:", data)
-
-  console.time("evaluateNdarray")
   const dtypeMap = {
     'float32': Float32Array,
     'float64': Float64Array,
@@ -70,15 +94,10 @@ function evaluateNdarray(node) {
   );
   // If 1D, return the typed array directly
   if (shape.length <= 1) {
-    return { data: flatArray, shape, dtype };
+    return flatArray;
   }
 
-
-
-  const reshapedArray = reshapeArray(flatArray, shape);
-  console.timeEnd("evaluateNdarray")
-
-  return reshapedArray;
+  return reshapeArray(flatArray, shape);
 }
 
 export function evaluate(node, $state, experimental) {
@@ -133,7 +152,6 @@ export function evaluate(node, $state, experimental) {
 
 function applyUpdate($state, init, op, payload) {
   const evaluatedPayload = $state.evaluate(payload);
-  console.log("applying update", evaluatedPayload)
   switch (op) {
     case "append":
       return [...init, evaluatedPayload];
@@ -163,35 +181,10 @@ function normalizeUpdates(updates) {
   });
 }
 
-// TODO
-// support sending buffers back to python
 function collectBuffers(data) {
+  // not implemented
   return [data, []]
 }
-// function collectBuffers(data) {
-//   const buffers = [];
-
-//   function traverse(obj) {
-//     if (!obj || typeof obj !== 'object') return obj;
-
-//     if (obj instanceof DataView || obj instanceof ArrayBuffer) {
-//       const index = buffers.length;
-//       buffers.push(obj instanceof DataView ? obj : new DataView(obj));
-//       return { "__buffer_index__": index };
-//     }
-
-//     if (Array.isArray(obj)) {
-//       return obj.map(traverse);
-//     }
-
-//     return Object.fromEntries(
-//       Object.entries(obj).map(([k, v]) => [k, traverse(v)])
-//     );
-//   }
-
-//   const processed = traverse(data);
-//   return [processed, buffers];
-// }
 
 /**
  * Creates a reactive state store with optional sync capabilities
@@ -245,7 +238,6 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
     if (!experimental) return;
     const syncUpdates = updates.filter((([key]) => syncedKeys.has(key)))
     if (syncUpdates?.length > 0) {
-      console.log("Notify python")
       const [processedUpdates, buffers] = collectBuffers(syncUpdates);
       experimental.invoke("handle_updates", {
         updates: processedUpdates
@@ -295,7 +287,6 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
  * @returns {Object|Array} The data structure with buffer references replaced with actual data
  */
 const replaceBuffers = (data, buffers) => {
-  console.time("replaceBuffers")
   if (!buffers || !buffers.length) return data;
 
   if (data && typeof data === 'object') {
@@ -311,7 +302,6 @@ const replaceBuffers = (data, buffers) => {
       Object.values(data).forEach(value => replaceBuffers(value, buffers));
     }
   }
-  console.timeEnd("replaceBuffers")
   return data;
 }
 
@@ -337,18 +327,8 @@ export const StateProvider = mobxReact.observer(
       // listen for `update_state` events.
       if (model) {
         const cb = (msg, buffers) => {
-          console.log("msg", msg)
           if (msg.type === 'update_state') {
-            console.log("update_state", msg, buffers)
-            let updates;
-            try {
-              updates = replaceBuffers(msg.updates, buffers);
-            } catch (err) {
-              console.error("Error replacing buffers:", err);
-              updates = msg.updates;
-            }
-
-            $state.updateLocal(updates)
+            $state.updateLocal(replaceBuffers(msg.updates, buffers))
           }
         }
         model.on("msg:custom", cb);
