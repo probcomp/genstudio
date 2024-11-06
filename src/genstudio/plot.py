@@ -869,15 +869,6 @@ _Slider = JSRef("Slider")
 def Slider(
     key,
     init=None,
-    range=None,
-    rangeFrom=None,
-    fps=None,
-    step=1.0,
-    tail=False,
-    label=None,
-    show_value=True,
-    show_slider=True,
-    visible=True,
     **kwargs,
 ):
     """
@@ -888,12 +879,22 @@ def Slider(
         init (Any, optional): Initial value for the variable.
         range (Union[int, List[int]], optional): Either a single 'until' value or [from, until] list.
         rangeFrom (Any, optional): Derive the range from the length of this (ref) argument.
-        fps (int, optional): Frames per second for animation through the range.
+        fps (int, optional): Frames per second for animation through the range. If > 0, enables animation.
         step (int, optional): Step size for the range. Defaults to 1.
         tail (bool, optional): If True, animation stops at the end of the range. Defaults to False.
+        loop (bool, optional): If True, animation loops back to start when reaching the end. Defaults to True.
         label (str, optional): Label for the slider.
+        showValue (bool, optional): If True, shows the current value.
+        showSlider (bool, optional): If True, shows the slider control.
+        showFps (bool, optional): If True, shows current FPS when animating.
+        visible (bool, optional): If True, shows the slider component. Defaults to True.
         **kwargs: Additional keyword arguments.
     """
+    init = kwargs.get("init")
+    range = kwargs.get("range")
+    rangeFrom = kwargs.get("rangeFrom")
+    tail = kwargs.get("tail")
+
     if init is None and range is None and rangeFrom is None:
         raise ValueError("Slider: 'init', 'range', or 'rangeFrom' must be defined")
     if tail and rangeFrom is None:
@@ -903,15 +904,6 @@ def Slider(
     slider_options = {
         "state_key": key,
         "init": Ref(init, state_key=key),
-        "range": range,
-        "rangeFrom": rangeFrom,
-        "fps": fps,
-        "step": step,
-        "tail": tail,
-        "label": label,
-        "visible": visible,
-        "showValue": show_value,
-        "showSlider": show_slider,
         "kind": "Slider",
         **kwargs,
     }

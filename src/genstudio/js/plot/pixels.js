@@ -6,7 +6,7 @@ import {
   applyDirectStyles,
   applyIndirectStyles,
   applyTransform
-} from "./plot_util";
+} from "./style";
 
 /**
  * A custom mark for rendering RGB pixel data efficiently using canvas.

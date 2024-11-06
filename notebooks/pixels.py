@@ -5,6 +5,8 @@ from genstudio.plot import js
 
 
 def generate_pixels(width=100, height=100, num_frames=60):
+    # generate a series of images to be animated
+
     # Create coordinate grids
     x, y = np.meshgrid(np.linspace(-4, 4, width), np.linspace(-4, 4, height))
 
@@ -38,7 +40,6 @@ def generate_pixels(width=100, height=100, num_frames=60):
 
 def render(width=100, height=100, num_frames=30, fps=30):
     data = generate_pixels(width=width, height=height, num_frames=num_frames)
-    # Calculate size in MB: width * height * 4 channels * num_frames * 4 bytes per float / (1024*1024)
     initial_state = Plot.initial_state(
         {"pixels": data, "width": width, "height": height, "frame": 0, "fps": fps}
     )
@@ -74,6 +75,8 @@ plot
 
 # %%
 
+# these numbers produce the ~maximum possible message size,
+# just under 100mb.
 W = 1000
 H = 1000
 N = 27

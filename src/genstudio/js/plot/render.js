@@ -1,4 +1,4 @@
-import { calculateScaleFactors, invertPoint } from "./plot_util";
+import { calculateScaleFactors, invertPoint } from "./style";
 
 /**
  * Creates a render function that adds drag-and-drop and click functionality to child elements of a plot.

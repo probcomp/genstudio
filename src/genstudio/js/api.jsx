@@ -70,7 +70,8 @@ export const Slider = mobxReact.observer(
             fps,
             label,
             loop = true,
-            init, range, rangeFrom, showValue, showSlider, tail, step } = options;
+            showSlider = true,
+            init, range, rangeFrom, showValue, showFps, tail, step } = options;
 
         if (init === undefined && rangeFrom === undefined && range === undefined) {
             throw new Error("Slider: 'init', 'rangeFrom', or 'range' must be defined");
@@ -96,6 +97,7 @@ export const Slider = mobxReact.observer(
         const lastFrameTimeRef = useRef(performance.now());
         const frameCountRef = useRef(0);
         const lastLogTimeRef = useRef(performance.now());
+        const [currentFps, setCurrentFps] = useState(0);
 
         const sliderValue = clamp($state[state_key] ?? rangeMin, rangeMin, rangeMax);
 
@@ -106,9 +108,9 @@ export const Slider = mobxReact.observer(
                     frameCountRef.current++;
 
                     // Log FPS once per second
-                    if (now - lastLogTimeRef.current >= 1000) {
+                    if (now - lastLogTimeRef.current >= 500) {
                         const fps = frameCountRef.current * 1000 / (now - lastLogTimeRef.current);
-                        console.log(`Average FPS: ${Math.round(fps)}`);
+                        setCurrentFps(Math.round(fps));
                         frameCountRef.current = 0;
                         lastLogTimeRef.current = now;
                     }
@@ -140,22 +142,19 @@ export const Slider = mobxReact.observer(
         }, [$state, state_key]);
 
         const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
-        if (options.visible !== true) return;
+        if (showSlider !== true) return;
         return (
-            <div className={tw("text-base flex flex-col my-2 gap-2 w-full")}>
-                <div className={tw("flex items-center justify-between")}>
-                    <span className={tw("flex gap-2")}>
-                        <label>{label}</label>
-                        <span>{showValue && $state[state_key]}</span>
+            <div className={tw("text-xs flex flex-col my-2 gap-2 w-full")}>
+
+                    <span className={tw("flex gap-1")}>
+                        {label && <label className={tw("font-semibold")}>{label}</label>}
+                        {showValue && <span>{$state[state_key]}</span>}
                     </span>
-                    {isAnimated && (
-                        <div onClick={togglePlayPause} className={tw("cursor-pointer")}>
-                            {isPlaying ? pauseIcon : playIcon}
-                        </div>
-                    )}
-                </div>
+
+
                 {showSlider && (
-                    <input
+                    <div className={tw("flex gap-1 items-center")}>
+                        <input
                         type="range"
                         min={rangeMin}
                         max={rangeMax}
@@ -164,6 +163,13 @@ export const Slider = mobxReact.observer(
                         onChange={(e) => handleSliderChange(e.target.value)}
                         className={tw("w-full outline-none")}
                     />
+                    {showFps && isPlaying && <span className={tw("whitespace-nowrap -mr-1")}>{currentFps} FPS</span>}
+                    {isAnimated && (
+                        <div onClick={togglePlayPause} className={tw("cursor-pointer")}>
+                            {isPlaying ? pauseIcon : playIcon}
+                        </div>
+                    )}
+                    </div>
                 )}
             </div>
         );
