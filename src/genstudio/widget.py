@@ -1,13 +1,12 @@
 import datetime
 import uuid
-import numpy as np
-
-from typing import Any, Iterable, Callable, Dict
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 import anywidget
+import numpy as np
 import traitlets
 
-from genstudio.util import PARENT_PATH, CONFIG
+from genstudio.util import CONFIG, PARENT_PATH
 
 
 class CollectedState:
@@ -35,7 +34,25 @@ class CollectedState:
         return None
 
 
-def to_json(data, collected_state=None, widget=None):
+def serialize_binary_data(
+    buffers: Optional[List[bytes | bytearray | memoryview]], entry
+):
+    if buffers is None:
+        return entry
+    buffers.append(entry["data"])
+    return {
+        **entry,
+        "__buffer_index__": len(buffers) - 1,
+        "data": None,
+    }
+
+
+def to_json(
+    data,
+    collected_state=None,
+    widget=None,
+    buffers: Optional[List[bytes | bytearray | memoryview]] = None,
+):
     # Handle basic JSON-serializable types first since they're most common
     if isinstance(data, (str, int, float, bool)):
         return data
@@ -46,6 +63,11 @@ def to_json(data, collected_state=None, widget=None):
 
     # Handle bytes-like objects
     if isinstance(data, (bytes, bytearray, memoryview)):
+        if buffers is not None:
+            # Store binary data in buffers and return reference
+            buffer_index = len(buffers)
+            buffers.append(data)
+            return {"__type__": "buffer", "index": buffer_index}
         return data
 
     # Handle datetime objects early since isinstance check is fast
@@ -83,30 +105,40 @@ def to_json(data, collected_state=None, widget=None):
         print(f"  Strides: {data.strides}")
         print(f"  Contiguous: {data.flags.c_contiguous}")
 
-        return {
-            "__type__": "ndarray",
-            "data": bytes_data,
-            "dtype": str(data.dtype),
-            "shape": data.shape,
-        }
+        return serialize_binary_data(
+            buffers,
+            {
+                "__type__": "ndarray",
+                "data": bytes_data,
+                "dtype": str(data.dtype),
+                "shape": data.shape,
+            },
+        )
 
     # Handle objects with custom serialization
     if hasattr(data, "for_json"):
-        return to_json(data.for_json(), collected_state=collected_state, widget=widget)
+        return to_json(
+            data.for_json(),
+            collected_state=collected_state,
+            widget=widget,
+            buffers=buffers,
+        )
 
     # Handle containers
     if isinstance(data, dict):
         # if "__type__" in data and data["__type__"] == "ndarray":
         #     raise ValueError("Found __type__ in dict - this indicates double serialization")
-        return {k: to_json(v, collected_state, widget) for k, v in data.items()}
+        return {
+            k: to_json(v, collected_state, widget, buffers) for k, v in data.items()
+        }
     if isinstance(data, (list, tuple)):
-        return [to_json(x, collected_state, widget) for x in data]
+        return [to_json(x, collected_state, widget, buffers) for x in data]
     if isinstance(data, Iterable):
         if not hasattr(data, "__len__") and not hasattr(data, "__getitem__"):
             print(
                 f"Warning: Potentially exhaustible iterator encountered: {type(data).__name__}"
             )
-        return [to_json(x, collected_state, widget) for x in data]
+        return [to_json(x, collected_state, widget, buffers) for x in data]
 
     # Handle callable objects
     if callable(data):
@@ -174,6 +206,59 @@ def apply_updates(state, updates):
             raise ValueError(f"Unknown operation: {operation}")
 
 
+def replace_buffers(data: Any, buffers: List[bytes]) -> Any:
+    """Replace buffer indices with actual buffer data in a nested data structure."""
+    import time
+
+    start = time.time()
+    print("Python side - replace_buffers starting")
+
+    if not buffers:
+        return data
+
+    # Fast path for direct buffer reference
+    if isinstance(data, dict) and "__buffer_index__" in data:
+        return buffers[data["__buffer_index__"]]
+
+    # Fast path for non-container types
+    if not isinstance(data, (dict, list, tuple)):
+        return data
+
+    if isinstance(data, dict):
+        # Process dictionary values in-place
+        for k, v in data.items():
+            if isinstance(v, dict) and "__buffer_index__" in v:
+                data[k] = buffers[v["__buffer_index__"]]
+            elif isinstance(v, (dict, list, tuple)):
+                data[k] = replace_buffers(v, buffers)
+        return data
+
+    if isinstance(data, list):
+        # Mutate list in-place
+        for i, x in enumerate(data):
+            if isinstance(x, dict) and "__buffer_index__" in x:
+                data[i] = buffers[x["__buffer_index__"]]
+            elif isinstance(x, (dict, list, tuple)):
+                data[i] = replace_buffers(x, buffers)
+        return data
+
+    # Handle tuples
+    result = list(data)
+    modified = False
+    for i, x in enumerate(data):
+        if isinstance(x, dict) and "__buffer_index__" in x:
+            result[i] = buffers[x["__buffer_index__"]]
+            modified = True
+        elif isinstance(x, (dict, list, tuple)):
+            new_val = replace_buffers(x, buffers)
+            if new_val is not x:
+                result[i] = new_val
+                modified = True
+
+    print(f"Python side - replace_buffers took {time.time() - start:.3f}s")
+    return tuple(result) if modified else data
+
+
 class WidgetState:
     def __init__(self, widget):
         self._state = {}
@@ -211,8 +296,10 @@ class WidgetState:
         apply_updates(self._state, synced_updates)
 
         # send all updates to JS regardless of sync status
+        buffers: List[bytes | bytearray | memoryview] = []
+        json_updates = to_json(updates, widget=self, buffers=buffers)
         self._widget.send(
-            {"type": "update_state", "updates": to_json(updates, widget=self)}
+            {"type": "update_state", "updates": json_updates}, buffers=buffers
         )
 
         self.notify_listeners(synced_updates)
@@ -254,13 +341,14 @@ class Widget(anywidget.AnyWidget):
     ) -> tuple[str, list[bytes]]:
         f = self.callback_registry[params["id"]]
         if f is not None:
-            f(self, params["event"])
+            event = replace_buffers(params["event"], buffers)
+            f(self, event)
         return "ok", []
 
     @anywidget.experimental.command  # type: ignore
     def handle_updates(
         self, params: dict[str, Any], buffers: list[bytes]
     ) -> tuple[str, list[bytes]]:
-        self.state.accept_js_updates(params["updates"])
-
+        updates = replace_buffers(params["updates"], buffers)
+        self.state.accept_js_updates(updates)
         return "ok", []

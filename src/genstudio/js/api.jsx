@@ -93,12 +93,28 @@ export const Slider = mobxReact.observer(
         const $state = useContext($StateContext);
         const isAnimated = typeof fps === 'number' && fps > 0;
         const [isPlaying, setIsPlaying] = useState(isAnimated);
+        const lastFrameTimeRef = useRef(performance.now());
+        const frameCountRef = useRef(0);
+        const lastLogTimeRef = useRef(performance.now());
 
         const sliderValue = clamp($state[state_key] ?? rangeMin, rangeMin, rangeMax);
 
         useEffect(() => {
             if (isAnimated && isPlaying) {
                 const intervalId = setInterval(() => {
+                    const now = performance.now();
+                    frameCountRef.current++;
+
+                    // Log FPS once per second
+                    if (now - lastLogTimeRef.current >= 1000) {
+                        const fps = frameCountRef.current * 1000 / (now - lastLogTimeRef.current);
+                        console.log(`Average FPS: ${Math.round(fps)}`);
+                        frameCountRef.current = 0;
+                        lastLogTimeRef.current = now;
+                    }
+
+                    lastFrameTimeRef.current = now;
+
                     $state[state_key] = (prevValue) => {
                         const nextValue = (prevValue || 0) + step;
                         if (nextValue > rangeMax) {

@@ -1,5 +1,7 @@
+# %%
 import genstudio.plot as Plot
 import numpy as np
+from genstudio.plot import js
 
 
 def generate_pixels(width=100, height=100, num_frames=60, fps=30):
@@ -43,24 +45,35 @@ def render(width=100, height=100, num_frames=30, fps=30):
             "pixels": data,
             "width": width,
             "height": height,
-            "numFrames": num_frames,
             "frame": 0,
         }
     )
     return (
-        Plot.rect([[0, 0, width, height]], x1="0", y1="1", x2="2", y2="3", fill="black")
+        Plot.rect(
+            [[0, 0, js("$state.width"), js("$state.height")]],
+            x1="0",
+            y1="1",
+            x2="2",
+            y2="3",
+            fill="black",
+        )
         + Plot.pixels(
-            Plot.js("$state.pixels[$state.frame]"),
-            imageWidth=Plot.js("$state.width"),
-            imageHeight=Plot.js("$state.height"),
+            js("$state.pixels[$state.frame]"),
+            imageWidth=js("$state.width"),
+            imageHeight=js("$state.height"),
         )
         | initial_state
-        | Plot.Slider("frame", range=num_frames - 1, fps=30)
+        | Plot.Slider("frame", rangeFrom=js("$state.pixels"), fps=30)
         | Plot.html(["div.text-gray-500", f"{size_mb:.1f}MB"])
     )
 
 
-plot = render(width=600, height=600, num_frames=30, fps=30)
+plot = render(width=50, height=50, num_frames=10, fps=30)
 plot
 
-plot.state.pixels = generate_pixels(100, 200, 10, fps=30)
+# %%
+
+W = 1000
+H = 1000
+N = 25
+plot.state.update({"pixels": generate_pixels(W, H, N, fps=30), "width": W, "height": H})

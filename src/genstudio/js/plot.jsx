@@ -56,7 +56,7 @@ export class PlotSpec {
 }
 
 export class MarkSpec {
-    constructor(name, data, options) {
+    constructor(name, data = [], options) {
         if (!Marks[name]) {
             throw new Error(`Plot function "${name}" not found.`);
         }
