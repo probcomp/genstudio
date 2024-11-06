@@ -6,7 +6,7 @@ import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
-import {evaluateNdarray, reshapeArray, estimateJSONSize} from "./binary"
+import {evaluateNdarray, inferDtype, estimateJSONSize} from "./binary"
 import { $StateContext, CONTAINER_PADDING } from "./context";
 import { serializeEvent, useCellUnmounted, useElementWidth, tw } from "./utils";
 
@@ -113,7 +113,22 @@ function collectBuffers(data) {
     if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
       const index = buffers.length;
       buffers.push(value);
-      return { "__buffer_index__": index };
+
+      // Add metadata about the array type
+      const metadata = {
+        "__buffer_index__": index,
+        "__type__": "ndarray",
+        "dtype": inferDtype(value),
+      };
+
+      // Add shape if available
+      if (value instanceof ArrayBuffer) {
+        metadata.shape = [value.byteLength];
+      } else {
+        metadata.shape = [value.length];
+      }
+
+      return metadata;
     }
 
     // Handle arrays recursively
@@ -162,7 +177,7 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
         const [updates, buffers] = collectBuffers([[key, "reset", newValue]]);
         experimental.invoke("handle_updates", {
           updates: JSON.stringify(updates)
-        }, buffers);
+        }, {buffers});
       }
       return true;
     }),
@@ -192,7 +207,7 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
       const [processedUpdates, buffers] = collectBuffers(syncUpdates);
       experimental.invoke("handle_updates", {
         updates: processedUpdates
-      }, buffers);
+      }, {buffers});
     }
   }
 

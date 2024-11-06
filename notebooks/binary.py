@@ -28,8 +28,10 @@ points = numpy.random.rand(8)
         r=20,
         render=Plot.renderChildEvents(
             onDrag=js("""(e) => {
-                 $state.update(["points", "setAt", [e.index * 2, e.x]],
-                               ["points", "setAt", [e.index * 2 + 1, e.y]])
+                const a = $state.points.slice()
+                a[e.index * 2] = e.x
+                a[e.index * 2 + 1] = e.y
+                $state.points = a
                  }""")
         ),
     )

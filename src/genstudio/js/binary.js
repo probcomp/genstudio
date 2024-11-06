@@ -36,6 +36,32 @@ export function reshapeArray(flat, dims, offset = 0) {
   );
 }
 
+const dtypeMap = {
+  'float32': Float32Array,
+  'float64': Float64Array,
+  'int8': Int8Array,
+  'int16': Int16Array,
+  'int32': Int32Array,
+  'uint8': Uint8Array,
+  'uint16': Uint16Array,
+  'uint32': Uint32Array,
+};
+
+/**
+ * Infers the numpy dtype for a JavaScript array by examining its contents
+ *
+ * @param {Array} arr - JavaScript array to analyze
+ * @returns {string} Numpy dtype string (e.g. 'float32', 'int32', etc)
+ */
+export function inferDtype(value) {
+
+  if (!(value instanceof ArrayBuffer || ArrayBuffer.isView(value))) {
+    throw new Error('Value must be a TypedArray');
+  }
+
+  return value.constructor.name.toLowerCase().replace('array', '');
+}
+
 /**
  * Evaluates an ndarray node by converting the DataView buffer into a typed array
  * and optionally reshaping it into a multidimensional array.
@@ -49,16 +75,7 @@ export function reshapeArray(flat, dims, offset = 0) {
  */
 export function evaluateNdarray(node) {
   const { data, dtype, shape } = node;
-  const dtypeMap = {
-    'float32': Float32Array,
-    'float64': Float64Array,
-    'int8': Int8Array,
-    'int16': Int16Array,
-    'int32': Int32Array,
-    'uint8': Uint8Array,
-    'uint16': Uint16Array,
-    'uint32': Uint32Array,
-  };
+
   const ArrayConstructor = dtypeMap[dtype] || Float64Array;
 
   // Create typed array directly from the DataView's buffer

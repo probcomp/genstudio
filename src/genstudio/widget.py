@@ -1,6 +1,7 @@
 import datetime
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Optional
+import json
 
 import anywidget
 import numpy as np
@@ -196,34 +197,45 @@ def apply_updates(state, updates):
             raise ValueError(f"Unknown operation: {operation}")
 
 
+def deserialize_buffer_entry(data: dict, buffers: List[bytes]) -> Any:
+    """Parse a buffer entry, converting to numpy array if needed."""
+    buffer_idx = data["__buffer_index__"]
+    if "__type__" in data and data["__type__"] == "ndarray":
+        # Convert buffer to numpy array
+        buffer = buffers[buffer_idx]
+        dtype = data.get("dtype", "float64")
+        shape = data.get("shape", [len(buffer)])
+        return np.frombuffer(buffer, dtype=dtype).reshape(shape)
+    return buffers[buffer_idx]
+
+
 def replace_buffers(data: Any, buffers: List[bytes]) -> Any:
     """Replace buffer indices with actual buffer data in a nested data structure."""
-
     if not buffers:
         return data
 
     # Fast path for direct buffer reference
-    if isinstance(data, dict) and "__buffer_index__" in data:
-        return buffers[data["__buffer_index__"]]
-
-    # Fast path for non-container types
-    if not isinstance(data, (dict, list, tuple)):
-        return data
-
     if isinstance(data, dict):
+        if "__buffer_index__" in data:
+            return deserialize_buffer_entry(data, buffers)
+
         # Process dictionary values in-place
         for k, v in data.items():
             if isinstance(v, dict) and "__buffer_index__" in v:
-                data[k] = buffers[v["__buffer_index__"]]
+                data[k] = deserialize_buffer_entry(v, buffers)
             elif isinstance(v, (dict, list, tuple)):
                 data[k] = replace_buffers(v, buffers)
+        return data
+
+    # Fast path for non-container types
+    if not isinstance(data, (dict, list, tuple)):
         return data
 
     if isinstance(data, list):
         # Mutate list in-place
         for i, x in enumerate(data):
             if isinstance(x, dict) and "__buffer_index__" in x:
-                data[i] = buffers[x["__buffer_index__"]]
+                data[i] = deserialize_buffer_entry(x, buffers)
             elif isinstance(x, (dict, list, tuple)):
                 data[i] = replace_buffers(x, buffers)
         return data
@@ -233,7 +245,7 @@ def replace_buffers(data: Any, buffers: List[bytes]) -> Any:
     modified = False
     for i, x in enumerate(data):
         if isinstance(x, dict) and "__buffer_index__" in x:
-            result[i] = buffers[x["__buffer_index__"]]
+            result[i] = deserialize_buffer_entry(x, buffers)
             modified = True
         elif isinstance(x, (dict, list, tuple)):
             new_val = replace_buffers(x, buffers)
@@ -241,7 +253,9 @@ def replace_buffers(data: Any, buffers: List[bytes]) -> Any:
                 result[i] = new_val
                 modified = True
 
-    return tuple(result) if modified else data
+    if modified:
+        return tuple(result)
+    return data
 
 
 class WidgetState:
@@ -334,6 +348,6 @@ class Widget(anywidget.AnyWidget):
     def handle_updates(
         self, params: dict[str, Any], buffers: list[bytes]
     ) -> tuple[str, list[bytes]]:
-        updates = replace_buffers(params["updates"], buffers)
+        updates = replace_buffers(json.loads(params["updates"]), buffers)
         self.state.accept_js_updates(updates)
         return "ok", []
