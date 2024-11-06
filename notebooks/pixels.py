@@ -4,7 +4,7 @@ import numpy as np
 from genstudio.plot import js
 
 
-def generate_pixels(width=100, height=100, num_frames=60, fps=30):
+def generate_pixels(width=100, height=100, num_frames=60):
     # Create coordinate grids
     x, y = np.meshgrid(np.linspace(-4, 4, width), np.linspace(-4, 4, height))
 
@@ -37,16 +37,10 @@ def generate_pixels(width=100, height=100, num_frames=60, fps=30):
 
 
 def render(width=100, height=100, num_frames=30, fps=30):
-    data = generate_pixels(width=width, height=height, num_frames=num_frames, fps=fps)
+    data = generate_pixels(width=width, height=height, num_frames=num_frames)
     # Calculate size in MB: width * height * 4 channels * num_frames * 4 bytes per float / (1024*1024)
-    size_mb = width * height * 4 * num_frames * 4 / (1024 * 1024)
     initial_state = Plot.initial_state(
-        {
-            "pixels": data,
-            "width": width,
-            "height": height,
-            "frame": 0,
-        }
+        {"pixels": data, "width": width, "height": height, "frame": 0, "fps": fps}
     )
     return (
         Plot.rect(
@@ -63,8 +57,15 @@ def render(width=100, height=100, num_frames=30, fps=30):
             imageHeight=js("$state.height"),
         )
         | initial_state
-        | Plot.Slider("frame", rangeFrom=js("$state.pixels"), fps=30)
-        | Plot.html(["div.text-gray-500", f"{size_mb:.1f}MB"])
+        | Plot.Slider("frame", rangeFrom=js("$state.pixels"), fps=js("$state.fps"))
+        | Plot.html(
+            [
+                "div.text-gray-500",
+                js(
+                    "`${($state.width * $state.height * 4 * $state.pixels.length / (1024 * 1024)).toFixed(1)}MB`"
+                ),
+            ]
+        )
     )
 
 
@@ -75,5 +76,7 @@ plot
 
 W = 1000
 H = 1000
-N = 25
-plot.state.update({"pixels": generate_pixels(W, H, N, fps=30), "width": W, "height": H})
+N = 27
+plot.state.update(
+    {"pixels": generate_pixels(W, H, N), "width": W, "height": H, "fps": 60}
+)

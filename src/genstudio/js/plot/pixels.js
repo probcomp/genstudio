@@ -97,14 +97,14 @@ export class Pixels extends Plot.Mark {
       .call(applyTransform, this, scales, 0, 0)
       .call(g => g.selectAll()
         .data([0]) // Single image
-        .join("image")
+        .join("foreignObject")
+        .style("transform-origin", "0 0")
         .call(applyDirectStyles, this)
-        .attr("transform", `translate(${x1},${y1}) scale(${Math.sign(x2-x1)},${Math.sign(y2-y1)})`)
-        .attr("width", width)
-        .attr("height", height)
-        .attr("preserveAspectRatio", "none")
-        .attr("xlink:href", canvas.toDataURL())
+        .attr("transform", `translate(${x1},${y2}) scale(${width/imageWidth},${height/imageHeight})`)
+        .attr("width", imageWidth)
+        .attr("height", imageHeight)
         .call(applyChannelStyles, this, channels)
+        .append(() => canvas)
       )
       .node();
   }
