@@ -79,7 +79,6 @@ extra_css:
 extra_javascript:
   - js/bylight.js
   - js/scroll-fix.js
-  - js/bylight.js
   - js/command-k.js
 hooks:
   - src/genstudio/scripts/css_modifier.py

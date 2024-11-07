@@ -72,6 +72,10 @@ jobs:
         run: |
           poetry version ${{ env.NEXT_VERSION }}
 
+      - name: Update version query params in widget.py
+        run: |
+          VERSION=$(poetry version -s)
+          python scripts/update_asset_versions.py $VERSION
 
       - name: Deploy to Artifact Registry
         run: poetry publish --build --repository gcp
