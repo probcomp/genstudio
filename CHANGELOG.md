@@ -1,3 +1,10 @@
+### [2024.11.002] - Nov 07, 2024
+
+- Add support for binary data (in plot specifications, and updates in both directions python<>js). Numpy/jax arrays are converted to appropriate TypedArray types in js.
+- Add a `Plot.pixels` mark for rendering a single image, given an array of rgb/rgba pixels and an imageWidth/imageHeight
+- Use CDN for releases (vastly smaller file sizes for notebooks)
+- Slider: add showFps option, improve layout
+
 ### [2024.11.001] - Nov 05, 2024
 
 #### Breaking Changes
