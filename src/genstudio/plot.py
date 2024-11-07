@@ -11,6 +11,7 @@ from genstudio.layout import (
     Grid,
     Hiccup,
     JSCall,
+    JSCode,
     JSRef,
     Row,
     ref,
@@ -391,6 +392,45 @@ def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
         A PlotSpec object representing the ellipse mark.
     """
     return PlotSpec(MarkSpec("ellipse", values, {**options, **kwargs}))
+
+
+def pixels(
+    pixelData: list[float] | JSCode,  # Flat array of RGB(A) values (0-255) or JSCode
+    *,
+    imageWidth: int | JSCode,
+    imageHeight: int | JSCode,
+    x: float | JSCode = 0,
+    y: float | JSCode = 0,
+    width: float | JSCode | None = None,
+    height: float | JSCode | None = None,
+) -> PlotSpec:
+    """
+    A custom mark for efficiently rendering a single image from raw RGB(A) pixel data.
+    Unlike most Observable Plot marks which render multiple elements from data arrays,
+    this mark renders a single image from a flat array of pixel values.
+
+    Args:
+        pixelData: Raw pixel data as a flat array in either RGB format [r,g,b,r,g,b,...]
+                  or RGBA format [r,g,b,a,r,g,b,a,...]. Each value should be 0-255.
+        imageWidth: Width of the source image in pixels
+        imageHeight: Height of the source image in pixels
+        x: X coordinate of top-left corner in plot coordinates (default: 0)
+        y: Y coordinate of top-left corner in plot coordinates (default: 0)
+        width: Displayed width in plot coordinates (defaults to imageWidth)
+        height: Displayed height in plot coordinates (defaults to imageHeight)
+
+    Returns:
+        A PlotSpec object representing the pixel image mark
+    """
+    options = {
+        "imageWidth": imageWidth,
+        "imageHeight": imageHeight,
+        "x": x,
+        "y": y,
+        "width": width,
+        "height": height,
+    }
+    return PlotSpec(MarkSpec("pixels", pixelData, options))
 
 
 def scaled_circle(x, y, r, **kwargs):
@@ -830,15 +870,6 @@ _Slider = JSRef("Slider")
 def Slider(
     key,
     init=None,
-    range=None,
-    rangeFrom=None,
-    fps=None,
-    step=1.0,
-    tail=False,
-    label=None,
-    show_value=True,
-    show_slider=True,
-    visible=True,
     **kwargs,
 ):
     """
@@ -849,12 +880,22 @@ def Slider(
         init (Any, optional): Initial value for the variable.
         range (Union[int, List[int]], optional): Either a single 'until' value or [from, until] list.
         rangeFrom (Any, optional): Derive the range from the length of this (ref) argument.
-        fps (int, optional): Frames per second for animation through the range.
+        fps (int, optional): Frames per second for animation through the range. If > 0, enables animation.
         step (int, optional): Step size for the range. Defaults to 1.
         tail (bool, optional): If True, animation stops at the end of the range. Defaults to False.
+        loop (bool, optional): If True, animation loops back to start when reaching the end. Defaults to True.
         label (str, optional): Label for the slider.
+        showValue (bool, optional): If True, shows the current value.
+        showSlider (bool, optional): If True, shows the slider control.
+        showFps (bool, optional): If True, shows current FPS when animating.
+        visible (bool, optional): If True, shows the slider component. Defaults to True.
         **kwargs: Additional keyword arguments.
     """
+    init = kwargs.get("init")
+    range = kwargs.get("range")
+    rangeFrom = kwargs.get("rangeFrom")
+    tail = kwargs.get("tail")
+
     if init is None and range is None and rangeFrom is None:
         raise ValueError("Slider: 'init', 'range', or 'rangeFrom' must be defined")
     if tail and rangeFrom is None:
@@ -864,15 +905,6 @@ def Slider(
     slider_options = {
         "state_key": key,
         "init": Ref(init, state_key=key),
-        "range": range,
-        "rangeFrom": rangeFrom,
-        "fps": fps,
-        "step": step,
-        "tail": tail,
-        "label": label,
-        "visible": visible,
-        "showValue": show_value,
-        "showSlider": show_slider,
         "kind": "Slider",
         **kwargs,
     }
@@ -880,30 +912,32 @@ def Slider(
     return Hiccup([_Slider, slider_options])
 
 
-renderChildEvents = JSRef("render.childEvents")
-"""
-Creates a render function that adds drag-and-drop and click functionality to child elements of a plot.
-Must be passed as the 'render' option to a mark, e.g.:
+def renderChildEvents(options: dict[str, Any] = {}, **kwargs) -> JSRef:
+    """
+    Creates a render function that adds drag-and-drop and click functionality to child elements of a plot.
+    Must be passed as the 'render' option to a mark, e.g.:
 
-    Plot.dot(data, render=Plot.render.childEvents({
-        "onDrag": update_position,
-        "onClick": handle_click
-    }))
+        Plot.dot(data, render=Plot.renderChildEvents(
+            onDrag=update_position,
+            onClick=handle_click
+        ))
 
-This function enhances the rendering of plot elements by adding interactive behaviors
-such as dragging, clicking, and tracking position changes. It's designed to work with
-Observable Plot's rendering pipeline.
+    This function enhances the rendering of plot elements by adding interactive behaviors
+    such as dragging, clicking, and tracking position changes. It's designed to work with
+    Observable Plot's rendering pipeline.
 
-Args:
-    options (dict): Configuration options for the child events:
-        - `onDragStart` (callable): Callback function called when dragging starts
-        - `onDrag` (callable): Callback function called during dragging
-        - `onDragEnd` (callable): Callback function called when dragging ends
-        - `onClick` (callable): Callback function called when a child element is clicked
+    Args:
+        options (dict): Configuration options for the child events
+        **kwargs: Event handlers passed as keyword arguments:
+            - `onDragStart` (callable): Callback function called when dragging starts
+            - `onDrag` (callable): Callback function called during dragging
+            - `onDragEnd` (callable): Callback function called when dragging ends
+            - `onClick` (callable): Callback function called when a child element is clicked
 
-Returns:
-    A render function to be used in the Observable Plot rendering pipeline.
-"""
+    Returns:
+        A render function to be used in the Observable Plot rendering pipeline.
+    """
+    return JSRef("render.childEvents")({**options, **kwargs})
 
 
 render = JSRef("render")
@@ -1030,6 +1064,8 @@ __all__ = [
     "identity",
     "index",
     # ## Plot: Marks
+    # The following are the original JavaScript docs for the built-in Observable Plot marks.
+    # Usage is slightly different from Python.
     "area",
     "areaX",
     "areaY",

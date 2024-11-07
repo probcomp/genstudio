@@ -45,6 +45,7 @@ nav:
       - Timelines with barX: examples/barx-timeline.py
       - Highlighting Code: examples/bylight.py
       - Rendering LaTeX: examples/katex.py
+      - Interactive Density: examples/interactive-density.py
   - Changelog: CHANGELOG.md
 markdown_extensions:
   - admonition

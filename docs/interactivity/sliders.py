@@ -47,4 +47,6 @@ line | slider
         },
     )
     + Plot.domain([0, 99], [-1, 1])
-) | Plot.Slider(key="frame", fps=30, range=[0, 59])
+) | Plot.Slider(
+    key="frame", label="frame:", showValue=True, fps=30, showFps=True, range=[0, 59]
+)

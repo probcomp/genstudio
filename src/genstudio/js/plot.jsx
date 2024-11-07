@@ -6,9 +6,10 @@ import { $StateContext, AUTOGRID_MIN } from "./context";
 import { events } from "./plot/events";
 import { ellipse } from "./plot/ellipse";
 import { img } from "./plot/img";
+import { pixels } from "./plot/pixels"
 import { binding, flatten, tw, useContainerWidth } from "./utils";
 
-const Marks = {...Plot, ellipse, events, img}
+const Marks = {...Plot, ellipse, events, img, pixels}
 const { useEffect } = React
 export const DEFAULT_PLOT_OPTIONS = { inset: 10 };
 
@@ -55,7 +56,7 @@ export class PlotSpec {
 }
 
 export class MarkSpec {
-    constructor(name, data, options) {
+    constructor(name, data = [], options) {
         if (!Marks[name]) {
             throw new Error(`Plot function "${name}" not found.`);
         }
@@ -169,9 +170,9 @@ function prepareSpec(spec, containerWidth, containerHeight) {
             ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
             marks: marks
     }
-    if (!spec.height && containerHeight && !spec.aspectRatio) {
-        spec.height = containerHeight
-    }
+    // if (!spec.height && containerHeight > 0 && !spec.aspectRatio) {
+    //     spec.height = containerHeight
+    // }
 
     if (spec.color_map) {
         const [domain, range] = [Object.keys(spec.color_map), Object.values(spec.color_map)];

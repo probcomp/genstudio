@@ -1,13 +1,13 @@
 import datetime
-import orjson
 import uuid
-
-from typing import Any, Iterable, Callable, Dict
+from typing import Any, Callable, Dict, Iterable, List, Optional
+import json
 
 import anywidget
+import numpy as np
 import traitlets
 
-from genstudio.util import PARENT_PATH, CONFIG
+from genstudio.util import CONFIG, PARENT_PATH
 
 
 class CollectedState:
@@ -23,7 +23,7 @@ class CollectedState:
             self.syncedKeys.add(state_key)
         if state_key not in self.initialStateJSON:
             self.initialState[state_key] = value
-            self.initialStateJSON[state_key] = orjson.Fragment(to_json(value, **kwargs))
+            self.initialStateJSON[state_key] = to_json(value, **kwargs)
         return {"__type__": "ref", "state_key": state_key}
 
     def add_listeners(self, listeners):
@@ -35,53 +35,126 @@ class CollectedState:
         return None
 
 
-def to_json(data, collected_state=None, widget=None):
-    def default(obj):
-        if collected_state is not None:
-            if hasattr(obj, "_state_key"):
-                return collected_state.state_entry(
-                    state_key=obj._state_key,
-                    value=obj.for_json(),
-                    sync=getattr(obj, "_state_sync", False),
-                    widget=widget,
-                    collected_state=collected_state,
-                )
-            if hasattr(obj, "_state_listeners"):
-                return collected_state.add_listeners(obj._state_listeners)
-        if hasattr(obj, "for_json"):
-            return obj.for_json()
-        if hasattr(obj, "tolist"):
-            return obj.tolist()
-        if isinstance(obj, Iterable):
-            # Check if the iterable might be exhaustible
-            if not hasattr(obj, "__len__") and not hasattr(obj, "__getitem__"):
-                print(
-                    f"Warning: Potentially exhaustible iterator encountered: {type(obj).__name__}"
-                )
-            return list(obj)
-        elif isinstance(obj, (datetime.date, datetime.datetime)):
-            return {"__type__": "datetime", "value": obj.isoformat()}
-        elif callable(obj):
-            if widget is not None:
-                id = str(uuid.uuid4())
-                widget.callback_registry[id] = obj
-                return {"__type__": "callback", "id": id}
-            return None
-        else:
-            raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+def serialize_binary_data(
+    buffers: Optional[List[bytes | bytearray | memoryview]], entry
+):
+    if buffers is None:
+        return entry
+    buffers.append(entry["data"])
+    return {
+        **entry,
+        "__buffer_index__": len(buffers) - 1,
+        "data": None,
+    }
 
-    return orjson.dumps(data, default=default).decode("utf-8")
+
+def to_json(
+    data,
+    collected_state=None,
+    widget=None,
+    buffers: Optional[List[bytes | bytearray | memoryview]] = None,
+):
+    # Handle basic JSON-serializable types first since they're most common
+    if isinstance(data, (str, int, float, bool)):
+        return data
+
+    # Handle None case
+    if data is None:
+        return None
+
+    # Handle binary data
+    if isinstance(data, (bytes, bytearray, memoryview)):
+        if buffers is not None:
+            # Store binary data in buffers and return reference
+            buffer_index = len(buffers)
+            buffers.append(data)
+            return {"__type__": "buffer", "index": buffer_index}
+        return data
+
+    # Handle datetime objects early since isinstance check is fast
+    if isinstance(data, (datetime.date, datetime.datetime)):
+        return {"__type__": "datetime", "value": data.isoformat()}
+
+    # Handle state-related objects
+    if collected_state is not None:
+        if hasattr(data, "_state_key"):
+            return collected_state.state_entry(
+                state_key=data._state_key,
+                value=data.for_json(),
+                sync=getattr(data, "_state_sync", False),
+                widget=widget,
+                collected_state=collected_state,
+            )
+        if hasattr(data, "_state_listeners"):
+            return collected_state.add_listeners(data._state_listeners)
+
+    # Handle numpy and jax arrays
+    if isinstance(data, np.ndarray) or type(data).__name__ in ("DeviceArray", "Array"):
+        try:
+            if data.ndim == 0:  # It's a scalar
+                return data.item()
+        except AttributeError:
+            pass
+
+        if data.ndim > 1:
+            raise ValueError(
+                f"Arrays with {data.ndim} dimensions are not supported. Only scalars and 1D arrays are allowed."
+            )
+
+        bytes_data = data.tobytes()
+        return serialize_binary_data(
+            buffers,
+            {
+                "__type__": "ndarray",
+                "data": bytes_data,
+                "dtype": str(data.dtype),
+                "shape": data.shape,
+            },
+        )
+    # Handle objects with custom serialization
+    if hasattr(data, "for_json"):
+        return to_json(
+            data.for_json(),
+            collected_state=collected_state,
+            widget=widget,
+            buffers=buffers,
+        )
+
+    # Handle containers
+    if isinstance(data, dict):
+        # if "__type__" in data and data["__type__"] == "ndarray":
+        #     raise ValueError("Found __type__ in dict - this indicates double serialization")
+        return {
+            k: to_json(v, collected_state, widget, buffers) for k, v in data.items()
+        }
+    if isinstance(data, (list, tuple)):
+        return [to_json(x, collected_state, widget, buffers) for x in data]
+    if isinstance(data, Iterable):
+        if not hasattr(data, "__len__") and not hasattr(data, "__getitem__"):
+            print(
+                f"Warning: Potentially exhaustible iterator encountered: {type(data).__name__}"
+            )
+        return [to_json(x, collected_state, widget, buffers) for x in data]
+
+    # Handle callable objects
+    if callable(data):
+        if widget is not None:
+            id = str(uuid.uuid4())
+            widget.callback_registry[id] = data
+            return {"__type__": "callback", "id": id}
+        return None
+
+    # Raise error for unsupported types
+    raise TypeError(f"Object of type {type(data)} is not JSON serializable")
 
 
 def to_json_with_initialState(ast: Any, widget: "Widget | None" = None):
     collected_state = CollectedState()
-    astJSON = orjson.Fragment(
-        to_json(ast, widget=widget, collected_state=collected_state)
-    )
+    ast = to_json(ast, widget=widget, collected_state=collected_state)
 
     json = to_json(
         {
-            "ast": astJSON,
+            "ast": ast,
             "initialState": collected_state.initialStateJSON,
             "syncedKeys": collected_state.syncedKeys,
             **CONFIG,
@@ -129,6 +202,67 @@ def apply_updates(state, updates):
             raise ValueError(f"Unknown operation: {operation}")
 
 
+def deserialize_buffer_entry(data: dict, buffers: List[bytes]) -> Any:
+    """Parse a buffer entry, converting to numpy array if needed."""
+    buffer_idx = data["__buffer_index__"]
+    if "__type__" in data and data["__type__"] == "ndarray":
+        # Convert buffer to numpy array
+        buffer = buffers[buffer_idx]
+        dtype = data.get("dtype", "float64")
+        shape = data.get("shape", [len(buffer)])
+        return np.frombuffer(buffer, dtype=dtype).reshape(shape)
+    return buffers[buffer_idx]
+
+
+def replace_buffers(data: Any, buffers: List[bytes]) -> Any:
+    """Replace buffer indices with actual buffer data in a nested data structure."""
+    if not buffers:
+        return data
+
+    # Fast path for direct buffer reference
+    if isinstance(data, dict):
+        if "__buffer_index__" in data:
+            return deserialize_buffer_entry(data, buffers)
+
+        # Process dictionary values in-place
+        for k, v in data.items():
+            if isinstance(v, dict) and "__buffer_index__" in v:
+                data[k] = deserialize_buffer_entry(v, buffers)
+            elif isinstance(v, (dict, list, tuple)):
+                data[k] = replace_buffers(v, buffers)
+        return data
+
+    # Fast path for non-container types
+    if not isinstance(data, (dict, list, tuple)):
+        return data
+
+    if isinstance(data, list):
+        # Mutate list in-place
+        for i, x in enumerate(data):
+            if isinstance(x, dict) and "__buffer_index__" in x:
+                data[i] = deserialize_buffer_entry(x, buffers)
+            elif isinstance(x, (dict, list, tuple)):
+                data[i] = replace_buffers(x, buffers)
+        return data
+
+    # Handle tuples
+    result = list(data)
+    modified = False
+    for i, x in enumerate(data):
+        if isinstance(x, dict) and "__buffer_index__" in x:
+            result[i] = deserialize_buffer_entry(x, buffers)
+            modified = True
+        elif isinstance(x, (dict, list, tuple)):
+            new_val = replace_buffers(x, buffers)
+            if new_val is not x:
+                result[i] = new_val
+                modified = True
+
+    if modified:
+        return tuple(result)
+    return data
+
+
 class WidgetState:
     def __init__(self, widget):
         self._state = {}
@@ -166,8 +300,10 @@ class WidgetState:
         apply_updates(self._state, synced_updates)
 
         # send all updates to JS regardless of sync status
+        buffers: List[bytes | bytearray | memoryview] = []
+        json_updates = to_json(updates, widget=self, buffers=buffers)
         self._widget.send(
-            {"type": "update_state", "updates": to_json(updates, widget=self)}
+            {"type": "update_state", "updates": json_updates}, buffers=buffers
         )
 
         self.notify_listeners(synced_updates)
@@ -209,13 +345,14 @@ class Widget(anywidget.AnyWidget):
     ) -> tuple[str, list[bytes]]:
         f = self.callback_registry[params["id"]]
         if f is not None:
-            f(self, params["event"])
+            event = replace_buffers(params["event"], buffers)
+            f(self, event)
         return "ok", []
 
     @anywidget.experimental.command  # type: ignore
     def handle_updates(
         self, params: dict[str, Any], buffers: list[bytes]
     ) -> tuple[str, list[bytes]]:
-        self.state.accept_js_updates(params["updates"])
-
+        updates = replace_buffers(json.loads(params["updates"]), buffers)
+        self.state.accept_js_updates(updates)
         return "ok", []

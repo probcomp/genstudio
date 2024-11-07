@@ -6,6 +6,7 @@ import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
+import {evaluateNdarray, inferDtype, estimateJSONSize} from "./binary"
 import { $StateContext, CONTAINER_PADDING } from "./context";
 import { serializeEvent, useCellUnmounted, useElementWidth, tw } from "./utils";
 
@@ -27,6 +28,9 @@ export function evaluate(node, $state, experimental) {
   if (node === null || typeof node !== 'object') return node;
   if (Array.isArray(node)) return node.map(item => evaluate(item, $state, experimental));
   if (node.constructor !== Object) {
+    if (node instanceof DataView) {
+      return node;
+    }
     return node;
   }
 
@@ -61,6 +65,8 @@ export function evaluate(node, $state, experimental) {
       } else {
         return undefined;
       }
+    case "ndarray":
+      return evaluateNdarray(node);
     default:
       return Object.fromEntries(
         Object.entries(node).map(([key, value]) => [key, evaluate(value, $state, experimental)])
@@ -79,7 +85,7 @@ function applyUpdate($state, init, op, payload) {
       return evaluatedPayload;
     case "setAt":
       const [i, v] = evaluatedPayload;
-      const newArray = [...init];
+      const newArray = init.slice();
       newArray[i] = v;
       return newArray;
     default:
@@ -97,6 +103,53 @@ function normalizeUpdates(updates) {
     const [key, operation, payload] = entry;
     return [[typeof key === 'string' ? key : key.id, operation, payload]];
   });
+}
+
+function collectBuffers(data) {
+  const buffers = [];
+
+  function traverse(value) {
+    // Handle ArrayBuffer and TypedArray instances
+    if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+      const index = buffers.length;
+      buffers.push(value);
+
+      // Add metadata about the array type
+      const metadata = {
+        "__buffer_index__": index,
+        "__type__": "ndarray",
+        "dtype": inferDtype(value),
+      };
+
+      // Add shape if available
+      if (value instanceof ArrayBuffer) {
+        metadata.shape = [value.byteLength];
+      } else {
+        metadata.shape = [value.length];
+      }
+
+      return metadata;
+    }
+
+    // Handle arrays recursively
+    if (Array.isArray(value)) {
+      return value.map(traverse);
+    }
+
+    // Handle objects recursively
+    if (value && typeof value === 'object') {
+      const result = {};
+      for (const [key, val] of Object.entries(value)) {
+        result[key] = traverse(val);
+      }
+      return result;
+    }
+
+    // Return primitives as-is
+    return value;
+  }
+
+  return [traverse(data), buffers];
 }
 
 /**
@@ -121,9 +174,10 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
 
       // Send sync update if this key should be synced
       if (experimental && syncedKeys.has(key)) {
+        const [updates, buffers] = collectBuffers([[key, "reset", newValue]]);
         experimental.invoke("handle_updates", {
-          updates: JSON.stringify([[key, "reset", newValue]])
-        });
+          updates: JSON.stringify(updates)
+        }, {buffers});
       }
       return true;
     }),
@@ -142,7 +196,8 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
   const applyUpdates = (updates) => {
     for (const update of updates) {
       const [key, operation, payload] = update
-      initialStateMap.set(key, applyUpdate($state, initialStateMap.get(key), operation, payload));
+      const init = $state[key]
+      initialStateMap.set(key, applyUpdate($state, init, operation, payload));
     }
   }
 
@@ -150,7 +205,10 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
     if (!experimental) return;
     const syncUpdates = updates.filter((([key]) => syncedKeys.has(key)))
     if (syncUpdates?.length > 0) {
-      experimental.invoke("handle_updates", { updates: syncUpdates });
+      const [processedUpdates, buffers] = collectBuffers(syncUpdates);
+      experimental.invoke("handle_updates", {
+        updates: processedUpdates
+      }, {buffers});
     }
   }
 
@@ -187,6 +245,33 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
   return $state;
 }
 
+/**
+ * Recursively replaces buffer index references with actual buffer data in a nested data structure.
+ * Mirrors the functionality of replace_buffers() in widget.py.
+ *
+ * @param {Object|Array} data - The data structure containing buffer references
+ * @param {Array<Buffer>} buffers - Array of binary buffers
+ * @returns {Object|Array} The data structure with buffer references replaced with actual data
+ */
+const replaceBuffers = (data, buffers) => {
+  if (!buffers || !buffers.length) return data;
+
+  if (data && typeof data === 'object') {
+    if ('__buffer_index__' in data) {
+      data.data = buffers[data.__buffer_index__];
+      delete data.__buffer_index__;
+      return data;
+    }
+
+    if (Array.isArray(data)) {
+      data.forEach(item => replaceBuffers(item, buffers));
+    } else {
+      Object.values(data).forEach(value => replaceBuffers(value, buffers));
+    }
+  }
+  return data;
+}
+
 export const StateProvider = mobxReact.observer(
   function (data) {
     const { ast, initialState, experimental, model } = data
@@ -196,10 +281,6 @@ export const StateProvider = mobxReact.observer(
     // to ensure that an ast is only rendered after $state has been populated
     // with the associated initialState entries.
     const [currentAst, setCurrentAst] = useState(null)
-
-    const renderNode = useCallback((value, props = {}) => {
-      return <api.Node value={value} {...props} />;
-    }, []);
 
     useEffect(() => {
       // when the widget is reset with a new ast/initialState, add missing entries
@@ -212,9 +293,9 @@ export const StateProvider = mobxReact.observer(
       // if we have an AnyWidget model (ie. we are in widget model),
       // listen for `update_state` events.
       if (model) {
-        const cb = (msg) => {
+        const cb = (msg, buffers) => {
           if (msg.type === 'update_state') {
-            $state.updateLocal(JSON.parse(msg.updates))
+            $state.updateLocal(replaceBuffers(msg.updates, buffers))
           }
         }
         model.on("msg:custom", cb);
@@ -232,10 +313,9 @@ export const StateProvider = mobxReact.observer(
   }
 )
 
-function DataViewer(data) {
+function Viewer(data) {
   const [el, setEl] = useState();
   const elRef = useCallback((element) => element && setEl(element), [setEl])
-  const width = useElementWidth(el)
   const isUnmounted = useCellUnmounted(el?.parentNode);
 
   if (isUnmounted || !data) {
@@ -248,38 +328,6 @@ function DataViewer(data) {
       {data.size && data.dev && <div className={tw("text-xl p-3")}>{data.size}</div>}
     </div>
   );
-}
-
-function estimateJSONSize(jsonString) {
-  if (!jsonString) return '0 B';
-
-  // Use TextEncoder to get accurate byte size for UTF-8 encoded string
-  const encoder = new TextEncoder();
-  const bytes = encoder.encode(jsonString).length;
-
-  // Convert bytes to KB or MB
-  if (bytes < 1024) {
-    return `${bytes} B`;
-  } else if (bytes < 1024 * 1024) {
-    return `${(bytes / 1024).toFixed(2)} KB`;
-  } else {
-    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-  }
-}
-
-function Viewer({ jsonString, ...data }) {
-  const parsedData = useMemo(() => {
-    if (jsonString) {
-      try {
-        return { ...data, size: estimateJSONSize(jsonString), ...JSON.parse(jsonString) };
-      } catch (error) {
-        console.error("Error parsing JSON:", error);
-        return null;
-      }
-    }
-    return data;
-  }, [jsonString]);
-  return <DataViewer {...parsedData} />;
 }
 
 function parseJSON(jsonString) {
@@ -371,16 +419,17 @@ function FileViewer() {
 }
 
 function AnyWidgetApp() {
-  let [jsonString] = useModelState("data");
+  const [data, _setData] = useModelState("data");
   const experimental = useExperimental();
   const model = useModel();
-  return <Viewer jsonString={jsonString} experimental={experimental} model={model} />;
+
+  return <Viewer {...data} experimental={experimental} model={model} />;
 }
 
 export const renderData = (element, data) => {
   const root = ReactDOM.createRoot(element);
   if (typeof data === 'string') {
-    root.render(<Viewer jsonString={data} />);
+    root.render(<Viewer {...JSON.parse(data)} />);
   } else {
     root.render(<Viewer {...data} />);
   }
