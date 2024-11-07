@@ -1,0 +1,26 @@
+.bylight-link {
+    color: inherit;
+    background-color: color-mix(in srgb, var(--bylight-color) 25%, transparent);
+    padding: 0 3px;
+
+    &.bylight-hover {
+        background-color: color-mix(in srgb, var(--bylight-color) 40%, transparent);
+        color: inherit;
+    }
+}
+
+.bylight-code {
+    color: color-mix(in srgb, var(--bylight-color) 80%, black);
+    font-weight: bold;
+    background-color: color-mix(in srgb, var(--bylight-color) 20%, transparent);
+
+    &.bylight-hover {
+        background-color: color-mix(in srgb, var(--bylight-color) 35%, transparent);
+        color: color-mix(in srgb, var(--bylight-color) 70%, currentColor);
+    }
+}
+
+.bylight-link,
+.bylight-code {
+    cursor: default;
+}

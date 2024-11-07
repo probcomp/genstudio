@@ -74,9 +74,9 @@ plugins:
           - hide_output
 extra_css:
   - stylesheets/custom.css
-  - https://unpkg.com/bylight/styles/bylight.css
+  - stylesheets/bylight.css
 extra_javascript:
-  - https://unpkg.com/bylight/dist/index.global.js
+  - js/bylight.js
   - js/scroll-fix.js
   - js/bylight.js
   - js/command-k.js
