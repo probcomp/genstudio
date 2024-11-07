@@ -5,8 +5,8 @@ from typing import Any, List, Optional, Sequence, Tuple, Union
 from html2image import Html2Image
 from PIL import Image
 
-from genstudio.util import CONFIG, PARENT_PATH
-from genstudio.widget import Widget, to_json_with_cache
+from genstudio.util import PARENT_PATH, CONFIG
+from genstudio.widget import Widget, to_json_with_initialState
 
 
 def create_parent_dir(path: str) -> None:
@@ -16,7 +16,7 @@ def create_parent_dir(path: str) -> None:
 
 def html_snippet(ast, id=None):
     id = id or f"genstudio-widget-{uuid.uuid4().hex}"
-    data = to_json_with_cache(ast)
+    data = to_json_with_initialState(ast)
 
     # Read and inline the JS and CSS files
     with open(PARENT_PATH / "js/widget_build.js", "r") as js_file:
@@ -83,7 +83,7 @@ class LayoutItem:
         self._display_as = display_as
         return self
 
-    def for_json(self) -> dict[str, Any]:
+    def for_json(self) -> dict[str, Any] | None:
         raise NotImplementedError("Subclasses must implement for_json method")
 
     def __and__(self, other: Any) -> "Row":
@@ -166,18 +166,22 @@ class LayoutItem:
         Args:
             new_item: A LayoutItem to reset to.
         """
-        if self._html is not None:
-            raise ValueError(
-                "Cannot reset an HTML widget. Use display_as='widget' or foo.widget() to create a resettable widget."
-            )
-        self.widget().set_ast(other.for_json())
+        ensure_widget(self).set_ast(other.for_json())
 
-    def update_state(self, *updates):
-        if self._html is not None:
-            raise ValueError(
-                "Cannot reset an HTML widget. Use display_as='widget' or foo.widget() to create a resettable widget."
-            )
-        self.widget().update_state(*updates)
+    @property
+    def state(self):
+        """
+        Get the widget state. Raises ValueError if widget is not initialized.
+        """
+        return ensure_widget(self).state
+
+
+def ensure_widget(self):
+    if self._html is not None:
+        raise ValueError(
+            "Cannot reset an HTML widget. Use display_as='widget' or foo.widget() to create a resettable widget."
+        )
+    return self.widget()
 
 
 class JSCall(LayoutItem):
@@ -216,9 +220,9 @@ class JSRef(LayoutItem):
 
     def __getattr__(self, name: str) -> "JSRef":
         """Returns a reference to a nested property or method of the JavaScript object."""
-        if name == "ref_id":
+        if name.startswith("_state_"):
             raise AttributeError(
-                f"'{self.__class__.__name__}' object has no attribute 'ref_id'"
+                f"'{self.__class__.__name__}' object has no attribute {name}"
             )
         return JSRef(f"{self.path}.{name}")
 
@@ -261,17 +265,16 @@ def js(txt: str, *params, expression=True) -> JSCode:
 class Hiccup(LayoutItem):
     """Wraps a Hiccup-style list to be rendered as an interactive widget in the JavaScript runtime."""
 
-    def __init__(self, *args: Any) -> None:
+    def __init__(self, *hiccup_elements) -> None:
         LayoutItem.__init__(self)
-        if len(args) == 0:
-            self.child = None
-        elif len(args) == 1:
-            self.child = args[0]
-        else:
-            self.child = args
+        self.hiccup_element = (
+            hiccup_elements[0]
+            if len(hiccup_elements) == 1
+            else ["<>", *hiccup_elements]
+        )
 
     def for_json(self) -> Any:
-        return self.child
+        return self.hiccup_element
 
 
 def flatten_layout_items(
@@ -286,7 +289,10 @@ def flatten_layout_items(
         elif isinstance(item, dict):
             options.update(item)
         else:
-            flattened.append(item)
+            if isinstance(item, (str, int, float)):
+                flattened.append(["span", item])
+            else:
+                flattened.append(item)
     return flattened, options
 
 
@@ -294,28 +300,52 @@ _Row = JSRef("Row")
 
 
 class Row(LayoutItem):
-    "Render children in a row."
+    """Render children in a row.
 
-    def __init__(self, *items: Any):
+    Args:
+        *items: Items to render in the row
+        **kwargs: Additional options including:
+            widths: List of flex sizes for each child. Can be:
+                - Numbers for flex ratios (e.g. [1, 2] means second item is twice as wide)
+                - Strings with fractions (e.g. ["1/2", "1/2"] for equal halves)
+                - Strings with explicit sizes (e.g. ["100px", "200px"])
+            gap: Gap size between items (default: 1)
+            className: Additional CSS classes
+    """
+
+    def __init__(self, *items: Any, **kwargs):
         super().__init__()
-        self.items, self.options = flatten_layout_items(items, Row)
+        self.items, options = flatten_layout_items(items, Row)
+        self.options = options | kwargs
 
     def for_json(self) -> Any:
-        return Hiccup(_Row, self.options, *self.items)
+        return Hiccup([_Row, self.options, *self.items])
 
 
 _Column = JSRef("Column")
 
 
 class Column(LayoutItem):
-    """Render children in a column."""
+    """Render children in a column.
 
-    def __init__(self, *items: Any):
+    Args:
+        *items: Items to render in the column
+        **kwargs: Additional options including:
+            heights: List of flex sizes for each child. Can be:
+                - Numbers for flex ratios (e.g. [1, 2] means second item is twice as tall)
+                - Strings with fractions (e.g. ["1/2", "1/2"] for equal halves)
+                - Strings with explicit sizes (e.g. ["100px", "200px"])
+            gap: Gap size between items (default: 1)
+            className: Additional CSS classes
+    """
+
+    def __init__(self, *items: Any, **kwargs):
         super().__init__()
-        self.items, self.options = flatten_layout_items(items, Column)
+        self.items, options = flatten_layout_items(items, Column)
+        self.options = options | kwargs
 
     def for_json(self) -> Any:
-        return Hiccup(_Column, self.options, *self.items)
+        return Hiccup([_Column, self.options, *self.items])
 
 
 def unwrap_for_json(x):
@@ -324,13 +354,19 @@ def unwrap_for_json(x):
     return x
 
 
-class RefObject(LayoutItem):
-    def __init__(self, value, id=None):
-        self.id = str(uuid.uuid1()) if id is None else id
-        self.value = value
+class Listener(LayoutItem):
+    def __init__(self, listeners: dict):
+        self._state_listeners = listeners
 
-    def ref_id(self):
-        return self.id
+    def for_json(self):
+        return None
+
+
+class Ref(LayoutItem):
+    def __init__(self, value, state_key=None, sync=False):
+        self._state_key = str(uuid.uuid1()) if state_key is None else state_key
+        self._state_sync = sync
+        self.value = value
 
     def for_json(self):
         return unwrap_for_json(self.value)
@@ -341,46 +377,58 @@ class RefObject(LayoutItem):
         return super()._repr_mimebundle_(**kwargs)
 
 
-def ref(value: Any, id=None) -> RefObject:
+def ref(value: Any, state_key=None, sync=False) -> Ref:
     """
-    Wraps a value in a `RefObject`, which allows for (1) deduplication of re-used values
+    Wraps a value in a `Ref`, which allows for (1) deduplication of re-used values
     during serialization, and (2) updating the value of refs in live widgets.
 
     Args:
-        value (Any): Initial value for the reference. If this is already a RefObject and no id is provided, returns it unchanged.
+        value (Any): Initial value for the reference. If this is already a Ref and no id is provided, returns it unchanged.
         id (str, optional): Unique identifier for the reference. If not provided, a UUID will be generated.
     Returns:
-        RefObject: A reference object containing the initial value and id.
+        Ref: A reference object containing the initial value and id.
     """
-    if id is None and isinstance(value, RefObject):
+    if id is None and isinstance(value, Ref):
         return value
-    return RefObject(value, id=id)
-
-
-def cache(value: Any, id=None) -> RefObject:
-    """
-    Deprecated: Use `ref` instead.
-    """
-    import warnings
-
-    warnings.warn(
-        "The 'cache' function is deprecated. Use 'ref' instead.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
-    return ref(value, id)
+    return Ref(value, state_key=state_key, sync=sync)
 
 
 def unwrap_ref(maybeRef: Any) -> Any:
     """
-    Unwraps a RefObject if the input is one.
+    Unwraps a Ref if the input is one.
 
     Args:
         obj (Any): The object to unwrap.
 
     Returns:
-        Any: The unwrapped object if input was a RefObject, otherwise the input object.
+        Any: The unwrapped object if input was a Ref, otherwise the input object.
     """
-    if isinstance(maybeRef, RefObject):
+    if isinstance(maybeRef, Ref):
         return maybeRef.value
     return maybeRef
+
+
+def Grid(*children, **opts):
+    """
+    Creates a responsive grid layout that automatically arranges child elements in a grid pattern.
+
+    The grid adjusts the number of columns based on the available width and minimum width per item.
+    Each item maintains a consistent aspect ratio and spacing between items is controlled by the gap parameter.
+
+    Args:
+        *children: Child elements to arrange in the grid.
+        **opts: Grid options including:
+            - minWidth (int): Minimum width for each grid item in pixels. Default is AUTOGRID_MIN_WIDTH.
+            - gap (str): CSS gap value between grid items. Default is "10px".
+            - aspectRatio (float): Width/height ratio for grid items. Default is 1.
+            - style (dict): Additional CSS styles to apply to grid container.
+
+    Returns:
+        A grid layout component that will be rendered in the JavaScript runtime.
+    """
+    return Hiccup(
+        [JSRef("Grid"), opts or {}, *children],
+    )
+
+
+Grid.for_json = lambda: JSRef("Grid")  # allow Grid to be used in hiccup

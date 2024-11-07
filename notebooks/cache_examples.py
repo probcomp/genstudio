@@ -27,9 +27,9 @@ widget = (Plot.html(data1) & Plot.html(data2)).display_as("widget")
 widget
 
 # %% Updating refs
-widget.update_state([data1, "append", 4])
+widget.state.update([data1, "append", 4])
 
-widget.update_state([data2, "concat", [5, 6]])
+widget.state.update([data2, "concat", [5, 6]])
 
 # %% Tailed Widget Example
 
@@ -39,7 +39,7 @@ tailedWidget
 
 
 # %% Updating Tailed Widget
-tailedWidget.update_state([tailedData, "concat", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]])
+tailedWidget.state.update([tailedData, "concat", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]])
 
 # %% Granular state propagation
 import genstudio.plot as Plot
@@ -62,7 +62,7 @@ render_2 = Plot.ref(
 
 # %% initialize a variable
 # We should see '123' logged once.
-Plot.initial_state("foo", 123) & Plot.js("console.log($state.foo) || $state.foo")
+Plot.initialState({"foo": 123}) & Plot.js("console.log($state.foo) || $state.foo")
 
 import genstudio.plot as Plot
 from IPython.display import display
@@ -70,15 +70,15 @@ from IPython.display import display
 p = Plot.new()
 display(p)
 
-p.reset(Plot.initial_state("foo", "foo") | Plot.js("$state.foo"))
+p.reset(Plot.initialState({"foo": "foo"}) | Plot.js("$state.foo"))
 
-p.reset(Plot.initial_state("blah", "blah") | Plot.js("$state.blah"))
+p.reset(Plot.initialState({"blah": "blah"}) | Plot.js("$state.blah"))
 
 # %%
 
 one = Plot.ref(Plot.js("$state.foo"))
 two = Plot.ref(Plot.js("$state.bar"))
-plot = Plot.new() | Plot.initial_state("foo", "FOO") | Plot.initial_state("bar", "BAR")
+plot = Plot.new() | Plot.initialState({"foo": "FOO", "bar": "BAR"})
 plot
 
 plot.reset(one)

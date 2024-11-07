@@ -112,7 +112,10 @@ describe('Widget', () => {
 
   describe('useStateStore', () => {
     it('should initialize state', () => {
-      const init = {"count": 0}
+      const init = {
+        initialState: {"count": 0},
+        syncedKeys: new Set(["count"])
+      }
       let result;
       function TestHook() {
         result = createStateStore(init);
@@ -144,12 +147,19 @@ describe('Widget', () => {
           }
         ]
       };
-      const cache = {"count": 0};
-      const experimental = null;
+
       const model = { on: vi.fn(), off: vi.fn() };
 
+      const data = {
+        ast,
+        model,
+        initialState: {"count": 0},
+        syncedKeys: new Set(["count"])
+      };
+
+
       const { container, rerender } = render(
-        <StateProvider ast={ast} cache={cache} experimental={experimental} model={model} />
+        <StateProvider {...data}  />
       );
 
       expect(container.innerHTML).toContain('Count: 0');
@@ -169,19 +179,20 @@ describe('Widget', () => {
           {
             __type__: 'function',
             path: 'InitialState',
-            args: ['foo', {__type__: 'ref', id: 'foo'}]
+            args: ['foo', {__type__: 'ref', state_key: 'foo'}]
           },
           {__type__: "js_source", value: 'console.log($state.foo) || $state.foo'}
         ]
       };
 
-      const cache = {
-        'foo': 123
+      const data = {
+        ast,
+        initialState: {'foo': 123},
+        syncedKeys: new Set(['foo'])
       };
 
-
       render(
-        <StateProvider ast={ast} cache={cache} />
+        <StateProvider {...data} />
       );
       // Check that console.log was called with the correct value
       expect(consoleSpy).toHaveBeenCalledWith(123);
@@ -195,21 +206,33 @@ describe('Widget', () => {
 
   describe('createStateStore', () => {
     it('should initialize with basic values', () => {
-      const $state = createStateStore({ count: 0, name: 'Test' });
+      const $state = createStateStore({
+        initialState: {
+          count: 0,
+          name: 'Test'
+        },
+        syncedKeys: new Set(['count', 'name'])
+      });
       expect($state.count).toBe(0);
       expect($state.name).toBe('Test');
     });
 
     it('should update a value', () => {
-      const $state = createStateStore({ count: 0 });
+      const $state = createStateStore({
+        initialState: { count: 0 },
+        syncedKeys: new Set(['count'])
+      });
       $state.count = 1;
       expect($state.count).toBe(1);
     });
 
     it('should handle computed values', () => {
       const $state = createStateStore({
-        count: 0,
-        doubleCount: js_expr('$state.count * 2')
+        initialState: {
+          count: 0,
+          doubleCount: js_expr('$state.count * 2')
+        },
+        syncedKeys: new Set(['count'])
       });
       expect($state.doubleCount).toBe(0);
       $state.count = 2;
@@ -218,8 +241,12 @@ describe('Widget', () => {
 
     it('should handle references', () => {
       const $state = createStateStore({
-        original: 10,
-        reference: { __type__: 'ref', id: 'original' }
+        initialState: {
+          original: 10,
+          reference: { __type__: 'ref', state_key: 'original' },
+          c: 10
+        },
+        syncedKeys: new Set(['original', 'reference'])
       });
       expect($state.reference).toBe(10);
       $state.original = 20;
@@ -228,13 +255,16 @@ describe('Widget', () => {
 
     it('should apply "append" operation', () => {
       const $state = createStateStore({
-        firstValue: js_expr("1"),
-        list: [js_expr('$state.firstValue'), 2, 3],
-        listSum: js_expr('$state.list.reduce((a, b) => a + b, 0)'),
-        listWithX: js_expr('[...$state.list, "X"]'),
+        initialState: {
+          firstValue: js_expr("1"),
+          list: [js_expr('$state.firstValue'), 2, 3],
+          listSum: js_expr('$state.list.reduce((a, b) => a + b, 0)'),
+          listWithX: js_expr('[...$state.list, "X"]'),
+        },
+        syncedKeys: new Set(['firstValue', 'list'])
       });
       expect($state.listSum).toBe(6);
-      $state.update([['list', 'append', 4]]);
+      $state.update(['list', 'append', 4]);
       expect($state.list).toEqual([1, 2, 3, 4]);
       expect($state.listWithX).toEqual([1, 2, 3, 4, "X"])
       expect($state.listSum).toBe(10);
@@ -245,9 +275,12 @@ describe('Widget', () => {
 
     it('should throw if circular reference is detected', () => {
       const $state = createStateStore({
-        a: { __type__: 'ref', id: 'b' },
-        b: { __type__: 'ref', id: 'a' },
-        c: 10
+        initialState: {
+          a: { __type__: 'ref', state_key: 'b' },
+          b: { __type__: 'ref', state_key: 'a' },
+          c: 10
+        },
+        syncedKeys: new Set(['a', 'b'])
       });
       expect(() => $state.a).toThrow(/Cycle detected in computation/);
       expect($state.c).toBe(10);
@@ -255,8 +288,11 @@ describe('Widget', () => {
 
     it('should demonstrate that during "update", ASTs are evaluated in order and not re-evaluated in a second pass', () => {
       const $state = createStateStore({
-        a: 1,
-        b: js_expr('$state.a + 1')
+        initialState: {
+          a: 1,
+          b: js_expr('$state.a + 1')
+        },
+        syncedKeys: new Set(['a', 'b'])
       });
 
       // Initial state
@@ -264,10 +300,10 @@ describe('Widget', () => {
       expect($state.b).toBe(2);
 
       // Update 'a' first, then 'b'
-      $state.update([
+      $state.update(
         ['a', 'reset', 10],
         ['b', 'reset', js_expr('$state.a + 2')]
-      ]);
+      );
       expect($state.a).toBe(10);
       expect($state.b).toBe(12);
 
@@ -275,10 +311,10 @@ describe('Widget', () => {
       $state.a = 1;
 
       // Update 'b' first, then 'a'
-      $state.update([
+      $state.update(
         ['b', 'reset', js_expr('$state.a + 1')],
         ['a', 'reset', 10]
-      ]);
+      );
       expect($state.a).toBe(10);
       expect($state.b).toBe(2);  // 'b' is still based on the old value of 'a'
     });

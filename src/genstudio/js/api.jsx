@@ -1,7 +1,5 @@
 import { $StateContext, AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
 import { MarkSpec, PlotSpec } from "./plot";
-import { html } from "./utils";
-
 import * as Plot from "@observablehq/plot";
 import bylight from "bylight";
 import * as d3 from "d3";
@@ -10,8 +8,9 @@ import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as render from "./plot/render";
-import { tw, useContainerWidth } from "./utils";
-const { useState, useEffect, useContext, useMemo, useRef, useCallback } = React
+import {Grid, Row, Column} from "./layout"
+import { tw } from "./utils";
+const { useState, useEffect, useContext, useRef, useCallback } = React
 import Katex from "katex";
 import markdownItKatex from "./markdown-it-katex";
 
@@ -19,23 +18,22 @@ export { render };
 export const CONTAINER_PADDING = 10;
 const KATEX_CSS_URL = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
 
-window.katexCssLoaded = false;
+let katexCssLoaded = false;
 function loadKatexCss() {
-    if (window.katexCssLoaded) return;
-    window.katexCssLoaded = true;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = KATEX_CSS_URL;
-    document.head.appendChild(link);
-
+    if (katexCssLoaded) return;
+    if (!document.querySelector(`link[href="${KATEX_CSS_URL}"]`)) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = KATEX_CSS_URL;
+        document.head.appendChild(link);
+    }
+    katexCssLoaded = true;
 }
 
 export function katex(tex) {
     const containerRef = useRef(null);
 
-    useEffect(() => {
-        loadKatexCss();
-    }, []);
+    loadKatexCss();
 
     useEffect(() => {
         if (containerRef.current) {
@@ -49,7 +47,7 @@ export function katex(tex) {
         }
     }, [tex]);
 
-    return html`<div ref=${containerRef} />`;
+    return <div ref={containerRef} />;
 }
 
 const MarkdownItInstance = new MarkdownIt({
@@ -61,11 +59,9 @@ const MarkdownItInstance = new MarkdownIt({
 MarkdownItInstance.use(markdownItKatex)
 
 export function md(text) {
-    useEffect(() => {
-        loadKatexCss();
-    }, []);
+    loadKatexCss();
 
-    return html`<div className=${tw("prose")} dangerouslySetInnerHTML=${{ __html: MarkdownItInstance.render(text) }} />`;
+    return <div className={tw("prose")} dangerouslySetInnerHTML={{ __html: MarkdownItInstance.render(text) }} />;
 }
 
 export const Slider = mobxReact.observer(
@@ -129,30 +125,32 @@ export const Slider = mobxReact.observer(
 
         const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
         if (options.visible !== true) return;
-        return html`
-        <div className=${tw("text-base flex flex-col my-2 gap-2 w-full")}>
-          <div className=${tw("flex items-center justify-between")}>
-            <span className=${tw("flex gap-2")}>
-              <label>${label}</label>
-              <span>${showValue && $state[state_key]}</span>
-            </span>
-            ${isAnimated && html`
-              <div onClick=${togglePlayPause} className=${tw("cursor-pointer")}>
-                ${isPlaying ? pauseIcon : playIcon}
-              </div>
-            `}
-          </div>
-          ${showSlider && html`<input
-            type="range"
-            min=${rangeMin}
-            max=${rangeMax}
-            step=${step}
-            value=${sliderValue}
-            onChange=${(e) => handleSliderChange(e.target.value)}
-            className=${tw("w-full outline-none")}
-          />`}
-        </div>
-      `;
+        return (
+            <div className={tw("text-base flex flex-col my-2 gap-2 w-full")}>
+                <div className={tw("flex items-center justify-between")}>
+                    <span className={tw("flex gap-2")}>
+                        <label>{label}</label>
+                        <span>{showValue && $state[state_key]}</span>
+                    </span>
+                    {isAnimated && (
+                        <div onClick={togglePlayPause} className={tw("cursor-pointer")}>
+                            {isPlaying ? pauseIcon : playIcon}
+                        </div>
+                    )}
+                </div>
+                {showSlider && (
+                    <input
+                        type="range"
+                        min={rangeMin}
+                        max={rangeMax}
+                        step={step}
+                        value={sliderValue}
+                        onChange={(e) => handleSliderChange(e.target.value)}
+                        className={tw("w-full outline-none")}
+                    />
+                )}
+            </div>
+        );
     }
 )
 
@@ -166,8 +164,34 @@ export class InitialState {
     render() { }
 }
 
-const playIcon = html`<svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>`;
-const pauseIcon = html`<svg viewBox="0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>`;
+export class OnStateChange {
+    // this could be a way of "mounting" a ref callback. eg.
+    // a_plot | Plot.onChange({})
+
+    // alternatively, on a widget we could do something like
+    // widget.onChange({"foo": cb})
+
+    // alternatively, one might want to sync some state, like
+    // widget.sync("foo", "bar")
+    // and then read the synced values via widget.foo
+
+    constructor(name, callback) {
+        this.name = name
+        this.callback = callback
+    }
+    render() {
+        const $state = useContext($StateContext);
+        useEffect(() => {
+            return mobx.autorun(() => {
+                this.callback($state[this.name])
+            })
+        },
+            [this.name, this.callback])
+    }
+}
+
+const playIcon = <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M8 5v14l11-7z"></path></svg>;
+const pauseIcon = <svg viewBox="0 24 24" width="24" height="24"><path fill="currentColor" d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>;
 
 export const Frames = mobxReact.observer(
     function (props) {
@@ -175,15 +199,15 @@ export const Frames = mobxReact.observer(
         const $state = useContext($StateContext);
 
         if (!Array.isArray(frames)) {
-            return html`<div className=${tw("text-red-500")}>Error: 'frames' must be an array.</div>`;
+            return <div className={tw("text-red-500")}>Error: 'frames' must be an array.</div>;
         }
 
         const index = $state[state_key];
         if (!Number.isInteger(index) || index < 0 || index >= frames.length) {
-            return html`<div className=${tw("text-red-500")}>Error: Invalid index. $state[${state_key}] (${index}) must be a valid index of the frames array (length: ${frames.length}).</div>`;
+            return <div className={tw("text-red-500")}>Error: Invalid index. $state[{state_key}] ({index}) must be a valid index of the frames array (length: {frames.length}).</div>;
         }
 
-        return html`<${Node} value=${frames[index]} />`;
+        return <Node value={frames[index]} />;
     }
 )
 export class Bylight {
@@ -214,64 +238,7 @@ export function repeat(data) {
     return (_, i) => data[i % length]
 
 }
-export { d3, MarkSpec, Plot, PlotSpec, React, ReactDOM };
-
-export function Grid({ children, style, minWidth = AUTOGRID_MIN_WIDTH, gap = 2, aspectRatio = 1 }) {
-    const [containerRef, containerWidth] = useContainerWidth();
-
-    const effectiveMinWidth = Math.min(minWidth, containerWidth);
-    const gapSize = parseInt(gap);
-
-    const numColumns = Math.max(1, Math.min(Math.floor(containerWidth / effectiveMinWidth), children.length));
-    const itemWidth = (containerWidth - (numColumns - 1) * gapSize) / numColumns;
-    const itemHeight = itemWidth / aspectRatio;
-    const numRows = Math.ceil(children.length / numColumns);
-    const layoutHeight = numRows * itemHeight + (numRows - 1) * gapSize;
-
-    const containerStyle = {
-        display: 'grid',
-        gridTemplateColumns: `repeat(${numColumns}, 1fr)`,
-        gridAutoRows: `${itemHeight}px`,
-        width: '100%',
-        overflowX: 'auto',
-        ...style
-    };
-
-    return html`
-    <div ref=${containerRef} class=${tw(`gap-${gap}`)} style=${containerStyle}>
-        ${children.map((value, index) => html`<${Node} key=${index}
-                                                       style=${{ width: itemWidth }}
-                                                       value=${value}/>`)}
-      </div>
-  `;
-}
-
-export function Row({ children, ...props }) {
-    const className = `flex flex-row ${props.className || ''}`
-    delete props["className"]
-
-    return html`
-    <div ...${props} className=${tw(className)}>
-      ${React.Children.map(children, (child, index) => html`
-        <div className=${tw("flex-1")} key=${index}>
-          ${child}
-        </div>
-      `)}
-    </div>
-  `;
-}
-
-export function Column({ children, ...props }) {
-    return html`
-    <div ...${props} className=${tw("flex flex-col")}>
-    ${React.Children.map(children, (child, index) => html`
-        <div key=${index}>
-          ${child}
-        </div>
-      `)}
-    </div>
-  `;
-}
+export { d3, MarkSpec, Plot, PlotSpec, React, ReactDOM, Row, Column, Grid };
 
 export const Node = mobxReact.observer(
     function ({ value }) {
@@ -285,9 +252,11 @@ export const Node = mobxReact.observer(
             if (elementType === 'string' || elementType === 'function' || (typeof maybeElement === 'object' && maybeElement !== null && "$$typeof" in maybeElement)) {
                 return Hiccup(maybeElement, ...args)
             } else {
-                return html`<${React.Fragment} children=${value.map(item =>
-                    typeof item !== 'object' || item === null ? item : html`<${Node} value=${item} />`
-                )} />`;
+                return <React.Fragment>
+                    {value.map(item =>
+                        typeof item !== 'object' || item === null ? item : <Node value={item} />
+                    )}
+                </React.Fragment>;
             }
         }
         const evaluatedValue = $state.evaluate(value)
@@ -299,14 +268,21 @@ export const Node = mobxReact.observer(
     }
 )
 
+function isProps(props) {
+    return props?.constructor === Object && !props.__type__ && !React.isValidElement(props);
+}
+
 export function Hiccup(tag, props, ...children) {
     const $state = useContext($StateContext)
 
-    if (props?.constructor !== Object || props.__type__ || React.isValidElement(props)) {
+    if (!isProps(props)) {
         children.unshift(props);
         props = {};
     }
+
     props = $state.evaluate(props)
+
+
 
     if (props.class) {
         props.className = props.class;
@@ -314,7 +290,9 @@ export function Hiccup(tag, props, ...children) {
     }
 
     let baseTag = tag;
-    if (typeof tag === 'string') {
+    if (tag === "<>") {
+        baseTag = React.Fragment;
+    } else if (typeof tag === 'string') {
         let id, classes
         [baseTag, ...classes] = tag.split('.');
         [baseTag, id] = baseTag.split('#');
@@ -334,8 +312,8 @@ export function Hiccup(tag, props, ...children) {
     }
 
     return children.length > 0
-        ? html`<${baseTag} ...${props}>
-            ${children.map((child, index) => html`<${Node} key=${index} value=${child}/>`)}
-          </>`
-        : html`<${baseTag} ...${props} />`;
+        ? React.createElement(baseTag, props,
+            ...children.map((child, index) => <Node key={index} value={child}/>)
+          )
+        : React.createElement(baseTag, props);
 }

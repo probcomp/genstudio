@@ -29,8 +29,10 @@ basic_plot
 
 # %% tags=["hide_source"]
 Plot.html(
-    "div.bg-black.text-white.p-3",
-    """The following examples depend on communication with a python backend, and will not be interactive on the docs website.""",
+    [
+        "div.bg-black.text-white.p-3",
+        """The following examples depend on communication with a python backend, and will not be interactive on the docs website.""",
+    ],
 )
 
 

@@ -5,8 +5,10 @@ from typing import Any, Dict, List, Union
 
 import genstudio.plot_defs as plot_defs
 from genstudio.layout import (
-    RefObject,
     Column,
+    Listener,
+    Ref,
+    Grid,
     Hiccup,
     JSCall,
     JSRef,
@@ -467,33 +469,6 @@ def constantly(x):
     return js(f"()=>{x}")
 
 
-def Grid(*children, **opts):
-    """
-    Creates a responsive grid layout that automatically arranges child elements in a grid pattern.
-
-    The grid adjusts the number of columns based on the available width and minimum width per item.
-    Each item maintains a consistent aspect ratio and spacing between items is controlled by the gap parameter.
-
-    Args:
-        *children: Child elements to arrange in the grid.
-        **opts: Grid options including:
-            - minWidth (int): Minimum width for each grid item in pixels. Default is AUTOGRID_MIN_WIDTH.
-            - gap (str): CSS gap value between grid items. Default is "10px".
-            - aspectRatio (float): Width/height ratio for grid items. Default is 1.
-            - style (dict): Additional CSS styles to apply to grid container.
-
-    Returns:
-        A grid layout component that will be rendered in the JavaScript runtime.
-    """
-    return Hiccup(
-        JSRef("Grid"),
-        {"children": children, **opts},
-    )
-
-
-Grid.for_json = lambda: JSRef("Grid")  # allow Grid to be used in hiccup
-
-
 def small_multiples(*specs, **options):
     """Alias for [[Grid]]"""
     return Grid(*specs, **options)
@@ -789,7 +764,7 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
     frames = ref(frames)
     if key is None:
         key = "frame"
-        return Hiccup(_Frames, {"state_key": key, "frames": frames}) | Slider(
+        return Hiccup([_Frames, {"state_key": key, "frames": frames}]) | Slider(
             key,
             rangeFrom=frames,
             tail=tail,
@@ -797,30 +772,56 @@ def Frames(frames, key=None, slider=True, tail=False, **opts):
             **opts,
         )
     else:
-        return Hiccup(_Frames, {"state_key": key, "frames": frames})
+        return Hiccup([_Frames, {"state_key": key, "frames": frames}])
 
 
-def initial_state(key_or_values, value=None):
+def initialState(values: dict, sync=None):
     """
-    Initializes one or multiple $state variables without returning a value.
+    Initializes state variables in the Plot widget.
 
     Args:
-        key_or_values (Union[str, dict]): Either a single key (str) for one state variable, or a dictionary of key-value pairs to initialize multiple state variables.
-        value (Any, optional): Initial value for the variable when a single key is provided. Ignored if key_or_values is a dictionary.
+        values (dict): A dictionary mapping state variable names to their initial values.
+        sync (Union[set, bool, None], optional): Controls which state variables are synced between Python and JavaScript.
+            If True, all variables are synced. If a set, only variables in the set are synced.
+            If None or False, no variables are synced. Defaults to None.
 
     Returns:
-        InitialState: An InitialState object containing the initialized state variables.
-    """
-    if isinstance(key_or_values, dict):
-        refs = [RefObject(v, id=k) for k, v in key_or_values.items()]
-    else:
-        if value is None:
-            raise ValueError(
-                "When providing a single key, a value must also be provided."
-            )
-        refs = [RefObject(value, id=key_or_values)]
+        InitialState: An object that initializes the state variables when rendered.
 
-    return JSCall("InitialState", [refs])
+    Example:
+        >>> Plot.initialState({"count": 0, "name": "foo"})  # Initialize without sync
+        >>> Plot.initialState({"count": 0}, sync=True)  # Sync all variables
+        >>> Plot.initialState({"x": 0, "y": 1}, sync={"x"})  # Only sync "x"
+    """
+
+    sync_set = set(values.keys()) if sync is True else (sync or set())
+
+    return JSCall(
+        "InitialState",
+        [Ref(v, state_key=k, sync=(k in sync_set)) for k, v in values.items()],
+    )
+
+
+initial_state = initialState
+
+
+def listen(listeners):
+    """
+    Adds listeners to a plot which will be invoked when the given state changes.
+
+    Args:
+        listeners (dict): A dictionary mapping state keys to listener functions. Each listener is called with (widget, event) when the corresponding state changes.
+
+    Returns:
+        Listener: A Listener object that will be rendered to set up the event handlers.
+
+    Example:
+        >>> plot.listen({
+        ...     "x": lambda w, e: print(f"x changed to {e}"),
+        ...     "y": lambda w, e: print(f"y changed to {e}")
+        ... })
+    """
+    return Listener(listeners)
 
 
 _Slider = JSRef("Slider")
@@ -862,7 +863,7 @@ def Slider(
 
     slider_options = {
         "state_key": key,
-        "init": RefObject(init, id=key),
+        "init": Ref(init, state_key=key),
         "range": range,
         "rangeFrom": rangeFrom,
         "fps": fps,
@@ -876,7 +877,7 @@ def Slider(
         **kwargs,
     }
 
-    return Hiccup(_Slider, slider_options)
+    return Hiccup([_Slider, slider_options])
 
 
 renderChildEvents = JSRef("render.childEvents")
@@ -1195,7 +1196,7 @@ __all__ = [
     "bylight",
     # ## Utility functions
     "doc",
-    "initial_state",
+    "initialState",
     "get_in",
     "dimensions",
 ]

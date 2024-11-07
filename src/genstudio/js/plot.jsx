@@ -6,7 +6,7 @@ import { $StateContext, AUTOGRID_MIN } from "./context";
 import { events } from "./plot/events";
 import { ellipse } from "./plot/ellipse";
 import { img } from "./plot/img";
-import { binding, flatten, html, tw, useContainerWidth } from "./utils";
+import { binding, flatten, tw, useContainerWidth } from "./utils";
 
 const Marks = {...Plot, ellipse, events, img}
 const { useEffect } = React
@@ -50,7 +50,7 @@ export class PlotSpec {
     }
 
     render() {
-        return html`<${PlotWrapper} spec=${this.spec}/>`;
+        return <PlotWrapper spec={this.spec}/>;
     }
 }
 
@@ -80,7 +80,7 @@ export class MarkSpec {
     }
 
     render() {
-        return html`<${PlotWrapper} spec=${{ marks: [this] }}/>`;
+        return <PlotWrapper spec={{ marks: [this] }}/>;
     }
 
     compute(width) {
@@ -162,12 +162,15 @@ export function readMark(mark, width) {
     return [mark, ...extraMarks]
 }
 
-function prepareSpec(spec, containerWidth) {
+function prepareSpec(spec, containerWidth, containerHeight) {
     const marks = spec.marks.flatMap((m) => readMark(m, containerWidth))
     spec = {...spec,
             width: spec.width ?? containerWidth,
             ...marks.reduce((acc, mark) => ({ ...acc, ...mark.plotOptions }), {}),
             marks: marks
+    }
+    if (!spec.height && containerHeight && !spec.aspectRatio) {
+        spec.height = containerHeight
     }
 
     if (spec.color_map) {
@@ -186,15 +189,15 @@ function prepareSpec(spec, containerWidth) {
 
 export function PlotWrapper({spec}) {
     const $state = React.useContext($StateContext)
-    return html`<${PlotView} spec=${spec} $state=${$state} />`
+    return <PlotView spec={spec} $state={$state} />
 }
 export function PlotView ({ spec, $state }) {
         const [ref, width] = useContainerWidth()
         useEffect(() => {
             const parent = ref.current
-            if (parent && width > 0) {
+            if (parent && width) {
                 return mobx.autorun(() => {
-                    const preparedSpec = prepareSpec(spec, width)
+                    const preparedSpec = prepareSpec(spec, width, ref.current.clientHeight)
                     const startTime = performance.now();
                     const plot = binding("$state", $state, () => Plot.plot(preparedSpec));
                     const endTime = performance.now();
@@ -204,7 +207,5 @@ export function PlotView ({ spec, $state }) {
                 })
             }
         }, [spec, width])
-        return html`
-          <div className=${tw('relative')} ref=${ref}></div>
-        `
+        return <div className={tw('relative')} ref={ref}></div>
     }

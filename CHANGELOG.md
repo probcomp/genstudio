@@ -1,3 +1,21 @@
+### [2024.11.001] - Nov 05, 2024
+
+#### Breaking Changes
+- `Plot.initialState({"name": "value"})` now takes **only** a dict, rather than a single key/value.
+- `Plot.html` would previously create an element if passed a string as the first argument. Now it is required to use a list, eg. `Plot.html(["div", ...content])`. This allows for wrapping primitive values (strings, numbers) in `Plot.html` in order to compose them, eg. `Plot.html("Hello, world") & ["div", {...}, "my button"])`.
+- `Plot.ref` now takes a `state_key` variable instead of `id` (but we expect to use `Plot.ref` less often, now with the new state features).
+- Python callbacks now take two arguments, `(widget, data)` instead of only `data`.
+
+#### Improvements
+- `Row`/`Column`/`Grid` now accept more options (eg. widths/heights).
+- `Plot.initialState(...)` accepts a `sync` option, `True` to sync all variables or a set of variable names, eg `sync={"foo"}`. Synced variables will send updates from js to python automatically.
+- `widget.state` is a new interface for reading synced variables (`widget.state.foo`) and updating any variable (`widget.state.update({"foo": "bar"}, ["bax", "append", 1])`).
+- `Plot.listen({state_key: listener})` is a layout item which subscribes listener functions to state changes. Adding a listener for a variable implicitly sets `sync=True` for that variable.
+
+#### Documentation
+- add rgb(a) section in colors
+- add interactive-density example
+
 ### [2024.10.005] - Oct 30, 2024
 
 - use `containerWidth` instead of a React context to set widths

@@ -2,7 +2,6 @@ import * as Twind from "@twind/core";
 import presetAutoprefix from "@twind/preset-autoprefix";
 import presetTailwind from "@twind/preset-tailwind";
 import presetTypography from "@twind/preset-typography";
-import htm from "htm";
 import * as React from "react";
 const { useState, useEffect, useRef } = React
 
@@ -12,9 +11,6 @@ const twindConfig = Twind.defineConfig({
 })
 
 export const tw = Twind.twind(twindConfig, Twind.cssom())
-const twKeyframes = Twind.keyframes.bind(tw)
-const injectGlobal = Twind.injectGlobal.bind(tw)
-export const  html = htm.bind(React.createElement)
 
 export const flatten = (data, dimensions) => {
   let leaves;
@@ -150,15 +146,21 @@ export function serializeEvent(e) {
   };
 }
 
-function debounce(func, wait) {
+function debounce(func, wait, leading = true) {
   let timeout;
+  let isInitial = true;
+
   return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
+    if (leading && isInitial) {
+      isInitial = false;
       func(...args);
-    };
+      return;
+    }
+
     clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
   };
 }
 

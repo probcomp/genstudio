@@ -15,11 +15,8 @@ SpecInput: TypeAlias = Union[
 
 class MarkSpec:
     def __init__(self, name, data, options):
-        self.id = str(uuid.uuid4())
+        self._state_key = str(uuid.uuid4())
         self.ast = JSCall("MarkSpec", [name, data, options])
-
-    def ref_id(self):
-        return self.id
 
     def for_json(self) -> Any:
         return self.ast

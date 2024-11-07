@@ -7,7 +7,7 @@ import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
 import { $StateContext, CONTAINER_PADDING } from "./context";
-import { html, serializeEvent, useCellUnmounted, useElementWidth, tw } from "./utils";
+import { serializeEvent, useCellUnmounted, useElementWidth, tw } from "./utils";
 
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;
@@ -18,7 +18,7 @@ function resolveReference(path, obj) {
 
 function resolveRef(node, $state) {
   if (node && typeof node === 'object' && node["__type__"] === "ref") {
-    return resolveRef($state[node.id], $state);
+    return resolveRef($state[node.state_key], $state);
   }
   return node;
 }
@@ -54,7 +54,7 @@ export function evaluate(node, $state, experimental) {
     case "datetime":
       return new Date(node.value);
     case "ref":
-      return $state.computed(node.id);
+      return $state.computed(node.state_key);
     case "callback":
       if (experimental) {
         return (e) => experimental.invoke("handle_callback", { id: node.id, event: serializeEvent(e) });
@@ -68,7 +68,7 @@ export function evaluate(node, $state, experimental) {
   }
 }
 
-function applyOperation($state, init, op, payload) {
+function applyUpdate($state, init, op, payload) {
   const evaluatedPayload = $state.evaluate(payload);
   switch (op) {
     case "append":
@@ -87,11 +87,26 @@ function applyOperation($state, init, op, payload) {
   }
 }
 
-// This function creates a reactive state management system.
-// It maintains a graph of AST fragments, evaluates them on-demand,
-// and allows for efficient updates to the underlying ASTs.
-// The system supports lazy evaluation and interdependent state management.
-export function createStateStore(initialState, experimental) {
+// normalize updates to handle both dict and array formats
+function normalizeUpdates(updates) {
+  return updates.flatMap(entry => {
+    if (entry.constructor === Object) {
+      return Object.entries(entry).map(([key, value]) => [key, 'reset', value]);
+    }
+    // handle array format [key, operation, payload]
+    const [key, operation, payload] = entry;
+    return [[typeof key === 'string' ? key : key.id, operation, payload]];
+  });
+}
+
+/**
+ * Creates a reactive state store with optional sync capabilities
+ * @param {Object.<string, any>} initialState
+ * @param {Object} experimental - The experimental interface for sync operations
+ * @returns {Proxy} A proxied state store with reactive capabilities
+ */
+export function createStateStore({ initialState, syncedKeys, experimental }) {
+  syncedKeys = new Set(syncedKeys)
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
 
@@ -101,7 +116,15 @@ export function createStateStore(initialState, experimental) {
       return target.computed(key);
     },
     set: mobx.action((_target, key, value) => {
-      initialStateMap.set(key, typeof value === 'function' ? value(initialStateMap.get(key)) : value);
+      const newValue = typeof value === 'function' ? value(initialStateMap.get(key)) : value;
+      initialStateMap.set(key, newValue);
+
+      // Send sync update if this key should be synced
+      if (experimental && syncedKeys.has(key)) {
+        experimental.invoke("handle_updates", {
+          updates: JSON.stringify([[key, "reset", newValue]])
+        });
+      }
       return true;
     }),
     ownKeys(_target) {
@@ -116,30 +139,48 @@ export function createStateStore(initialState, experimental) {
     }
   };
 
+  const applyUpdates = (updates) => {
+    for (const update of updates) {
+      const [key, operation, payload] = update
+      initialStateMap.set(key, applyUpdate($state, initialStateMap.get(key), operation, payload));
+    }
+  }
+
+  const notifyPython = (updates) => {
+    if (!experimental) return;
+    const syncUpdates = updates.filter((([key]) => syncedKeys.has(key)))
+    if (syncUpdates?.length > 0) {
+      experimental.invoke("handle_updates", { updates: syncUpdates });
+    }
+  }
+
   const $state = new Proxy({
     evaluate: (ast) => evaluate(ast, $state, experimental),
 
-    backfill: function(cache) {
-      for (const key in cache) {
+    backfill: function (data) {
+      syncedKeys = new Set(data.syncedKeys)
+      for (const [key, value] of Object.entries(data.initialState)) {
         if (!initialStateMap.has(key)) {
-          initialStateMap.set(key, cache[key]);
+          initialStateMap.set(key, value);
         }
       }
     },
 
-    resolveRef: function(node) { return resolveRef(node, $state); },
+    resolveRef: function (node) { return resolveRef(node, $state); },
 
-    computed: function(key) {
+    computed: function (key) {
       if (!(key in computeds)) {
         computeds[key] = mobx.computed(() => $state.evaluate(initialStateMap.get(key)));
       }
       return computeds[key].get();
     },
 
-    update: mobx.action(updates => {
-      for (const [key, operation, payload] of updates) {
-        initialStateMap.set(key, applyOperation($state, initialStateMap.get(key), operation, payload));
-      }
+    updateLocal: mobx.action(applyUpdates),
+
+    update: mobx.action((...updates) => {
+      const all_updates = normalizeUpdates(updates)
+      applyUpdates(all_updates)
+      notifyPython(all_updates)
     })
   }, stateHandler);
 
@@ -147,21 +188,25 @@ export function createStateStore(initialState, experimental) {
 }
 
 export const StateProvider = mobxReact.observer(
-  function ({ ast, cache, experimental, model }) {
-
-    const $state = useMemo(() => createStateStore(cache, experimental), [])
+  function (data) {
+    const { ast, initialState, experimental, model } = data
+    const $state = useMemo(() => createStateStore(data), [])
 
     // a currentAst state field managed by the following useEffect hook,
     // to ensure that an ast is only rendered after $state has been populated
-    // with the associated cache entries.
+    // with the associated initialState entries.
     const [currentAst, setCurrentAst] = useState(null)
 
+    const renderNode = useCallback((value, props = {}) => {
+      return <api.Node value={value} {...props} />;
+    }, []);
+
     useEffect(() => {
-      // when the widget is reset with a new ast/cache, add missing entries
-      // to the cache and then reset the current ast.
-      $state.backfill(cache)
+      // when the widget is reset with a new ast/initialState, add missing entries
+      // to the initialState and then reset the current ast.
+      $state.backfill(data)
       setCurrentAst(ast)
-    }, [ast, cache])
+    }, [ast, initialState])
 
     useEffect(() => {
       // if we have an AnyWidget model (ie. we are in widget model),
@@ -169,21 +214,21 @@ export const StateProvider = mobxReact.observer(
       if (model) {
         const cb = (msg) => {
           if (msg.type === 'update_state') {
-            $state.update(JSON.parse(msg.updates))
+            $state.updateLocal(JSON.parse(msg.updates))
           }
         }
         model.on("msg:custom", cb);
         return () => model.off("msg:custom", cb)
       }
-    }, [cache, model])
+    }, [initialState, model])
 
     if (!currentAst) return;
 
-    return html`
-    <${$StateContext.Provider} value=${$state}>
-      <${api.Node} value=${currentAst} />
-    </${$StateContext.Provider}>
-  `;
+    return (
+      <$StateContext.Provider value={$state}>
+        <api.Node value={currentAst} />
+      </$StateContext.Provider>
+    );
   }
 )
 
@@ -197,14 +242,12 @@ function DataViewer(data) {
     return null;
   }
 
-  const adjustedWidth = width ? width - CONTAINER_PADDING : undefined;
-
-  return html`
-      <div className="genstudio-container" style=${{ "padding": CONTAINER_PADDING }} ref=${elRef}>
-        ${el && html`<${StateProvider} ...${data}/>`}
-        ${data.size && data.dev && html`<div className=${tw("text-xl p-3")}>${data.size}</div>`}
-      </div>
-  `;
+  return (
+    <div className="genstudio-container" style={{ "padding": CONTAINER_PADDING }} ref={elRef}>
+      {el && <StateProvider {...data}/>}
+      {data.size && data.dev && <div className={tw("text-xl p-3")}>{data.size}</div>}
+    </div>
+  );
 }
 
 function estimateJSONSize(jsonString) {
@@ -224,8 +267,6 @@ function estimateJSONSize(jsonString) {
   }
 }
 
-
-
 function Viewer({ jsonString, ...data }) {
   const parsedData = useMemo(() => {
     if (jsonString) {
@@ -238,7 +279,7 @@ function Viewer({ jsonString, ...data }) {
     }
     return data;
   }, [jsonString]);
-  return html`<${DataViewer} ...${parsedData} />`;
+  return <DataViewer {...parsedData} />;
 }
 
 function parseJSON(jsonString) {
@@ -298,56 +339,56 @@ function FileViewer() {
     reader.readAsText(file);
   };
 
-  return html`
-    <div className=${tw("p-3")}>
+  return (
+    <div className={tw("p-3")}>
       <div
-        className=${tw(`border-2 border-dashed rounded-lg p-5 text-center ${dragActive ? 'border-blue-500' : 'border-gray-300'}`)}
-        onDragEnter=${handleDrag}
-        onDragLeave=${handleDrag}
-        onDragOver=${handleDrag}
-        onDrop=${handleDrop}
+        className={tw(`border-2 border-dashed rounded-lg p-5 text-center ${dragActive ? 'border-blue-500' : 'border-gray-300'}`)}
+        onDragEnter={handleDrag}
+        onDragLeave={handleDrag}
+        onDragOver={handleDrag}
+        onDrop={handleDrop}
       >
-        <label htmlFor="file-upload" className=${tw("text-sm inline-block px-3 py-2 mb-2 text-white bg-blue-600 rounded-full cursor-pointer hover:bg-blue-700")}>
+        <label htmlFor="file-upload" className={tw("text-sm inline-block px-3 py-2 mb-2 text-white bg-blue-600 rounded-full cursor-pointer hover:bg-blue-700")}>
           Choose a JSON file
         </label>
         <input
           type="file"
           id="file-upload"
           accept=".json"
-          onChange=${handleChange}
-          className=${tw("hidden")}
+          onChange={handleChange}
+          className={tw("hidden")}
         />
-        <p className=${tw("text-sm text-gray-600")}>or drag and drop a JSON file here</p>
+        <p className={tw("text-sm text-gray-600")}>or drag and drop a JSON file here</p>
       </div>
-      ${data && html`
-        <div className=${tw("mt-4")}>
-          <h2 className=${tw("text-lg mb-3")}>Loaded JSON Data:</h2>
-          <${Viewer} ...${data} />
+      {data && (
+        <div className={tw("mt-4")}>
+          <h2 className={tw("text-lg mb-3")}>Loaded JSON Data:</h2>
+          <Viewer {...data} />
         </div>
-      `}
+      )}
     </div>
-  `;
+  );
 }
 
 function AnyWidgetApp() {
   let [jsonString] = useModelState("data");
   const experimental = useExperimental();
   const model = useModel();
-  return html`<${Viewer} ...${{ jsonString, experimental, model }} />`;
+  return <Viewer jsonString={jsonString} experimental={experimental} model={model} />;
 }
 
 export const renderData = (element, data) => {
   const root = ReactDOM.createRoot(element);
   if (typeof data === 'string') {
-    root.render(html`<${Viewer} jsonString=${data} />`);
+    root.render(<Viewer jsonString={data} />);
   } else {
-    root.render(html`<${Viewer} ...${data} />`);
+    root.render(<Viewer {...data} />);
   }
 };
 
 export const renderFile = (element) => {
   const root = ReactDOM.createRoot(element);
-  root.render(html`<${FileViewer} />`);
+  root.render(<FileViewer />);
 };
 
 export default {

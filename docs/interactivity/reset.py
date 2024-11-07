@@ -2,8 +2,10 @@ import genstudio.plot as Plot
 
 # %% tags=["hide_source"]
 Plot.html(
-    "div.bg-black.text-white.p-3",
-    """This example depends on communication with a python backend, and will not be interactive on the docs website.""",
+    [
+        "div.bg-black.text-white.p-3",
+        """This example depends on communication with a python backend, and will not be interactive on the docs website.""",
+    ],
 )
 # %% [markdown]
 #

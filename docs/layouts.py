@@ -42,11 +42,24 @@ $$\oint_{\partial \Omega} \mathbf{E} \cdot d\mathbf{S} = \frac{1}{\epsilon_0} \i
 
 # %% [markdown]
 # ## Plot.Grid
-# There is also `Plot.Grid`, which accepts accepts any number of children as well as `minWidth` (default: 165px) and `gap` keyword params, and automatically lays out the child elements in a grid while automatically computing the number of columns.
+# A responsive grid layout component that automatically arranges children in a grid.
+#
+# Key options:
+# - `minWidth`: Minimum width for auto-calculated columns (default: 165px)
+# - `gap`: Grid gap size that applies to both row and column gaps (default: 1)
+# - `rowGap`: Vertical gap between rows (overrides `gap`)
+# - `colGap`: Horizontal gap between columns (overrides `gap`)
+# - `cols`: Fixed number of columns (by default, columns are calculated based on container width)
+# - `minCols`: Minimum number of columns (default: 1)
+# - `maxCols`: Maximum number of columns
+# - `widths`: Array of column widths
+# - `heights`: Array of row heights
+# - `height`: Container height
+# - `style`: Additional CSS styles
 
 # %%
 Plot.Grid(
-    Plot.html(["div.bg-red-200.p-5", "A"]),
+    Plot.html(["div.bg-red-200.p-5", ["pre", "A\n\n\n\nA"]]),
     Plot.html(["div.bg-orange-200.p-5", "B"]),
     Plot.html(["div.bg-yellow-200.p-5", "C"]),
     Plot.html(["div.bg-green-200.p-5", "D"]),
@@ -56,6 +69,34 @@ Plot.Grid(
     Plot.html(["div.bg-pink-200.p-5", "H"]),
 )
 
+# %% [markdown]
+# Here's an example using some of the grid options:
+
+# %%
+Plot.Grid(
+    Plot.html(["div.bg-red-200.p-5", "A"]),
+    Plot.html(["div.bg-orange-200.p-5", "B"]),
+    Plot.html(["div.bg-yellow-200.p-5", "C"]),
+    Plot.html(["div.bg-green-200.p-5", "D"]),
+    rowGap=2,
+    colGap=8,
+    cols=2,
+)
+
+# %% [markdown]
+# Here's an example specifying both widths and heights:
+
+# %%
+Plot.Grid(
+    Plot.html(["div.bg-red-200.p-5", "A"]),
+    Plot.html(["div.bg-orange-200.p-5", "B"]),
+    Plot.html(["div.bg-yellow-200.p-5", "C"]),
+    Plot.html(["div.bg-green-200.p-5", "D"]),
+    widths=["2fr", "1fr"],
+    heights=["100px", "200px"],
+    height="300px",
+    gap=4,
+)
 
 # %% [markdown]
 # ## Plot.Row and Plot.Column
@@ -70,3 +111,47 @@ Plot.Column(
         Plot.html(["div.bg-green-200.p-5", "D"]),
     ),
 )
+
+# %% [markdown]
+# The `widths` option in `Plot.Row` allows you to specify the width of each child element:
+# - Numbers like `1` or `3` are treated as flex grow values, determining how remaining space is distributed
+# - String values like `"30px"` set fixed pixel widths
+# - String values like `"1/2"` set fractional widths
+#
+# For example, in this row:
+# - The first element gets 1/2 of the space
+# - The second element has a fixed width of 30 pixels
+# - The third element gets 1 parts of the remaining space
+# - The fourth element gets 2 part of the remaining space
+
+# %%
+Plot.Row(
+    Plot.html(["div.bg-red-200.p-5", "half width"]),
+    Plot.html(["div.bg-orange-200.p-5", "70px"]),
+    Plot.html(["div.bg-yellow-200.p-5", "flex-1"]),
+    Plot.html(["div.bg-green-200.p-5", "flex-2"]),
+    widths=["1/2", "70px", 1, 2],
+    height="200px",
+)
+
+# %% [markdown]
+# The `heights` option of `Plot.Column` works the same way:
+
+# %%
+import genstudio.plot as Plot
+
+Plot.Column(
+    Plot.html(["div.bg-red-200.p-2", "1/2 height"]),
+    Plot.html(["div.bg-orange-200.p-2", "70px"]),
+    Plot.html(["div.bg-yellow-200.p-2", "1 flex"]),
+    Plot.html(["div.bg-green-200.p-2", "2 flex"]),
+    heights=["1/2", "70px", 1, 2],
+    height="400px",
+    width="400px",
+) & ["div.flex.items-center", "Hello, world."]
+
+# %% [markdown]
+# Hint: to use primitives with `&` or `|`, wrap the first value in `Plot.html(...)`.
+
+# %%
+Plot.html("Hello") & "World"

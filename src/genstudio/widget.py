@@ -10,28 +10,44 @@ import traitlets
 from genstudio.util import PARENT_PATH, CONFIG
 
 
-class Cache:
-    # a Cache is used to store "refs" off to the side while serializing data.
+class CollectedState:
+    # collect initial state while serializing data.
     def __init__(self):
-        self.cache = {}
+        self.syncedKeys = set()
+        self.initialState = {}
+        self.initialStateJSON = {}
+        self.stateListeners = {}
 
-    def entry(self, id, value, **kwargs):
-        if id not in self.cache:
-            # perform to_json conversion for cache entries immediately
-            self.cache[id] = orjson.Fragment(to_json(value, **kwargs))
-        return {"__type__": "ref", "id": id}
+    def state_entry(self, state_key, value, sync=False, **kwargs):
+        if sync:
+            self.syncedKeys.add(state_key)
+        if state_key not in self.initialStateJSON:
+            self.initialState[state_key] = value
+            self.initialStateJSON[state_key] = orjson.Fragment(to_json(value, **kwargs))
+        return {"__type__": "ref", "state_key": state_key}
 
-    def for_json(self):
-        return self.cache
+    def add_listeners(self, listeners):
+        for state_key, listener in listeners.items():
+            self.syncedKeys.add(state_key)
+            if state_key not in self.stateListeners:
+                self.stateListeners[state_key] = []
+            self.stateListeners[state_key].append(listener)
+        return None
 
 
-def to_json(data, widget=None, cache=None):
+def to_json(data, collected_state=None, widget=None):
     def default(obj):
-        if hasattr(obj, "ref_id"):
-            if cache is not None:
-                return cache.entry(
-                    obj.ref_id(), obj.for_json(), widget=widget, cache=cache
+        if collected_state is not None:
+            if hasattr(obj, "_state_key"):
+                return collected_state.state_entry(
+                    state_key=obj._state_key,
+                    value=obj.for_json(),
+                    sync=getattr(obj, "_state_sync", False),
+                    widget=widget,
+                    collected_state=collected_state,
                 )
+            if hasattr(obj, "_state_listeners"):
+                return collected_state.add_listeners(obj._state_listeners)
         if hasattr(obj, "for_json"):
             return obj.for_json()
         if hasattr(obj, "tolist"):
@@ -57,18 +73,127 @@ def to_json(data, widget=None, cache=None):
     return orjson.dumps(data, default=default).decode("utf-8")
 
 
-def to_json_with_cache(data: Any, widget: "Widget | None" = None):
-    cache = Cache()
-    return to_json({"ast": data, "cache": cache, **CONFIG}, widget=widget, cache=cache)
+def to_json_with_initialState(ast: Any, widget: "Widget | None" = None):
+    collected_state = CollectedState()
+    astJSON = orjson.Fragment(
+        to_json(ast, widget=widget, collected_state=collected_state)
+    )
+
+    json = to_json(
+        {
+            "ast": astJSON,
+            "initialState": collected_state.initialStateJSON,
+            "syncedKeys": collected_state.syncedKeys,
+            **CONFIG,
+        }
+    )
+
+    if widget is not None:
+        widget.state.init_state(collected_state)
+    return json
+
+
+def entry_id(key):
+    return key if isinstance(key, str) else key._state_key
+
+
+def normalize_updates(updates):
+    out = []
+    for entry in updates:
+        if isinstance(entry, dict):
+            for key, value in entry.items():
+                out.append([entry_id(key), "reset", value])
+        else:
+            out.append([entry_id(entry[0]), entry[1], entry[2]])
+    return out
+
+
+def apply_updates(state, updates):
+    for name, operation, payload in updates:
+        if operation == "append":
+            if name not in state:
+                state[name] = []
+            state[name].append(payload)
+        elif operation == "concat":
+            if name not in state:
+                state[name] = []
+            state[name].extend(payload)
+        elif operation == "reset":
+            state[name] = payload
+        elif operation == "setAt":
+            index, value = payload
+            if name not in state:
+                state[name] = []
+            state[name][index] = value
+        else:
+            raise ValueError(f"Unknown operation: {operation}")
+
+
+class WidgetState:
+    def __init__(self, widget):
+        self._state = {}
+        self._widget = widget
+        self._syncedKeys = set()
+        self._listeners = {}
+
+    def __getattr__(self, name):
+        if name in self._state:
+            return self._state[name]
+        raise AttributeError(f"'{self.__class__.__name__}' has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        if name.startswith("_"):
+            super().__setattr__(name, value)
+        else:
+            self._state[name] = value
+            self.update([name, "reset", value])
+
+    def notify_listeners(self, updates):
+        for name, operation, value in updates:
+            for listener in self._listeners.get(name, []):
+                listener(self._widget, {"id": name, "value": self._state[name]})
+
+    # update values from python - send to js
+    def update(self, *updates):
+        updates = normalize_updates(updates)
+
+        # apply updates locally for synced state
+        synced_updates = [
+            [name, op, payload]
+            for name, op, payload in updates
+            if entry_id(name) in self._syncedKeys
+        ]
+        apply_updates(self._state, synced_updates)
+
+        # send all updates to JS regardless of sync status
+        self._widget.send(
+            {"type": "update_state", "updates": to_json(updates, widget=self)}
+        )
+
+        self.notify_listeners(synced_updates)
+
+    # accept updates from js - notify callbacks
+    def accept_js_updates(self, updates):
+        apply_updates(self._state, updates)
+        self.notify_listeners(updates)
+
+    def init_state(self, collected_state):
+        self._listeners = collected_state.stateListeners or {}
+        self._syncedKeys = syncedKeys = collected_state.syncedKeys
+
+        for key, value in collected_state.initialState.items():
+            if key in syncedKeys and key not in self._state:
+                self._state[key] = value
 
 
 class Widget(anywidget.AnyWidget):
     _esm = PARENT_PATH / "js/widget_build.js"
     _css = PARENT_PATH / "widget.css"
     callback_registry: Dict[str, Callable] = {}
-    data = traitlets.Any().tag(sync=True, to_json=to_json_with_cache)
+    data = traitlets.Any().tag(sync=True, to_json=to_json_with_initialState)
 
     def __init__(self, ast: Any):
+        self.state = WidgetState(self)
         super().__init__()
         self.data = ast
 
@@ -84,22 +209,13 @@ class Widget(anywidget.AnyWidget):
     ) -> tuple[str, list[bytes]]:
         f = self.callback_registry[params["id"]]
         if f is not None:
-            f({**params["event"], "widget": self})
+            f(self, params["event"])
         return "ok", []
 
-    def update_state(self, *updates):
-        # an update can be a dict of {id, value} to reset, or
-        # a list, [id, operation, payload] where operations are
-        # "append", "concat", "reset", or "setAt". The payload for
-        # "setAt" should be a list [index, value].
-        def entry_id(key):
-            return key if isinstance(key, str) else key.id
+    @anywidget.experimental.command  # type: ignore
+    def handle_updates(
+        self, params: dict[str, Any], buffers: list[bytes]
+    ) -> tuple[str, list[bytes]]:
+        self.state.accept_js_updates(params["updates"])
 
-        out = []
-        for entry in updates:
-            if isinstance(entry, dict):
-                for key, value in entry.items():
-                    out.append([entry_id(key), "reset", value])
-            else:
-                out.append([entry_id(entry[0]), entry[1], entry[2]])
-        self.send({"type": "update_state", "updates": to_json(out, widget=self)})
+        return "ok", []

@@ -137,6 +137,26 @@ Note that syntax sugar exists for `Column` (`|`) and `Row` (`&`) using operator 
 
 Render children in a column.
 
+Parameters
+{: .api .api-section }
+
+
+- `*items` (Any): Items to render in the column
+
+- `**kwargs`: Additional options including:
+
+    heights: List of flex sizes for each child. Can be:
+
+        - Numbers for flex ratios (e.g. [1, 2] means second item is twice as tall)
+
+        - Strings with fractions (e.g. ["1/2", "1/2"] for equal halves)
+
+        - Strings with explicit sizes (e.g. ["100px", "200px"])
+
+    gap: Gap size between items (default: 1)
+
+    className: Additional CSS classes
+
 
 
 ### Grid {: .api .api-member }
@@ -174,6 +194,26 @@ Returns
 
 Render children in a row.
 
+Parameters
+{: .api .api-section }
+
+
+- `*items` (Any): Items to render in the row
+
+- `**kwargs`: Additional options including:
+
+    widths: List of flex sizes for each child. Can be:
+
+        - Numbers for flex ratios (e.g. [1, 2] means second item is twice as wide)
+
+        - Strings with fractions (e.g. ["1/2", "1/2"] for equal halves)
+
+        - Strings with explicit sizes (e.g. ["100px", "200px"])
+
+    gap: Gap size between items (default: 1)
+
+    className: Additional CSS classes
+
 
 
 ### html {: .api .api-member }
@@ -209,20 +249,20 @@ Parameters
 
 ### ref {: .api .api-member }
 
-Wraps a value in a `RefObject`, which allows for (1) deduplication of re-used values
+Wraps a value in a `Ref`, which allows for (1) deduplication of re-used values
 during serialization, and (2) updating the value of refs in live widgets.
 
 Parameters
 {: .api .api-section }
 
 
-- `value` (Any): Initial value for the reference. If this is already a RefObject and no id is provided, returns it unchanged.
+- `value` (Any): Initial value for the reference. If this is already a Ref and no id is provided, returns it unchanged.
 
 - `id` (str): Unique identifier for the reference. If not provided, a UUID will be generated.
 
 
 Returns:
-    RefObject: A reference object containing the initial value and id.
+    Ref: A reference object containing the initial value and id.
 
 
 
@@ -2641,23 +2681,27 @@ Returns
 
 
 
-### initial_state {: .api .api-member }
+### initialState {: .api .api-member }
 
-Initializes one or multiple $state variables without returning a value.
+Initializes state variables in the Plot widget.
 
 Parameters
 {: .api .api-section }
 
 
-- `key_or_values` (Union[str, dict]): Either a single key (str) for one state variable, or a dictionary of key-value pairs to initialize multiple state variables.
+- `values` (dict): A dictionary mapping state variable names to their initial values.
 
-- `value` (Any): Initial value for the variable when a single key is provided. Ignored if key_or_values is a dictionary.
+- `sync` (Union[set, bool, None]): Controls which state variables are synced between Python and JavaScript.
+
+    If True, all variables are synced. If a set, only variables in the set are synced.
+
+    If None or False, no variables are synced. Defaults to None.
 
 Returns
 {: .api .api-section }
 
 
-- An InitialState object containing the initialized state variables.
+- An object that initializes the state variables when rendered.
 
 
 

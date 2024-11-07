@@ -4,8 +4,10 @@ import genstudio.plot as Plot
 
 # %% tags=["hide_source"]
 Plot.html(
-    "div.bg-black.text-white.p-3",
-    """This example depends on communication with a python backend, and will not be interactive on the docs website.""",
+    [
+        "div.bg-black.text-white.p-3",
+        """This example depends on communication with a python backend, and will not be interactive on the docs website.""",
+    ],
 )
 
 # %% [markdown]
@@ -14,7 +16,7 @@ Plot.html(
 # %%
 from genstudio.plot import js
 
-letters = Plot.ref(["A", "B", "C"], id="letters")
+letters = Plot.ref(["A", "B", "C"], state_key="letters")
 
 tailedSlider = (
     Plot.Slider("n", fps=2, rangeFrom=letters, tail=True, visible=False)
@@ -29,7 +31,7 @@ Plot.html(
     [
         "button.bg-blue-500.hover:bg-blue-700.text-white.font-bold.py-2.px-4.rounded",
         {
-            "onClick": lambda e: tailedSlider.update_state(
+            "onClick": lambda e: tailedSlider.state.update(
                 ["letters", "concat", ["D", "E", "F", "G", "H", "I"]]
             )
         },
