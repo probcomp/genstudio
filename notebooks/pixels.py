@@ -35,7 +35,7 @@ def generate_pixels(width=100, height=100, num_frames=60):
     rgba = np.concatenate([rgb, alpha], axis=-1)
 
     # Reshape to [frames, pixels*4] and convert to uint8
-    return rgba.reshape(num_frames, -1).astype(np.uint8)
+    return list(rgba.reshape(num_frames, -1).astype(np.uint8))
 
 
 def render(width=100, height=100, num_frames=30, fps=30):
@@ -95,10 +95,8 @@ plot
 
 # %%
 
-# these numbers produce the ~maximum possible message size,
-# just under 100mb.
-W = 1000
-H = 1000
+
+W = H = 400  # pick 1000 for the ~max possible message size of 100mb
 N = 26
 plot.state.update(
     {"pixels": generate_pixels(W, H, N), "width": W, "height": H, "fps": 60}

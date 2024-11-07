@@ -230,13 +230,16 @@ describe('Widget', () => {
       const $state = createStateStore({
         initialState: {
           count: 0,
-          doubleCount: js_expr('$state.count * 2')
+          doubleCount: js_expr('$state.count * 2'),
+          countArray: js_expr('[$state.count, $state.count]')
         },
         syncedKeys: new Set(['count'])
       });
       expect($state.doubleCount).toBe(0);
+      expect($state.countArray).toEqual([0, 0])
       $state.count = 2;
       expect($state.doubleCount).toBe(4);
+      expect($state.countArray).toEqual([2, 2])
     });
 
     it('should handle references', () => {
@@ -253,24 +256,31 @@ describe('Widget', () => {
       expect($state.reference).toBe(20);
     });
 
-    it('should apply "append" operation', () => {
+    it('should take computed properties as the initial value for updates', () => {
       const $state = createStateStore({
         initialState: {
           firstValue: js_expr("1"),
-          list: [js_expr('$state.firstValue'), 2, 3],
-          listSum: js_expr('$state.list.reduce((a, b) => a + b, 0)'),
-          listWithX: js_expr('[...$state.list, "X"]'),
-        },
-        syncedKeys: new Set(['firstValue', 'list'])
+          list: js_expr('[$state.firstValue, 2, 3]'),
+        }
       });
-      expect($state.listSum).toBe(6);
+      expect([$state.firstValue, $state.list]).toEqual([1, [1, 2, 3]])
+      $state.firstValue = 10
+      expect($state.list).toEqual([10, 2, 3])
+      $state.update(['list', 'append', 10])
+      expect($state.list).toEqual([10, 2, 3, 10])
+      $state.firstValue = 0
+      expect($state.list).toEqual([10, 2, 3, 10])
+    });
+
+    it('should apply "append" operation', () => {
+      const $state = createStateStore({
+        initialState: {
+          list: js_expr('[1, 2, 3]')
+        }
+      });
+      expect($state.list).toEqual([1, 2, 3]);
       $state.update(['list', 'append', 4]);
       expect($state.list).toEqual([1, 2, 3, 4]);
-      expect($state.listWithX).toEqual([1, 2, 3, 4, "X"])
-      expect($state.listSum).toBe(10);
-      $state.firstValue = 0
-      expect($state.listWithX).toEqual([0, 2, 3, 4, "X"])
-
     });
 
     it('should throw if circular reference is detected', () => {

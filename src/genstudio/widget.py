@@ -96,6 +96,11 @@ def to_json(
         except AttributeError:
             pass
 
+        if data.ndim > 1:
+            raise ValueError(
+                f"Arrays with {data.ndim} dimensions are not supported. Only scalars and 1D arrays are allowed."
+            )
+
         bytes_data = data.tobytes()
         return serialize_binary_data(
             buffers,

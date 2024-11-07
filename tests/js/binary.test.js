@@ -1,27 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { reshapeArray, evaluateNdarray, estimateJSONSize } from '../../src/genstudio/js/binary';
+import { inferDtype, evaluateNdarray, estimateJSONSize } from '../../src/genstudio/js/binary';
 
 describe('binary.js', () => {
-  describe('reshapeArray', () => {
-    it('should reshape 1D array to 2D', () => {
-      const flat = [1, 2, 3, 4];
-      const result = reshapeArray(flat, [2, 2]);
-      expect(result).toEqual([[1, 2], [3, 4]]);
+  describe('inferDtype', () => {
+    it('should infer dtype from TypedArray', () => {
+      expect(inferDtype(new Float32Array([1, 2, 3]))).toBe('float32');
+      expect(inferDtype(new Int16Array([1, 2, 3]))).toBe('int16');
+      expect(inferDtype(new Uint8Array([1, 2, 3]))).toBe('uint8');
     });
 
-    it('should reshape TypedArray to 2D while preserving type', () => {
-      const flat = new Float32Array([1, 2, 3, 4]);
-      const result = reshapeArray(flat, [2, 2]);
-      expect(result[0]).toBeInstanceOf(Float32Array);
-      expect(result[1]).toBeInstanceOf(Float32Array);
-      expect(Array.from(result[0])).toEqual([1, 2]);
-      expect(Array.from(result[1])).toEqual([3, 4]);
-    });
-
-    it('should handle 3D reshaping', () => {
-      const flat = [1, 2, 3, 4, 5, 6, 7, 8];
-      const result = reshapeArray(flat, [2, 2, 2]);
-      expect(result).toEqual([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]);
+    it('should throw error for non-TypedArray input', () => {
+      expect(() => inferDtype([1, 2, 3])).toThrow('Value must be a TypedArray');
+      expect(() => inferDtype('abc')).toThrow('Value must be a TypedArray');
     });
   });
 
@@ -38,18 +28,16 @@ describe('binary.js', () => {
       expect(Array.from(result)).toEqual([1, 2, 3, 4]);
     });
 
-    it('should evaluate 2D uint8 array', () => {
+    it('should evaluate 1D uint8 array', () => {
       const data = new Uint8Array([1, 2, 3, 4]).buffer;
       const node = {
         data: new DataView(data),
         dtype: 'uint8',
-        shape: [2, 2]
+        shape: [4]
       };
       const result = evaluateNdarray(node);
-      expect(Array.isArray(result)).toBe(true);
-      expect(result[0]).toBeInstanceOf(Uint8Array);
-      expect(Array.from(result[0])).toEqual([1, 2]);
-      expect(Array.from(result[1])).toEqual([3, 4]);
+      expect(result).toBeInstanceOf(Uint8Array);
+      expect(Array.from(result)).toEqual([1, 2, 3, 4]);
     });
 
     it('should handle unknown dtype by defaulting to Float64Array', () => {

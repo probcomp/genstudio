@@ -196,7 +196,8 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
   const applyUpdates = (updates) => {
     for (const update of updates) {
       const [key, operation, payload] = update
-      initialStateMap.set(key, applyUpdate($state, $state[key], operation, payload));
+      const init = $state[key]
+      initialStateMap.set(key, applyUpdate($state, init, operation, payload));
     }
   }
 
