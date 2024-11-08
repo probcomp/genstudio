@@ -150,9 +150,13 @@ def to_json(
     raise TypeError(f"Object of type {type(data)} is not JSON serializable")
 
 
-def to_json_with_initialState(ast: Any, widget: "Widget | None" = None):
+def to_json_with_initialState(
+    ast: Any,
+    widget: "Widget | None" = None,
+    buffers: List[bytes | bytearray | memoryview] | None = None,
+):
     collected_state = CollectedState()
-    ast = to_json(ast, widget=widget, collected_state=collected_state)
+    ast = to_json(ast, widget=widget, collected_state=collected_state, buffers=buffers)
 
     json = to_json(
         {
@@ -160,7 +164,8 @@ def to_json_with_initialState(ast: Any, widget: "Widget | None" = None):
             "initialState": collected_state.initialStateJSON,
             "syncedKeys": collected_state.syncedKeys,
             **CONFIG,
-        }
+        },
+        buffers=buffers,
     )
 
     if widget is not None:

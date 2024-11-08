@@ -24,9 +24,9 @@ function resolveRef(node, $state) {
   return node;
 }
 
-export function evaluate(node, $state, experimental) {
+export function evaluate(node, $state, experimental, buffers) {
   if (node === null || typeof node !== 'object') return node;
-  if (Array.isArray(node)) return node.map(item => evaluate(item, $state, experimental));
+  if (Array.isArray(node)) return node.map(item => evaluate(item, $state, experimental, buffers));
   if (node.constructor !== Object) {
     if (node instanceof DataView) {
       return node;
@@ -41,7 +41,7 @@ export function evaluate(node, $state, experimental) {
         console.error('Function not found', node);
         return null;
       }
-      const args = fn.macro ? node.args : evaluate(node.args, $state, experimental)
+      const args = fn.macro ? node.args : evaluate(node.args, $state, experimental, buffers)
       if (fn.prototype?.constructor === fn) {
         return new fn(...args);
       } else {
@@ -51,7 +51,7 @@ export function evaluate(node, $state, experimental) {
       return resolveReference(node.path, api);
     case "js_source":
       const source = node.expression ? `return ${node.value}` : node.value;
-      const params = (node.params || []).map(p => evaluate(p, $state, experimental));
+      const params = (node.params || []).map(p => evaluate(p, $state, experimental, buffers));
       const paramVars = params.map((_, i) => `p${i}`);
       const code = source.replace(/%(\d+)/g, (_, i) => `p${parseInt(i) - 1}`);
       return (new Function('$state', 'd3', 'Plot', ...paramVars, code))($state, d3, Plot, ...params);
@@ -66,10 +66,13 @@ export function evaluate(node, $state, experimental) {
         return undefined;
       }
     case "ndarray":
+      if (node.data?.__type__ === 'buffer') {
+        node.data = buffers[node.data.index]
+      }
       return evaluateNdarray(node);
     default:
       return Object.fromEntries(
-        Object.entries(node).map(([key, value]) => [key, evaluate(value, $state, experimental)])
+        Object.entries(node).map(([key, value]) => [key, evaluate(value, $state, experimental, buffers)])
       );
   }
 }
@@ -158,7 +161,7 @@ function collectBuffers(data) {
  * @param {Object} experimental - The experimental interface for sync operations
  * @returns {Proxy} A proxied state store with reactive capabilities
  */
-export function createStateStore({ initialState, syncedKeys, experimental }) {
+export function createStateStore({ initialState, syncedKeys, experimental, buffers }) {
   syncedKeys = new Set(syncedKeys)
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
@@ -213,7 +216,7 @@ export function createStateStore({ initialState, syncedKeys, experimental }) {
   }
 
   const $state = new Proxy({
-    evaluate: (ast) => evaluate(ast, $state, experimental),
+    evaluate: (ast) => evaluate(ast, $state, experimental, buffers),
 
     backfill: function (data) {
       syncedKeys = new Set(data.syncedKeys)
@@ -426,13 +429,9 @@ function AnyWidgetApp() {
   return <Viewer {...data} experimental={experimental} model={model} />;
 }
 
-export const renderData = (element, data) => {
+export const renderData = (element, data, buffers) => {
   const root = ReactDOM.createRoot(element);
-  if (typeof data === 'string') {
-    root.render(<Viewer {...JSON.parse(data)} />);
-  } else {
-    root.render(<Viewer {...data} />);
-  }
+  root.render(<Viewer {...data} buffers={buffers} />);
 };
 
 export const renderFile = (element) => {

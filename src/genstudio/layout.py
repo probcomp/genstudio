@@ -1,3 +1,5 @@
+import base64
+import json
 import os
 import uuid
 from typing import Any, List, Optional, Sequence, Tuple, Union
@@ -5,7 +7,7 @@ from typing import Any, List, Optional, Sequence, Tuple, Union
 from html2image import Html2Image
 from PIL import Image
 
-from genstudio.util import PARENT_PATH, CONFIG
+from genstudio.util import CONFIG, PARENT_PATH
 from genstudio.widget import Widget, to_json_with_initialState
 
 
@@ -16,7 +18,14 @@ def create_parent_dir(path: str) -> None:
 
 def html_snippet(ast, id=None):
     id = id or f"genstudio-widget-{uuid.uuid4().hex}"
-    data = to_json_with_initialState(ast)
+    buffers = []
+    data = to_json_with_initialState(ast, buffers=buffers)
+
+    # Encode buffers as base64 strings to include in HTML
+    encoded_buffers = [
+        f"'{base64.b64encode(buffer).decode('utf-8')}'" for buffer in buffers
+    ]
+    buffers_array = f"[{','.join(encoded_buffers)}]"
 
     # Read and inline the JS and CSS files
     with open(PARENT_PATH / "js/widget_build.js", "r") as js_file:
@@ -29,14 +38,15 @@ def html_snippet(ast, id=None):
     <div class="bg-white p3" id="{id}"></div>
 
     <script type="application/json">
-        {data}
+        {json.dumps(data)}
     </script>
 
     <script type="module">
         {js_content}
         const container = document.getElementById('{id}');
         const jsonString = container.nextElementSibling.textContent;
-        renderData(container, {{jsonString}});
+        const buffers = {buffers_array}.map(b => Uint8Array.from(atob(b), c => c.charCodeAt(0)));
+        renderData(container, JSON.parse(jsonString), buffers);
     </script>
     """
 
