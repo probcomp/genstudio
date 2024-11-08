@@ -1,3 +1,7 @@
+### [2024.11.005] - Nov 08, 2024
+
+- Slider: add back positional range arg
+
 ### [2024.11.004] - Nov 08, 2024
 
 #### Bug Fixes
