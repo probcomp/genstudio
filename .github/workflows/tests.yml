@@ -5,7 +5,7 @@ on:
   push:
 
 jobs:
-  javascript:
+  tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,16 +15,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
+      - name: Install JavaScript dependencies
         run: yarn install --frozen-lockfile
+
+      - name: Build JavaScript
+        run: yarn build
 
       - name: Run JavaScript tests
         run: yarn test:js
-
-  python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -46,7 +44,7 @@ jobs:
           poetry self add keyrings.google-artifactregistry-auth
           poetry config repositories.gcp https://us-west1-python.pkg.dev/probcomp-caliban/probcomp/
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: poetry install
 
       - name: Run Python tests
