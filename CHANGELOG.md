@@ -1,3 +1,7 @@
+### [2024.11.006] - Nov 08, 2024
+
+- handle NaN values
+
 ### [2024.11.005] - Nov 08, 2024
 
 - Slider: add back positional range arg
