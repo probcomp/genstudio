@@ -1,3 +1,8 @@
+### [2024.11.004] - Nov 08, 2024
+
+#### Bug Fixes
+- binary data works in html display mode
+
 ### [2024.11.003] - Nov 08, 2024
 
 - Run tests in CI
