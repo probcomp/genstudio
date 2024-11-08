@@ -1,3 +1,9 @@
+### [2024.11.003] - Nov 08, 2024
+
+- Run tests in CI
+- bring back support for multi-dimensional arrays (serialize to js arrays + typed array leaves)
+- Add a version query param to static assets on release
+
 ### [2024.11.002] - Nov 07, 2024
 
 - Add support for binary data (in plot specifications, and updates in both directions python<>js). Numpy/jax arrays are converted to appropriate TypedArray types in js.
