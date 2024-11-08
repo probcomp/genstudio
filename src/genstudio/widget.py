@@ -6,6 +6,7 @@ import json
 import anywidget
 import numpy as np
 import traitlets
+import warnings
 
 from genstudio.util import CONFIG, PARENT_PATH
 
@@ -89,17 +90,16 @@ def to_json(
             return collected_state.add_listeners(data._state_listeners)
 
     # Handle numpy and jax arrays
-    if isinstance(data, np.ndarray) or type(data).__name__ in ("DeviceArray", "Array"):
+    if isinstance(data, np.ndarray) or type(data).__name__ in (
+        "DeviceArray",
+        "Array",
+        "ArrayImpl",
+    ):
         try:
             if data.ndim == 0:  # It's a scalar
                 return data.item()
         except AttributeError:
             pass
-
-        if data.ndim > 1:
-            raise ValueError(
-                f"Arrays with {data.ndim} dimensions are not supported. Only scalars and 1D arrays are allowed."
-            )
 
         bytes_data = data.tobytes()
         return serialize_binary_data(
@@ -127,12 +127,14 @@ def to_json(
         return {
             k: to_json(v, collected_state, widget, buffers) for k, v in data.items()
         }
+
     if isinstance(data, (list, tuple)):
         return [to_json(x, collected_state, widget, buffers) for x in data]
+
     if isinstance(data, Iterable):
         if not hasattr(data, "__len__") and not hasattr(data, "__getitem__"):
-            print(
-                f"Warning: Potentially exhaustible iterator encountered: {type(data).__name__}"
+            warnings.warn(
+                "Potentially exhaustible iterator encountered: generator", UserWarning
             )
         return [to_json(x, collected_state, widget, buffers) for x in data]
 

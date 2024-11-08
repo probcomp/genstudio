@@ -40,6 +40,8 @@
     "watch": "node esbuild.config.mjs --watch",
     "watch:docs": "poetry run mkdocs serve",
     "build:docs": "poetry run mkdocs build",
-    "test:js": "node --experimental-vm-modules node_modules/vitest/vitest.mjs"
+    "test:js": "node --experimental-vm-modules node_modules/vitest/vitest.mjs",
+    "test:py": "poetry run pytest tests/python/",
+    "test": "npm-run-all test:js test:py"
   }
 }
