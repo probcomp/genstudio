@@ -90,6 +90,42 @@ class TestWidgetArrayHandling(unittest.TestCase):
             np.testing.assert_array_equal(deserialized, arr)
             self.assertEqual(deserialized.dtype, dtype)
 
+    def test_nan_handling(self):
+        # Test handling of NaN values
+        nan_float = float("nan")
+        self.assertIsNone(to_json(nan_float))
+
+        # Test NaN in numpy array
+        arr = np.array([1.0, np.nan, 3.0])
+        buffers = []
+        result = to_json(arr, buffers=buffers)
+
+        assert isinstance(result, dict)
+        self.assertEqual(result["__type__"], "ndarray")
+
+        # Test deserialization
+        deserialized = deserialize_buffer_entry(result, buffers)
+        np.testing.assert_array_equal(np.isnan(deserialized), np.isnan(arr))
+        np.testing.assert_array_equal(
+            deserialized[~np.isnan(deserialized)], arr[~np.isnan(arr)]
+        )
+
+    def test_nan_in_nested_structure(self):
+        # Test NaN handling in nested structures
+        data = {
+            "regular": 1.0,
+            "nan_value": float("nan"),
+            "list": [1.0, float("nan"), 3.0],
+            "nested": {"nan": float("nan")},
+        }
+        result = to_json(data)
+        assert isinstance(result, dict)
+        assert isinstance(result["nested"], dict)
+        self.assertEqual(result["regular"], 1.0)
+        self.assertIsNone(result["nan_value"])
+        self.assertEqual(result["list"], [1.0, None, 3.0])
+        self.assertIsNone(result["nested"]["nan"])
+
 
 class TestCollectedState(unittest.TestCase):
     def test_state_entry_collection(self):

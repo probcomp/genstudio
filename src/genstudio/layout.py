@@ -46,7 +46,13 @@ def html_snippet(ast, id=None):
         const container = document.getElementById('{id}');
         const jsonString = container.nextElementSibling.textContent;
         const buffers = {buffers_array}.map(b => Uint8Array.from(atob(b), c => c.charCodeAt(0)));
-        renderData(container, JSON.parse(jsonString), buffers);
+        let data;
+        try {{
+            data = JSON.parse(jsonString);
+        }} catch (error) {{
+            console.error('Failed to parse JSON:', error);
+        }}
+        renderData(container, data, buffers);
     </script>
     """
 

@@ -55,8 +55,14 @@ def to_json(
     widget=None,
     buffers: Optional[List[bytes | bytearray | memoryview]] = None,
 ):
+    # Handle NaN at top level
+    if isinstance(data, float):
+        if np.isnan(data):
+            return None
+        return data
+
     # Handle basic JSON-serializable types first since they're most common
-    if isinstance(data, (str, int, float, bool)):
+    if isinstance(data, (str, int, bool)):
         return data
 
     # Handle None case
