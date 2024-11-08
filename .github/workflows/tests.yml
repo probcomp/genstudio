@@ -1,0 +1,51 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install JavaScript dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build JavaScript
+        run: yarn build
+
+      - name: Run JavaScript tests
+        run: yarn test:js
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.8.3
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: "${{ secrets.ARTIFACT_REGISTRY_KEY }}"
+
+      - name: Configure Poetry
+        run: |
+          poetry self add keyrings.google-artifactregistry-auth
+          poetry config repositories.gcp https://us-west1-python.pkg.dev/probcomp-caliban/probcomp/
+
+      - name: Install Python dependencies
+        run: poetry install
+
+      - name: Run Python tests
+        run: yarn test:py
