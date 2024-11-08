@@ -870,6 +870,7 @@ _Slider = JSRef("Slider")
 def Slider(
     key,
     init=None,
+    range=None,
     **kwargs,
 ):
     """
@@ -892,7 +893,6 @@ def Slider(
         **kwargs: Additional keyword arguments.
     """
     init = kwargs.get("init")
-    range = kwargs.get("range")
     rangeFrom = kwargs.get("rangeFrom")
     tail = kwargs.get("tail")
 
@@ -905,6 +905,7 @@ def Slider(
     slider_options = {
         "state_key": key,
         "init": Ref(init, state_key=key),
+        "range": range,
         "kind": "Slider",
         **kwargs,
     }
