@@ -92,7 +92,7 @@ from genstudio.plot import js
         },
         "Clear Line",
     ]
-) | Plot.listen({"clicked_points": print})
+) | Plot.onChange({"clicked_points": print})
 
 # %% [markdown]
 # The `onDraw` callback function updates the `points` state with the newly drawn path.

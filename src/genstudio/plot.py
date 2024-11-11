@@ -845,24 +845,26 @@ def initialState(values: dict, sync=None):
 initial_state = initialState
 
 
-def listen(listeners):
+def onChange(callbacks):
     """
-    Adds listeners to a plot which will be invoked when the given state changes.
+    Adds callbacks to be invoked when state changes.
 
     Args:
-        listeners (dict): A dictionary mapping state keys to listener functions. Each listener is called with (widget, event) when the corresponding state changes.
+        callbacks (dict): A dictionary mapping state keys to callbacks, which are called with (widget, event) when the corresponding state changes.
 
     Returns:
         Listener: A Listener object that will be rendered to set up the event handlers.
 
     Example:
-        >>> plot.listen({
+        >>> Plot.onChange({
         ...     "x": lambda w, e: print(f"x changed to {e}"),
         ...     "y": lambda w, e: print(f"y changed to {e}")
         ... })
     """
-    return Listener(listeners)
+    return Listener(callbacks)
 
+
+onChange = onChange
 
 _Slider = JSRef("Slider")
 
@@ -1045,6 +1047,7 @@ __all__ = [
     "Frames",
     "Slider",
     "renderChildEvents",
+    "onChange",
     # ## Layout
     # Useful for layouts and custom views.
     # Note that syntax sugar exists for `Column` (`|`) and `Row` (`&`) using operator overloading.
