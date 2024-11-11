@@ -1,3 +1,7 @@
+### [2024.11.008] - Nov 11, 2024
+
+- fix asset versioning
+
 ### [2024.11.007] - Nov 11, 2024
 
 - rename Plot.listen to Plot.onChange
