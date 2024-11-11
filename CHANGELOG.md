@@ -1,3 +1,12 @@
+### [2024.11.011] - Nov 11, 2024
+
+
+- Fix pixels mark in Safari (poor foreignObject support)
+- Add "className" option to plots to add classes to container
+- Improve grid/hideAxis argument handling
+- docs: add pixels, adev, and live edit examples to website
+- docs: fix website css (twind fails, use tailwind)
+
 ### [2024.11.010] - Nov 11, 2024
 
 - Prevent update cycles in onChange listeners
