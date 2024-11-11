@@ -102,11 +102,15 @@ export class MarkSpec {
         // the data & options that are passed in.
 
         // handle columnar data in the 1st position
+        function isArrayLike(value) {
+            return Array.isArray(value) || ArrayBuffer.isView(value);
+        }
+
         if (data.constructor === Object && !('length' in data)) {
             let length = null
-            data = {... data}
+            data = {...data}
             for (let [key, value] of Object.entries(data)) {
-                if (Array.isArray(value)) {
+                if (isArrayLike(value)) {
                     options[key] = value;
                     delete data[key]
                     length = value.length
