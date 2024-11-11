@@ -1,3 +1,7 @@
+### [2024.11.009] - Nov 11, 2024
+
+- support columnar data with array buffers
+
 ### [2024.11.008] - Nov 11, 2024
 
 - fix asset versioning
