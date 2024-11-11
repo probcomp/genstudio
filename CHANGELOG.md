@@ -1,3 +1,7 @@
+### [2024.11.007] - Nov 11, 2024
+
+- rename Plot.listen to Plot.onChange
+
 ### [2024.11.006] - Nov 08, 2024
 
 - handle NaN values
