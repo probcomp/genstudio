@@ -1,3 +1,7 @@
+### [2024.11.010] - Nov 11, 2024
+
+- Prevent update cycles in onChange listeners
+
 ### [2024.11.009] - Nov 11, 2024
 
 - support columnar data with array buffers
