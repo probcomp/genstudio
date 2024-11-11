@@ -282,6 +282,9 @@ class WidgetState:
         self._widget = widget
         self._syncedKeys = set()
         self._listeners = {}
+        self._processing_listeners = (
+            False  # Global flag to prevent recursive listener calls
+        )
 
     def __getattr__(self, name):
         if name in self._state:
@@ -296,9 +299,16 @@ class WidgetState:
             self.update([name, "reset", value])
 
     def notify_listeners(self, updates):
-        for name, operation, value in updates:
-            for listener in self._listeners.get(name, []):
-                listener(self._widget, {"id": name, "value": self._state[name]})
+        if self._processing_listeners:
+            return
+
+        try:
+            self._processing_listeners = True
+            for name, operation, value in updates:
+                for listener in self._listeners.get(name, []):
+                    listener(self._widget, {"id": name, "value": self._state[name]})
+        finally:
+            self._processing_listeners = False
 
     # update values from python - send to js
     def update(self, *updates):
