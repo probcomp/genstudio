@@ -8,7 +8,7 @@ import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
 import {evaluateNdarray, inferDtype, estimateJSONSize} from "./binary"
 import { $StateContext, CONTAINER_PADDING } from "./context";
-import { serializeEvent, useCellUnmounted, useElementWidth, tw } from "./utils";
+import { serializeEvent, useCellUnmounted, tw } from "./utils";
 
 const { createRender, useModelState, useModel, useExperimental } = AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;

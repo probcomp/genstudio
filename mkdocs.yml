@@ -39,15 +39,16 @@ nav:
     - Python Event Loops: learn-more/python-event-loop.py
     - Compare with Observable Plot: learn-more/vs-observable.py
     - Save / Export Images: learn-more/save-as-image.py
+    - Plot Options: learn-more/plot-options.py
   - Examples:
+      - Interactive Density: examples/interactive-density.py
+      - Live Editing Source Code: examples/live-edit-source.py
       - Ellipse Mark: examples/ellipse-mark.py
       - Histogram Mark: examples/histogram-mark.py
       - Image Mark: examples/image-mark.py
       - Timelines with barX: examples/barx-timeline.py
       - Highlighting Code: examples/bylight.py
       - Rendering LaTeX: examples/katex.py
-      - Interactive Density: examples/interactive-density.py
-      - Live Editing Source Code: examples/live-edit-source.py
       - Render Pixel Data: examples/pixels.py
   - Changelog: CHANGELOG.md
 markdown_extensions:
@@ -85,3 +86,4 @@ extra_javascript:
   - js/command-k.js
 hooks:
   - src/genstudio/scripts/css_modifier.py
+  - src/genstudio/scripts/tailwind_builder.py
