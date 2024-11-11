@@ -1,6 +1,6 @@
 import * as React from "react";
 import { AUTOGRID_MIN as AUTOGRID_MIN_WIDTH } from "./context";
-import { tw, useContainerWidth } from "./utils";
+import { tw, useContainerWidth, joinClasses } from "./utils";
 
 /**
  * Converts width values into CSS grid-compatible values.
@@ -19,19 +19,6 @@ function getGridValue(width) {
     return width;
   }
   return width;
-}
-
-/**
- * Joins CSS class names, filtering out falsy values.
- * @param {...string} classes - Class names to join
- * @returns {string} Combined class names string
- */
-function joinClasses(...classes) {
-  let result = classes[0] || "";
-  for (let i = 1; i < classes.length; i++) {
-    if (classes[i]) result += " " + classes[i];
-  }
-  return result;
 }
 
 /**

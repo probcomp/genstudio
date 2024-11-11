@@ -1,6 +1,3 @@
-# %% [markdown]
-# To use GenStudio, first import it:
-
 # %%
 import genstudio.plot as Plot
 
@@ -34,7 +31,7 @@ Plot.line(
 )
 
 # %% [markdown]
-# To learn more, refer to the [marks documentation](https://observablehq.com/plot/features/marks).
+# To learn more, refer to the [Observable Plot documentation](https://observablehq.com/plot/getting-started).
 #
 # ## Layering Marks & Options
 #
@@ -46,35 +43,6 @@ Plot.line(
     + Plot.dot(six_points, {"fill": "purple"})
     + Plot.frame()
 )
-
-# %% [markdown]
-# Plots are immutable; we often reuse layers repeatedly throughout a notebook as we gradually built up a more complex visualization, or show different phenomena on top of the same background layer.
-
-# %%
-import random
-
-walls = (
-    Plot.line(
-        [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0], [0, 5], [5, 5], [5, 10]],
-        {"stroke": "black", "strokeWidth": 2},
-    )
-    + Plot.hideAxis()
-)
-walls
-
-# %%
-# Generate a cluster of random points within the larger room
-center_x, center_y = random.uniform(0, 10), random.uniform(5, 10)
-positions = Plot.dot(
-    [
-        [center_x + random.uniform(-0.5, 0.5), center_y + random.uniform(-0.5, 0.5)]
-        for _ in range(10)
-    ],
-    {"r": 5, "fill": "red"},
-)
-
-# plot our positions cluster on top of the walls plot
-walls + positions
 
 # %% [markdown]
 # ## Data & Channels
@@ -119,18 +87,23 @@ Plot.dot(
 # %% [markdown]
 # ## Data Serialization
 #
-# Data is passed to the JavaScript runtime as JSON, using the [orjson](https://github.com/ijl/orjson) library with additional fallback behaviour:
+# Data is passed to the JavaScript runtime as JSON with binary buffer support. The serialization process handles various data types:
 #
-# | Condition | Conversion |
+# | Data Type | Conversion |
 # |-----------|------------|
-# | Object has `for_json` method | `$object.for_json()` |
-# | Object has `tolist` method | `$object.tolist()` |
-# | Object is iterable | `list($object)` |
-# | Datetime objects | Converted to a JavaScript `Date` |
-# | Callable objects | Converted to JavaScript functions that return values to Python <br/> (only for "widget" display mode)|
+# | Basic types (str, int, bool) | Direct JSON serialization |
+# | Binary data (bytes, bytearray, memoryview) | Stored in binary buffers with reference |
+# | NumPy/JAX arrays | Converted to binary buffers with dtype and shape metadata |
+# | Objects with `for_json` method | `object.for_json()` result is serialized |
+# | Datetime objects | Converted to JavaScript `Date` |
+# | Iterables (list, tuple) | Recursively serialized |
+# | Callable objects | Converted to JavaScript callback functions (widget mode only) |
 #
-# Alternate modes of serialization (eg. for better performance with larger datasets) are possible but not yet implemented.
+# Binary data is handled efficiently by storing the raw bytes in separate buffers rather than base64 encoding in JSON. This is particularly important for large numeric arrays and binary data.
 #
+# There is a 100mb limit on the size of initial data and subsequent messages (per message).
+#
+# The serialization process also handles state management for interactive widgets, collecting initial state and synced keys to enable bidirectional updates between Python and JavaScript.
 
 
 # %% [markdown]

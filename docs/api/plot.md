@@ -127,6 +127,24 @@ Returns
 
 
 
+### onChange {: .api .api-member }
+
+Adds callbacks to be invoked when state changes.
+
+Parameters
+{: .api .api-section }
+
+
+- `callbacks` (dict): A dictionary mapping state keys to callbacks, which are called with (widget, event) when the corresponding state changes.
+
+Returns
+{: .api .api-section }
+
+
+- A Listener object that will be rendered to set up the event handlers.
+
+
+
 
 ## Layout
 

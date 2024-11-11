@@ -24,7 +24,8 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.py
   - API Docs: api/plot.md
-  - Layouts: layouts.py
+  - How Do I...: learn-more/how-do-i.py
+  - Layouts: learn-more/layouts.py
   - Interactivity & Animation:
     - Sliders: interactivity/sliders.py
     - Re-rendering a plot: interactivity/reset.py

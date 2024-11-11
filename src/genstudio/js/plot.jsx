@@ -7,7 +7,7 @@ import { events } from "./plot/events";
 import { ellipse } from "./plot/ellipse";
 import { img } from "./plot/img";
 import { pixels } from "./plot/pixels"
-import { binding, flatten, tw, useContainerWidth } from "./utils";
+import { binding, flatten, tw, useContainerWidth, joinClasses } from "./utils";
 
 const Marks = {...Plot, ellipse, events, img, pixels}
 const { useEffect } = React
@@ -208,6 +208,9 @@ export function PlotView ({ spec, $state }) {
                     const endTime = performance.now();
                     plot.setAttribute('data-render-time-ms', `${endTime - startTime}`);
                     parent.innerHTML = '';
+                    if (spec.className) {
+                        plot.setAttribute('class', tw(spec.className));
+                    }
                     parent.appendChild(plot);
                 })
             }

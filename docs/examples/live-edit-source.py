@@ -46,19 +46,20 @@ def make_samples(key, thetas, sigma, model_func):
 # to state in python. The approach we're taking here is to maintain a `$state.toEval` value. Whenever it changes,
 # we will re-evaluate our model and generate new samples.
 
-# %% tags=["hide_source"]
-
-
-def read_lines(from_line, to_line):
-    # Helper to read specific lines from current file
-    return "".join(
-        [line for line in open(__file__, "r").readlines()[from_line - 1 : to_line]]
-    )
-
 
 # %%
+initial_source = """sigma = 0.05
+def noisy_jax_model(key, theta, sigma):
+    # Sample a bernoulli random variable to determine which noise model to use
+    b = jax.random.bernoulli(key, theta)
+    # If b=True: noise proportional to theta, if b=False: constant noise plus linear term
+    return jax.lax.cond(
+        b,
+        lambda theta: jax.random.normal(key) * sigma * theta,
+        lambda theta: jax.random.normal(key) * sigma + theta * 2,
+        theta,
+    )"""
 
-initial_source = read_lines(19, 29)  # helper for reading source code
 initial_state = Plot.initialState(
     {
         "samples": make_samples(key, thetas, sigma, noisy_jax_model),
@@ -72,6 +73,7 @@ initial_state = Plot.initialState(
 # Here is the callback we'll pass to `Plot.onChange`, invoked whenever `$state.toEval` changes.
 
 
+# %%
 def evaluate(widget, _e):
     # Update random key and evaluate new code from text editor
     global key, sigma, noisy_jax_model
@@ -85,8 +87,8 @@ def evaluate(widget, _e):
 
 # %% [markdown]
 # `Plot.dot` will render our samples as a scatter plot. We pass `$state.thetas` and `$state.samples` in columnar format.
-# %%
 
+# %%
 samples_plot = Plot.dot(
     {"x": js("$state.thetas"), "y": js("$state.samples")}, fill="rgba(0, 128, 128, 0.3)"
 ) + {"height": 400}

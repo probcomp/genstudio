@@ -183,3 +183,17 @@ export function useContainerWidth() {
 
   return [containerRef, containerWidth];
 }
+
+
+/**
+ * Joins CSS class names, filtering out falsy values.
+ * @param {...string} classes - Class names to join
+ * @returns {string} Combined class names string
+ */
+export function joinClasses(...classes) {
+  let result = classes[0] || "";
+  for (let i = 1; i < classes.length; i++) {
+    if (classes[i]) result += " " + classes[i];
+  }
+  return result;
+}
