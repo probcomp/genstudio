@@ -96,21 +96,43 @@ export class Pixels extends Plot.Mark {
 
     ctx.putImageData(imageData, 0, 0);
 
-    return d3.create("svg:g")
+    // Check if browser is Safari
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+    const transform = `translate(${x1},${y2}) scale(${width/imageWidth},${height/imageHeight})`
+
+    const g = d3.create("svg:g")
       .call(applyIndirectStyles, this, dimensions, context)
-      .call(applyTransform, this, scales, 0, 0)
-      .call(g => g.selectAll()
-        .data([0]) // Single image
+      .call(applyTransform, this, scales, 0, 0);
+
+    if (isSafari) {
+      // For Safari, use image element with data URL
+      const dataUrl = canvas.toDataURL();
+      g.selectAll()
+        .data([0])
+        .join("image")
+        .style("transform-origin", "0 0")
+        .call(applyDirectStyles, this)
+        .attr("transform", transform)
+        .attr("width", imageWidth)
+        .attr("height", imageHeight)
+        .attr("href", dataUrl)
+        .call(applyChannelStyles, this, channels);
+    } else {
+      // For other browsers, use foreignObject with canvas for better performance
+      g.selectAll()
+        .data([0])
         .join("foreignObject")
         .style("transform-origin", "0 0")
         .call(applyDirectStyles, this)
-        .attr("transform", `translate(${x1},${y2}) scale(${width/imageWidth},${height/imageHeight})`)
+        .attr("transform", transform)
         .attr("width", imageWidth)
         .attr("height", imageHeight)
         .call(applyChannelStyles, this, channels)
-        .append(() => canvas)
-      )
-      .node();
+        .append(() => canvas);
+    }
+
+    return g.node();
   }
 }
 
