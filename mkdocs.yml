@@ -46,6 +46,8 @@ nav:
       - Highlighting Code: examples/bylight.py
       - Rendering LaTeX: examples/katex.py
       - Interactive Density: examples/interactive-density.py
+      - Live Editing Source Code: examples/live-edit-source.py
+      - Render Pixel Data: examples/pixels.py
   - Changelog: CHANGELOG.md
 markdown_extensions:
   - admonition
