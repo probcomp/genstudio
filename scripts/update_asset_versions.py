@@ -2,10 +2,6 @@ from pathlib import Path
 import sys
 
 REPLACEMENTS = {
-    "src/genstudio/widget.py": {
-        'widget_build.js"': 'widget_build.js?v={VERSION}"',
-        'widget.css"': 'widget.css?v={VERSION}"',
-    },
     "mkdocs.yml": {"stylesheets/custom.css": "stylesheets/custom.css?v={VERSION}"},
 }
 
