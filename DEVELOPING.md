@@ -3,6 +3,18 @@
 This guide describes how to complete various tasks you'll encounter when working
 on the GenStudio codebase.
 
+### Jupyter notes
+
+A typical and recommended workflow is to use genstudio with VS Code's Python Interactive Window. With the VS Code jupyter extension installed, one can use ordinary `.py` files with `# %%` markers to separate cells, then run the `Jupyter: Run Current Cell` command. Results, including plots, will be rendered with VS Code.
+
+Of course, one can also use genstudio from within Jupyter Labs and Colab.
+
+If jupyter has trouble finding a kernel to evaluate from, you can install one (using poetry) via:
+
+```bash
+poetry run python -m ipykernel install --user --name genstudio
+```
+
 ### Commit Hooks
 
 We use [pre-commit](https://pre-commit.com/) to manage a series of git
@@ -31,12 +43,4 @@ following command:
 
 ```bash
 pre-commit run --all-files
-```
-
-### Jupyter notes
-
-
-To install a poetry kernel for jupyter:
-```bash
-poetry run python -m ipykernel install --user --name genstudio
 ```

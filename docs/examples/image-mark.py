@@ -14,9 +14,9 @@
 # %%
 import genstudio.plot as Plot
 
+# allows filepath to work in both VS Code and mkdocs
+prefix = "docs" if "__file__" in globals() else ""
 (
-    # Path from project root (for Jupyter environment)
-    # or from docs root (for mkdocs build)
-    Plot.img(["/genjax-logo.png"], src=Plot.identity, width=1530, height=330)
+    Plot.img([prefix + "/genjax-logo.png"], src=Plot.identity, width=1530, height=330)
     + Plot.aspectRatio(1)
 )
