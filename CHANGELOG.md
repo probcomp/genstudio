@@ -1,3 +1,9 @@
+### [2024.11.012] - Nov 12, 2024
+
+- Plot.Slider accepts `"raf"` as an fps value
+- Plot.Slider accepts `controls=["slider", "play", "fps"]` to flexibly control ui
+- Plot.Slider's range option, if a single number, represents the upper bound (EXCLUSIVE) of a 0-n range, as in python's `range(n)`
+
 ### [2024.11.011] - Nov 11, 2024
 
 
