@@ -41,25 +41,6 @@ tailedWidget
 # %% Updating Tailed Widget
 tailedWidget.state.update([tailedData, "concat", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]])
 
-# %% Granular state propagation
-import genstudio.plot as Plot
-
-Plot.configure(display_as="widget")
-
-render_2 = Plot.ref(
-    Plot.js("console.log('foo2', $state.foo) || 'foo2: '+$state.foo")
-) | Plot.ref(Plot.js("console.log('bar2', $state.bar) || 'bar2: '+$state.bar"))
-
-(
-    Plot.js("'top'")
-    | Plot.Slider("foo", label="foo", init=1)
-    | Plot.Slider("bar", label="bar", init=1)
-    | Plot.js("console.log('foo1', $state.foo) || 'foo1: '+$state.foo")
-    | Plot.js("console.log('bar1', $state.bar) || 'bar1: '+$state.bar")
-    | render_2
-)
-
-
 # %% initialize a variable
 # We should see '123' logged once.
 Plot.initialState({"foo": 123}) & Plot.js("console.log($state.foo) || $state.foo")

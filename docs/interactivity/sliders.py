@@ -8,7 +8,12 @@ import genstudio.plot as Plot
 
 # %%
 slider = Plot.Slider(
-    key="frequency", label="Frequency", range=[0.5, 5], step=0.1, init=1
+    key="frequency",
+    label="Frequency:",
+    showValue=True,
+    range=[0.5, 5],
+    step=0.1,
+    init=1,
 )
 
 line = (

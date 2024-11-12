@@ -77,4 +77,11 @@ html(
     )
     + Plot.domain([0, 99], [-1, 1])
     + {"height": 300, "width": 500}
-) | Plot.Slider(key="frequency", label="Frequency", range=[0.5, 5], step=0.1, init=1)
+) | Plot.Slider(
+    key="frequency",
+    label="Frequency:",
+    showValue=True,
+    range=[0.5, 5],
+    step=0.1,
+    init=1,
+)

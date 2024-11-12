@@ -1,12 +1,8 @@
 import genstudio.plot as Plot
 
-p = Plot.new().display_as("widget")
-params = {"q": 1}
-
-
-#
-def render():
-    return Plot.Hiccup(
+(
+    Plot.initialState({"q": 1})
+    | Plot.html(
         [
             "div.flex.gap-4.items-center.text-sm",
             [
@@ -15,15 +11,11 @@ def render():
                     "type": "range",
                     "min": 0,
                     "max": 9,
-                    "defaultValue": params["q"],
-                    "onChange": lambda e: params.update({"q": e["value"]})
-                    or p.reset(render()),
+                    "value": Plot.js("$state.q"),
+                    "onChange": Plot.js("(e) => $state.q = e.target.value"),
                 },
             ],
-            params["q"],
+            Plot.js("$state.q"),
         ]
     )
-
-
-p.reset(render())
-p
+)

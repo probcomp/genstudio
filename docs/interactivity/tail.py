@@ -19,7 +19,7 @@ from genstudio.plot import js
 letters = Plot.ref(["A", "B", "C"], state_key="letters")
 
 tailedSlider = (
-    Plot.Slider("n", fps=2, rangeFrom=letters, tail=True, visible=False)
+    Plot.Slider("n", fps=2, rangeFrom=letters, tail=True, controls=False)
     | ["span", "All letters: ", ["span.text-gray-400", js("$state.letters.toString()")]]
     | ["span", "Current letter: ", js("$state.letters[$state.n]")]
     | ["span", "Current index: ", js("$state.n")]
@@ -31,7 +31,7 @@ Plot.html(
     [
         "button.bg-blue-500.hover:bg-blue-700.text-white.font-bold.py-2.px-4.rounded",
         {
-            "onClick": lambda e: tailedSlider.state.update(
+            "onClick": lambda widget, e: tailedSlider.state.update(
                 ["letters", "concat", ["D", "E", "F", "G", "H", "I"]]
             )
         },

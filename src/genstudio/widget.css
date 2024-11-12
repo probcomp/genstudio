@@ -1,4 +1,3 @@
-
 .doc-header {
     display: block;
     gap: 10px;
@@ -35,12 +34,12 @@
 
 .genstudio-container {
     background-color: white;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
 }
 
 .genstudio-container, pre code {
     color: #333333;
 }
-
 
 .bylight-link {
     color: inherit;

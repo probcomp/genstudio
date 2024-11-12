@@ -70,11 +70,24 @@ export const Slider = mobxReact.observer(
             fps,
             label,
             loop = true,
-            showSlider = true,
-            init, range, rangeFrom, showValue, showFps, tail, step } = options;
+            init, range, rangeFrom, showValue, tail, step,
+            controls } = options;
 
         if (init === undefined && rangeFrom === undefined && range === undefined) {
             throw new Error("Slider: 'init', 'rangeFrom', or 'range' must be defined");
+        }
+
+        // Set default controls based on fps
+        if (controls === undefined) {
+            controls = fps ? ["slider", "play"] : ["slider"];
+        } else if (controls === false) {
+            controls = [];
+        }
+        if (options.showSlider === false) {
+            controls = controls.filter(control => control !== "slider");
+        }
+        if (options.showFps === true) {
+            controls.push("fps");
         }
 
         let rangeMin, rangeMax;
@@ -83,16 +96,16 @@ export const Slider = mobxReact.observer(
             rangeMin = 0;
             rangeMax = rangeFrom.length - 1;
         } else if (typeof range === 'number') {
-            // range may be specified as the upper end of a [0, n] integer range.
+            // range may be specified a number representing the length of a collection
             rangeMin = 0;
-            rangeMax = range;
+            rangeMax = range - 1;
         } else if (range) {
             [rangeMin, rangeMax] = range;
         }
         step = step || 1;
 
         const $state = useContext($StateContext);
-        const isAnimated = typeof fps === 'number' && fps > 0;
+        const isAnimated = fps === 'raf' || (typeof fps === 'number' && fps > 0);
         const [isPlaying, setIsPlaying] = useState(isAnimated);
         const lastFrameTimeRef = useRef(performance.now());
         const frameCountRef = useRef(0);
@@ -101,40 +114,53 @@ export const Slider = mobxReact.observer(
 
         const sliderValue = clamp($state[state_key] ?? rangeMin, rangeMin, rangeMax);
 
+        const updateFrameAndState = useCallback(() => {
+            const now = performance.now();
+            frameCountRef.current++;
+
+            // Log FPS once per second
+            if (now - lastLogTimeRef.current >= 500) {
+                const fps = frameCountRef.current * 1000 / (now - lastLogTimeRef.current);
+                setCurrentFps(Math.round(fps));
+                frameCountRef.current = 0;
+                lastLogTimeRef.current = now;
+            }
+
+            lastFrameTimeRef.current = now;
+
+            $state[state_key] = (prevValue) => {
+                const nextValue = (prevValue || 0) + step;
+                if (nextValue > rangeMax) {
+                    if (tail) {
+                        return rangeMax;
+                    } else if (loop) {
+                        return rangeMin;
+                    } else {
+                        setIsPlaying(false);
+                        return rangeMax;
+                    }
+                }
+                return nextValue;
+            };
+        }, [step, rangeMax, tail, loop, $state, state_key]);
+
         useEffect(() => {
             if (isAnimated && isPlaying) {
-                const intervalId = setInterval(() => {
-                    const now = performance.now();
-                    frameCountRef.current++;
-
-                    // Log FPS once per second
-                    if (now - lastLogTimeRef.current >= 500) {
-                        const fps = frameCountRef.current * 1000 / (now - lastLogTimeRef.current);
-                        setCurrentFps(Math.round(fps));
-                        frameCountRef.current = 0;
-                        lastLogTimeRef.current = now;
-                    }
-
-                    lastFrameTimeRef.current = now;
-
-                    $state[state_key] = (prevValue) => {
-                        const nextValue = (prevValue || 0) + step;
-                        if (nextValue > rangeMax) {
-                            if (tail) {
-                                return rangeMax;
-                            } else if (loop) {
-                                return rangeMin;
-                            } else {
-                                setIsPlaying(false);
-                                return rangeMax;
-                            }
-                        }
-                        return nextValue;
+                if (fps === 'raf') {
+                    let animationFrameId;
+                    const animate = () => {
+                        updateFrameAndState();
+                        animationFrameId = requestAnimationFrame(animate);
                     };
-                }, 1000 / fps);
-                return () => clearInterval(intervalId);
+
+                    animationFrameId = requestAnimationFrame(animate);
+                    return () => cancelAnimationFrame(animationFrameId);
+                } else {
+                    const intervalId = setInterval(updateFrameAndState, 1000 / fps);
+                    return () => clearInterval(intervalId);
+                }
             }
-        }, [isPlaying, fps, state_key, rangeMin, rangeMax, step, loop, tail]);
+        }, [isPlaying, fps, updateFrameAndState]);
 
         const handleSliderChange = useCallback((value) => {
             setIsPlaying(false);
@@ -142,33 +168,38 @@ export const Slider = mobxReact.observer(
         }, [$state, state_key]);
 
         const togglePlayPause = useCallback(() => setIsPlaying((prev) => !prev), []);
-        if (showSlider !== true) return;
+
+        if (controls.length === 0) return null;
+
         return (
             <div className={tw("text-xs flex flex-col my-2 gap-2 w-full")}>
+                <span className={tw("flex gap-1")}>
+                    {label && <label className={tw("font-semibold")}>{label}</label>}
+                    {showValue && <span>{$state[state_key]}</span>}
+                </span>
 
-                    <span className={tw("flex gap-1")}>
-                        {label && <label className={tw("font-semibold")}>{label}</label>}
-                        {showValue && <span>{$state[state_key]}</span>}
-                    </span>
-
-
-                {showSlider && (
-                    <div className={tw("flex gap-1 items-center")}>
+                <div className={tw("flex gap-1 items-center justify-center")}>
+                    {controls?.includes("slider") && (
                         <input
-                        type="range"
-                        min={rangeMin}
-                        max={rangeMax}
-                        step={step}
-                        value={sliderValue}
-                        onChange={(e) => handleSliderChange(e.target.value)}
-                        className={tw("w-full outline-none")}
-                    />
-                    {showFps && isPlaying && <span className={tw("whitespace-nowrap -mr-1")}>{currentFps} FPS</span>}
-                    {isAnimated && (
+                            type="range"
+                            min={rangeMin}
+                            max={rangeMax}
+                            step={step}
+                            value={sliderValue}
+                            onChange={(e) => handleSliderChange(e.target.value)}
+                            className={tw("w-full outline-none")}
+                        />
+                    )}
+                    {controls?.includes("play") && isAnimated && (
                         <div onClick={togglePlayPause} className={tw("cursor-pointer")}>
                             {isPlaying ? pauseIcon : playIcon}
                         </div>
                     )}
+                </div>
+
+                {controls?.includes("fps") && isPlaying && (
+                    <div className={tw("text-center text-gray-500 mt-1")}>
+                        {currentFps} FPS
                     </div>
                 )}
             </div>

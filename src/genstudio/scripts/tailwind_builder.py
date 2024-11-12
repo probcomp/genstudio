@@ -16,7 +16,17 @@ def build_tailwind():
 
     try:
         subprocess.run(
-            ["npx", "tailwindcss", "-i", "-", "-o", output_path, "--minify"],
+            [
+                "npx",
+                "tailwindcss",
+                "-i",
+                "-",
+                "-o",
+                output_path,
+                "--minify",
+                "-c",
+                "docs/overrides/tailwind.config.js",
+            ],
             input=TAILWIND_INPUT.encode(),
             check=True,
         )

@@ -122,11 +122,19 @@ Plot.dot(data, {"x": "x", "y": "y", "fill": Plot.js("d => d.x > 2 ? 'red' : 'blu
         {
             "y": Plot.js("""(d, i) => {
                 return Math.sin(i * $state.frequency * Math.PI / 50)
-            }""")
+            }"""),
+            "curve": "natural",
         },
     )
     + Plot.domain([0, 99], [-1, 1])
-) | Plot.Slider(key="frequency", label="Frequency", range=[0.1, 10], step=0.1, init=1)
+) | Plot.Slider(
+    key="frequency",
+    label="Frequency:",
+    showValue=True,
+    range=[0.1, 10],
+    step=0.1,
+    init=1,
+)
 
 # %% [markdown]
 # In GenStudio, we use the `Plot.Slider` function to create interactive elements, and `$state` to access their values in our JavaScript functions.

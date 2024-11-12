@@ -46,7 +46,7 @@ def render():
                     ],
                 ]
             )
-            | Plot.Slider(key="frame", range=60, fps=24, visible=False)
+            | Plot.Slider(key="frame", range=60, fps=24, controls=["play"])
         )
     )
 

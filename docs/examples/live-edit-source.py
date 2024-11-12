@@ -102,7 +102,7 @@ samples_plot = Plot.dot(
     | Plot.onChange({"toEval": evaluate})
     | Plot.html(
         [
-            "form.flex.flex-col.gap-3",
+            "form.!flex.flex-col.gap-3",
             {
                 "onSubmit": js(
                     "e => { e.preventDefault(); $state.toEval = $state.source}"
@@ -110,9 +110,9 @@ samples_plot = Plot.dot(
             },
             samples_plot,
             [
-                "textarea.whitespace-pre-wrap.text-2xs.p-3.rounded-md.bg-gray-100.flex-1.h-[300px].font-mono",
+                "textarea.whitespace-pre-wrap.text-[13px].lh-normal.p-3.rounded-md.bg-gray-100.flex-1.h-[300px].font-mono",
                 {
-                    "rows": js("$state.source.split('\\n').length"),
+                    "rows": js("$state.source.split('\\n').length+1"),
                     "onChange": js("(e) => $state.source = e.target.value"),
                     "value": js("$state.source"),
                     "onKeyDown": js(

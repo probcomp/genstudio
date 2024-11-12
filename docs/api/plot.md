@@ -53,7 +53,7 @@ Returns
 
 ### Slider {: .api .api-member }
 
-Creates a slider with reactive functionality.
+Creates a slider with reactive functionality, allowing for dynamic interaction and animation.
 
 Parameters
 {: .api .api-section }
@@ -63,7 +63,7 @@ Parameters
 
 - `init` (Any): Initial value for the variable.
 
-- `range` (Union[int, List[int]]): Either a single 'until' value or [from, until] list.
+- `range` (Union[int, List[int]]): A list of two values, `[from, until]` (inclusive), to be traversed by `step`. Or a single value `n` which becomes `[from, n-1]`, aligned with python's range(n).
 
 - `rangeFrom` (Any): Derive the range from the length of this (ref) argument.
 
@@ -77,15 +77,17 @@ Parameters
 
 - `label` (str): Label for the slider.
 
-- `showValue` (bool): If True, shows the current value.
+- `showValue` (bool): If True, shows the current value immediately after the label.
 
-- `showSlider` (bool): If True, shows the slider control.
-
-- `showFps` (bool): If True, shows current FPS when animating.
-
-- `visible` (bool): If True, shows the slider component. Defaults to True.
+- `controls` (list): List of controls to display, such as ["slider", "play", "fps"]. Defaults to ["slider"] if fps is not set, otherwise ["slider", "play"].
 
 - `**kwargs`: Additional keyword arguments.
+
+Returns
+{: .api .api-section }
+
+
+- A Slider component with the specified options.
 
 
 

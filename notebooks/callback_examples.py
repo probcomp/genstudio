@@ -23,7 +23,7 @@ hiccup = html(
             "div#red.box.p2",
             {
                 "style": {"backgroundColor": "red"},
-                "onClick": lambda e: on_click({"id": "red", **e}),
+                "onClick": lambda widget, e: on_click({"id": "red", **e}),
                 "onMouseMove": Plot.js("(e) => e.target.innerHTML = e.clientX"),
             },
             "Red",
@@ -32,7 +32,7 @@ hiccup = html(
             "div#blue.box.p2",
             {
                 "style": {"backgroundColor": "lightblue"},
-                "onClick": lambda e: on_click({"id": "blue", **e}),
+                "onClick": lambda widget, e: on_click({"id": "blue", **e}),
                 "onMouseMove": Plot.js("(e) => e.target.innerHTML = e.clientX"),
             },
             "Blue",
@@ -41,7 +41,7 @@ hiccup = html(
             "div#green.box.p2",
             {
                 "style": {"backgroundColor": "green"},
-                "onClick": lambda e: on_click({"id": "green", **e}),
+                "onClick": lambda widget, e: on_click({"id": "green", **e}),
                 "onMouseMove": Plot.js("(e) => e.target.innerHTML = e.clientX"),
             },
             "Green",

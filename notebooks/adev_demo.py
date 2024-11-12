@@ -489,10 +489,11 @@ def render_plot(initial_val, initial_sigma):
     frame_slider = Plot.Slider(
         key="frame",
         init=0,
-        range=[0, EPOCHS],
+        range=EPOCHS,
         step=ANIMATION_STEP,
         fps=30,
         label="Iteration:",
+        showValue=True,
     )
 
     controls = Plot.html(

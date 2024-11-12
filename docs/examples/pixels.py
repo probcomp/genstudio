@@ -63,15 +63,24 @@ fps = 30
 data = generate_pixels(width=width, height=height, num_frames=num_frames)
 
 (
-    Plot.initialState(
-        {"pixels": data, "width": width, "height": height, "frame": 0, "fps": fps}
-    )
-    | Plot.pixels(
-        js("$state.pixels[$state.frame]"),
-        imageWidth=js("$state.width"),
-        imageHeight=js("$state.height"),
-    )
-    | Plot.Slider(
-        "frame", rangeFrom=js("$state.pixels"), showFps=True, fps=js("$state.fps")
+    plot := (
+        Plot.initialState(
+            {"pixels": data, "width": width, "height": height, "frame": 0, "fps": fps}
+        )
+        | Plot.pixels(
+            js("$state.pixels[$state.frame]"),
+            imageWidth=js("$state.width"),
+            imageHeight=js("$state.height"),
+        )
+        | Plot.Slider(
+            "frame",
+            rangeFrom=js("$state.pixels"),
+            controls=["play", "fps"],
+            fps=js("$state.fps"),
+        )
     )
 )
+
+# %%
+
+plot.state.fps = "raf"
