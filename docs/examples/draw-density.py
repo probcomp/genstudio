@@ -21,7 +21,6 @@ from genstudio.plot import js
     | (
         Plot.density(js("$state.points"), fill="density")
         + Plot.colorScheme("Viridis")
-        + Plot.dot(js("$state.points"))
         + Plot.events(
             {
                 "onClick": js(
@@ -39,6 +38,17 @@ from genstudio.plot import js
             }"""
                 )
             }
+        )
+        + Plot.dot(
+            js("$state.points"),
+            r=10,
+            render=Plot.renderChildEvents(
+                {
+                    "onDrag": js(
+                        "(e) => $state.update(['points', 'setAt', [e.index, [e.x, e.y]]])"
+                    )
+                }
+            ),
         )
         + Plot.domain([0, 1])
     )
