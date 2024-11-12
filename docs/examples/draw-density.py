@@ -19,11 +19,13 @@ from genstudio.plot import js
 (
     Plot.initialState({"points": []}, sync=True)
     | (
-        Plot.density(js("$state.points"))
+        Plot.density(js("$state.points"), fill="density")
+        + Plot.colorScheme("Viridis")
         + Plot.dot(js("$state.points"))
         + Plot.events(
             {
-                "onClick": js("""(e) => {
+                "onClick": js(
+                    """(e) => {
                 const std = 0.05;
                 const points = Array.from({length: 20}, () => {
                     const r = Math.sqrt(-2 * Math.log(Math.random()));
@@ -34,7 +36,8 @@ from genstudio.plot import js
                     ];
                 });
                 $state.update(['points', 'concat', points]);
-            }""")
+            }"""
+                )
             }
         )
         + Plot.domain([0, 1])
@@ -48,3 +51,35 @@ from genstudio.plot import js
         "Print Points",
     ]
 )
+
+# %% [markdown]
+
+# Draw density on a plot:
+
+BUTTON = "div.border.rounded-md.p-5.text-center.font-bold.hover:bg-gray-200"
+
+(
+    Plot.initialState(
+        {
+            "points": [],
+            "handleMouse": js("(e) => $state.update(['points', 'append', [e.x, e.y]])"),
+        },
+        sync={"points"},
+    )
+    | (
+        Plot.density(js("$state.points"))
+        + Plot.domain([0, 1])
+        + Plot.events(
+            {"onDraw": js("$state.handleMouse"), "onClick": js("$state.handleMouse")}
+        )
+        + Plot.colorScheme("Viridis")
+        + Plot.colorLegend()
+        + Plot.clip()
+    )
+) | Plot.Row(
+    [BUTTON, {"onClick": Plot.js("(e) => $state.points = []")}, "Clear"],
+    [BUTTON, {"onClick": lambda w, e: print(w.state.points)}, "Print"],
+)
+
+# %% [markdown]
+# Prior art: [drawdata](https://calmcode.io/labs/drawdata)

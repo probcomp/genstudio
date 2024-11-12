@@ -1,4 +1,11 @@
 // internal utils copied from @observablehq/plot/src/style.js
+import * as d3 from "d3"
+
+let nextClipId = 0;
+
+export function getClipId() {
+  return `plot-clip-${++nextClipId}`;
+}
 
 export function applyAttr(selection, name, value) {
     if (value != null) selection.attr(name, value);
@@ -28,9 +35,9 @@ function applyHref(selection, href, target) {
     selection.each(function (i) {
         const h = href(i);
         if (h != null) {
-            const a = this.ownerDocument.createElementNS(namespaces.svg, "a");
+            const a = this.ownerDocument.createElementNS(d3.namespaces.svg, "a");
             a.setAttribute("fill", "inherit");
-            a.setAttributeNS(namespaces.xlink, "href", h);
+            a.setAttributeNS(d3.namespaces.xlink, "href", h);
             if (target != null) a.setAttribute("target", target);
             this.parentNode.insertBefore(a, this).appendChild(this);
         }
@@ -80,7 +87,7 @@ function applyClip(selection, mark, dimensions, context) {
         const {width, height, marginLeft, marginRight, marginTop, marginBottom} = dimensions;
         const id = getClipId();
         clipUrl = `url(#${id})`;
-        selection = create("svg:g", context)
+        selection = d3.create("svg:g", context)
           .call((g) =>
             g
               .append("svg:clipPath")

@@ -167,19 +167,30 @@ function debounce(func, wait, leading = true) {
 export function useContainerWidth() {
   const containerRef = React.useRef(null);
   const [containerWidth, setContainerWidth] = React.useState(0);
+  const lastWidthRef = React.useRef(0);
+  const THRESHOLD_PX = 10;
+  const DEBOUNCE = false;
 
   React.useEffect(() => {
     if (!containerRef.current) return;
 
-    const debouncedSetWidth = debounce(width => setContainerWidth(width), 100);
+    const handleWidth = width => {
+      const diff = Math.abs(width - lastWidthRef.current);
+      if (diff >= THRESHOLD_PX) {
+        lastWidthRef.current = width;
+        setContainerWidth(width);
+      }
+    };
+
+    const widthHandler = DEBOUNCE ? debounce(handleWidth, 100) : handleWidth;
 
     const observer = new ResizeObserver(entries =>
-      debouncedSetWidth(entries[0].contentRect.width)
+      widthHandler(entries[0].contentRect.width)
     );
 
     observer.observe(containerRef.current);
     return () => observer.disconnect();
-  }, []);
+  }, [DEBOUNCE]);
 
   return [containerRef, containerWidth];
 }

@@ -9,7 +9,7 @@ import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as render from "./plot/render";
 import {Grid, Row, Column} from "./layout"
-import { tw } from "./utils";
+import { joinClasses, tw } from "./utils";
 const { useState, useEffect, useContext, useRef, useCallback } = React
 import Katex from "katex";
 import markdownItKatex from "./markdown-it-katex";
@@ -52,16 +52,19 @@ export function katex(tex) {
 
 const MarkdownItInstance = new MarkdownIt({
     html: true,
-    linkify: true,
-    typographer: true
+    linkify: true
 });
 
 MarkdownItInstance.use(markdownItKatex)
 
-export function md(text) {
+export function md(options, text) {
+    if (typeof options === 'string' && text === null) {
+        text = options;
+        options = {};
+    }
     loadKatexCss();
 
-    return <div className={tw("prose")} dangerouslySetInnerHTML={{ __html: MarkdownItInstance.render(text) }} />;
+    return <div className={tw(joinClasses("prose", options.className))} dangerouslySetInnerHTML={{ __html: MarkdownItInstance.render(text) }} />;
 }
 
 export const Slider = mobxReact.observer(

@@ -45,6 +45,8 @@ Plot.line(
 )
 
 # %% [markdown]
+# For more advanced layout options, including grids and responsive layouts, see the [Layouts guide](learn-more/layouts.py).
+#
 # ## Data & Channels
 #
 # Channels are how we map our data to visual properties of the mark. For many marks, `x` and `y` are the primary channels, but others like `color`, `size`, or `opacity` are also common. We typically specify our _data_ and _channels_ separately.
@@ -103,7 +105,7 @@ Plot.dot(
 #
 # There is a 100mb limit on the size of initial data and subsequent messages (per message).
 #
-# The serialization process also handles state management for interactive widgets, collecting initial state and synced keys to enable bidirectional updates between Python and JavaScript.
+# The serialization process also handles state management for interactive widgets, collecting initial state and synced keys to enable bidirectional updates between Python and JavaScript. For more details on state management, see the [State guide](learn-more/state.py).
 
 
 # %% [markdown]

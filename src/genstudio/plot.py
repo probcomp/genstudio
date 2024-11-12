@@ -751,8 +751,10 @@ def margin(*args):
         raise ValueError(f"Invalid number of arguments: {len(args)}")
 
 
-md = JSRef("md")
-"""Render a string as Markdown, in a LayoutItem."""
+def md(text, **kwargs):
+    """Render a string as Markdown, in a LayoutItem."""
+    return JSRef("md")(kwargs, text)
+
 
 katex = JSRef("katex")
 """Render a TeX string, in a LayoutItem."""

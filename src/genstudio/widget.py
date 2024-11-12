@@ -1,7 +1,6 @@
 import datetime
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Optional
-import json
 
 import anywidget
 import numpy as np
@@ -376,6 +375,6 @@ class Widget(anywidget.AnyWidget):
     def handle_updates(
         self, params: dict[str, Any], buffers: list[bytes]
     ) -> tuple[str, list[bytes]]:
-        updates = replace_buffers(json.loads(params["updates"]), buffers)
+        updates = replace_buffers(params["updates"], buffers)
         self.state.accept_js_updates(updates)
         return "ok", []

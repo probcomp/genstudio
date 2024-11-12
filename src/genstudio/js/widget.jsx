@@ -179,7 +179,7 @@ export function createStateStore({ initialState, syncedKeys, experimental, buffe
       if (experimental && syncedKeys.has(key)) {
         const [updates, buffers] = collectBuffers([[key, "reset", newValue]]);
         experimental.invoke("handle_updates", {
-          updates: JSON.stringify(updates)
+          updates: updates
         }, {buffers});
       }
       return true;

@@ -31,17 +31,19 @@ nav:
     - Re-rendering a plot: interactivity/reset.py
     - Animating through Frames: interactivity/frames.py
     - Browser events: interactivity/events.py
+    - State: learn-more/state.py
     - Refs: interactivity/refs.py
     - Tailing data: interactivity/tail.py
   - Learn More:
     - Working with Color: learn-more/color.py
-    - HTML with Hiccup: learn-more/hiccup.py
+    - HTML with Hiccup: learn-more/html-with-hiccup.py
     - Python Event Loops: learn-more/python-event-loop.py
     - Compare with Observable Plot: learn-more/vs-observable.py
     - Save / Export Images: learn-more/save-as-image.py
     - Plot Options: learn-more/plot-options.py
+
   - Examples:
-      - Interactive Density: examples/interactive-density.py
+      - Draw Density: examples/draw-density.py
       - Live Editing Source Code: examples/live-edit-source.py
       - Ellipse Mark: examples/ellipse-mark.py
       - Histogram Mark: examples/histogram-mark.py

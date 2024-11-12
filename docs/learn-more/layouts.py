@@ -9,7 +9,7 @@ import genstudio.plot as Plot
 # - Arranging items using `&` (row) and `|` (column) operators
 # - Serializing to JSON for rendering via `for_json()`
 #
-# The most common layout items you'll see are Plot marks (eg. `Plot.line`), `Plot.html`, and `Plot.md`.
+# The most common layout items you'll see are Plot marks (eg. `Plot.line`), `Plot.html` (see [HTML with Hiccup](html-with-hiccup.py) for details), and `Plot.md` (for rendering markdown).
 #
 # ## Using & and |
 #
