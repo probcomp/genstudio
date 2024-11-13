@@ -19,6 +19,8 @@ from genstudio.plot import js
 
 # Draw density on a plot:
 
+# %%
+
 BUTTON = "div.border.rounded-md.p-5.text-center.font-bold.hover:bg-gray-200"
 
 (
