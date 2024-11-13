@@ -299,7 +299,7 @@ def flatten_layout_items(
     flattened: list[Any] = []
     options: dict[str, Any] = {}
     for item in items:
-        if isinstance(item, layout_class):
+        if type(item) is layout_class:
             flattened.extend(item.items)
             options.update(item.options)
         elif isinstance(item, dict):
@@ -442,8 +442,9 @@ def Grid(*children, **opts):
     Returns:
         A grid layout component that will be rendered in the JavaScript runtime.
     """
+    children, options = flatten_layout_items(children, object)
     return Hiccup(
-        [JSRef("Grid"), opts or {}, *children],
+        [JSRef("Grid"), options | opts, *children],
     )
 
 

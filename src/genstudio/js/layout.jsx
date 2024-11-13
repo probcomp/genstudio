@@ -50,6 +50,7 @@ export function Grid({
   widths,
   heights,
   height,
+  className
 }) {
   const [containerRef, containerWidth] = useContainerWidth();
 
@@ -97,7 +98,7 @@ export function Grid({
   return (
     <div
       ref={containerRef}
-      className={tw(classes)}
+      className={tw(joinClasses(classes, className))}
       style={containerStyle}
     >
       {React.Children.map(children, (child) => child)}

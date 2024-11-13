@@ -52,7 +52,11 @@ export function katex(tex) {
 
 const MarkdownItInstance = new MarkdownIt({
     html: true,
-    linkify: true
+    linkify: true,
+    typographer: true,
+    quotes: `""''`,
+
+
 });
 
 MarkdownItInstance.use(markdownItKatex)

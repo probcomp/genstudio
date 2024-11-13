@@ -7,12 +7,6 @@ import jax.numpy as jnp
 import genstudio.plot as Plot
 from genstudio.plot import js
 
-# %% [markdown]
-# ## Define the Model
-#
-# We'll create a noisy JAX model that switches between two noise distributions:
-
-# %%
 key = jax.random.key(314159)
 thetas = jnp.arange(0.0, 1.0, 0.0005)
 
@@ -38,16 +32,6 @@ def make_samples(key, thetas, sigma, model_func):
     )
 
 
-# %% [markdown]
-# ## Create Interactive Plot
-#
-# Now we'll set up the interactive visualization with an editable code area. First let's set up our initial state.
-# This contains data that we can access in the js environment using `$state.{key}`. We can also listen for changes
-# to state in python. The approach we're taking here is to maintain a `$state.toEval` value. Whenever it changes,
-# we will re-evaluate our model and generate new samples.
-
-
-# %%
 initial_source = """sigma = 0.05
 def noisy_jax_model(key, theta, sigma):
     # Sample a bernoulli random variable to determine which noise model to use
@@ -69,11 +53,8 @@ initial_state = Plot.initialState(
     }
 )
 
-# %% [markdown]
-# Here is the callback we'll pass to `Plot.onChange`, invoked whenever `$state.toEval` changes.
 
-
-# %%
+# Callback function
 def evaluate(widget, _e):
     # Update random key and evaluate new code from text editor
     global key, sigma, noisy_jax_model
@@ -92,9 +73,6 @@ def evaluate(widget, _e):
 samples_plot = Plot.dot(
     {"x": js("$state.thetas"), "y": js("$state.samples")}, fill="rgba(0, 128, 128, 0.3)"
 ) + {"height": 400}
-
-# %% [markdown]
-# Now let's put it all together:
 
 # %%
 (

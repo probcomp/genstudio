@@ -18,13 +18,17 @@ from genstudio.plot import js
 
 
 # %%
-def generate_pixels(width=100, height=100, num_frames=60):
-    # Generate animated RGB frames with phase-shifted circular waves
+def generate_pixels(width=100, height=100, num_frames=60, linear=False):
+    # Generate animated RGB frames with phase-shifted waves
     x, y = np.meshgrid(np.linspace(-4, 4, width), np.linspace(-4, 4, height))
     t = np.linspace(0, 2 * np.pi, num_frames)[:, None, None]
     r = np.sqrt(x**2 + y**2)
 
-    intensity = np.sin(r - t) * 255
+    if linear:
+        intensity = np.sin(x - t) * 255  # Linear wave pattern along x-axis
+    else:
+        intensity = np.sin(r - t) * 255  # Radial wave pattern
+
     rgb = np.stack(
         [
             np.clip(intensity * np.sin(t + phase), 0, 255)
@@ -57,7 +61,7 @@ Plot.pixels(single_frame, imageWidth=50, imageHeight=50)
 # %%
 width = 50
 height = 50
-num_frames = 10
+num_frames = 60
 fps = 30
 
 data = generate_pixels(width=width, height=height, num_frames=num_frames)
@@ -84,3 +88,7 @@ data = generate_pixels(width=width, height=height, num_frames=num_frames)
 # %%
 
 plot.state.fps = "raf"
+
+plot.state.update(
+    {"pixels": generate_pixels(500, 500, 60, linear=True), "width": 500, "height": 500}
+)

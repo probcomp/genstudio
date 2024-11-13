@@ -47,6 +47,26 @@
             padding: 6px;
         }
     }
+    .prose {
+        max-width: none;
+        font-size: inherit;
+        p, ul, ol {
+            max-width: 30em;
+        }
+        code {
+            font-family: Menlo, Monaco, 'Courier New', monospace;
+            background-color: rgba(0,0,0,0.1);
+            border-radius: 3px;
+            padding: 2px 5px;
+            font-size: inherit;
+            font-weight: normal;
+
+        }
+        code::before, code::after {
+            content: ''
+
+        }
+    }
 }
 
 .genstudio-container, pre code {
