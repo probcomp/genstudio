@@ -22,26 +22,22 @@ theme:
   logo: false
 nav:
   - Home: index.md
-  - Getting Started: getting-started.py
-  - API Docs: api/plot.md
-  - How Do I...: learn-more/how-do-i.py
-  - Layouts: learn-more/layouts.py
+  - Quickstart: quickstart.py
+  - System Guide:
+    - Layouts: system-guide/layouts.py
+    - State: system-guide/state.py
+    - HTML with Hiccup: system-guide/html-with-hiccup.py
   - Interactivity & Animation:
     - Sliders: interactivity/sliders.py
-    - Re-rendering a plot: interactivity/reset.py
-    - Animating through Frames: interactivity/frames.py
-    - Browser events: interactivity/events.py
-    - State: learn-more/state.py
-    - Refs: interactivity/refs.py
+    - Animating Frames: interactivity/frames.py
+    - Mouse events: interactivity/events.py
     - Tailing data: interactivity/tail.py
   - Learn More:
     - Working with Color: learn-more/color.py
-    - HTML with Hiccup: learn-more/html-with-hiccup.py
     - Python Event Loops: learn-more/python-event-loop.py
     - Compare with Observable Plot: learn-more/vs-observable.py
     - Save / Export Images: learn-more/save-as-image.py
     - Plot Options: learn-more/plot-options.py
-
   - Examples:
       - Draw Density: examples/draw-density.py
       - Live Editing Source Code: examples/live-edit-source.py
@@ -52,6 +48,9 @@ nav:
       - Highlighting Code: examples/bylight.py
       - Rendering LaTeX: examples/katex.py
       - Render Pixel Data: examples/pixels.py
+  - API Docs: api/plot.md
+  - How Do I...: learn-more/how-do-i.py
+
   - Changelog: CHANGELOG.md
 markdown_extensions:
   - admonition

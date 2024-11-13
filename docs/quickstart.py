@@ -31,7 +31,7 @@ Plot.line(
 )
 
 # %% [markdown]
-# To learn more, refer to the [Observable Plot documentation](https://observablehq.com/plot/getting-started).
+# To learn more, refer to the [Observable Plot documentation](https://observablehq.com/plot/quickstart).
 #
 # ## Layering Marks & Options
 #
@@ -45,7 +45,7 @@ Plot.line(
 )
 
 # %% [markdown]
-# For more advanced layout options, including grids and responsive layouts, see the [Layouts guide](learn-more/layouts.py).
+# For more advanced layout options, including grids and responsive layouts, see the [Layouts guide](system-guide/layouts.py).
 #
 # ## Data & Channels
 #
@@ -105,7 +105,7 @@ Plot.dot(
 #
 # There is a 100mb limit on the size of initial data and subsequent messages (per message).
 #
-# The serialization process also handles state management for interactive widgets, collecting initial state and synced keys to enable bidirectional updates between Python and JavaScript. For more details on state management, see the [State guide](learn-more/state.py).
+# The serialization process also handles state management for interactive widgets, collecting initial state and synced keys to enable bidirectional updates between Python and JavaScript. For more details on state management, see the [State guide](system-guide/state.py).
 
 
 # %% [markdown]

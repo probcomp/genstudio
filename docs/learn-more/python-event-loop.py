@@ -3,7 +3,7 @@
 # 1. Setting up a basic animated plot
 # 2. Creating interactive animations with ipywidgets
 #
-# We must use the `"widget"` [rendering modes](getting-started/#rendering-modes) for bidirectional python/javascript communication:
+# We must use the `"widget"` [rendering modes](quickstart/#rendering-modes) for bidirectional python/javascript communication:
 
 # %%
 import genstudio.plot as Plot

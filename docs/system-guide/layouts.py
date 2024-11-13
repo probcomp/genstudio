@@ -11,7 +11,7 @@ import genstudio.plot as Plot
 #
 # The most common layout items you'll see are Plot marks (eg. `Plot.line`), `Plot.html` (see [HTML with Hiccup](html-with-hiccup.py) for details), and `Plot.md` (for rendering markdown).
 #
-# ## Using & and |
+# ## Rows and Columns with & and |
 #
 # Here's a simple example combining two plots into a row:
 
