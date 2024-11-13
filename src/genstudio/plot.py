@@ -605,7 +605,7 @@ def hideAxis(x=None, y=None):
     """Sets `{"axis": None}` for specified axes."""
     if x is None and y is None:
         return {"axis": None}
-    return {k: {"axis": None} for k in ["x", "y"] if locals()[k]}
+    return {k: {"axis": None} for k in ["x", "y"] if locals().get(k)}
 
 
 def colorLegend():
