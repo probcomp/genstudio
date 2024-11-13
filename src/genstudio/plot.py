@@ -603,7 +603,7 @@ def grid(x=None, y=None):
 
 def hideAxis(x=None, y=None):
     """Sets `{"axis": None}` for specified axes."""
-    if not x and not y:
+    if x is None and y is None:
         return {"axis": None}
     return {k: {"axis": None} for k in ["x", "y"] if locals()[k]}
 
