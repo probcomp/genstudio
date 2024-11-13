@@ -75,6 +75,8 @@ from genstudio.plot import md
     )
 )
 
+# DRAW DENSITY EXAMPLE
+
 # %% [markdown]
 # LAYOUT / HTML
 
@@ -141,7 +143,8 @@ Plot.plot({
     Plot.density(faithful, {x: "waiting", y: "eruptions", stroke: "blue", thresholds: 4}),
     Plot.dot(faithful, {x: "waiting", y: "eruptions", fill: "currentColor", r: 1.5})
   ]
-})```"""
+})
+```"""
     ),
     ["span.font-bold", "GenStudio (python):"],
     Plot.md(
@@ -151,14 +154,14 @@ Plot.plot({
     + Plot.density(faithful, x="waiting", y="eruptions", stroke="blue", thresholds=4)
     + Plot.dot(faithful, x="waiting", y="eruptions", fill="currentColor", r=1.5)
     + Plot.inset(10)
-)"""
+)
+```"""
     ),
 )
 
 # %% [markdown]
-# 4. What can you do with all this? A few small examples:
-#
-# - DRAW DENSITY
+# 4. What can you do with all this? A couple more small examples:
+
 # - RENDER PIXELS
 # - EDIT AND EVALUATE CODE
 
@@ -167,12 +170,12 @@ Plot.plot({
 
 # %%
 Plot.Column(
-    {"gap": 20, "className": "text-2xl p-10"},
+    {"gap": 10, "className": "text-xl p-5"},
     ["div.font-bold", "What's Next?"],
     [
-        "ul.list-disc.space-y-6",
+        "ul.list-disc.space-y-6.pl-5",
         ["li", "LLM prompt"],
         ["li", "3D viewer"],
-        ["li", "..."],
+        ["li", "...discuss!"],
     ],
 )

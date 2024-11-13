@@ -35,12 +35,10 @@ BUTTON = "div.border.rounded-md.p-5.text-center.font-bold.hover:bg-gray-200"
         + Plot.events(
             {"onDraw": js("$state.handleMouse"), "onClick": js("$state.handleMouse")}
         )
-        + Plot.colorScheme("Viridis")
-        + Plot.colorLegend()
         + Plot.clip()
     )
 ) | Plot.Row(
-    [BUTTON, {"onClick": lambda w, e: print(w.state.points)}, "Print"],
+    [BUTTON, {"onClick": lambda widget, e: print(widget.state.points)}, "Print"],
     [BUTTON, {"onClick": Plot.js("(e) => $state.points = []")}, "Clear"],
 )
 

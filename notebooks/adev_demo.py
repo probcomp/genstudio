@@ -357,7 +357,7 @@ def input_checkbox(label, value, on_change):
 def render_plot(initial_val, initial_sigma):
     SLIDER_STEP = 0.01
     ANIMATION_STEP = 4
-    COMPARISON_HEIGHT = 200
+    COMPARISON_HEIGHT = 150
     currentKey = key
 
     def computeState(val, sigma):
@@ -588,27 +588,12 @@ def flip_approx_loss(theta, sigma):
             GRID,
             jax_tangents_plot,
             adev_tangents_plot,
-            [
-                PRE,
-                {
-                    "contenteditable": True,
-                    "onChange": js("(e) => $state.jax_code = e.target.value"),
-                },
-                js("$state.jax_code"),
-            ],
-            [
-                PRE,
-                {
-                    "contenteditable": True,
-                    "onChange": js("(e) => $state.jax_code = e.target.value"),
-                },
-                js("$state.adev_code"),
-            ],
+            [PRE, js("$state.jax_code")],
+            [PRE, js("$state.adev_code")],
             comparison_plot,
             optimization_plot,
         ]
         | frame_slider
-        | Plot.onChange({"adev_code": print, "jax_code": print})
     )
 
 
