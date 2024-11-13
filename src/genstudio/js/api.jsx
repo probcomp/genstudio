@@ -58,7 +58,7 @@ const MarkdownItInstance = new MarkdownIt({
 MarkdownItInstance.use(markdownItKatex)
 
 export function md(options, text) {
-    if (typeof options === 'string' && text === null) {
+    if (typeof options === 'string' && !text) {
         text = options;
         options = {};
     }
