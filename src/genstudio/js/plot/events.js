@@ -68,8 +68,6 @@ export class EventHandler extends Plot.Mark {
 
     const handleDrawStart = (point) => {
       this.onDrawStart?.(eventData("drawstart", point));
-      document.addEventListener('mousemove', handleDraw);
-      document.addEventListener('mouseup', handleDrawEnd);
     }
 
     const handleMouseDown = (event) => {
@@ -89,7 +87,6 @@ export class EventHandler extends Plot.Mark {
 
     const handleDraw = (event) => {
       if (!currentDrawingRect) return;
-      event.preventDefault();
       const offsetX = event.clientX - currentDrawingRect.left;
       const offsetY = event.clientY - currentDrawingRect.top;
       const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
@@ -102,16 +99,17 @@ export class EventHandler extends Plot.Mark {
       const offsetY = event.clientY - currentDrawingRect.top;
       const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
       this.onDrawEnd?.(eventData("drawend", point));
-
-      document.removeEventListener('mousemove', handleDraw);
-      document.removeEventListener('mouseup', handleDrawEnd);
       currentDrawingRect = null;
       drawStartTime = null;
     };
 
     const handleMouseMove = (event) => {
+      if (currentDrawingRect && this.onDraw) {
+        handleDraw(event)
+      }
       if (this.onMouseMove) {
-        const rect = drawingArea.getBoundingClientRect();
+        const rect = currentDrawingRect || drawingArea.getBoundingClientRect();
+        if (!isWithinDrawingArea(rect, event.clientX, event.clientY)) return;
         const offsetX = event.clientX - rect.left;
         const offsetY = event.clientY - rect.top;
         const point = invertPoint(offsetX, offsetY, scales, calculateScaleFactors(drawingArea.ownerSVGElement));
@@ -139,13 +137,14 @@ export class EventHandler extends Plot.Mark {
       .attr("width", width)
       .attr("height", height)
       .attr("fill", "none")
-      .attr("pointer-events", "all")
-      .on("mousemove", handleMouseMove)
+      .attr("pointer-events", "none")
       .node();
 
-    // We attach mousedown and click to document to allow interaction even when the cursor is over other elements
-    document.addEventListener('mousedown', handleMouseDown);
+    // Attach all event listeners to document
     document.addEventListener('click', handleClick);
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleDrawEnd);
 
     return g.node();
   }

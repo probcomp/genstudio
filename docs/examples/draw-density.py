@@ -53,6 +53,19 @@ BUTTON = "div.border.rounded-md.p-5.text-center.font-bold.hover:bg-gray-200"
         Plot.density(js("$state.points"), fill="density")
         + Plot.colorScheme("Viridis")
         + Plot.colorLegend()
+        + Plot.dot(
+            js("$state.points"),
+            r=6,
+            stroke="rgba(255,255,255,0.3)",
+            render=Plot.renderChildEvents(
+                {
+                    "onDrag": js(
+                        "(e) => $state.update(['points', 'setAt', [e.index, [e.x, e.y]]])"
+                    )
+                }
+            ),
+        )
+        + Plot.domain([0, 1])
         + Plot.events(
             {
                 "onClick": js(
@@ -71,19 +84,6 @@ BUTTON = "div.border.rounded-md.p-5.text-center.font-bold.hover:bg-gray-200"
                 )
             }
         )
-        + Plot.dot(
-            js("$state.points"),
-            r=6,
-            stroke="rgba(255,255,255,0.3)",
-            render=Plot.renderChildEvents(
-                {
-                    "onDrag": js(
-                        "(e) => $state.update(['points', 'setAt', [e.index, [e.x, e.y]]])"
-                    )
-                }
-            ),
-        )
-        + Plot.domain([0, 1])
     )
     | Plot.Row(
         [BUTTON, {"onClick": lambda w, e: print(w.state.points)}, "Print"],
