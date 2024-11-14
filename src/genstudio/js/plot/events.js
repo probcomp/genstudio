@@ -66,47 +66,45 @@ export class EventHandler extends Plot.Mark {
     const isWithinDrawingArea = (rect, x, y) =>
       x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 
-    const handleDrawStart = (point) => {
-      this.onDrawStart?.(eventData("drawstart", point));
-    }
-
     const handleMouseDown = (event) => {
-      currentDrawingRect = drawingArea.getBoundingClientRect();
-      if (!isWithinDrawingArea(currentDrawingRect, event.clientX, event.clientY)) return;
+      const rect = drawingArea.getBoundingClientRect();
+      if (!isWithinDrawingArea(rect, event.clientX, event.clientY)) return;
 
-      drawStartTime = Date.now();
       scaleFactors = calculateScaleFactors(drawingArea.ownerSVGElement);
-      const offsetX = event.clientX - currentDrawingRect.left;
-      const offsetY = event.clientY - currentDrawingRect.top;
+      const offsetX = event.clientX - rect.left;
+      const offsetY = event.clientY - rect.top;
       const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
       this.onMouseDown?.(eventData("mousedown", point));
 
-      handleDrawStart(point)
+      if (this.onDrawStart || this.onDraw || this.onDrawEnd) {
+        currentDrawingRect = rect;
+        drawStartTime = Date.now();
+        this.onDrawStart?.(eventData("drawstart", point));
+      }
 
-    };
-
-    const handleDraw = (event) => {
-      if (!currentDrawingRect) return;
-      const offsetX = event.clientX - currentDrawingRect.left;
-      const offsetY = event.clientY - currentDrawingRect.top;
-      const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
-      this.onDraw?.(eventData("draw", point));
     };
 
     const handleDrawEnd = (event) => {
-      if (!currentDrawingRect) return;
-      const offsetX = event.clientX - currentDrawingRect.left;
-      const offsetY = event.clientY - currentDrawingRect.top;
-      const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
-      this.onDrawEnd?.(eventData("drawend", point));
-      currentDrawingRect = null;
-      drawStartTime = null;
+      if (currentDrawingRect) {
+        const offsetX = event.clientX - currentDrawingRect.left;
+        const offsetY = event.clientY - currentDrawingRect.top;
+        const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
+        this.onDrawEnd?.(eventData("drawend", point));
+        currentDrawingRect = null;
+        drawStartTime = null;
+      }
+
     };
 
     const handleMouseMove = (event) => {
-      if (currentDrawingRect && this.onDraw) {
-        handleDraw(event)
+
+      if (this.onDraw && currentDrawingRect) {
+        const offsetX = event.clientX - currentDrawingRect.left;
+        const offsetY = event.clientY - currentDrawingRect.top;
+        const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
+        this.onDraw?.(eventData("draw", point));
       }
+
       if (this.onMouseMove) {
         const rect = currentDrawingRect || drawingArea.getBoundingClientRect();
         if (!isWithinDrawingArea(rect, event.clientX, event.clientY)) return;
@@ -118,10 +116,9 @@ export class EventHandler extends Plot.Mark {
     };
 
     const handleClick = (event) => {
-      const rect = drawingArea.getBoundingClientRect();
-      if (!isWithinDrawingArea(rect, event.clientX, event.clientY)) return;
-
       if (this.onClick) {
+        const rect = drawingArea.getBoundingClientRect();
+        if (!isWithinDrawingArea(rect, event.clientX, event.clientY)) return;
         const offsetX = event.clientX - rect.left;
         const offsetY = event.clientY - rect.top;
         const point = invertPoint(offsetX, offsetY, scales, calculateScaleFactors(drawingArea.ownerSVGElement));
