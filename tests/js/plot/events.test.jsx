@@ -34,7 +34,7 @@ describe('Draw', () => {
     expect(rect.getAttribute('width')).toBe('500')
     expect(rect.getAttribute('height')).toBe('300')
     expect(rect.getAttribute('fill')).toBe('none')
-    expect(rect.getAttribute('pointer-events')).toBe('all')
+    expect(rect.getAttribute('pointer-events')).toBe('none')
   })
 
   it('should have callback properties', () => {
