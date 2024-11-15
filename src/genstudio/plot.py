@@ -101,7 +101,6 @@ from genstudio.plot_defs import (
     normalizeX,
     normalizeY,
     numberInterval,
-    plot,
     pointer,
     pointerX,
     pointerY,
@@ -181,6 +180,21 @@ html = Hiccup
 repeat = JSRef("repeat")
 """For passing columnar data to Observable.Plot which should repeat/cycle.
 eg. for a set of 'xs' that are to be repeated for each set of `ys`."""
+
+
+def plot(options):
+    """Create a new plot from options and marks.
+
+    Args:
+        options: Dict containing plot options and marks. The marks will be extracted
+                from the 'marks' key and passed separately.
+
+    Returns:
+        A new Plot specification
+    """
+    plot_options = options.copy()
+    plot_marks = plot_options.pop("marks", [])
+    return new(plot_options, *plot_marks)
 
 
 def _rename_key(d, prev_k, new_k):
@@ -680,9 +694,9 @@ def domainY(d):
     return {"y": {"domain": d}}
 
 
-def domain(xd, yd=None):
+def domain(x, y=None):
     """Sets domain for x and optionally y scales."""
-    return {"x": {"domain": xd}, "y": {"domain": yd or xd}}
+    return {"x": {"domain": x}, "y": {"domain": y or x}}
 
 
 def colorMap(mappings):

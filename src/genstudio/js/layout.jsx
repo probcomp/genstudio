@@ -174,7 +174,7 @@ export function Column({
   const classes = joinClasses(
     "grid",
     gap && `gap-${gap}`,
-    height ? `h-[${height}]` : 'h-full',
+    height ? `h-[${height}]` : 'h-fit',
     width && `w-[${width}]`,
     gridRows,
     className

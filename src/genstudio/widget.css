@@ -51,7 +51,7 @@
         max-width: none;
         font-size: inherit;
         p, ul, ol {
-            max-width: 30em;
+            max-width: 70em;
         }
         code {
             font-family: Menlo, Monaco, 'Courier New', monospace;
