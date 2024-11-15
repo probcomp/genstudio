@@ -509,7 +509,7 @@ import genstudio.plot as Plot
     Plot.initialState({"discoveries": discoveries})
     |
     # Background grid
-    Plot.gridY(tickSpacing=20)
+    Plot.gridX(tickSpacing=50)
     +
     # Timeline bars showing acceptance period
     Plot.rect(
@@ -533,6 +533,19 @@ import genstudio.plot as Plot
         {"x": "year", "y": "discovery", "r": 6, "fill": "steelblue"},
     )
     +
+    # Discovery labels
+    Plot.text(
+        Plot.js("$state.discoveries"),
+        {
+            "x": "year",
+            "y": "discovery",
+            "text": "discovery",
+            "dx": -10,
+            "textAnchor": "end",
+            "fontSize": 12,
+        },
+    )
+    +
     # Tooltips with detailed information
     Plot.tip(
         Plot.js("$state.discoveries"),
@@ -546,20 +559,15 @@ import genstudio.plot as Plot
             }
         ),
     )
-    +
-    # Customize plot appearance
-    {
-        "y": {
-            "label": None
-        },  # Remove y-axis label since discovery names are self-explanatory
-        "x": {"label": "Year", "grid": True},
-        "marginLeft": 120,  # Make room for discovery names
-        "height": 300,
-    }
-    | Plot.md("""
+    + Plot.hideAxis(y=True)
+    + Plot.margin(30, 0, 60, 100)
+    | Plot.md(
+        """
 This timeline shows when major scientific discoveries were published (dots) and how long they took to achieve widespread acceptance (bars).
 Hover over elements to see details about each discovery.
-    """)
+    """,
+        className="text-md ",
+    )
 )
 # </example>
 # %%
