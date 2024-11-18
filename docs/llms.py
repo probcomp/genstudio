@@ -571,4 +571,56 @@ Hover over elements to see details about each discovery.
 )
 # </example>
 # %%
+# <example>
+# User: Create a few-second motion animation showing a 2d spring animation where data comes from a numpy array. There are 3 dots, on the same horizontal line, oscillating horizontally at different speeds, not overlapping.
+# Assistant:
+import genstudio.plot as Plot
+import numpy as np
+from genstudio.plot import js
+
+
+# Generate the animation frames
+def generate_spring_motion(num_frames=60):
+    t = np.linspace(0, 2 * np.pi, num_frames)
+
+    # Create three oscillating points with different frequencies
+    x1 = 0.3 + 0.1 * np.sin(t)  # 1x frequency
+    x2 = 0.5 + 0.1 * np.sin(1.5 * t)  # 1.5x frequency
+    x3 = 0.7 + 0.1 * np.sin(2 * t)  # 2x frequency
+
+    # Stack into frames of [x, y] coordinates
+    y = 0.5  # All points at same vertical position
+    frames = np.stack(
+        [
+            np.column_stack([x1, np.full_like(x1, y)]),
+            np.column_stack([x2, np.full_like(x2, y)]),
+            np.column_stack([x3, np.full_like(x3, y)]),
+        ],
+        axis=1,
+    )  # Shape: [num_frames, 3 points, 2 coords]
+
+    return frames.tolist()
+
+
+frames = generate_spring_motion()
+
+(
+    Plot.initialState(
+        {"frames": frames, "frame": 0, "colors": ["#ff6b6b", "#4ecdc4", "#45b7d1"]}
+    )
+    | Plot.dot(
+        js("$state.frames[$state.frame]"), r=8, fill=js("(d, i) => $state.colors[i]")
+    )
+    + Plot.domain(x=[0, 1], y=[0, 1])
+    + Plot.aspectRatio(1)
+    + Plot.grid()
+    | Plot.Slider(
+        "frame",
+        rangeFrom=js("$state.frames"),
+        fps=30,
+        controls=["play"],
+    )
+)
+# </example>
+# %%
 # </examples>

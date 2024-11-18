@@ -196,7 +196,7 @@ Parameters
 Creates a responsive grid layout that automatically arranges child elements in a grid pattern.
 
 The grid adjusts the number of columns based on the available width and minimum width per item.
-Each item maintains a consistent aspect ratio and spacing between items is controlled by the gap parameter.
+Each item maintains consistent spacing controlled by gap parameters.
 
 Parameters
 {: .api .api-section }
@@ -206,13 +206,29 @@ Parameters
 
 - `**opts`: Grid options including:
 
-    - minWidth (int): Minimum width for each grid item in pixels. Default is AUTOGRID_MIN_WIDTH.
+    - minWidth (int): Minimum width for each grid item in pixels. Default is 165.
 
-    - gap (str): CSS gap value between grid items. Default is "10px".
+    - gap (int): Gap size for both row and column gaps. Default is 1.
 
-    - aspectRatio (float): Width/height ratio for grid items. Default is 1.
+    - rowGap (int): Vertical gap between rows. Overrides gap if specified.
+
+    - colGap (int): Horizontal gap between columns. Overrides gap if specified.
+
+    - cols (int): Fixed number of columns. If not set, columns are calculated based on minWidth.
+
+    - minCols (int): Minimum number of columns. Default is 1.
+
+    - maxCols (int): Maximum number of columns.
+
+    - widths (List[Union[int, str]]): Array of column widths. Can be numbers (for fractions) or strings.
+
+    - heights (List[Union[int, str]]): Array of row heights. Can be numbers (for fractions) or strings.
+
+    - height (str): Container height.
 
     - style (dict): Additional CSS styles to apply to grid container.
+
+    - className (str): Additional CSS classes to apply.
 
 Returns
 {: .api .api-section }

@@ -606,20 +606,21 @@ index.for_json = lambda: index()
 
 def grid(x=None, y=None):
     """Sets grid lines for x and/or y axes."""
-    if x == y is None:
+    # no arguments
+    if x is None and y is None:
         return {"grid": True}
-    return (
-        {"grid": x}
-        if x == y
-        else {"x": {"grid": x or False}, "y": {"grid": y or False}}
-    )
+    return {
+        "x": {"grid": x if x is not None else False},
+        "y": {"grid": y if y is not None else False},
+    }
 
 
 def hideAxis(x=None, y=None):
     """Sets `{"axis": None}` for specified axes."""
+    # no arguments
     if x is None and y is None:
         return {"axis": None}
-    return {k: {"axis": None} for k in ["x", "y"] if locals().get(k)}
+    return {"x": {"axis": None if x else True}, "y": {"axis": None if y else True}}
 
 
 def colorLegend():
