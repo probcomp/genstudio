@@ -1,3 +1,13 @@
+### [2024.11.013] - Nov 18, 2024
+
+- add llms.py (instructions for LLMs)
+- clean up Plot.grid() and Plot.hideAxis() argument handling
+- add Plot.plot to mirror Observable Plot api
+- rename Plot.domain args from xd, yd to x, y
+- increase max-width of p/ul/ol in .prose
+- fix Plot.events: allow onDraw and onMouseMove to co-exist
+- Plot.events is now order-independent and won't block pointer events
+
 ### [2024.11.012] - Nov 12, 2024
 
 - Plot.Slider accepts `"raf"` as an fps value
