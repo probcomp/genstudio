@@ -14,7 +14,7 @@ from genstudio.plot import js
 # %% [markdown]
 # ## Generate Pixels
 #
-# The `generate_pixels` function creates animated RGB frames using phase-shifted circular waves, returning a list of frames, each of which is a flattened uint8 array.
+# The `generate_pixels` function creates animated RGB frames using phase-shifted circular waves, returning a uint8 numpy array.
 
 
 # %%
@@ -37,7 +37,7 @@ def generate_pixels(width=100, height=100, num_frames=60, linear=False):
         axis=-1,
     )
 
-    return list(rgb.reshape(num_frames, -1).astype(np.uint8))
+    return rgb.reshape(num_frames, -1).astype(np.uint8)
 
 
 # %% [markdown]

@@ -140,6 +140,8 @@ def generate_pixels(width=100, height=100, num_frames=60):
 
     intensity = np.sin(r - t) * 255  # Radial wave pattern
 
+    # Stack 3 color channels (R,G,B) with phase shifts of 0, 2π/3, and 4π/3
+    # Shape: [num_frames, height, width, 3]
     rgb = np.stack(
         [
             np.clip(intensity * np.sin(t + phase), 0, 255)
@@ -147,9 +149,10 @@ def generate_pixels(width=100, height=100, num_frames=60):
         ],
         axis=-1,
     )
-    # return a list of frames; each frame is
-    # a flat array of rgb or rgba values for Plot.pixel
-    return list(rgb.reshape(num_frames, -1).astype(np.uint8))
+
+    # Reshape to [num_frames, width*height*3] for Plot.pixels
+    # Each frame becomes a flat array of [R,G,B, R,G,B, ...] values
+    return rgb.reshape(num_frames, -1).astype(np.uint8)
 
 
 width = 50
@@ -599,7 +602,7 @@ def generate_spring_motion(num_frames=60):
         axis=1,
     )  # Shape: [num_frames, 3 points, 2 coords]
 
-    return frames.tolist()
+    return frames
 
 
 frames = generate_spring_motion()
@@ -623,4 +626,54 @@ frames = generate_spring_motion()
 )
 # </example>
 # %%
+# <example>
+# <given-user-file-context>
+data = [
+    {"animal": "pigs", "country": "Great Britain", "count": 1354979},
+    {"animal": "cattle", "country": "Great Britain", "count": 3962921},
+    {"animal": "sheep", "country": "Great Britain", "count": 10931215},
+    {"animal": "pigs", "country": "United States", "count": 6281935},
+    {"animal": "cattle", "country": "United States", "count": 9917873},
+    {"animal": "sheep", "country": "United States", "count": 7084151},
+]
+# </given-user-file-context>
+# User: Create an isotype chart for this data using emoji.
+# Assistant:
+import genstudio.plot as Plot
+
+(
+    Plot.initialState({"data": data})
+    | Plot.text(
+        Plot.js("$state.data"),
+        {
+            "text": Plot.js(
+                """d => {
+                const emoji = {pigs: "🐷", cattle: "🐮", sheep: "🐑"};
+                return emoji[d.animal].repeat(Math.round(d.count / 1e6))
+            }"""
+            ),
+            "y": "animal",
+            "fy": "country",  # facet vertically by country
+            "dx": 10,  # space between axis label and emoji
+            "fontSize": 30,
+            "frameAnchor": "left",
+        },
+    )
+    + Plot.axisFy({"fontSize": 14, "frameAnchor": "top", "dy": -5})
+    + {  # compute a height to fit the data
+        "height": Plot.js(
+            """const rowHeight = 50;
+               const animals = new Set($state.data.map(d => d.animal)).size
+               const countries = new Set($state.data.map(d => d.country)).size
+               const titleHeight = 20
+               return animals * countries * rowHeight + titleHeight""",
+            expression=False,
+        ),
+        "y": {"label": None},
+        "fy": {"label": None},
+    }
+    + Plot.title("Live stock (millions)")
+)
+
+# </example>
 # </examples>
