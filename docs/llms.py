@@ -303,50 +303,11 @@ def evaluate(widget, _e):
 # %%
 # <example>
 # <given-user-file-context>
-civilizations = [
-    {
-        "name": "Mesopotamia",
-        "start": -3500,
-        "end": -539,
-        "continent": "Asia",
-        "peak_population": 10000000,
-    },
-    {
-        "name": "Indus Valley Civilization",
-        "start": -3300,
-        "end": -1300,
-        "continent": "Asia",
-        "peak_population": 5000000,
-    },
-    {
-        "name": "Ancient Egypt",
-        "start": -3100,
-        "end": -30,
-        "continent": "Africa",
-        "peak_population": 5000000,
-    },
-    {
-        "name": "Ancient China",
-        "start": -2070,
-        "end": 1912,
-        "continent": "Asia",
-        "peak_population": 60000000,
-    },
-    {
-        "name": "Maya Civilization",
-        "start": -2000,
-        "end": 1500,
-        "continent": "North America",
-        "peak_population": 2000000,
-    },
-    {
-        "name": "Ancient Greece",
-        "start": -800,
-        "end": -146,
-        "continent": "Europe",
-        "peak_population": 8000000,
-    },
-]
+
+# List of ancient civilizations with their temporal and geographic data
+# Each dict has: name (str), start/end years (int), continent (str), peak_population (int)
+from docs.examples.data import civilizations
+
 # </given-user-file-context>
 # User: Create a timeline visualization of the ancient civilizations I've defined above.
 # Assistant:
@@ -465,44 +426,15 @@ Interactive features include:
 # %%
 # <example>
 # <given-user-file-context>
-# scientific discoveries with years until widespread acceptance
-discoveries = [
-    {
-        "year": 1687,
-        "acceptance_delay": 20,
-        "scientist": "Newton",
-        "discovery": "Laws of Motion",
-        "description": "Published Principia Mathematica, establishing the laws of motion and universal gravitation. Took ~20 years to be widely accepted due to complexity and need for mathematical verification.",
-    },
-    {
-        "year": 1859,
-        "acceptance_delay": 70,
-        "scientist": "Darwin",
-        "discovery": "Evolution",
-        "description": "Published On the Origin of Species. Faced significant resistance. took ~70 years before evolutionary theory was broadly accepted by the scientific community.",
-    },
-    {
-        "year": 1905,
-        "acceptance_delay": 15,
-        "scientist": "Einstein",
-        "discovery": "Special Relativity",
-        "description": "Introduced special relativity. Took ~15 years for broad acceptance, requiring experimental confirmation like the 1919 eclipse observations.",
-    },
-    {
-        "year": 1925,
-        "acceptance_delay": 30,
-        "scientist": "Heisenberg",
-        "discovery": "Quantum Mechanics",
-        "description": "Formulated uncertainty principle. Took ~30 years for quantum mechanics to be fully accepted due to its counterintuitive nature.",
-    },
-    {
-        "year": 1953,
-        "acceptance_delay": 5,
-        "scientist": "Watson & Crick",
-        "discovery": "DNA Structure",
-        "description": "Discovered DNA's double helix structure. Quick acceptance (~5 years) due to clear experimental evidence and immediate practical applications.",
-    },
-]
+
+# List of scientific discoveries with fields:
+# year (int): publication year
+# acceptance_delay (int): years until widespread acceptance
+# scientist (str): discoverer name(s)
+# discovery (str): name of discovery
+# description (str): detailed explanation
+from docs.examples.data import discoveries
+
 # </given-user-file-context>
 # User: Could you help me plot this dataset, showing a timeline of when each discovery was published and the period until it gained widespread acceptance? Include tooltips with the detailed descriptions.
 # Assistant:
@@ -675,5 +607,56 @@ import genstudio.plot as Plot
     + Plot.title("Live stock (millions)")
 )
 
+# </example>
+# %%
+# <example>
+# <given-user-file-context>
+# pulsar_data is a numpy array of [x, y, wave_index] points representing pulsar waves
+# Each point has an x coordinate, y amplitude, and wave_index to identify which wave it belongs to
+from docs.examples.data import pulsar_data
+
+# </given-user-file-context>
+# User: Create a visualization inspired by the PSR B1919+21 pulsar plot (also known as the "Unknown Pleasures" album cover) - I've imported the data above.
+# Assistant:
+# Here's a visualization that creates the iconic stacked wave effect:
+# 1. Creates a stacked line plot with white lines on black background
+# 2. Uses the `fy` parameter to create separate lines for each wave
+# 3. Removes axes and adds appropriate styling to match the iconic look
+
+import genstudio.plot as Plot
+
+(
+    Plot.initialState(
+        {
+            "data": pulsar_data,
+            # compute # of waves, we need it to determine layout
+            "waves": len(set(point[2] for point in pulsar_data)),
+            "height": Plot.js("$state.waves * 35 + 120"),
+        }
+    )
+    # stacked line plot
+    | Plot.line(
+        Plot.js("$state.data"),
+        {
+            "strokeWidth": 2,
+            "stroke": "white",
+            "fill": "black",
+            # facet vertically to stack waves
+            "fy": "2",  # wave identity is at index 2
+        },
+    )
+    + {  # compute a height from the data (typical when using fy)
+        "height": Plot.js("$state.height"),
+        "width": Plot.js("$state.height * 0.75"),
+        # reverse the fy scale so we occlude from back to front
+        "fy": {"reverse": True},
+        "className": "bg-black",
+    }
+    + Plot.hideAxis()
+    + Plot.margin(160, 40, 60, 20)
+    # the domain also needs to be computed from the data. can require hand tuning.
+    + Plot.domainY(Plot.js("[0, d3.max($state.data, ([x, y]) => y) / 16]"))
+)
+#
 # </example>
 # </examples>

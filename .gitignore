@@ -6,3 +6,4 @@ site
 *.interactive
 basic_plot.*
 docs/overrides/stylesheets/tailwind.css
+*.env

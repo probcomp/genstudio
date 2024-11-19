@@ -22,7 +22,7 @@ priority = "explicit"
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
-include = [ "src", "tests",]
+include = [ "src", "tests", "docs"]
 exclude = [ "notebooks",]
 typeCheckingMode = "standard"
 reportUnusedExpression = false
@@ -57,6 +57,8 @@ numpy = ">=1.22,<2.0.0"
 mkdocstrings-python = "^1.12.2"
 griffe = "^1.5.1"
 pytest = "^8.3.3"
+anthropic = "^0.39.0"
+python-dotenv = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies.genjax]
 version = "0.7.0"
