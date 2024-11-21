@@ -659,4 +659,66 @@ import genstudio.plot as Plot
 )
 #
 # </example>
+# %%
+# <example>
+# User: Create an interactive shape playground where shapes can be rotated and scaled
+# Assistant:
+
+import genstudio.plot as Plot
+import numpy as np
+from genstudio.plot import js
+
+
+def generate_shapes(scale=1.0, rotation=0.0):
+    # Convert rotation to radians
+    theta = rotation * np.pi / 180
+
+    # Rotation matrix
+    def rotate(x, y):
+        return [
+            x * np.cos(theta) - y * np.sin(theta),
+            x * np.sin(theta) + y * np.cos(theta),
+        ]
+
+    shapes = []
+    # Triangle
+    for x, y in [(0, 0), (1, 0), (0.5, 1), (0, 0)]:
+        rx, ry = rotate(x * scale, y * scale)
+        shapes.append([rx + 1, ry + 1, 0])
+
+    # Square
+    for x, y in [(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]:
+        rx, ry = rotate(x * scale, y * scale)
+        shapes.append([rx + 3, ry + 1, 1])
+
+    return shapes
+
+
+def updateState(widget, _):
+    widget.state.update(
+        {"shapes": generate_shapes(widget.state.scale, widget.state.rotation)}
+    )
+
+
+(
+    Plot.initialState({"shapes": generate_shapes(), "rotation": 0, "scale": 1.0})
+    | Plot.onChange({"rotation": updateState, "scale": updateState})
+    | Plot.line(
+        js("$state.shapes"),
+        {
+            "z": "2",
+            "stroke": Plot.js("""(d) => {
+                const colors = ["#ff6b6b", "#4ecdc4", "#45b7d1"];
+                return colors[d[2]];
+            }"""),
+            "strokeWidth": 2,
+        },
+    )
+    + Plot.grid()
+    + Plot.domain(x=[0, 6], y=[0, 2])
+    | Plot.Slider("rotation", range=[0, 360], label="Rotation")
+    | Plot.Slider("scale", range=[0.5, 2], step=0.1, label="Scale")
+)
+# </example>
+# %%
 # </examples>

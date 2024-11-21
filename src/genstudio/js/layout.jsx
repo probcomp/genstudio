@@ -106,6 +106,22 @@ export function Grid({
   );
 }
 
+function flattenChildren(parentType, parentProps, children) {
+  const processedChildren = [];
+  const processedProps = {...parentProps}
+  React.Children.forEach(children, child => {
+    if (React.isValidElement(child) && child.type === parentType) {
+      Object.assign(processedProps, child.props)
+      React.Children.forEach(child.props.children, nestedChild => {
+        processedChildren.push(nestedChild);
+      });
+    } else {
+      processedChildren.push(child);
+    }
+  });
+  return [processedChildren, processedProps]
+}
+
 /**
  * A component that arranges children in a horizontal row using CSS Grid.
  * @param {Object} props
@@ -118,17 +134,20 @@ export function Grid({
  */
 export function Row({
   children,
-  gap = 1,
-  widths,
-  height,
-  width,
-  className,
   ...props
 }) {
+  [children, props] = flattenChildren(Row, props, children)
+
+  const {
+    gap = 1,
+    widths,
+    height,
+    width,
+    className} = props
 
   const gridCols = widths
     ? `grid-cols-[${widths.map(getGridValue).join('_')}]`
-    : `grid-cols-[${Array(React.Children.count(children)).fill('auto').join('_')}]`;
+    : `grid-cols-[${Array(children.length).fill('auto').join('_')}]`;
 
   const classes = joinClasses(
     "grid",
@@ -141,7 +160,7 @@ export function Row({
 
   return (
     <div {...props} className={tw(classes)}>
-      {React.Children.map(children, (child) => child)}
+      {children}
     </div>
   );
 }
@@ -158,14 +177,15 @@ export function Row({
  */
 export function Column({
   children,
-  gap = 1,
-  heights,
-  height,
-  width,
-  className,
   ...props
 }) {
 
+  [children, props] = flattenChildren(Column, props, children)
+  const {gap = 1,
+         heights,
+         height,
+         width,
+         className} = props
 
   const gridRows = heights
     ? `grid-rows-[${heights.map(getGridValue).join('_')}]`
