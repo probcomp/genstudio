@@ -2342,15 +2342,6 @@ def numberInterval(*args: Any) -> JSCall:
     return JSCall("Plot.numberInterval", args)
 
 
-def plot(*args: Any) -> JSCall:
-    """
-    Renders a new plot given the specified *options* and returns the
-    corresponding SVG element, or an HTML figure element if a caption or legend
-    is requested.
-    """
-    return JSCall("Plot.plot", args)
-
-
 def pointer(*args: Any) -> JSCall:
     """
     Applies a render transform to the specified *options* to filter the mark

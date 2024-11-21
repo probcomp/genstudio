@@ -50,6 +50,8 @@ jobs:
       run: poetry run python -m ipykernel install --user --name genstudio
     - name: mkdocs build
       run: poetry run mkdocs build
+    - name: Copy llms.py to site
+      run: cp docs/llms.py ./site/
     - name: Artifact upload
       uses: actions/upload-artifact@v4
       with:

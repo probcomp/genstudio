@@ -9,10 +9,14 @@ from genstudio.plot_spec import MarkSpec, PlotSpec
 
 PlotOptions = dict[str, Any] | JSCall
 
+ELIDE = ["plot"]
+
 OBSERVABLE_PLOT_METADATA: Dict[str, Any] = json.load(
     open(util.PARENT_PATH / "scripts" / "observable_plot_metadata.json")
 )
-OBSERVABLE_FNS: Dict[str, Any] = OBSERVABLE_PLOT_METADATA["entries"]
+OBSERVABLE_FNS: Dict[str, Any] = {
+    k: v for k, v in OBSERVABLE_PLOT_METADATA["entries"].items() if k not in ELIDE
+}
 OBSERVABLE_VERSION: str = OBSERVABLE_PLOT_METADATA["version"]
 
 

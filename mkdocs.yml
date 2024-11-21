@@ -66,6 +66,7 @@ plugins:
           output: api/plot.md
   - mkdocs-jupyter:
       include: ["*.py"]
+      ignore: ["llms.py"]
       execute: true
       allow_errors: false
       kernel_name: genstudio

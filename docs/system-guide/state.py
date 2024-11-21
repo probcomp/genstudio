@@ -1,36 +1,85 @@
+# %% tags=["hide_source"]
+
+import genstudio.plot as Plot
+from genstudio.plot import md
+
 # %% [markdown]
 # # State
 #
-# State updates in GenStudio work bidirectionally between Python and JavaScript. Let's look at how updates flow in both directions:
+# State in GenStudio is used when:
+# - Data is used in more than one place, or
+# - Data changes over time (via user interaction or from Python)
 #
-# ## Initializing State
-# Use `Plot.initialState()` to provide initial values and configure state syncing:
+# It provides:
+# - Deduplication (during serialization)
+# - Efficient change propagation between Python and JavaScript
+# - Reactive UI updates within JavaScript
+
+# ## State API
+# %% tags=["hide_source"]
+Plot.Grid(
+    ["div.col-span-2.bg-gray-100.font-bold.p-3", "python: plot definition"],
+    md("`Plot.initialState(...)`"),
+    "Set initial state",
+    md("""`Plot.initialState({"foo": "bar"}, sync={"bar"})`"""),
+    md("""...and sync `"bar"` """),
+    md("""`Plot.onChange({"x": lambda widget, event: _})`"""),
+    md("""Run callback when "x" changes"""),
+    md("""`["div", {"onClick": lambda w,e: ...}, "inc"]`"""),
+    "Run callback on user events",
+    [
+        "div.col-span-2.bg-gray-100.font-bold.p-3",
+        "python: interacting with live widgets",
+    ],
+    md("`widget.state.foo`"),
+    "Read",
+    md("""`widget.state.foo = "baz"`"""),
+    "Reset",
+    md("""`widget.state.update({"bar": "baz"})`"""),
+    "Reset multiple",
+    md("""`widget.state.update(["points", "append", [x, y]])`"""),
+    "Append, concat, setAt, reset (any number)",
+    ["div.col-span-2.bg-gray-100.font-bold.p-3", "javascript"],
+    md("""`$state.foo`"""),
+    "Read",
+    md("""`$state.foo = "baz"`"""),
+    "Write",
+    md("""`$state.update({"bar": "baz"})`"""),
+    "Reset multiple",
+    md("""`$state.update(["points", "append", [x, y]])`"""),
+    "Append, concat, setAt, reset (any number)",
+    widths=["auto", 1],
+    gap=4,
+    className="text-xs",
+)
+
+# %% [markdown]
+# ## Minimal example
+
+# %%
+
+import genstudio.plot as Plot
+
+(
+    Plot.initialState({"clicks": 0})
+    | [
+        "div.bg-yellow-200.p-4",
+        {"onClick": Plot.js("(e) => $state.clicks = ($state.clicks || 0) + 1")},
+        Plot.js("`Clicked ${$state.clicks} times`"),
+    ]
+    | [
+        "div.p-3.border.text-center",
+        {"onClick": Plot.js("(e) => $state.update({clicks: 0})")},
+        "Reset",
+    ]
+)
+
+# %% [markdown]
+# ## State Updates
 #
-# ```python
-# # Initialize state without syncing - JS updates won't be reflected in widget.state
-# Plot.initialState({"count": 0, "name": "foo"})
+# State updates in GenStudio work bidirectionally between Python and JavaScript:
 #
-# # Sync all state variables - changes in JS will update widget.state
-# Plot.initialState({"count": 0}, sync=True)
-#
-# # Only sync specific variables - only x will update in widget.state
-# Plot.initialState({"x": 0, "y": 1}, sync={"x"})
-# ```
-#
-# ## Responding to Changes
-# Use `Plot.onChange()` to register callbacks that run when state changes. Note that any variables with onChange listeners are automatically synced between JS and Python:
-#
-# ```python
-# Plot.onChange({
-#     "x": lambda widget, event: print(f"x changed to {event.value}"),
-#     "y": lambda widget, event: print(f"y changed to {event.value}")
-# })
-#
-# # x and y will now be synced and accessible via
-# # widget.state.x and widget.state.y
-# ```
-#
-# ## Python → JavaScript Updates
+# ### Python → JavaScript Updates
 # When you update state from Python using `widget.state.update()` or by setting attributes directly:
 #
 # 1. The update is normalized into a list of `[key, operation, payload]` tuples
@@ -38,14 +87,7 @@
 # 3. The update is serialized to JSON and sent to JavaScript via widget messaging
 # 4. Any registered Python listeners are notified
 #
-# ```python
-# # These all trigger Python → JS updates:
-# widget.state.count = 1  # Direct attribute set
-# widget.state.update({"count": 1})  # Single update
-# widget.state.update({"x": 0, "y": 1})  # Multiple updates
-# ```
-#
-# ## JavaScript → Python Updates
+# ### JavaScript → Python Updates
 # When state is updated from JavaScript using `$state.update()`:
 #
 # 1. The update is normalized into `[key, operation, payload]` format
@@ -53,43 +95,9 @@
 # 3. For synced state keys, the update is sent back to Python
 # 4. Python applies the update and notifies any listeners
 #
-# ```javascript
-# // These trigger JS → Python updates for synced state:
-# $state.count = 1  // Direct property set
-# $state.update({"count": 1}) // Single update
-# $state.update({"x": 0, "y": 1}) // Multiple updates
-# ```
+# ### Update Operations
+# Updates support different operations beyond just setting values:
 #
-# ## Update Operations
-# Updates support different operations beyond just setting values. These operations allow efficient updates by only sending the changes rather than entire values:
-#
-# In Python:
-# ```python
-# # Single operation update
-# widget.state.update(["items", "append", "new item"])
-#
-# # Passing multiple updates
-# widget.state.update(
-#     ["items", "append", "new item"],
-#     ["count", "reset", 0],
-#     ["items", "setAt", [0, "first"]]
-# )
-# ```
-#
-# In JavaScript:
-# ```javascript
-# // Single operation update
-# $state.update(["items", "append", "new item"])
-#
-# // Multiple operation updates - pass multiple arrays
-# $state.update(
-#     ["items", "append", "new item"],
-#     ["count", "reset", 0],
-#     ["items", "setAt", [0, "first"]]
-# )
-# ```
-#
-# Available operations:
 # - `append`: Add item to end of list
 # - `concat`: Join two lists together
 # - `setAt`: Set value at specific index
