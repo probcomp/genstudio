@@ -78,7 +78,9 @@ export const Slider = mobxReact.observer(
             label,
             loop = true,
             init, range, rangeFrom, showValue, tail, step,
-            controls } = options;
+            controls,
+            className,
+            style } = options;
 
         if (init === undefined && rangeFrom === undefined && range === undefined) {
             throw new Error("Slider: 'init', 'rangeFrom', or 'range' must be defined");
@@ -179,36 +181,38 @@ export const Slider = mobxReact.observer(
         if (controls.length === 0) return null;
 
         return (
-            <div className={tw("text-xs flex flex-col my-2 gap-2 w-full")}>
-                <span className={tw("flex gap-1")}>
-                    {label && <label className={tw("font-semibold")}>{label}</label>}
-                    {showValue && <span>{$state[state_key]}</span>}
-                </span>
+            <div className={tw(joinClasses("text-xs", className))} style={style}>
+                <div className={tw("flex flex-col my-2 gap-2 w-full")}>
+                    <span className={tw("flex gap-1")}>
+                        {label && <label className={tw("font-semibold")}>{label}</label>}
+                        {showValue && <span>{$state[state_key]}</span>}
+                    </span>
 
-                <div className={tw("flex gap-1 items-center justify-center")}>
-                    {controls?.includes("slider") && (
-                        <input
-                            type="range"
-                            min={rangeMin}
-                            max={rangeMax}
-                            step={step}
-                            value={sliderValue}
-                            onChange={(e) => handleSliderChange(e.target.value)}
-                            className={tw("w-full outline-none")}
-                        />
-                    )}
-                    {controls?.includes("play") && isAnimated && (
-                        <div onClick={togglePlayPause} className={tw("cursor-pointer")}>
-                            {isPlaying ? pauseIcon : playIcon}
+                    <div className={tw("flex gap-1 items-center justify-center")}>
+                        {controls?.includes("slider") && (
+                            <input
+                                type="range"
+                                min={rangeMin}
+                                max={rangeMax}
+                                step={step}
+                                value={sliderValue}
+                                onChange={(e) => handleSliderChange(e.target.value)}
+                                className={tw("w-full outline-none")}
+                            />
+                        )}
+                        {controls?.includes("play") && isAnimated && (
+                            <div onClick={togglePlayPause} className={tw("cursor-pointer")}>
+                                {isPlaying ? pauseIcon : playIcon}
+                            </div>
+                        )}
+                    </div>
+
+                    {controls?.includes("fps") && isPlaying && (
+                        <div className={tw("text-center text-gray-500 mt-1")}>
+                            {currentFps} FPS
                         </div>
                     )}
                 </div>
-
-                {controls?.includes("fps") && isPlaying && (
-                    <div className={tw("text-center text-gray-500 mt-1")}>
-                        {currentFps} FPS
-                    </div>
-                )}
             </div>
         );
     }
@@ -267,7 +271,7 @@ export const Frames = mobxReact.observer(
             return <div className={tw("text-red-500")}>Error: Invalid index. $state[{state_key}] ({index}) must be a valid index of the frames array (length: {frames.length}).</div>;
         }
 
-        return <Node value={frames[index]} />;
+        return node(frames[index]);
     }
 )
 export class Bylight {
@@ -300,31 +304,40 @@ export function repeat(data) {
 }
 export { d3, MarkSpec, Plot, PlotSpec, React, ReactDOM, Row, Column, Grid };
 
+function renderArray($state, value) {
+    const [element, ...args] = value
+    const maybeElement = element && $state.evaluate(element)
+    const elementType = typeof maybeElement
+
+    if (elementType === 'string' || elementType === 'function' || (typeof maybeElement === 'object' && maybeElement !== null && "$$typeof" in maybeElement)) {
+        return Hiccup(maybeElement, ...args)
+    } else {
+        return <React.Fragment>{value.map(node)}</React.Fragment>;
+    }
+}
+
+// Node is a reactive component that lazily evaluates AST expressions using $state.evaluate().
+// Values are only evaluated when rendered, and the component automatically re-renders
+// when any $state dependencies change, thanks to mobx-react observer.
 export const Node = mobxReact.observer(
     function ({ value }) {
         const $state = useContext($StateContext)
-        value = $state.resolveRef(value)
-        if (Array.isArray(value)) {
-            const [element, ...args] = value
-            const maybeElement = element && $state.evaluate(element)
-            const elementType = typeof maybeElement
 
-            if (elementType === 'string' || elementType === 'function' || (typeof maybeElement === 'object' && maybeElement !== null && "$$typeof" in maybeElement)) {
-                return Hiccup(maybeElement, ...args)
-            } else {
-                return <React.Fragment>
-                    {value.map(item =>
-                        typeof item !== 'object' || item === null ? item : <Node value={item} />
-                    )}
-                </React.Fragment>;
-            }
+        // handle pre-evaluated arrays
+        if (Array.isArray(value)) {
+            return renderArray($state, value)
         }
+
         const evaluatedValue = $state.evaluate(value)
+
+        // handle post-evaluated arrays (eg. arrays that came from a Plot.js expression)
+        if (Array.isArray(evaluatedValue)) {
+            return renderArray($state, evaluatedValue)
+        }
         if (typeof evaluatedValue === 'object' && evaluatedValue !== null && 'render' in evaluatedValue) {
             return evaluatedValue.render();
-        } else {
-            return evaluatedValue;
         }
+        return evaluatedValue;
     }
 )
 
@@ -371,9 +384,69 @@ export function Hiccup(tag, props, ...children) {
         props.className = tw(props.className)
     }
 
-    return children.length > 0
-        ? React.createElement(baseTag, props,
-            ...children.map((child, index) => <Node key={index} value={child}/>)
-          )
-        : React.createElement(baseTag, props);
+    if (!children.length) {
+        return React.createElement(baseTag, props)
+    }
+
+    return React.createElement(baseTag, props, children.map(node));
+}
+
+function parsePairs(args) {
+    const pairs = [];
+    let valueElse;
+
+    for (let i = 0; i < args.length; i += 2) {
+        // If we have an odd number of remaining args, the last one is else
+        if (i === args.length - 1) {
+            valueElse = args[i];
+            break;
+        }
+        pairs.push([args[i], args[i + 1]]);
+    }
+
+    return [pairs, valueElse];
+}
+
+// Evaluates test conditions one at a time until a match is found
+// Only the matching valueIf expression is evaluated and rendered
+export function COND($state, ...args) {
+    const [pairs, valueElse] = parsePairs(args);
+    for (const [test, valueIf] of pairs) {
+        const condition = $state.evaluate(test)
+        if (condition) {
+            return $state.evaluate(valueIf)
+        }
+    }
+    if (valueElse) {
+        return $state.evaluate(valueElse)
+    }
+}
+COND.macro = true
+
+// Similar to cond but matches against a specific value
+// Only evaluates the matching branch
+export function CASE($state, value, ...args) {
+    const [pairs, valueElse] = parsePairs(args);
+
+    const matchValue = $state.evaluate(value);
+    for (const [test, valueIf] of pairs) {
+        if (matchValue === test) {
+            return $state.evaluate(valueIf)
+        }
+    }
+    if (valueElse) {
+        return $state.evaluate(valueElse)
+    }
+}
+CASE.macro = true
+
+function node(child, i) {
+    if (child == null) return;
+    if (typeof child === 'string' || typeof child === 'number') return <span key={i}>{child}</span>;
+
+    // raw objects can be passed through as arguments to
+    // parent components
+    if (child.constructor === Object && !child.__type__) return child;
+
+    return <Node key={i} value={child} />
 }

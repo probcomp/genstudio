@@ -182,6 +182,52 @@ repeat = JSRef("repeat")
 eg. for a set of 'xs' that are to be repeated for each set of `ys`."""
 
 
+def cond(*pairs):
+    """Render content based on conditions, like Clojure's cond.
+
+    Takes pairs of test/expression arguments, evaluating each test in order.
+    When a test is truthy, returns its corresponding expression.
+    An optional final argument serves as the "else" expression.
+
+    Args:
+        *args: Alternating test/expression pairs, with optional final else expression
+
+    Example:
+        Plot.cond(
+            Plot.js("$state.detail == 'a'"), ["div", "Details for A"],
+            Plot.js("$state.detail == 'b'"), ["div", "Details for B"],
+            "No details selected"  # else case
+        )
+
+        # Without else:
+        Plot.cond(
+            Plot.js("$state.detail"), ["div", Plot.js("$state.detail")]
+        )
+    """
+    return JSCall("COND", pairs)
+
+
+def case(value, *pairs):
+    """Render content based on matching a value against cases, like a switch statement.
+
+    Takes a value to match against, followed by pairs of case/expression arguments.
+    When a case matches the value, returns its corresponding expression.
+    An optional final argument serves as the default expression.
+
+    Args:
+        value: The value to match against cases
+        *args: Alternating case/expression pairs, with optional final default expression
+
+    Example:
+        Plot.case(Plot.js("$state.selected"),
+            "a", ["div", "Selected A"],
+            "b", ["div", "Selected B"],
+            ["div", "Nothing selected"]  # default case
+        )
+    """
+    return JSCall("CASE", [value, *pairs])
+
+
 def plot(options):
     """Create a new plot from options and marks.
 
@@ -409,10 +455,10 @@ def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
 
 
 def pixels(
-    pixelData: list[float] | JSCode,  # Flat array of RGB(A) values (0-255) or JSCode
+    pixelData: list[float] | JSCode | Any,  # Raw pixel data or JSCode
     *,
-    imageWidth: int | JSCode,
-    imageHeight: int | JSCode,
+    imageWidth: int | JSCode | None = None,
+    imageHeight: int | JSCode | None = None,
     x: float | JSCode = 0,
     y: float | JSCode = 0,
     width: float | JSCode | None = None,
@@ -935,7 +981,7 @@ def Slider(
 
     slider_options = {
         "state_key": key,
-        "init": Ref(init, state_key=key),
+        "init": Ref(init, state_key=key, sync=True),
         "range": range,
         "kind": "Slider",
         **kwargs,
@@ -1086,6 +1132,8 @@ __all__ = [
     "Column",
     "Grid",
     "Row",
+    "cond",
+    "case",
     "html",
     "md",
     # ## JavaScript Interop

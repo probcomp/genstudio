@@ -41,7 +41,8 @@ export function evaluate(node, $state, experimental, buffers) {
         console.error('Function not found', node);
         return null;
       }
-      const args = fn.macro ? node.args : evaluate(node.args, $state, experimental, buffers)
+      // functions marked as macros are passed unevaluated args + $state (for selective evaluation)
+      const args = fn.macro ? [$state, ...node.args] : evaluate(node.args, $state, experimental, buffers)
       if (fn.prototype?.constructor === fn) {
         return new fn(...args);
       } else {

@@ -31,6 +31,7 @@ nav:
     - Sliders: interactivity/sliders.py
     - Animating Frames: interactivity/frames.py
     - Mouse events: interactivity/events.py
+    - Conditional Rendering: learn-more/cond.py
     - Tailing data: interactivity/tail.py
   - Learn More:
     - Working with Color: learn-more/color.py

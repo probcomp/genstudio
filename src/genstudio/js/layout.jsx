@@ -50,7 +50,7 @@ export function Grid({
   widths,
   heights,
   height,
-  className
+  className,
 }) {
   const [containerRef, containerWidth] = useContainerWidth();
 
@@ -75,12 +75,12 @@ export function Grid({
   }
 
   const gridCols = widths
-    ? `grid-cols-[${widths.map(getGridValue).join('_')}]`
+    ? `grid-cols-[${widths.map(getGridValue).join("_")}]`
     : `grid-cols-${numColumns}`;
 
   const gridRows = heights
-    ? `grid-rows-[${heights.map(getGridValue).join('_')}]`
-    : 'grid-rows-[auto]';
+    ? `grid-rows-[${heights.map(getGridValue).join("_")}]`
+    : "grid-rows-[auto]";
 
   const containerStyle = {
     width: "100%",
@@ -101,9 +101,32 @@ export function Grid({
       className={tw(joinClasses(classes, className))}
       style={containerStyle}
     >
-      {React.Children.map(children, (child) => child)}
+      {children}
     </div>
   );
+}
+
+// wrap primitive children in a span,
+// merge objects into parentProps
+function flattenChildren(parentProps, children) {
+  const processedChildren = [];
+  const processedProps = { ...parentProps };
+
+  children.forEach((child) => {
+    if (child == null) return;
+    if (typeof child === "string" || typeof child === "number") {
+      processedChildren.push(child);
+    } else if (child.constructor === Object) {
+      // handle objects
+      if (React.isValidElement(child)) {
+        processedChildren.push(child);
+      } else {
+        Object.assign(processedProps, child);
+      }
+    }
+  });
+
+  return [processedChildren, processedProps];
 }
 
 /**
@@ -116,19 +139,15 @@ export function Grid({
  * @param {string} [props.width] - Container width
  * @param {string} [props.className] - Additional CSS classes
  */
-export function Row({
-  children,
-  gap = 1,
-  widths,
-  height,
-  width,
-  className,
-  ...props
-}) {
+export function Row({ children, ...props }) {
+
+  [children, props] = flattenChildren(props, children);
+
+  const { gap = 1, widths, height, width, className } = props;
 
   const gridCols = widths
-    ? `grid-cols-[${widths.map(getGridValue).join('_')}]`
-    : `grid-cols-[${Array(React.Children.count(children)).fill('auto').join('_')}]`;
+    ? `grid-cols-[${widths.map(getGridValue).join("_")}]`
+    : `grid-cols-[${Array(children.length).fill("auto").join("_")}]`;
 
   const classes = joinClasses(
     "grid",
@@ -141,7 +160,7 @@ export function Row({
 
   return (
     <div {...props} className={tw(classes)}>
-      {React.Children.map(children, (child) => child)}
+      {children}
     </div>
   );
 }
@@ -156,25 +175,20 @@ export function Row({
  * @param {string} [props.width] - Container width
  * @param {string} [props.className] - Additional CSS classes
  */
-export function Column({
-  children,
-  gap = 1,
-  heights,
-  height,
-  width,
-  className,
-  ...props
-}) {
-
+export function Column({ children, ...props }) {
+  [children, props] = flattenChildren(props, children);
+  const { gap = 1, heights, height, width, className } = props;
 
   const gridRows = heights
-    ? `grid-rows-[${heights.map(getGridValue).join('_')}]`
-    : `grid-rows-[${Array(React.Children.count(children)).fill('auto').join('_')}]`;
+    ? `grid-rows-[${heights.map(getGridValue).join("_")}]`
+    : `grid-rows-[${Array(React.Children.count(children))
+        .fill("auto")
+        .join("_")}]`;
 
   const classes = joinClasses(
     "grid",
     gap && `gap-${gap}`,
-    height ? `h-[${height}]` : 'h-fit',
+    height ? `h-[${height}]` : "h-fit",
     width && `w-[${width}]`,
     gridRows,
     className
@@ -182,7 +196,7 @@ export function Column({
 
   return (
     <div {...props} className={tw(classes)}>
-      {React.Children.map(children, (child) => child)}
+      {children}
     </div>
   );
 }
