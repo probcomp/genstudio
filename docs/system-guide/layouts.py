@@ -154,4 +154,8 @@ Plot.Column(
 # Hint: to use primitives with `&` or `|`, wrap the first value in `Plot.html(...)`.
 
 # %%
-Plot.html("Hello") & "World"
+# Options can be specified by including a dict in a row or column
+Plot.html(1) & 2 & 3 & {"widths": [2, 1, 1]}
+
+# %%
+Plot.html(1) | 2 | 3 | {"heights": [2, 1, 1]}

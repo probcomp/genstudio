@@ -470,5 +470,12 @@ function node($state, child, i) {
     if (isSpecialForm(child)) {
         return handleSpecialForm($state, child, i)
     }
+    if (child == null) return;
+
+    const childType = typeof child
+    if (childType === 'string' || childType === 'number' || child.constructor === Object && !child.__type__) {
+        return child;
+    }
+
     return <Node key={i} value={child} />
 }

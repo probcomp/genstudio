@@ -2,7 +2,7 @@ import base64
 import json
 import os
 import uuid
-from typing import Any, List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 from html2image import Html2Image
 from PIL import Image
@@ -103,15 +103,27 @@ class LayoutItem:
         raise NotImplementedError("Subclasses must implement for_json method")
 
     def __and__(self, other: Any) -> "Row":
+        if isinstance(self, Row):
+            return Row(*self.items, other)
+        if isinstance(other, Row):
+            return Row(*other.items, self)
         return Row(self, other)
 
     def __rand__(self, other: Any) -> "Row":
+        if isinstance(self, Row):
+            return Row(other, *self.items)
         return Row(other, self)
 
     def __or__(self, other: Any) -> "Column":
+        if isinstance(self, Column):
+            return Column(*self.items, other)
+        if isinstance(other, Column):
+            return Column(*other.items, self)
         return Column(self, other)
 
     def __ror__(self, other: Any) -> "Column":
+        if isinstance(self, Column):
+            return Column(other, *self.items)
         return Column(other, self)
 
     def _repr_mimebundle_(self, **kwargs: Any) -> Any:
@@ -293,25 +305,6 @@ class Hiccup(LayoutItem):
         return self.hiccup_element
 
 
-def flatten_layout_items(
-    items: Sequence[Any], layout_class: type
-) -> tuple[list[Any], dict[str, Any]]:
-    flattened: list[Any] = []
-    options: dict[str, Any] = {}
-    for item in items:
-        if type(item) is layout_class:
-            flattened.extend(item.items)
-            options.update(item.options)
-        elif isinstance(item, dict):
-            options.update(item)
-        else:
-            if isinstance(item, (str, int, float)):
-                flattened.append(["span", item])
-            else:
-                flattened.append(item)
-    return flattened, options
-
-
 _Row = JSRef("Row")
 
 
@@ -331,8 +324,7 @@ class Row(LayoutItem):
 
     def __init__(self, *items: Any, **kwargs):
         super().__init__()
-        self.items, options = flatten_layout_items(items, Row)
-        self.options = options | kwargs
+        self.items, self.options = items, kwargs
 
     def for_json(self) -> Any:
         return Hiccup([_Row, self.options, *self.items])
@@ -357,8 +349,7 @@ class Column(LayoutItem):
 
     def __init__(self, *items: Any, **kwargs):
         super().__init__()
-        self.items, options = flatten_layout_items(items, Column)
-        self.options = options | kwargs
+        self.items, self.options = items, kwargs
 
     def for_json(self) -> Any:
         return Hiccup([_Column, self.options, *self.items])
@@ -443,7 +434,7 @@ def unwrap_ref(maybeRef: Any) -> Any:
     return maybeRef
 
 
-def Grid(*children, **opts):
+def Grid(*children, **kwargs):
     """
     Creates a responsive grid layout that automatically arranges child elements in a grid pattern.
 
@@ -469,9 +460,8 @@ def Grid(*children, **opts):
     Returns:
         A grid layout component that will be rendered in the JavaScript runtime.
     """
-    children, options = flatten_layout_items(children, object)
     return Hiccup(
-        [JSRef("Grid"), options | opts, *children],
+        [JSRef("Grid"), kwargs, *children],
     )
 
 

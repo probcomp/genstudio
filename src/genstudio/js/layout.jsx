@@ -50,7 +50,7 @@ export function Grid({
   widths,
   heights,
   height,
-  className
+  className,
 }) {
   const [containerRef, containerWidth] = useContainerWidth();
 
@@ -75,12 +75,12 @@ export function Grid({
   }
 
   const gridCols = widths
-    ? `grid-cols-[${widths.map(getGridValue).join('_')}]`
+    ? `grid-cols-[${widths.map(getGridValue).join("_")}]`
     : `grid-cols-${numColumns}`;
 
   const gridRows = heights
-    ? `grid-rows-[${heights.map(getGridValue).join('_')}]`
-    : 'grid-rows-[auto]';
+    ? `grid-rows-[${heights.map(getGridValue).join("_")}]`
+    : "grid-rows-[auto]";
 
   const containerStyle = {
     width: "100%",
@@ -101,25 +101,36 @@ export function Grid({
       className={tw(joinClasses(classes, className))}
       style={containerStyle}
     >
-      {React.Children.map(children, (child) => child)}
+      {React.Children.map(children, (child) =>
+        typeof child === "string" || typeof child === "number"
+          ? <span>{child}</span>
+          : child
+      )}
     </div>
   );
 }
 
-function flattenChildren(parentType, parentProps, children) {
+// wrap primitive children in a span,
+// merge objects into parentProps
+function flattenChildren(parentProps, children) {
   const processedChildren = [];
-  const processedProps = {...parentProps}
-  React.Children.forEach(children, child => {
-    if (React.isValidElement(child) && child.type === parentType) {
-      Object.assign(processedProps, child.props)
-      React.Children.forEach(child.props.children, nestedChild => {
-        processedChildren.push(nestedChild);
-      });
-    } else {
-      processedChildren.push(child);
+  const processedProps = { ...parentProps };
+
+  children.forEach((child) => {
+    if (child == null) return;
+    if (typeof child === "string" || typeof child === "number") {
+      // Wrap primitives in span
+      processedChildren.push(<span>{child}</span>);
+    } else if (child.constructor === Object) {
+      if (React.isValidElement(child)) {
+        processedChildren.push(child);
+      } else {
+        Object.assign(processedProps, child);
+      }
     }
   });
-  return [processedChildren, processedProps]
+
+  return [processedChildren, processedProps];
 }
 
 /**
@@ -132,22 +143,14 @@ function flattenChildren(parentType, parentProps, children) {
  * @param {string} [props.width] - Container width
  * @param {string} [props.className] - Additional CSS classes
  */
-export function Row({
-  children,
-  ...props
-}) {
-  [children, props] = flattenChildren(Row, props, children)
+export function Row({ children, ...props }) {
+  [children, props] = flattenChildren(props, children);
 
-  const {
-    gap = 1,
-    widths,
-    height,
-    width,
-    className} = props
+  const { gap = 1, widths, height, width, className } = props;
 
   const gridCols = widths
-    ? `grid-cols-[${widths.map(getGridValue).join('_')}]`
-    : `grid-cols-[${Array(children.length).fill('auto').join('_')}]`;
+    ? `grid-cols-[${widths.map(getGridValue).join("_")}]`
+    : `grid-cols-[${Array(children.length).fill("auto").join("_")}]`;
 
   const classes = joinClasses(
     "grid",
@@ -175,26 +178,20 @@ export function Row({
  * @param {string} [props.width] - Container width
  * @param {string} [props.className] - Additional CSS classes
  */
-export function Column({
-  children,
-  ...props
-}) {
-
-  [children, props] = flattenChildren(Column, props, children)
-  const {gap = 1,
-         heights,
-         height,
-         width,
-         className} = props
+export function Column({ children, ...props }) {
+  [children, props] = flattenChildren(props, children);
+  const { gap = 1, heights, height, width, className } = props;
 
   const gridRows = heights
-    ? `grid-rows-[${heights.map(getGridValue).join('_')}]`
-    : `grid-rows-[${Array(React.Children.count(children)).fill('auto').join('_')}]`;
+    ? `grid-rows-[${heights.map(getGridValue).join("_")}]`
+    : `grid-rows-[${Array(React.Children.count(children))
+        .fill("auto")
+        .join("_")}]`;
 
   const classes = joinClasses(
     "grid",
     gap && `gap-${gap}`,
-    height ? `h-[${height}]` : 'h-fit',
+    height ? `h-[${height}]` : "h-fit",
     width && `w-[${width}]`,
     gridRows,
     className
