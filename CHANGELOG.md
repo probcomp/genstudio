@@ -1,3 +1,8 @@
+### [2024.11.014] - Nov 22, 2024
+
+- allow chained/dependent onChange listeners
+- trimLeft js_source (so it's ok to put source on a new line inside `Plot.js`)
+
 ### [2024.11.013] - Nov 18, 2024
 
 - add llms.py (instructions for LLMs)

@@ -282,8 +282,8 @@ class WidgetState:
         self._syncedKeys = set()
         self._listeners = {}
         self._processing_listeners = (
-            False  # Global flag to prevent recursive listener calls
-        )
+            set()
+        )  # Track which listeners are currently processing
 
     def __getattr__(self, name):
         if name in self._state:
@@ -298,16 +298,16 @@ class WidgetState:
             self.update([name, "reset", value])
 
     def notify_listeners(self, updates):
-        if self._processing_listeners:
-            return
-
-        try:
-            self._processing_listeners = True
-            for name, operation, value in updates:
-                for listener in self._listeners.get(name, []):
+        for name, operation, value in updates:
+            for listener in self._listeners.get(name, []):
+                # Skip if this listener is already being processed
+                if listener in self._processing_listeners:
+                    continue
+                try:
+                    self._processing_listeners.add(listener)
                     listener(self._widget, {"id": name, "value": self._state[name]})
-        finally:
-            self._processing_listeners = False
+                finally:
+                    self._processing_listeners.remove(listener)
 
     # update values from python - send to js
     def update(self, *updates):

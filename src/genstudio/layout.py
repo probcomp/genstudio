@@ -378,6 +378,25 @@ class Listener(LayoutItem):
         return None
 
 
+def onChange(callbacks):
+    """
+    Adds callbacks to be invoked when state changes.
+
+    Args:
+        callbacks (dict): A dictionary mapping state keys to callbacks, which are called with (widget, event) when the corresponding state changes.
+
+    Returns:
+        Listener: A Listener object that will be rendered to set up the event handlers.
+
+    Example:
+        >>> Plot.onChange({
+        ...     "x": lambda w, e: print(f"x changed to {e}"),
+        ...     "y": lambda w, e: print(f"y changed to {e}")
+        ... })
+    """
+    return Listener(callbacks)
+
+
 class Ref(LayoutItem):
     def __init__(self, value, state_key=None, sync=False):
         self._state_key = str(uuid.uuid1()) if state_key is None else state_key
