@@ -441,7 +441,8 @@ export function CASE($state, value, ...args) {
 CASE.macro = true
 
 function node(child, i) {
-    if (child == null || typeof child === 'string' || typeof child === 'number') return child;
+    if (child == null) return;
+    if (typeof child === 'string' || typeof child === 'number') return <span key={i}>{child}</span>;
 
     // raw objects can be passed through as arguments to
     // parent components

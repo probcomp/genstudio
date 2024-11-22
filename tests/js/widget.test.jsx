@@ -171,19 +171,16 @@ describe('Widget', () => {
       const consoleSpy = vi.spyOn(console, 'log');
 
       // Simulate the AST created by Python's `&` operator
-      const ast = {
-        __type__: 'function',
-        path: 'Row',
-        args: [
-          {}, // options object for Row
-          {
-            __type__: 'function',
-            path: 'InitialState',
-            args: ['foo', {__type__: 'ref', state_key: 'foo'}]
-          },
-          {__type__: "js_source", value: 'console.log($state.foo) || $state.foo'}
-        ]
-      };
+      const ast = [
+        {__type__: "js_ref", path: "Row"},
+        {},
+        {
+          __type__: 'function',
+          path: 'InitialState',
+          args: ['foo', {__type__: 'ref', state_key: 'foo'}]
+        },
+        {__type__: "js_source", value: 'console.log($state.foo) || $state.foo'}
+      ];
 
       const data = {
         ast,

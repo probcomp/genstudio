@@ -101,11 +101,7 @@ export function Grid({
       className={tw(joinClasses(classes, className))}
       style={containerStyle}
     >
-      {React.Children.map(children, (child) =>
-        typeof child === "string" || typeof child === "number"
-          ? <span>{child}</span>
-          : child
-      )}
+      {children}
     </div>
   );
 }
@@ -119,9 +115,9 @@ function flattenChildren(parentProps, children) {
   children.forEach((child) => {
     if (child == null) return;
     if (typeof child === "string" || typeof child === "number") {
-      // Wrap primitives in span
-      processedChildren.push(<span>{child}</span>);
+      processedChildren.push(child);
     } else if (child.constructor === Object) {
+      // handle objects
       if (React.isValidElement(child)) {
         processedChildren.push(child);
       } else {
@@ -144,6 +140,7 @@ function flattenChildren(parentProps, children) {
  * @param {string} [props.className] - Additional CSS classes
  */
 export function Row({ children, ...props }) {
+
   [children, props] = flattenChildren(props, children);
 
   const { gap = 1, widths, height, width, className } = props;
@@ -199,7 +196,7 @@ export function Column({ children, ...props }) {
 
   return (
     <div {...props} className={tw(classes)}>
-      {React.Children.map(children, (child) => child)}
+      {children}
     </div>
   );
 }

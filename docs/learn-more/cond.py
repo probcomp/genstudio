@@ -1,37 +1,48 @@
+# %% [markdown]
+# # Conditional Rendering
+
+# GenStudio provides two main ways to conditionally render content:
+# - `Plot.cond` for if/else logic
+# - `Plot.case` for switch/case logic
+
+# ## Plot.cond
+
+# `Plot.cond` takes pairs of conditions and content to render. Each condition is evaluated in order until one returns true.
+
+# Here's a simple example that changes text based on click count:
+
 # %%
 import genstudio.plot as Plot
-from genstudio.plot import js
-
-# Example using Plot.cond for if/else rendering.
-# Shows how to use cond for more complex conditional logic.
 
 (
     Plot.initialState({"count": 0})
     | Plot.Column(
         [
             "button.p-3.bg-blue-100",
-            {"onClick": js("(e) => $state.count += 1")},
+            {"onClick": Plot.js("(e) => $state.count += 1")},
             "Click me!",
         ],
         Plot.cond(
-            js("$state.count === 0"),
+            Plot.js("$state.count === 0"),
             ["div.p-4.bg-gray-100", "You haven't clicked yet!"],
-            js("$state.count < 5"),
+            Plot.js("$state.count < 5"),
             [
                 "div.p-4.bg-green-100",
-                js("`You've clicked ${$state.count} times - keep going!`"),
+                Plot.js("`You've clicked ${$state.count} times - keep going!`"),
             ],
-            js("$state.count < 10"),
-            ["div.p-4.bg-yellow-100", js("`${$state.count} clicks - getting warmer!`")],
-            js("$state.count < 15"),
-            ["div.p-4.bg-orange-100", js("`${$state.count} clicks - almost there!`")],
-            ["div.p-4.bg-red-100", js("`${$state.count} clicks - you did it!`")],
+            ["div.p-4.bg-red-100", Plot.js("`${$state.count} clicks - you did it!`")],
         ),
     )
 )
 
+# %% [markdown]
+# ## Plot.case
+
+# `Plot.case` provides switch/case-like functionality, matching a value against possible options.
+# It's especially useful when working with enumerated states or categorical data.
+
 # %%
-# Example using Plot.case
+import genstudio.plot as Plot
 
 (
     Plot.initialState({"selected": None})
@@ -46,37 +57,24 @@ from genstudio.plot import js
             {"onClick": lambda widget, event: widget.state.update({"selected": "b"})},
             "B",
         ],
-        [
-            "div.p-3.bg-green-100",
-            {"onClick": lambda widget, event: widget.state.update({"selected": "c"})},
-            "C",
-        ],
     )
     & Plot.case(
-        js("$state.selected"),
+        Plot.js("$state.selected"),
         "a",
-        [
-            "div.flex.items-center.justify-center.bg-blue-50.p-4",
-            Plot.js("console.log('you clicked A')"),
-            "You selected A!",
-        ],
+        ["div.p-4.bg-blue-50", "You selected A!"],
         "b",
-        ["div.flex.items-center.justify-center.bg-pink-50.p-4", "You selected B!"],
-        "c",
-        ["div.flex.items-center.justify-center.bg-green-50.p-4", "You selected C!"],
-        [
-            "div.flex.items-center.justify-center.bg-gray-100.p-4",
-            "← Click a letter to see what happens!",
-        ],
+        ["div.p-4.bg-pink-50", "You selected B!"],
+        ["div.p-4.bg-gray-100", "← Click a letter to see what happens!"],
     )
 )
 
+# %% [markdown]
+# ## Advanced Usage
+
+# You can store more complex values in state and use them in conditions:
+
+
 # %%
-
-# We can also store a more complex value in $state, even from a
-# python callback.
-
-
 def detail_view(content):
     view = (
         Plot.text([content], x=1, y=1, text=Plot.identity, fontSize=40)
@@ -92,24 +90,21 @@ def detail_view(content):
         ["div.p-3.bg-blue-100", {"onClick": detail_view("a")}, "A"],
         ["div.p-3.bg-pink-100", {"onClick": detail_view("b")}, "B"],
     )
-    & js("$state.detail")  # Only shows when detail is truthy
-    & {"widths": [1, "auto"]}  # Configure column widths
+    & Plot.js("$state.detail")
+    & {"widths": [1, "auto"]}
 )
 
-# %%
+# %% [markdown]
+# ## Conditional marks
 
+# %%
 (
-    Plot.dot([[1, 1], [2, 2]])
-    + Plot.cond(
-        js("console.log('showEllipse?') || $state.showEllipse"),
-        Plot.js(
-            "console.log('showing ellipse') || %1", Plot.ellipse([[1.5, 1.5, 0.5]])
-        ),
-    )
-    | Plot.initialState({"showEllipse": True})
+    Plot.initialState({"showEllipse": True})
+    | Plot.dot([[1, 1], [2, 2]])
+    + Plot.cond(Plot.js("$state.showEllipse"), Plot.ellipse([[1.5, 1.5, 0.5]]))
     | [
         "div.p-5.bg-purple-100.text-center.text-lg.font-bold",
-        {"onClick": js("(e) => $state.showEllipse = (x) => !x")},
+        {"onClick": Plot.js("(e) => $state.showEllipse = !$state.showEllipse")},
         "Toggle Ellipse",
     ]
 )
