@@ -50,7 +50,7 @@ export function evaluate(node, $state, experimental, buffers) {
     case "js_ref":
       return resolveReference(node.path, api);
     case "js_source":
-      const source = node.expression ? `return ${node.value}` : node.value;
+      const source = node.expression ? `return ${node.value.trimLeft()}` : node.value;
       const params = (node.params || []).map(p => evaluate(p, $state, experimental, buffers));
       const paramVars = params.map((_, i) => `p${i}`);
       const code = source.replace(/%(\d+)/g, (_, i) => `p${parseInt(i) - 1}`);
