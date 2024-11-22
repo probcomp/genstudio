@@ -162,7 +162,7 @@ function collectBuffers(data) {
  * @param {Object} experimental - The experimental interface for sync operations
  * @returns {Proxy} A proxied state store with reactive capabilities
  */
-export function createStateStore({ initialState, syncedKeys, experimental, buffers }) {
+export function createStateStore({ initialState, syncedKeys, listeners, experimental, buffers }) {
   syncedKeys = new Set(syncedKeys)
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
@@ -174,15 +174,9 @@ export function createStateStore({ initialState, syncedKeys, experimental, buffe
     },
     set: mobx.action((_target, key, value) => {
       const newValue = typeof value === 'function' ? value(initialStateMap.get(key)) : value;
-      initialStateMap.set(key, newValue);
-
-      // Send sync update if this key should be synced
-      if (experimental && syncedKeys.has(key)) {
-        const [updates, buffers] = collectBuffers([[key, "reset", newValue]]);
-        experimental.invoke("handle_updates", {
-          updates: updates
-        }, {buffers});
-      }
+      const updates = [[key, "reset", newValue]]
+      applyUpdates(updates)
+      notifyListeners(updates)
       return true;
     }),
     ownKeys(_target) {
@@ -205,7 +199,18 @@ export function createStateStore({ initialState, syncedKeys, experimental, buffe
     }
   }
 
-  const notifyPython = (updates) => {
+  const notifyListeners = (updates) => {
+
+    // notify js listeners
+    updates.forEach(([key]) => {
+      const keyListeners = listeners[key];
+      if (keyListeners) {
+        const value = $state[key];
+        keyListeners.forEach(callback => callback({value}));
+      }
+    });
+
+    // notify Python
     if (!experimental) return;
     const syncUpdates = updates.filter((([key]) => syncedKeys.has(key)))
     if (syncUpdates?.length > 0) {
@@ -242,9 +247,11 @@ export function createStateStore({ initialState, syncedKeys, experimental, buffe
     update: mobx.action((...updates) => {
       const all_updates = normalizeUpdates(updates)
       applyUpdates(all_updates)
-      notifyPython(all_updates)
+      notifyListeners(all_updates)
     })
   }, stateHandler);
+
+  listeners = $state.evaluate(listeners)
 
   return $state;
 }

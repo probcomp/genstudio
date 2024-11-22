@@ -16,7 +16,7 @@ class CollectedState:
         self.syncedKeys = set()
         self.initialState = {}
         self.initialStateJSON = {}
-        self.stateListeners = {}
+        self.listeners = {"py": {}, "js": {}}
 
     def state_entry(self, state_key, value, sync=False, **kwargs):
         if sync:
@@ -26,12 +26,16 @@ class CollectedState:
             self.initialStateJSON[state_key] = to_json(value, **kwargs)
         return {"__type__": "ref", "state_key": state_key}
 
+    def _add_listener(self, state_key, listener):
+        listeners = [listener] if not isinstance(listener, list) else listener
+        for listener in listeners:
+            target = "py" if callable(listener) else "js"
+            self.listeners[target].setdefault(state_key, []).append(listener)
+
     def add_listeners(self, listeners):
         for state_key, listener in listeners.items():
             self.syncedKeys.add(state_key)
-            if state_key not in self.stateListeners:
-                self.stateListeners[state_key] = []
-            self.stateListeners[state_key].append(listener)
+            self._add_listener(state_key, listener)
         return None
 
 
@@ -92,7 +96,7 @@ def to_json(
                 collected_state=collected_state,
             )
         if hasattr(data, "_state_listeners"):
-            return collected_state.add_listeners(data._state_listeners)
+            collected_state.add_listeners(data._state_listeners)
 
     # Handle numpy and jax arrays
     if isinstance(data, np.ndarray) or type(data).__name__ in (
@@ -168,6 +172,7 @@ def to_json_with_initialState(
             "ast": ast,
             "initialState": collected_state.initialStateJSON,
             "syncedKeys": collected_state.syncedKeys,
+            "listeners": collected_state.listeners["js"],
             **CONFIG,
         },
         buffers=buffers,
@@ -336,7 +341,7 @@ class WidgetState:
         self.notify_listeners(updates)
 
     def init_state(self, collected_state):
-        self._listeners = collected_state.stateListeners or {}
+        self._listeners = collected_state.listeners["py"]
         self._syncedKeys = syncedKeys = collected_state.syncedKeys
 
         for key, value in collected_state.initialState.items():
