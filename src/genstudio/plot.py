@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Union
 import genstudio.plot_defs as plot_defs
 from genstudio.layout import (
     Column,
-    Listener,
+    onChange,
     Ref,
     Grid,
     Hiccup,
@@ -867,27 +867,6 @@ def initialState(values: dict, sync=None):
 
 initial_state = initialState
 
-
-def onChange(callbacks):
-    """
-    Adds callbacks to be invoked when state changes.
-
-    Args:
-        callbacks (dict): A dictionary mapping state keys to callbacks, which are called with (widget, event) when the corresponding state changes.
-
-    Returns:
-        Listener: A Listener object that will be rendered to set up the event handlers.
-
-    Example:
-        >>> Plot.onChange({
-        ...     "x": lambda w, e: print(f"x changed to {e}"),
-        ...     "y": lambda w, e: print(f"y changed to {e}")
-        ... })
-    """
-    return Listener(callbacks)
-
-
-onChange = onChange
 
 _Slider = JSRef("Slider")
 
