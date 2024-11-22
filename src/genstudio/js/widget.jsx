@@ -162,7 +162,7 @@ function collectBuffers(data) {
  * @param {Object} experimental - The experimental interface for sync operations
  * @returns {Proxy} A proxied state store with reactive capabilities
  */
-export function createStateStore({ initialState, syncedKeys, listeners, experimental, buffers }) {
+export function createStateStore({ initialState, syncedKeys, listeners = {}, experimental, buffers }) {
   syncedKeys = new Set(syncedKeys)
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
