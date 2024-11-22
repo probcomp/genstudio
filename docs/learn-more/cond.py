@@ -97,3 +97,19 @@ def detail_view(content):
 )
 
 # %%
+
+(
+    Plot.dot([[1, 1], [2, 2]])
+    + Plot.cond(
+        js("console.log('showEllipse?') || $state.showEllipse"),
+        Plot.js(
+            "console.log('showing ellipse') || %1", Plot.ellipse([[1.5, 1.5, 0.5]])
+        ),
+    )
+    | Plot.initialState({"showEllipse": True})
+    | [
+        "div.p-5.bg-purple-100.text-center.text-lg.font-bold",
+        {"onClick": js("(e) => $state.showEllipse = (x) => !x")},
+        "Toggle Ellipse",
+    ]
+)

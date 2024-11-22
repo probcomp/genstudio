@@ -201,7 +201,6 @@ export function PlotView ({ spec, $state }) {
         const [ref, containerWidth] = useContainerWidth()
         useEffect(() => {
             const parent = ref.current
-            console.log(containerWidth, spec.width, (containerWidth || spec.width))
             if (parent && (containerWidth || spec.width)) {
                 return mobx.autorun(() => {
                     const preparedSpec = prepareSpec(spec, containerWidth)

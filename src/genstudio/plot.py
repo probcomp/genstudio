@@ -204,7 +204,7 @@ def cond(*pairs):
             Plot.js("$state.detail"), ["div", Plot.js("$state.detail")]
         )
     """
-    return JSCall("special_form", ["cond", *pairs])
+    return JSCall("COND", pairs)
 
 
 def case(value, *pairs):
@@ -225,7 +225,7 @@ def case(value, *pairs):
             ["div", "Nothing selected"]  # default case
         )
     """
-    return JSCall("special_form", ["case", value, *pairs])
+    return JSCall("CASE", [value, *pairs])
 
 
 def plot(options):

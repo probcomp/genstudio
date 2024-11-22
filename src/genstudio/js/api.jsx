@@ -271,7 +271,7 @@ export const Frames = mobxReact.observer(
             return <div className={tw("text-red-500")}>Error: Invalid index. $state[{state_key}] ({index}) must be a valid index of the frames array (length: {frames.length}).</div>;
         }
 
-        return node($state, frames[index]);
+        return node(frames[index]);
     }
 )
 export class Bylight {
@@ -312,11 +312,7 @@ function renderArray($state, value) {
     if (elementType === 'string' || elementType === 'function' || (typeof maybeElement === 'object' && maybeElement !== null && "$$typeof" in maybeElement)) {
         return Hiccup(maybeElement, ...args)
     } else {
-        return <React.Fragment>
-            {value.map((item, i) =>
-                typeof item !== 'object' || item === null ? item : node($state, item, i)
-            )}
-        </React.Fragment>;
+        return <React.Fragment>{value.map(node)}</React.Fragment>;
     }
 }
 
@@ -392,17 +388,7 @@ export function Hiccup(tag, props, ...children) {
         return React.createElement(baseTag, props)
     }
 
-    children = children.map((child, i) => node($state, child, i)).filter(Boolean)
-
-    return React.createElement(baseTag, props, children);
-}
-
-// placeholder
-export function special_form(...args) {
-}
-
-function isSpecialForm(child) {
-    return child?.constructor === Object && child.__type__ === "function" && child.path === "special_form"
+    return React.createElement(baseTag, props, children.map(node));
 }
 
 function parsePairs(args) {
@@ -418,64 +404,48 @@ function parsePairs(args) {
         pairs.push([args[i], args[i + 1]]);
     }
 
-    return { pairs, valueElse };
-}
-
-// Special forms provide conditional rendering,
-// avoiding $state.evaluate() for branches not taken
-function handleSpecialForm($state, child, i) {
-    const operation = child.args[0]
-    switch (operation) {
-        case "cond":
-            return handleCond($state, child, i);
-        case "case":
-            return handleCase($state, child, i);
-    }
+    return [pairs, valueElse];
 }
 
 // Evaluates test conditions one at a time until a match is found
 // Only the matching valueIf expression is evaluated and rendered
-function handleCond($state, child, i) {
-    const [_, ...args] = child.args;
-    const { pairs, valueElse } = parsePairs(args);
+export function COND($state, ...args) {
+    const [pairs, valueElse] = parsePairs(args);
     for (const [test, valueIf] of pairs) {
         const condition = $state.evaluate(test)
         if (condition) {
-            return <Node key={i} value={valueIf} />
+            return $state.evaluate(valueIf)
         }
     }
     if (valueElse) {
-        return <Node key={i} value={valueElse} />
+        return $state.evaluate(valueElse)
     }
 }
+COND.macro = true
 
 // Similar to cond but matches against a specific value
 // Only evaluates the matching branch
-function handleCase($state, child, i) {
-    const [_, value, ...args] = child.args;
-    const { pairs, valueElse } = parsePairs(args);
+export function CASE($state, value, ...args) {
+    const [pairs, valueElse] = parsePairs(args);
 
     const matchValue = $state.evaluate(value);
     for (const [test, valueIf] of pairs) {
         if (matchValue === test) {
-            return <Node key={i} value={valueIf} />
+            return $state.evaluate(valueIf)
         }
     }
     if (valueElse) {
-        return <Node key={i} value={valueElse} />
+        return $state.evaluate(valueElse)
     }
 }
+CASE.macro = true
 
-function node($state, child, i) {
-    if (isSpecialForm(child)) {
-        return handleSpecialForm($state, child, i)
-    }
-    if (child == null) return;
+function node(child, i) {
+    if (child == null || typeof child === 'string' || typeof child === 'number') return child;
 
-    const childType = typeof child
-    if (childType === 'string' || childType === 'number' || child.constructor === Object && !child.__type__) {
-        return child;
-    }
+    // raw objects can be passed through as arguments to
+    // parent components
+    if (child.constructor === Object && !child.__type__) return child;
 
     return <Node key={i} value={child} />
 }
