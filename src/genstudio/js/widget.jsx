@@ -156,6 +156,14 @@ function collectBuffers(data) {
   return [traverse(data), buffers];
 }
 
+function sendUpdatesToPython(experimental, updates) {
+  if (!experimental || !updates?.length) return;
+  const [processedUpdates, buffers] = collectBuffers(updates);
+  experimental.invoke("handle_updates", {
+    updates: processedUpdates
+  }, {buffers});
+}
+
 /**
  * Creates a reactive state store with optional sync capabilities
  * @param {Object.<string, any>} initialState
@@ -166,6 +174,21 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
   syncedKeys = new Set(syncedKeys)
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
+  const reactions = {};
+
+  // set up listeners for synced computed state.
+  function listenToComputed(key, value) {
+    reactions[key]?.();
+    if (syncedKeys.has(key) && value?.constructor === Object && value.__type__ === 'js_source') {
+      reactions[key] = mobx.reaction(
+        () => $state[key],
+        (value) => {
+          sendUpdatesToPython(experimental, [[key, "reset", value]])
+        },
+        { fireImmediately: true }
+      )
+    }
+  }
 
   const stateHandler = {
     get(target, key) {
@@ -213,12 +236,7 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
     // notify Python
     if (!experimental) return;
     const syncUpdates = updates.filter((([key]) => syncedKeys.has(key)))
-    if (syncUpdates?.length > 0) {
-      const [processedUpdates, buffers] = collectBuffers(syncUpdates);
-      experimental.invoke("handle_updates", {
-        updates: processedUpdates
-      }, {buffers});
-    }
+    sendUpdatesToPython(experimental, syncUpdates)
   }
 
   const $state = new Proxy({
@@ -230,6 +248,7 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
         if (!initialStateMap.has(key)) {
           initialStateMap.set(key, value);
         }
+        listenToComputed(key, value);
       }
     },
 
