@@ -175,16 +175,15 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
   const reactions = {};
+  const transactionAccumulator = {}
 
   // set up listeners for synced computed state.
-  function listenToComputed(key, value) {
+  const listenToComputed = (key, value) => {
     reactions[key]?.();
     if (syncedKeys.has(key) && value?.constructor === Object && value.__type__ === 'js_source') {
       reactions[key] = mobx.reaction(
         () => $state[key],
-        (value) => {
-          sendUpdatesToPython(experimental, [[key, "reset", value]])
-        },
+        (value) => transactionAccumulator.current?.push([key, "reset", value]),
         { fireImmediately: true }
       )
     }
@@ -195,13 +194,12 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
       if (key in target) return target[key];
       return target.computed(key);
     },
-    set: mobx.action((_target, key, value) => {
+    set: (_target, key, value) => {
       const newValue = typeof value === 'function' ? value(initialStateMap.get(key)) : value;
-      const updates = [[key, "reset", newValue]]
-      applyUpdates(updates)
+      const updates = applyUpdates([[key, "reset", newValue]])
       notifyListeners(updates)
       return true;
-    }),
+    },
     ownKeys(_target) {
       return Array.from(initialStateMap.keys());
     },
@@ -215,11 +213,17 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
   };
 
   const applyUpdates = (updates) => {
-    for (const update of updates) {
-      const [key, operation, payload] = update
-      const init = $state[key]
-      initialStateMap.set(key, applyUpdate($state, init, operation, payload));
-    }
+    transactionAccumulator.current = [...updates]
+    mobx.action(() => {
+      for (const update of updates) {
+        const [key, operation, payload] = update
+        const init = $state[key]
+        initialStateMap.set(key, applyUpdate($state, init, operation, payload));
+      }
+    })()
+    updates = transactionAccumulator.current
+    transactionAccumulator.current = null
+    return updates
   }
 
   const notifyListeners = (updates) => {
@@ -256,18 +260,20 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
 
     computed: function (key) {
       if (!(key in computeds)) {
-        computeds[key] = mobx.computed(() => $state.evaluate(initialStateMap.get(key)));
+        computeds[key] = mobx.computed(() => {
+          console.log("Running computed", key)
+          return $state.evaluate(initialStateMap.get(key))
+        });
       }
       return computeds[key].get();
     },
 
     updateLocal: mobx.action(applyUpdates),
 
-    update: mobx.action((...updates) => {
-      const all_updates = normalizeUpdates(updates)
-      applyUpdates(all_updates)
-      notifyListeners(all_updates)
-    })
+    update: (...updates) => {
+      updates = applyUpdates(normalizeUpdates(updates))
+      notifyListeners(updates)
+    }
   }, stateHandler);
 
   listeners = $state.evaluate(listeners)
