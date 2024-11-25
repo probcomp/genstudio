@@ -5,7 +5,16 @@ import genstudio.plot as Plot
 from genstudio.plot import js
 
 (
-    Plot.initialState({"clicks": 0, "doubled": js("$state.clicks * 2")}, sync=True)
+    Plot.initialState(
+        {"clicks": 0, "doubled": js("$state.clicks * 2"), "tripled": 0}, sync=True
+    )
+    | Plot.onChange(
+        {
+            "clicks": Plot.js(
+                "() => $state.update(['tripled', 'reset', $state.clicks * 3])"
+            )
+        }
+    )
     | Plot.html(
         [
             "div",
@@ -16,7 +25,9 @@ from genstudio.plot import js
             js("console.log($state.doubled) || $state.doubled"),
         ]
     )
-    | Plot.onChange({"clicks": lambda w, e: print(w.state.clicks, w.state.doubled)})
+    | Plot.onChange(
+        {"clicks": lambda w, e: print(w.state.clicks, w.state.doubled, w.state.tripled)}
+    )
 )
 
 # %%
@@ -27,10 +38,7 @@ from genstudio.plot import js
 
 (
     Plot.initialState(
-        {
-            "a": 0,
-            "b": 0,
-        },
+        {"a": 0, "b": 0, "c": 0},
         sync=True,
     )
     | Plot.html(

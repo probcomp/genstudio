@@ -156,14 +156,6 @@ function collectBuffers(data) {
   return [traverse(data), buffers];
 }
 
-function sendUpdatesToPython(experimental, updates) {
-  if (!experimental || !updates?.length) return;
-  const [processedUpdates, buffers] = collectBuffers(updates);
-  experimental.invoke("handle_updates", {
-    updates: processedUpdates
-  }, {buffers});
-}
-
 /**
  * Creates a reactive state store with optional sync capabilities
  * @param {Object.<string, any>} initialState
@@ -176,22 +168,6 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
   const computeds = {};
   const reactions = {};
 
-  // allows for appending updates to the current transaction
-  let transactionUpdates = null;
-
-  // set up listeners for synced computed state.
-  const listenToComputed = (key, value) => {
-    reactions[key]?.();
-    if (syncedKeys.has(key) && value?.constructor === Object && value.__type__ === 'js_source') {
-      reactions[key] = mobx.reaction(
-        () => $state[key],
-        // if we are in a transaction, add to the list of updates.
-        (value) => transactionUpdates?.push([key, "reset", value]),
-        { fireImmediately: true }
-      )
-    }
-  }
-
   const stateHandler = {
     get(target, key) {
       if (key in target) return target[key];
@@ -200,7 +176,7 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
     set: (_target, key, value) => {
       const newValue = typeof value === 'function' ? value(initialStateMap.get(key)) : value;
       const updates = applyUpdates([[key, "reset", newValue]])
-      notifyListeners(updates)
+      notifyPython(updates)
       return true;
     },
     ownKeys(_target) {
@@ -215,23 +191,78 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
     }
   };
 
-  const applyUpdates = (updates) => {
-    transactionUpdates = [...updates]
-    mobx.action(() => {
-      for (const update of updates) {
-        const [key, operation, payload] = update
-        const init = $state[key]
-        initialStateMap.set(key, applyUpdate($state, init, operation, payload));
-      }
-    })()
-    updates = transactionUpdates
-    transactionUpdates = null
-    return updates
+  // Track the current transaction depth and accumulated updates
+  let updateDepth = 0;
+  let transactionUpdates = null;
+
+
+  function notifyPython(updates) {
+    if (!experimental || !updates) return;
+    updates = updates.filter((([key]) => syncedKeys.has(key)))
+    if (!updates.length) return;
+
+    // if we're already in a transaction, just add to it.
+    if (transactionUpdates) {
+      transactionUpdates.push(...updates)
+      return;
+    }
+    const [processedUpdates, buffers] = collectBuffers(updates);
+    experimental.invoke("handle_updates", {
+      updates: processedUpdates
+    }, {buffers});
   }
 
-  const notifyListeners = (updates) => {
+  // notify python when computed state changes.
+  // these are dependent reactions which will run within applyUpdates.
+  const listenToComputed = (key, value) => {
+    reactions[key]?.(); // clean up existing reaction, if it exists.
+    const isComputed = value?.constructor === Object && value.__type__ === 'js_source'
+    if (syncedKeys.has(key) && isComputed) {
+      reactions[key] = mobx.reaction(
+        () => $state[key],
+        (value) => notifyPython([[key, "reset", value]]),
+        { fireImmediately: true }
+      )
+    }
+  }
 
-    // notify js listeners
+  const applyUpdates = (updates) => {
+    // Track update depth and initialize accumulator at root level
+    updateDepth++;
+    const isRoot = updateDepth === 1;
+    if (isRoot) {
+      transactionUpdates = [];
+    }
+
+    // Add initial updates to accumulated list
+    transactionUpdates.push(...updates);
+
+    // Run updates within a mobx action to batch reactions
+    mobx.action(() => {
+      for (const update of updates) {
+        const [key, operation, payload] = update;
+        const init = $state[key];
+        initialStateMap.set(key, applyUpdate($state, init, operation, payload));
+      }
+    })();
+
+    // Notify JS listeners which may trigger more updates
+    notifyJs(updates);
+
+    updateDepth--;
+
+    // Only return accumulated updates at root level
+    if (isRoot) {
+      const rootUpdates = transactionUpdates;
+      transactionUpdates = null;
+      return rootUpdates;
+    }
+
+    return null;
+  }
+
+  // notify js listeners when updates occur
+  const notifyJs = (updates) => {
     updates.forEach(([key]) => {
       const keyListeners = listeners[key];
       if (keyListeners) {
@@ -240,10 +271,6 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
       }
     });
 
-    // notify Python
-    if (!experimental) return;
-    const syncUpdates = updates.filter((([key]) => syncedKeys.has(key)))
-    sendUpdatesToPython(experimental, syncUpdates)
   }
 
   const $state = new Proxy({
@@ -274,7 +301,7 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
 
     update: (...updates) => {
       updates = applyUpdates(normalizeUpdates(updates))
-      notifyListeners(updates)
+      notifyPython(updates)
     }
   }, stateHandler);
 
