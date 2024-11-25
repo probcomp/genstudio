@@ -175,7 +175,9 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
   const reactions = {};
-  const transactionAccumulator = {}
+
+  // allows for appending updates to the current transaction
+  let transactionUpdates = null;
 
   // set up listeners for synced computed state.
   const listenToComputed = (key, value) => {
@@ -183,7 +185,8 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
     if (syncedKeys.has(key) && value?.constructor === Object && value.__type__ === 'js_source') {
       reactions[key] = mobx.reaction(
         () => $state[key],
-        (value) => transactionAccumulator.current?.push([key, "reset", value]),
+        // if we are in a transaction, add to the list of updates.
+        (value) => transactionUpdates?.push([key, "reset", value]),
         { fireImmediately: true }
       )
     }
@@ -213,7 +216,7 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
   };
 
   const applyUpdates = (updates) => {
-    transactionAccumulator.current = [...updates]
+    transactionUpdates = [...updates]
     mobx.action(() => {
       for (const update of updates) {
         const [key, operation, payload] = update
@@ -221,8 +224,8 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
         initialStateMap.set(key, applyUpdate($state, init, operation, payload));
       }
     })()
-    updates = transactionAccumulator.current
-    transactionAccumulator.current = null
+    updates = transactionUpdates
+    transactionUpdates = null
     return updates
   }
 
@@ -261,7 +264,6 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
     computed: function (key) {
       if (!(key in computeds)) {
         computeds[key] = mobx.computed(() => {
-          console.log("Running computed", key)
           return $state.evaluate(initialStateMap.get(key))
         });
       }

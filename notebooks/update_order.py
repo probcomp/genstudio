@@ -1,5 +1,5 @@
 # %%
-# when js has computed state, it updates in the same "tick" as its dependencies
+# when js has computed state, it updates in the same transaction as its dependencies
 
 import genstudio.plot as Plot
 from genstudio.plot import js
@@ -11,9 +11,9 @@ from genstudio.plot import js
             "div",
             {"onClick": js("(e) => $state.update({'clicks': $state.clicks + 1})")},
             "CLICKS: ",
-            js("$state.clicks"),
-            "DOUBLED: ",
-            js("$state.doubled"),
+            js("console.log($state.clicks) || $state.clicks"),
+            ", DOUBLED: ",
+            js("console.log($state.doubled) || $state.doubled"),
         ]
     )
     | Plot.onChange({"clicks": lambda w, e: print(w.state.clicks, w.state.doubled)})
