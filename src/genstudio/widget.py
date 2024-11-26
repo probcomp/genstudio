@@ -96,7 +96,7 @@ def to_json(
                 collected_state=collected_state,
             )
         if hasattr(data, "_state_listeners"):
-            collected_state.add_listeners(data._state_listeners)
+            return collected_state.add_listeners(data._state_listeners)
 
     # Handle numpy and jax arrays
     if isinstance(data, np.ndarray) or type(data).__name__ in (
