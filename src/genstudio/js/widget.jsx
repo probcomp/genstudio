@@ -162,29 +162,23 @@ function collectBuffers(data) {
  * @param {Object} experimental - The experimental interface for sync operations
  * @returns {Proxy} A proxied state store with reactive capabilities
  */
-export function createStateStore({ initialState, syncedKeys, experimental, buffers }) {
+export function createStateStore({ initialState, syncedKeys, listeners = {}, experimental, buffers }) {
   syncedKeys = new Set(syncedKeys)
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
+  const reactions = {};
 
   const stateHandler = {
     get(target, key) {
       if (key in target) return target[key];
       return target.computed(key);
     },
-    set: mobx.action((_target, key, value) => {
+    set: (_target, key, value) => {
       const newValue = typeof value === 'function' ? value(initialStateMap.get(key)) : value;
-      initialStateMap.set(key, newValue);
-
-      // Send sync update if this key should be synced
-      if (experimental && syncedKeys.has(key)) {
-        const [updates, buffers] = collectBuffers([[key, "reset", newValue]]);
-        experimental.invoke("handle_updates", {
-          updates: updates
-        }, {buffers});
-      }
+      const updates = applyUpdates([[key, "reset", newValue]])
+      notifyPython(updates)
       return true;
-    }),
+    },
     ownKeys(_target) {
       return Array.from(initialStateMap.keys());
     },
@@ -197,23 +191,86 @@ export function createStateStore({ initialState, syncedKeys, experimental, buffe
     }
   };
 
-  const applyUpdates = (updates) => {
-    for (const update of updates) {
-      const [key, operation, payload] = update
-      const init = $state[key]
-      initialStateMap.set(key, applyUpdate($state, init, operation, payload));
+  // Track the current transaction depth and accumulated updates
+  let updateDepth = 0;
+  let transactionUpdates = null;
+
+
+  function notifyPython(updates) {
+    if (!experimental || !updates) return;
+    updates = updates.filter((([key]) => syncedKeys.has(key)))
+    if (!updates.length) return;
+
+    // if we're already in a transaction, just add to it.
+    if (transactionUpdates) {
+      transactionUpdates.push(...updates)
+      return;
+    }
+    const [processedUpdates, buffers] = collectBuffers(updates);
+    experimental.invoke("handle_updates", {
+      updates: processedUpdates
+    }, {buffers});
+  }
+
+  // notify python when computed state changes.
+  // these are dependent reactions which will run within applyUpdates.
+  const listenToComputed = (key, value) => {
+    reactions[key]?.(); // clean up existing reaction, if it exists.
+    const isComputed = value?.constructor === Object && value.__type__ === 'js_source'
+    if (syncedKeys.has(key) && isComputed) {
+      reactions[key] = mobx.reaction(
+        () => $state[key],
+        (value) => notifyPython([[key, "reset", value]]),
+        { fireImmediately: true }
+      )
     }
   }
 
-  const notifyPython = (updates) => {
-    if (!experimental) return;
-    const syncUpdates = updates.filter((([key]) => syncedKeys.has(key)))
-    if (syncUpdates?.length > 0) {
-      const [processedUpdates, buffers] = collectBuffers(syncUpdates);
-      experimental.invoke("handle_updates", {
-        updates: processedUpdates
-      }, {buffers});
+  const applyUpdates = (updates) => {
+    // Track update depth and initialize accumulator at root level
+    updateDepth++;
+    const isRoot = updateDepth === 1;
+    if (isRoot) {
+      transactionUpdates = [];
     }
+
+    // Add initial updates to accumulated list
+    transactionUpdates.push(...updates);
+
+    // Run updates within a mobx action to batch reactions
+    mobx.action(() => {
+      for (const update of updates) {
+        const [key, operation, payload] = update;
+        const init = $state[key];
+        initialStateMap.set(key, applyUpdate($state, init, operation, payload));
+      }
+    })();
+
+    // Notify JS listeners which may trigger more updates
+    notifyJs(updates);
+
+    updateDepth--;
+
+    // Only return accumulated updates at root level
+    if (isRoot) {
+      const rootUpdates = transactionUpdates;
+      transactionUpdates = null;
+      return rootUpdates;
+    }
+
+    return null;
+  }
+
+  // notify js listeners when updates occur
+  const notifyJs = (updates) => {
+    updates.forEach(([key]) => {
+      const keyListeners = listeners[key];
+      if (keyListeners) {
+        const value = $state[key];
+        keyListeners.forEach(callback => callback({value}));
+      }
+    });
+
   }
 
   const $state = new Proxy({
@@ -225,6 +282,7 @@ export function createStateStore({ initialState, syncedKeys, experimental, buffe
         if (!initialStateMap.has(key)) {
           initialStateMap.set(key, value);
         }
+        listenToComputed(key, value);
       }
     },
 
@@ -232,19 +290,22 @@ export function createStateStore({ initialState, syncedKeys, experimental, buffe
 
     computed: function (key) {
       if (!(key in computeds)) {
-        computeds[key] = mobx.computed(() => $state.evaluate(initialStateMap.get(key)));
+        computeds[key] = mobx.computed(() => {
+          return $state.evaluate(initialStateMap.get(key))
+        });
       }
       return computeds[key].get();
     },
 
     updateLocal: mobx.action(applyUpdates),
 
-    update: mobx.action((...updates) => {
-      const all_updates = normalizeUpdates(updates)
-      applyUpdates(all_updates)
-      notifyPython(all_updates)
-    })
+    update: (...updates) => {
+      updates = applyUpdates(normalizeUpdates(updates))
+      notifyPython(updates)
+    }
   }, stateHandler);
+
+  listeners = $state.evaluate(listeners)
 
   return $state;
 }

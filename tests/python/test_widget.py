@@ -150,7 +150,7 @@ class TestCollectedState(unittest.TestCase):
         cs.add_listeners(listeners)
 
         self.assertTrue("key1" in cs.syncedKeys)
-        self.assertEqual(cs.stateListeners["key1"], [dummy_listener])
+        self.assertEqual(cs.listeners["py"]["key1"], [dummy_listener])
 
 
 class TestSerialization(unittest.TestCase):
