@@ -1158,6 +1158,7 @@ class Import(LayoutItem):
     """
 
     def __init__(self, name_or_imports, spec=None):
+        super().__init__()
         if spec is not None:
             # Single import
             imports = {name_or_imports: self._normalize_spec(spec)}

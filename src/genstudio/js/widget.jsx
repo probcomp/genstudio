@@ -30,23 +30,15 @@ async function createEvalEnv() {
 
   const env = { d3, Plot, React };
 
-  // First, load all CDN modules
-  for (const [name, spec] of Object.entries(imports)) {
-    if (spec.type === 'module') {
-      try {
+  // Process imports in order
+  for (const [name, spec] of imports) {
+    try {
+      if (spec.type === 'module') {
+        // ESM module from URL
         env[name] = await import(spec.url);
-      } catch (e) {
-        console.error(`Failed to import ${name} from ${spec.url}:`, e);
-      }
-    }
-  }
-
-  // Then evaluate source imports
-  for (const [name, spec] of Object.entries(imports)) {
-    if (spec.type === 'source') {
-      try {
+      } else if (spec.type === 'source') {
         if (spec.module) {
-          // ES Module style
+          // ES Module style source
           const blob = new Blob(
             [spec.source],
             { type: 'text/javascript' }
@@ -58,7 +50,7 @@ async function createEvalEnv() {
             URL.revokeObjectURL(url);
           }
         } else {
-          // CommonJS style
+          // CommonJS style source
           const moduleFactory = new Function(
             'React', 'd3', 'Plot',
             ...Object.keys(env),
@@ -74,9 +66,9 @@ async function createEvalEnv() {
             ...Object.values(env)
           );
         }
-      } catch (e) {
-        console.error(`Failed to create module ${name}:`, e);
       }
+    } catch (e) {
+      console.error(`Failed to process import ${name}:`, e);
     }
   }
   return env;

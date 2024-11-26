@@ -26,7 +26,7 @@ class CollectedState:
         self.initialState = {}
         self.initialStateJSON = {}
         self.listeners = {"py": {}, "js": {}}
-        self.imports = {}
+        self.imports = []  # Changed to list to maintain order
 
     def state_entry(self, state_key, value, sync=False, **kwargs):
         if sync:
@@ -44,7 +44,7 @@ class CollectedState:
             spec: Import specification with 'type' and either 'url' or 'source'
         """
         if name != "__type__":  # Skip the type marker
-            self.imports[name] = spec
+            self.imports.append((name, spec))  # Append tuple to maintain order
         return None
 
     def _add_listener(self, state_key, listener):
