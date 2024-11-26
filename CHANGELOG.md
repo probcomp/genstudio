@@ -1,3 +1,12 @@
+### [2024.11.015] - Nov 26, 2024
+
+- computed, transactional js state updates (GEN-867)
+  - sync computed state with python
+  - ensure that computed state and onChange listeners are transacted together
+  - ensure that python sees a consistent view of js state, including computed state
+- add Plot.cond and Plot.case for conditional rendering
+- Plot.Slider accepts className/style, which are applied to an outer div.
+
 ### [2024.11.014] - Nov 22, 2024
 
 - allow chained/dependent onChange listeners
