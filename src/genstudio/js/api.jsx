@@ -337,6 +337,11 @@ export const Node = mobxReact.observer(
         if (typeof evaluatedValue === 'object' && evaluatedValue !== null && 'render' in evaluatedValue) {
             return evaluatedValue.render();
         }
+
+        if (typeof evaluatedValue === 'string' || typeof evaluatedValue === 'number') {
+            return <span>{evaluatedValue}</span>;
+        }
+
         return evaluatedValue;
     }
 )

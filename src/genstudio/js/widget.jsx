@@ -25,8 +25,60 @@ function resolveRef(node, $state) {
   return node;
 }
 
-function createEvalEnv() {
-  const env = { d3, Plot, React, html: api.html };
+
+async function createEvalEnv() {
+
+  const env = { d3, Plot, React };
+
+  // First, load all CDN modules
+  for (const [name, spec] of Object.entries(imports)) {
+    if (spec.type === 'module') {
+      try {
+        env[name] = await import(spec.url);
+      } catch (e) {
+        console.error(`Failed to import ${name} from ${spec.url}:`, e);
+      }
+    }
+  }
+
+  // Then evaluate source imports
+  for (const [name, spec] of Object.entries(imports)) {
+    if (spec.type === 'source') {
+      try {
+        if (spec.module) {
+          // ES Module style
+          const blob = new Blob(
+            [spec.source],
+            { type: 'text/javascript' }
+          );
+          const url = URL.createObjectURL(blob);
+          try {
+            env[name] = await import(url);
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        } else {
+          // CommonJS style
+          const moduleFactory = new Function(
+            'React', 'd3', 'Plot',
+            ...Object.keys(env),
+            `
+            const exports = {};
+            const module = { exports };
+            ${spec.source}
+            return module.exports;
+            `
+          );
+          env[name] = moduleFactory(
+            React, d3, Plot,
+            ...Object.values(env)
+          );
+        }
+      } catch (e) {
+        console.error(`Failed to create module ${name}:`, e);
+      }
+    }
+  }
   return env;
 }
 
@@ -270,15 +322,8 @@ function setDeep(stateHandler, target, prop, value) {
  * @param {Object} experimental - The experimental interface for sync operations
  * @returns {Proxy} A proxied state store with reactive capabilities
  */
-export function createStateStore({
-  initialState,
-  syncedKeys,
-  listeners = {},
-  experimental,
-  buffers,
-  evalEnv
-}) {
-  syncedKeys = new Set(syncedKeys);
+export function createStateStore({ initialState, syncedKeys, listeners = {}, experimental, buffers, evalEnv }) {
+  syncedKeys = new Set(syncedKeys)
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
   const reactions = {};
@@ -465,21 +510,35 @@ const replaceBuffers = (data, buffers) => {
   return data;
 };
 
-export const StateProvider = mobxReact.observer(function (data) {
-  const { ast, initialState, experimental, model } = data;
-  const $state = useMemo(() => createStateStore({...data, evalEnv: createEvalEnv()}), []);
+export const StateProvider = mobxReact.observer(
+  function (data) {
+    const { ast, imports, initialState, model } = data
+    const [evalEnv, setEnv] = useState(null);
 
-  // a currentAst state field managed by the following useEffect hook,
-  // to ensure that an ast is only rendered after $state has been populated
-  // with the associated initialState entries.
-  const [currentAst, setCurrentAst] = useState(null);
+    useEffect(() => {
+      createEvalEnv(imports || {}).then(setEnv);
+    }, [imports]);
 
-  useEffect(() => {
-    // when the widget is reset with a new ast/initialState, add missing entries
-    // to the initialState and then reset the current ast.
-    $state.__backfill(data);
-    setCurrentAst(ast);
-  }, [ast, initialState]);
+    const $state = useMemo(
+      () =>
+        createStateStore({
+          ...data,
+          evalEnv,
+        }),
+      [evalEnv]
+    );
+
+    const [currentAst, setCurrentAst] = useState(null);
+
+    useEffect(() => {
+      // wait for env to load (async)
+      if (!evalEnv) return;
+
+      // when the widget is reset with a new ast/initialState, add missing entries
+      // to the initialState and then reset the current ast.
+      $state.backfill(data)
+      setCurrentAst(ast)
+    }, [ast, initialState, evalEnv])
 
   useEffect(() => {
     // if we have an AnyWidget model (ie. we are in widget model),
@@ -493,7 +552,7 @@ export const StateProvider = mobxReact.observer(function (data) {
       model.on("msg:custom", cb);
       return () => model.off("msg:custom", cb);
     }
-  }, [initialState, model]);
+  }, [initialState, model, $state]);
 
   if (!currentAst) return;
 

@@ -13,10 +13,10 @@ from genstudio.layout import (
     JSCall,
     JSCode,
     JSRef,
-    LayoutItem,
     Row,
     ref,
     js,
+    LayoutItem,
 )
 
 from genstudio.plot_defs import (
@@ -1123,6 +1123,75 @@ def dimensions(data, dimensions=[], leaves=None):
     return Dimensioned(data, dimensions)
 
 
+class Import(LayoutItem):
+    """Import JavaScript code into the GenStudio environment.
+
+    Args:
+        name_or_imports: Either:
+            - str: Name for a single import (requires spec argument)
+            - dict: Multiple imports as {name: spec} pairs
+        spec: Import specification for single import, either:
+            - {"url": "..."} for ES modules from CDN/URL
+            - {"source": "...", "format": "commonjs"|"esm"} for source code
+            - str: Shorthand for {"source": str, "format": "commonjs"}
+
+    Examples:
+        # Single imports
+        >>> Plot.Import("vega", {"url": "https://cdn.skypack.dev/vega@5.22.1"})
+        >>> Plot.Import("utils", '''
+        ...     function format(x) { return x.toFixed(2); }
+        ...     module.exports = { format };
+        ... ''')
+        >>> Plot.Import("utils", {
+        ...     "source": '''
+        ...     function format(x) { return x.toFixed(2); }
+        ...     module.exports = { format };
+        ...     ''',
+        ...     "format": "commonjs"
+        ... })
+
+        # Multiple imports
+        >>> Plot.Import({
+        ...     "vega": {"url": "https://cdn.skypack.dev/vega@5.22.1"},
+        ...     "utils": "module.exports = { format: x => x.toFixed(2) }"
+        ... })
+    """
+
+    def __init__(self, name_or_imports, spec=None):
+        if spec is not None:
+            # Single import
+            imports = {name_or_imports: self._normalize_spec(spec)}
+        else:
+            # Multiple imports
+            imports = {
+                name: self._normalize_spec(spec)
+                for name, spec in name_or_imports.items()
+            }
+
+        self._state_imports = {
+            name: self._process_spec(spec) for name, spec in imports.items()
+        }
+
+    def _normalize_spec(self, spec):
+        """Convert string specs to dict format"""
+        if isinstance(spec, str):
+            return {"source": spec, "format": "commonjs"}
+        return spec
+
+    def _process_spec(self, spec):
+        """Convert normalized spec to internal format"""
+        if "url" in spec:
+            return {"type": "module", "url": spec["url"]}
+        return {
+            "type": "source",
+            "source": spec["source"],
+            "module": spec.get("format") == "esm",
+        }
+
+    def for_json(self):
+        return None
+
+
 # Add this near the top of the file, after the imports
 __all__ = [
     # ## Interactivity
@@ -1324,4 +1393,5 @@ __all__ = [
     "initialState",
     "get_in",
     "dimensions",
+    "Import",
 ]

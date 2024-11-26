@@ -26,6 +26,7 @@ class CollectedState:
         self.initialState = {}
         self.initialStateJSON = {}
         self.listeners = {"py": {}, "js": {}}
+        self.imports = {}
 
     def state_entry(self, state_key, value, sync=False, **kwargs):
         if sync:
@@ -34,6 +35,17 @@ class CollectedState:
             self.initialState[state_key] = value
             self.initialStateJSON[state_key] = to_json(value, **kwargs)
         return {"__type__": "ref", "state_key": state_key}
+
+    def add_import(self, name: str, spec: dict):
+        """Add an import specification.
+
+        Args:
+            name: Name to use when referencing the module
+            spec: Import specification with 'type' and either 'url' or 'source'
+        """
+        if name != "__type__":  # Skip the type marker
+            self.imports[name] = spec
+        return None
 
     def _add_listener(self, state_key, listener):
         listeners = [listener] if not isinstance(listener, list) else listener
@@ -96,6 +108,10 @@ def to_json(
 
     # Handle state-related objects
     if collected_state is not None:
+        if hasattr(data, "_state_imports"):
+            for name, spec in data._state_imports.items():
+                collected_state.add_import(name, spec)
+            return None
         if hasattr(data, "_state_key"):
             return collected_state.state_entry(
                 state_key=data._state_key,
@@ -105,7 +121,8 @@ def to_json(
                 collected_state=collected_state,
             )
         if hasattr(data, "_state_listeners"):
-            return collected_state.add_listeners(data._state_listeners)
+            collected_state.add_listeners(data._state_listeners)
+            return None
 
     # Handle numpy and jax arrays
     if isinstance(data, np.ndarray) or type(data).__name__ in (
@@ -131,7 +148,7 @@ def to_json(
         )
 
     # Handle objects with custom serialization
-    if hasattr(data, "for_json"):
+    if hasattr(data, "for_json") and callable(data.for_json):
         return to_json(
             data.for_json(),
             collected_state=collected_state,
@@ -192,6 +209,7 @@ def to_json_with_initialState(
             "initialState": collected_state.initialStateJSON,
             "syncedKeys": collected_state.syncedKeys,
             "listeners": collected_state.listeners["js"],
+            "imports": collected_state.imports,
             **CONFIG,
         },
         buffers=buffers,
