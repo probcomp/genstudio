@@ -8,7 +8,7 @@ from html2image import Html2Image
 from PIL import Image
 
 from genstudio.util import CONFIG, PARENT_PATH
-from genstudio.widget import Widget, to_json_with_initialState
+from genstudio.widget import Widget, to_json_with_initialState, WidgetState
 
 
 def create_parent_dir(path: str) -> None:
@@ -91,7 +91,7 @@ class LayoutItem:
     def __init__(self):
         self._html: HTML | None = None
         self._widget: Widget | None = None
-        self._display_as = None
+        self._display_as: str | None = None
 
     def display_as(self, display_as) -> Self:
         if display_as not in ["html", "widget"]:
@@ -197,7 +197,7 @@ class LayoutItem:
         ensure_widget(self).set_ast(other.for_json())
 
     @property
-    def state(self):
+    def state(self) -> WidgetState:
         """
         Get the widget state. Raises ValueError if widget is not initialized.
         """
