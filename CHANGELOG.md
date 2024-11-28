@@ -1,7 +1,11 @@
+### [2024.11.021] - Nov 28, 2024
+
+- add types
+
 ### [2024.11.020] - Nov 28, 2024
 
 - support dot notation (eg. event.value) in python callbacks
-- add typings
+- add types
 
 ### [2024.11.016] - Nov 28, 2024
 
