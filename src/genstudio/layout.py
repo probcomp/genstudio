@@ -414,7 +414,7 @@ def ref(value: Any, state_key=None, sync=False) -> Ref:
     Returns:
         Ref: A reference object containing the initial value and id.
     """
-    if id is None and isinstance(value, Ref):
+    if state_key is None and isinstance(value, Ref):
         return value
     return Ref(value, state_key=state_key, sync=sync)
 

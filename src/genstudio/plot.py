@@ -13,6 +13,7 @@ from genstudio.layout import (
     JSCall,
     JSCode,
     JSRef,
+    LayoutItem,
     Row,
     ref,
     js,
@@ -549,7 +550,7 @@ def img(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     return PlotSpec(MarkSpec("img", values, {**options, **kwargs}))
 
 
-def constantly(x):
+def constantly(x: Any) -> JSCode:
     """
     Returns a javascript function which always returns `x`.
 
@@ -669,44 +670,44 @@ def colorLegend():
 color_legend = colorLegend  # backwards compat
 
 
-def clip() -> dict:
+def clip() -> dict[str, bool]:
     """Sets `{"clip": True}`."""
     return {"clip": True}
 
 
-def title(title: str) -> dict:
+def title(title: str) -> dict[str, str]:
     """Sets `{"title": title}`."""
     return {"title": title}
 
 
-def subtitle(subtitle: str) -> dict:
+def subtitle(subtitle: str) -> dict[str, str]:
     """Sets `{"subtitle": subtitle}`."""
     return {"subtitle": subtitle}
 
 
-def caption(caption: str) -> dict:
+def caption(caption: str) -> dict[str, str]:
     """Sets `{"caption": caption}`."""
     return {"caption": caption}
 
 
-def width(width: Union[int, float, str]) -> dict:
+def width(width: Union[int, float, str]) -> dict[str, Union[int, float, str]]:
     """Sets `{"width": width}`."""
     return {"width": width}
 
 
-def height(height: Union[int, float, str]) -> dict:
+def height(height: Union[int, float, str]) -> dict[str, Union[int, float, str]]:
     """Sets `{"height": height}`."""
     return {"height": height}
 
 
 def size(
     size: Union[int, float, str], height: Optional[Union[int, float, str]] = None
-) -> dict:
+) -> dict[str, Union[int, float, str]]:
     """Sets width and height, using size for both if height not specified."""
     return {"width": size, "height": height or size}
 
 
-def aspectRatio(r: Union[int, float]) -> dict:
+def aspectRatio(r: Union[int, float]) -> dict[str, Union[int, float]]:
     """Sets `{"aspectRatio": r}`."""
     return {"aspectRatio": r}
 
@@ -714,28 +715,30 @@ def aspectRatio(r: Union[int, float]) -> dict:
 aspect_ratio = aspectRatio  # backwards compat
 
 
-def inset(i: Union[int, float]) -> dict:
+def inset(i: Union[int, float]) -> dict[str, Union[int, float]]:
     """Sets `{"inset": i}`."""
     return {"inset": i}
 
 
-def colorScheme(name: str) -> dict:
+def colorScheme(name: str) -> dict[str, dict[str, str]]:
     """Sets `{"color": {"scheme": <name>}}`."""
     # See https://observablehq.com/plot/features/scales#color-scales
     return {"color": {"scheme": name}}
 
 
-def domainX(d: List[Any]) -> dict:
+def domainX(d: List[Any]) -> dict[str, dict[str, List[Any]]]:
     """Sets `{"x": {"domain": d}}`."""
     return {"x": {"domain": d}}
 
 
-def domainY(d: List[Any]) -> dict:
+def domainY(d: List[Any]) -> dict[str, dict[str, List[Any]]]:
     """Sets `{"y": {"domain": d}}`."""
     return {"y": {"domain": d}}
 
 
-def domain(x: List[Any], y: Optional[List[Any]] = None) -> dict:
+def domain(
+    x: List[Any], y: Optional[List[Any]] = None
+) -> dict[str, dict[str, List[Any]]]:
     """Sets domain for x and optionally y scales."""
     return {"x": {"domain": x}, "y": {"domain": y or x}}
 
@@ -768,7 +771,7 @@ def colorMap(mappings: dict[str, str]) -> dict[str, dict[str, str]]:
 color_map = colorMap  # backwards compat
 
 
-def margin(*args):
+def margin(*args: Union[int, float]) -> dict[str, Union[int, float]]:
     """
     Set margin values for a plot using CSS-style margin shorthand.
 
@@ -778,6 +781,11 @@ def margin(*args):
         margin(top, horizontal, bottom)
         margin(top, right, bottom, left)
 
+    Args:
+        *args: Margin values as integers or floats, following CSS margin shorthand rules
+
+    Returns:
+        A dictionary mapping margin properties to their values
     """
     if len(args) == 1:
         return {"margin": args[0]}
@@ -806,7 +814,7 @@ def margin(*args):
         raise ValueError(f"Invalid number of arguments: {len(args)}")
 
 
-def md(text, **kwargs):
+def md(text: str, **kwargs: Any) -> JSCall:
     """Render a string as Markdown, in a LayoutItem."""
     return JSRef("md")(kwargs, text)
 
@@ -853,12 +861,21 @@ def doc(fn):
 _Frames = JSRef("Frames")
 
 
-def Frames(frames, key=None, slider=True, tail=False, **opts: Any):
+def Frames(
+    frames: list[Any] | Ref,
+    key: str | None = None,
+    slider: bool = True,
+    tail: bool = False,
+    **opts: Any,
+) -> LayoutItem:
     """
     Create an animated plot that cycles through a list of frames.
 
     Args:
         frames (list): A list of plot specifications or renderable objects to animate.
+        key (str | None): The state key to use for the frame index. If None, uses "frame".
+        slider (bool): Whether to show the slider control. Defaults to True.
+        tail (bool): Whether animation should stop at the end. Defaults to False.
         **opts: Additional options for the animation, such as fps (frames per second).
 
     Returns:
@@ -878,13 +895,15 @@ def Frames(frames, key=None, slider=True, tail=False, **opts: Any):
         return Hiccup([_Frames, {"state_key": key, "frames": frames}])
 
 
-def initialState(values: dict, sync=None):
+def initialState(
+    values: dict[str, Any], sync: Union[set[str], bool, None] = None
+) -> JSCall:
     """
     Initializes state variables in the Plot widget.
 
     Args:
-        values (dict): A dictionary mapping state variable names to their initial values.
-        sync (Union[set, bool, None], optional): Controls which state variables are synced between Python and JavaScript.
+        values (dict[str, Any]): A dictionary mapping state variable names to their initial values.
+        sync (Union[set[str], bool, None], optional): Controls which state variables are synced between Python and JavaScript.
             If True, all variables are synced. If a set, only variables in the set are synced.
             If None or False, no variables are synced. Defaults to None.
 
@@ -912,10 +931,10 @@ _Slider = JSRef("Slider")
 
 
 def Slider(
-    key,
-    init=None,
-    range=None,
-    **kwargs,
+    key: str,
+    init: Any = None,
+    range: Optional[Union[int, List[int]]] = None,
+    **kwargs: Any,
 ):
     """
     Creates a slider with reactive functionality, allowing for dynamic interaction and animation.
@@ -994,9 +1013,7 @@ def renderChildEvents(options: dict[str, Any] = {}, **kwargs) -> JSRef:
             onClick=handle_click
         ))
 
-    This function enhances the rendering of plot elements by adding interactive behaviors
-    such as dragging, clicking, and tracking position changes. It's designed to work with
-    Observable Plot's rendering pipeline.
+    This function enhances the rendering of plot elements by adding interactive behaviors such as dragging, clicking, and tracking position changes. It's designed to work with Observable Plot's rendering pipeline.
 
     Args:
         options (dict): Configuration options for the child events
