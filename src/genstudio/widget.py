@@ -120,10 +120,20 @@ def to_json(
                 "shape": data.shape,
             },
         )
+
     # Handle objects with custom serialization
     if hasattr(data, "for_json"):
         return to_json(
             data.for_json(),
+            collected_state=collected_state,
+            widget=widget,
+            buffers=buffers,
+        )
+
+    # Handle objects with attributes_dict method
+    if hasattr(data, "attributes_dict") and callable(data.attributes_dict):
+        return to_json(
+            data.attributes_dict(),
             collected_state=collected_state,
             widget=widget,
             buffers=buffers,
