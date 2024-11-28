@@ -72,7 +72,7 @@ export function evaluate(node, $state, experimental, buffers) {
     case "datetime":
       return new Date(node.value);
     case "ref":
-      return $state.computed(node.state_key);
+      return $state.__computed(node.state_key);
     case "callback":
       if (experimental) {
         return (e) =>
@@ -190,22 +190,24 @@ function collectBuffers(data) {
    */
 function getDeep(stateHandler, target, prop) {
   if (prop.includes(".")) {
-    return prop.split(".").reduce((obj, key) => {
+    const parts = prop.split(".");
+    const topKey = parts[0];
+    const rest = parts.slice(1);
+
+    // Then traverse the remaining path
+    return rest.reduce((obj, key) => {
       if (Array.isArray(obj) || ArrayBuffer.isView(obj)) {
         return obj[parseInt(key)];
       }
       return obj[key];
-    }, target);
+    }, stateHandler.get(target, topKey));
   }
   return stateHandler.get(target, prop);
 }
 
 /**
  * Sets a deeply nested value in the state store using dot notation.
- *
  * Creates new objects/arrays along the path to maintain proper reactivity.
- * For example, setting "a.b.c" to 5 will create new copies of objects at
- * "a" and "a.b" to ensure changes trigger reactive updates.
  *
  * @param {Object} target - The state store target object
  * @param {string} prop - The property path using dot notation (e.g. "a.b.c" or "points.0.x")
@@ -213,52 +215,45 @@ function getDeep(stateHandler, target, prop) {
  * @returns {boolean} True if the set operation succeeded
  */
 function setDeep(stateHandler, target, prop, value) {
-  if (prop.includes(".")) {
-    const parts = prop.split(".");
-    const topKey = parts[0];
-    const rest = parts.slice(1);
-    const lastKey = rest.pop();
-
-    // Get the current value for the top-level key
-    const current = stateHandler.get(target, topKey);
-
-    // Navigate to the parent object/array and create a copy of the path
-    const parent = rest.reduce((obj, key) => {
-      let newObj;
-      if (ArrayBuffer.isView(obj)) {
-        newObj = Array.from(obj);
-      } else if (Array.isArray(obj)) {
-        newObj = [...obj];
-      } else {
-        newObj = { ...obj };
-      }
-
-      const index = parseInt(key);
-      if (!isNaN(index)) {
-        if (!(index in newObj)) {
-          newObj[index] = {};
-        }
-        return newObj[index];
-      }
-
-      if (!(key in newObj)) {
-        newObj[key] = {};
-      }
-      return newObj[key];
-    }, current);
-
-    // Set the value on the parent
-    const index = parseInt(lastKey);
-    if (!isNaN(index)) {
-      parent[index] = value;
-    } else {
-      parent[lastKey] = value;
-    }
-
-    // Update the entire structure at the top level
-    return stateHandler.set(target, topKey, current);
+  if (!prop.includes(".")) {
+    return stateHandler.set(target, prop, value);
   }
-  return stateHandler.set(target, prop, value);
+
+  const parts = prop.split(".");
+  const first = parts[0];
+  const current = stateHandler.get(target, first);
+
+  // Build up the new object/array structure from bottom up
+  let result = value;
+  for (let i = parts.length - 1; i > 0; i--) {
+    const key = parts[i];
+    const parentKey = parts[i-1];
+    const index = parseInt(key);
+    const isArray = !isNaN(index);
+    const parentIndex = parseInt(parentKey);
+    const isParentArray = !isNaN(parentIndex);
+
+    // Get the parent container we'll be modifying
+    const parent = i === 1 ? current :
+      (isParentArray ?
+        (parentKey in current ? current[parentIndex] : []) :
+        (parentKey in current ? current[parentKey] : {}));
+
+    // Create the new container with our value
+    if (isArray) {
+      if (ArrayBuffer.isView(parent)) {
+        const newArray = new parent.constructor(parent);
+        newArray[index] = result;
+        result = newArray;
+      } else {
+        result = Object.assign([...parent], {[index]: result});
+      }
+    } else {
+      result = {...parent, [key]: result};
+    }
+  }
+
+  return stateHandler.set(target, first, result);
 }
 
 /**
@@ -282,7 +277,7 @@ export function createStateStore({
   const stateHandler = {
     get(target, key) {
       if (key in target) return target[key];
-      return target.computed(key);
+      return target.__computed(key);
     },
     set: (_target, key, value) => {
       const newValue =
@@ -392,7 +387,7 @@ export function createStateStore({
     {
       evaluate: (ast) => evaluate(ast, $state, experimental, buffers),
 
-      backfill: function (data) {
+      __backfill: function (data) {
         syncedKeys = new Set(data.syncedKeys);
         for (const [key, value] of Object.entries(data.initialState)) {
           if (!initialStateMap.has(key)) {
@@ -402,11 +397,11 @@ export function createStateStore({
         }
       },
 
-      resolveRef: function (node) {
+      __resolveRef: function (node) {
         return resolveRef(node, $state);
       },
 
-      computed: function (key) {
+      __computed: function (key) {
         if (!(key in computeds)) {
           computeds[key] = mobx.computed(() => {
             return $state.evaluate(initialStateMap.get(key));
@@ -415,7 +410,7 @@ export function createStateStore({
         return computeds[key].get();
       },
 
-      updateLocal: mobx.action(applyUpdates),
+      __updateLocal: mobx.action(applyUpdates),
 
       update: (...updates) => {
         updates = applyUpdates(normalizeUpdates(updates));
@@ -473,7 +468,7 @@ export const StateProvider = mobxReact.observer(function (data) {
   useEffect(() => {
     // when the widget is reset with a new ast/initialState, add missing entries
     // to the initialState and then reset the current ast.
-    $state.backfill(data);
+    $state.__backfill(data);
     setCurrentAst(ast);
   }, [ast, initialState]);
 
@@ -483,7 +478,7 @@ export const StateProvider = mobxReact.observer(function (data) {
     if (model) {
       const cb = (msg, buffers) => {
         if (msg.type === "update_state") {
-          $state.updateLocal(replaceBuffers(msg.updates, buffers));
+          $state.__updateLocal(replaceBuffers(msg.updates, buffers));
         }
       };
       model.on("msg:custom", cb);

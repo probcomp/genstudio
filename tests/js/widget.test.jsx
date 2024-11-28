@@ -326,5 +326,78 @@ describe('Widget', () => {
       expect($state.b).toBe(2);  // 'b' is still based on the old value of 'a'
     });
 
+    describe('deep property access', () => {
+      it('should get deeply nested values', () => {
+        const $state = createStateStore({
+          initialState: {
+            nested: { a: { b: { c: 42 } } },
+            array: [{ x: 1 }, { x: 2 }],
+            typedArray: new Float32Array([1, 2, 3])
+          }
+        });
+
+        expect($state['nested.a.b.c']).toBe(42);
+        expect($state['array.0.x']).toBe(1);
+        expect($state['array.1.x']).toBe(2);
+        expect($state['typedArray.1']).toBe(2);
+      });
+
+      it('should set deeply nested values', () => {
+        const $state = createStateStore({
+          initialState: {
+            nested: { a: { b: { c: 42 } } },
+            array: [{ x: 1 }, { x: 2 }]
+          }
+        });
+
+        $state['nested.a.b.c'] = 100;
+        expect($state['nested.a.b.c']).toBe(100);
+
+        $state['array.0.x'] = 10;
+        expect($state['array.0.x']).toBe(10);
+        expect($state.array[0].x).toBe(10);
+      });
+
+      it('should create intermediate objects when setting deep paths', () => {
+        const $state = createStateStore({
+          initialState: {
+            data: {}
+          }
+        });
+
+        $state['data.deeply.nested.value'] = 42;
+        expect($state['data.deeply.nested.value']).toBe(42);
+        expect($state.data.deeply.nested.value).toBe(42);
+      });
+
+      it('should handle array paths with automatic array creation', () => {
+        const $state = createStateStore({
+          initialState: {
+            points: []
+          }
+        });
+
+        $state['points.0.x'] = 10;
+        $state['points.0.y'] = 20;
+
+        expect($state.points[0]).toEqual({ x: 10, y: 20 });
+        expect($state['points.0.x']).toBe(10);
+      });
+
+      it('should maintain reactivity with deep updates', () => {
+        const $state = createStateStore({
+          initialState: {
+            data: { value: 1 },
+            computed: js_expr('$state.data.value * 2')
+          }
+        });
+
+        expect($state.computed).toBe(2);
+
+        $state['data.value'] = 5;
+        expect($state.computed).toBe(10);
+      });
+    });
+
   });
 })
