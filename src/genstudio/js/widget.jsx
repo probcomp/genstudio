@@ -191,6 +191,76 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
     }
   };
 
+function getDeep(target, prop) {
+  try {
+    if (prop.includes('.')) {
+      return prop.split('.').reduce((obj, key) => {
+        if (Array.isArray(obj)) {
+          return obj[parseInt(key)];
+        }
+        return obj[key];
+      }, target);
+    }
+    return stateHandler.get(target, prop);
+  } catch (error) {
+    console.error("Error in getDeep:", error);
+    throw error;
+  }
+}
+function setDeep(target, prop, value) {
+  try {
+    if (prop.includes('.')) {
+      const parts = prop.split('.');
+      const topKey = parts[0];
+      const rest = parts.slice(1);
+      const lastKey = rest.pop();
+
+      // Get the current value for the top-level key
+      const current = stateHandler.get(target, topKey);
+
+      // Navigate to the parent object/array and create a copy of the path
+      const parent = rest.reduce((obj, key) => {
+        let newObj;
+        if (ArrayBuffer.isView(obj)) {
+          newObj = Array.from(obj);
+        } else if (Array.isArray(obj)) {
+          newObj = [...obj];
+        } else {
+          newObj = {...obj};
+        }
+
+        const index = parseInt(key);
+        if (!isNaN(index)) {
+          if (!(index in newObj)) {
+            newObj[index] = {};
+          }
+          return newObj[index];
+        }
+
+        if (!(key in newObj)) {
+          newObj[key] = {};
+        }
+        return newObj[key];
+      }, current);
+
+      // Set the value on the parent
+      const index = parseInt(lastKey);
+      if (!isNaN(index)) {
+        parent[index] = value;
+      } else {
+        parent[lastKey] = value;
+      }
+
+      // Update the entire structure at the top level
+      return stateHandler.set(target, topKey, current);
+    }
+    return stateHandler.set(target, prop, value);
+  } catch (error) {
+    console.error("Error in setDeep:", error);
+    throw error;
+  }
+}
+
   // Track the current transaction depth and accumulated updates
   let updateDepth = 0;
   let transactionUpdates = null;
@@ -303,7 +373,11 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
       updates = applyUpdates(normalizeUpdates(updates))
       notifyPython(updates)
     }
-  }, stateHandler);
+  }, {
+    ...stateHandler,
+    get: getDeep,
+    set: setDeep
+  });
 
   listeners = $state.evaluate(listeners)
 
