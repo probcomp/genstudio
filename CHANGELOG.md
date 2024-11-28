@@ -1,3 +1,12 @@
+### [2024.11.017] - Nov 28, 2024
+
+- add typings
+
+### [2024.11.016] - Nov 28, 2024
+
+- serialize `attributes_dict` (for Pytree.dataclass, etc)
+- support 'multi.segment.paths.0' in js $state, with reactivity preserved for nested changes.
+
 ### [2024.11.015] - Nov 26, 2024
 
 - computed, transactional js state updates (GEN-867)

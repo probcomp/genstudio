@@ -2,7 +2,7 @@ import base64
 import json
 import os
 import uuid
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, Self
 
 from html2image import Html2Image
 from PIL import Image
@@ -93,7 +93,7 @@ class LayoutItem:
         self._widget: Widget | None = None
         self._display_as = None
 
-    def display_as(self, display_as) -> "LayoutItem":
+    def display_as(self, display_as) -> Self:
         if display_as not in ["html", "widget"]:
             raise ValueError("display_pref must be either 'html' or 'widget'")
         self._display_as = display_as
@@ -264,7 +264,7 @@ def js_ref(path: str) -> "JSRef":
 
 
 class JSCode(LayoutItem):
-    def __init__(self, code: str, params: tuple, expression: bool):
+    def __init__(self, code: str, *params: Any, expression: bool):
         super().__init__()
         self.code = code
         self.params = params
@@ -279,7 +279,7 @@ class JSCode(LayoutItem):
         }
 
 
-def js(txt: str, *params, expression=True) -> JSCode:
+def js(txt: str, *params: Any, expression=True) -> JSCode:
     """Represents raw JavaScript code to be evaluated as a LayoutItem.
 
     Args:
@@ -287,7 +287,7 @@ def js(txt: str, *params, expression=True) -> JSCode:
         *params: Values to substitute for %1, %2, etc. placeholders
         expression (bool): Whether to evaluate as expression or statement
     """
-    return JSCode(txt, params, expression=expression)
+    return JSCode(txt, *params, expression=expression)
 
 
 class Hiccup(LayoutItem):

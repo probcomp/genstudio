@@ -1,7 +1,7 @@
 # %%
 # ruff: noqa: F401
 import json
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
 
 import genstudio.plot_defs as plot_defs
 from genstudio.layout import (
@@ -182,7 +182,7 @@ repeat = JSRef("repeat")
 eg. for a set of 'xs' that are to be repeated for each set of `ys`."""
 
 
-def cond(*pairs):
+def cond(*pairs: Union[JSCode, str, list, Any]) -> JSCall:
     """Render content based on conditions, like Clojure's cond.
 
     Takes pairs of test/expression arguments, evaluating each test in order.
@@ -207,7 +207,7 @@ def cond(*pairs):
     return JSCall("COND", pairs)
 
 
-def case(value, *pairs):
+def case(value: Union[JSCode, str, Any], *pairs: Union[str, list, Any]) -> JSCall:
     """Render content based on matching a value against cases, like a switch statement.
 
     Takes a value to match against, followed by pairs of case/expression arguments.
@@ -228,16 +228,8 @@ def case(value, *pairs):
     return JSCall("CASE", [value, *pairs])
 
 
-def plot(options):
-    """Create a new plot from options and marks.
-
-    Args:
-        options: Dict containing plot options and marks. The marks will be extracted
-                from the 'marks' key and passed separately.
-
-    Returns:
-        A new Plot specification
-    """
+def plot(options: dict[str, Any]) -> PlotSpec:
+    """Create a new plot from options and marks."""
     plot_options = options.copy()
     plot_marks = plot_options.pop("marks", [])
     return new(plot_options, *plot_marks)
@@ -677,42 +669,44 @@ def colorLegend():
 color_legend = colorLegend  # backwards compat
 
 
-def clip():
+def clip() -> dict:
     """Sets `{"clip": True}`."""
     return {"clip": True}
 
 
-def title(title):
+def title(title: str) -> dict:
     """Sets `{"title": title}`."""
     return {"title": title}
 
 
-def subtitle(subtitle):
+def subtitle(subtitle: str) -> dict:
     """Sets `{"subtitle": subtitle}`."""
     return {"subtitle": subtitle}
 
 
-def caption(caption):
+def caption(caption: str) -> dict:
     """Sets `{"caption": caption}`."""
     return {"caption": caption}
 
 
-def width(width):
+def width(width: Union[int, float, str]) -> dict:
     """Sets `{"width": width}`."""
     return {"width": width}
 
 
-def height(height):
+def height(height: Union[int, float, str]) -> dict:
     """Sets `{"height": height}`."""
     return {"height": height}
 
 
-def size(size, height=None):
+def size(
+    size: Union[int, float, str], height: Optional[Union[int, float, str]] = None
+) -> dict:
     """Sets width and height, using size for both if height not specified."""
     return {"width": size, "height": height or size}
 
 
-def aspectRatio(r):
+def aspectRatio(r: Union[int, float]) -> dict:
     """Sets `{"aspectRatio": r}`."""
     return {"aspectRatio": r}
 
@@ -720,33 +714,33 @@ def aspectRatio(r):
 aspect_ratio = aspectRatio  # backwards compat
 
 
-def inset(i):
+def inset(i: Union[int, float]) -> dict:
     """Sets `{"inset": i}`."""
     return {"inset": i}
 
 
-def colorScheme(name):
+def colorScheme(name: str) -> dict:
     """Sets `{"color": {"scheme": <name>}}`."""
     # See https://observablehq.com/plot/features/scales#color-scales
     return {"color": {"scheme": name}}
 
 
-def domainX(d):
+def domainX(d: List[Any]) -> dict:
     """Sets `{"x": {"domain": d}}`."""
     return {"x": {"domain": d}}
 
 
-def domainY(d):
+def domainY(d: List[Any]) -> dict:
     """Sets `{"y": {"domain": d}}`."""
     return {"y": {"domain": d}}
 
 
-def domain(x, y=None):
+def domain(x: List[Any], y: Optional[List[Any]] = None) -> dict:
     """Sets domain for x and optionally y scales."""
     return {"x": {"domain": x}, "y": {"domain": y or x}}
 
 
-def colorMap(mappings):
+def colorMap(mappings: dict[str, str]) -> dict[str, dict[str, str]]:
     """
     Adds colors to the plot's color_map. More than one colorMap can be specified
     and colors will be merged. This is a way of dynamically building up a color scale,
@@ -859,7 +853,7 @@ def doc(fn):
 _Frames = JSRef("Frames")
 
 
-def Frames(frames, key=None, slider=True, tail=False, **opts):
+def Frames(frames, key=None, slider=True, tail=False, **opts: Any):
     """
     Create an animated plot that cycles through a list of frames.
 
