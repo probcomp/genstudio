@@ -1,6 +1,7 @@
 import datetime
 import uuid
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union
+from types import SimpleNamespace
 
 import anywidget
 import numpy as np
@@ -8,6 +9,14 @@ import traitlets
 import warnings
 
 from genstudio.util import CONFIG, PARENT_PATH
+
+
+class SubscriptableNamespace(SimpleNamespace):
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
 
 
 class CollectedState:
@@ -197,7 +206,9 @@ def entry_id(key):
     return key if isinstance(key, str) else key._state_key
 
 
-def normalize_updates(updates):
+def normalize_updates(
+    updates: Iterable[Union[List[Any], Dict[str, Any]]],
+) -> List[List[Any]]:
     out = []
     for entry in updates:
         if isinstance(entry, dict):
@@ -208,7 +219,7 @@ def normalize_updates(updates):
     return out
 
 
-def apply_updates(state, updates):
+def apply_updates(state: Dict[str, Any], updates: List[List[Any]]) -> None:
     for name, operation, payload in updates:
         if operation == "append":
             if name not in state:
@@ -312,7 +323,7 @@ class WidgetState:
             self._state[name] = value
             self.update([name, "reset", value])
 
-    def notify_listeners(self, updates):
+    def notify_listeners(self, updates: List[List[Any]]) -> None:
         for name, operation, value in updates:
             for listener in self._listeners.get(name, []):
                 # Skip if this listener is already being processed
@@ -320,25 +331,28 @@ class WidgetState:
                     continue
                 try:
                     self._processing_listeners.add(listener)
-                    listener(self._widget, {"id": name, "value": self._state[name]})
+                    listener(
+                        self._widget,
+                        SubscriptableNamespace(id=name, value=self._state[name]),
+                    )
                 finally:
                     self._processing_listeners.remove(listener)
 
     # update values from python - send to js
-    def update(self, *updates):
-        updates = normalize_updates(updates)
+    def update(self, *updates: Union[List[Any], Dict[str, Any]]) -> None:
+        normalized_updates = normalize_updates(updates)
 
         # apply updates locally for synced state
         synced_updates = [
             [name, op, payload]
-            for name, op, payload in updates
+            for name, op, payload in normalized_updates
             if entry_id(name) in self._syncedKeys
         ]
         apply_updates(self._state, synced_updates)
 
         # send all updates to JS regardless of sync status
         buffers: List[bytes | bytearray | memoryview] = []
-        json_updates = to_json(updates, widget=self, buffers=buffers)
+        json_updates = to_json(normalized_updates, widget=self, buffers=buffers)
         self._widget.send(
             {"type": "update_state", "updates": json_updates}, buffers=buffers
         )
@@ -346,7 +360,7 @@ class WidgetState:
         self.notify_listeners(synced_updates)
 
     # accept updates from js - notify callbacks
-    def accept_js_updates(self, updates):
+    def accept_js_updates(self, updates: List[List[Any]]) -> None:
         apply_updates(self._state, updates)
         self.notify_listeners(updates)
 
@@ -383,6 +397,7 @@ class Widget(anywidget.AnyWidget):
         f = self.callback_registry[params["id"]]
         if f is not None:
             event = replace_buffers(params["event"], buffers)
+            event = SubscriptableNamespace(**event)
             f(self, event)
         return "ok", []
 

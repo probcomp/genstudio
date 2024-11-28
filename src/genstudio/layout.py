@@ -204,7 +204,7 @@ class LayoutItem:
         return ensure_widget(self).state
 
 
-def ensure_widget(self):
+def ensure_widget(self: LayoutItem) -> Widget:
     if self._html is not None:
         raise ValueError(
             "Cannot reset an HTML widget. Use display_as='widget' or foo.widget() to create a resettable widget."
