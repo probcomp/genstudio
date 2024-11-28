@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "genstudio"
-version = "2024.11.018"
+version = "2024.11.019"
 description = ""
 authors = [ "Matthew Huebert <me@matt.is>",]
 license = "MIT"
