@@ -224,18 +224,18 @@ def apply_updates(state: Dict[str, Any], updates: List[List[Any]]) -> None:
         if operation == "append":
             if name not in state:
                 state[name] = []
-            state[name].append(payload)
+            state[name] = state[name] + [payload]
         elif operation == "concat":
             if name not in state:
                 state[name] = []
-            state[name].extend(payload)
+            state[name] = state[name] + list(payload)
         elif operation == "reset":
             state[name] = payload
         elif operation == "setAt":
             index, value = payload
             if name not in state:
                 state[name] = []
-            state[name][index] = value
+            state[name] = state[name][:index] + [value] + state[name][index + 1 :]
         else:
             raise ValueError(f"Unknown operation: {operation}")
 
