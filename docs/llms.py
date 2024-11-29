@@ -721,4 +721,94 @@ def updateState(widget, _):
 )
 # </example>
 # %%
+# <example>
+# %%
+# User: Make a tabbed view with an example dot plot, details page, and settings screen with checkboxes.
+# Assistant:
+import genstudio.plot as Plot
+from genstudio.plot import js
+
+
+def tabs_view(tabs, contents):
+    """Create a tabbed interface component.
+
+    Args:
+        tabs: List of tab names
+        contents: List of content elements for each tab
+    """
+    tab_button_class = """
+        px-4 py-2 cursor-pointer mr-2
+        data-[active=true]:font-medium data-[active=true]:border-b-2 data-[active=true]:border-gray-800
+        data-[active=false]:text-gray-500
+        hover:text-gray-800
+    """
+    tab_content_class = """
+        col-start-1 row-start-1 transition-opacity
+        data-[active=true]:opacity-100
+        data-[active=false]:opacity-0 data-[active=false]:pointer-events-none
+        p-4
+    """
+    tab_container_class = "relative grid grid-cols-1 grid-rows-1 "
+
+    return Plot.initialState({"tab": tabs[0]}) | [
+        "div",
+        {},
+        [
+            "div",
+            {"class": "flex border-b border-gray-200"},
+            *[
+                [
+                    "div",
+                    {
+                        "class": tab_button_class,
+                        "data-active": js("$state.tab === '" + tab + "'"),
+                        "onClick": Plot.js(f"() => $state.tab = '{tab}'"),
+                    },
+                    tab,
+                ]
+                for tab in tabs
+            ],
+        ],
+        [
+            "div",
+            {"class": tab_container_class},
+            *[
+                [
+                    "div",
+                    {
+                        "class": tab_content_class,
+                        "data-active": js(f"$state.tab === '{tab}'"),
+                    },
+                    content,
+                ]
+                for tab, content in zip(tabs, contents)
+            ],
+        ],
+    ]
+
+
+# Example usage
+
+tabs_view(
+    ["Overview", "Details", "Settings"],
+    [
+        Plot.dot([[1, 1], [2, 2], [3, 1]]) + Plot.grid(),
+        Plot.md("## Detailed Information\nThis is the details tab content."),
+        [
+            "div.p-4.bg-gray-50.rounded.flex.flex-col.gap-2",
+            [
+                "label.p-2.flex.items-center.gap-2",
+                ["input", {"type": "checkbox"}],
+                "Setting 1",
+            ],
+            [
+                "label.p-2.flex.items-center.gap-2",
+                ["input", {"type": "checkbox"}],
+                "Setting 2",
+            ],
+        ],
+    ],
+)
+# </example>
+# %%
 # </examples>

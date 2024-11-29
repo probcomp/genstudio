@@ -421,12 +421,12 @@ def _test_get_in():
     print("tests passed")
 
 
-def ellipse(values, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
+def ellipse(values: Any, options: dict[str, Any] = {}, **kwargs) -> PlotSpec:
     """
     Returns a new ellipse mark for the given *values* and *options*.
 
     If neither **x** nor **y** are specified, *values* is assumed to be an array of
-    pairs [[*x₀*, *y₀*], [*x₁*, *y₁*], [*x₂*, *y₂*], …] such that **x** = [*x₀*,
+    pairs [[*x₀*, *y₀*], [*x₁*, *y₁*], [*x₂*, *y₂*, …] such that **x** = [*x₀*,
     *x₁*, *x₂*, …] and **y** = [*y₀*, *y₁*, *y₂*, …].
 
     The **rx** and **ry** options specify the x and y radii respectively. If only
@@ -670,44 +670,42 @@ def colorLegend():
 color_legend = colorLegend  # backwards compat
 
 
-def clip() -> dict[str, bool]:
+def clip() -> dict:
     """Sets `{"clip": True}`."""
     return {"clip": True}
 
 
-def title(title: str) -> dict[str, str]:
+def title(title: Any) -> dict:
     """Sets `{"title": title}`."""
     return {"title": title}
 
 
-def subtitle(subtitle: str) -> dict[str, str]:
+def subtitle(subtitle: Any) -> dict:
     """Sets `{"subtitle": subtitle}`."""
     return {"subtitle": subtitle}
 
 
-def caption(caption: str) -> dict[str, str]:
+def caption(caption: Any) -> dict:
     """Sets `{"caption": caption}`."""
     return {"caption": caption}
 
 
-def width(width: Union[int, float, str]) -> dict[str, Union[int, float, str]]:
+def width(width: Any) -> dict:
     """Sets `{"width": width}`."""
     return {"width": width}
 
 
-def height(height: Union[int, float, str]) -> dict[str, Union[int, float, str]]:
+def height(height: Any) -> dict:
     """Sets `{"height": height}`."""
     return {"height": height}
 
 
-def size(
-    size: Union[int, float, str], height: Optional[Union[int, float, str]] = None
-) -> dict[str, Union[int, float, str]]:
+def size(size: Any, height: Any = None) -> dict:
     """Sets width and height, using size for both if height not specified."""
     return {"width": size, "height": height or size}
 
 
-def aspectRatio(r: Union[int, float]) -> dict[str, Union[int, float]]:
+def aspectRatio(r: Any) -> dict:
     """Sets `{"aspectRatio": r}`."""
     return {"aspectRatio": r}
 
@@ -715,35 +713,33 @@ def aspectRatio(r: Union[int, float]) -> dict[str, Union[int, float]]:
 aspect_ratio = aspectRatio  # backwards compat
 
 
-def inset(i: Union[int, float]) -> dict[str, Union[int, float]]:
+def inset(i: Any) -> dict:
     """Sets `{"inset": i}`."""
     return {"inset": i}
 
 
-def colorScheme(name: str) -> dict[str, dict[str, str]]:
+def colorScheme(name: Any) -> dict:
     """Sets `{"color": {"scheme": <name>}}`."""
     # See https://observablehq.com/plot/features/scales#color-scales
     return {"color": {"scheme": name}}
 
 
-def domainX(d: List[Any]) -> dict[str, dict[str, List[Any]]]:
+def domainX(d: Any) -> dict:
     """Sets `{"x": {"domain": d}}`."""
     return {"x": {"domain": d}}
 
 
-def domainY(d: List[Any]) -> dict[str, dict[str, List[Any]]]:
+def domainY(d: Any) -> dict:
     """Sets `{"y": {"domain": d}}`."""
     return {"y": {"domain": d}}
 
 
-def domain(
-    x: List[Any], y: Optional[List[Any]] = None
-) -> dict[str, dict[str, List[Any]]]:
+def domain(x: Any, y: Any = None) -> dict:
     """Sets domain for x and optionally y scales."""
     return {"x": {"domain": x}, "y": {"domain": y or x}}
 
 
-def colorMap(mappings: dict[str, str]) -> dict[str, dict[str, str]]:
+def colorMap(mappings: Any) -> dict:
     """
     Adds colors to the plot's color_map. More than one colorMap can be specified
     and colors will be merged. This is a way of dynamically building up a color scale,
@@ -771,7 +767,7 @@ def colorMap(mappings: dict[str, str]) -> dict[str, dict[str, str]]:
 color_map = colorMap  # backwards compat
 
 
-def margin(*args: Union[int, float]) -> dict[str, Union[int, float]]:
+def margin(*args: Any) -> dict:
     """
     Set margin values for a plot using CSS-style margin shorthand.
 
@@ -933,7 +929,7 @@ _Slider = JSRef("Slider")
 def Slider(
     key: str,
     init: Any = None,
-    range: Optional[Union[int, List[int]]] = None,
+    range: Optional[Union[int, float, List[Union[int, float]]]] = None,
     **kwargs: Any,
 ):
     """

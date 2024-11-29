@@ -67,6 +67,7 @@ export class EventHandler extends Plot.Mark {
       x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 
     const handleMouseDown = (event) => {
+      event.preventDefault()
       const rect = drawingArea.getBoundingClientRect();
       if (!isWithinDrawingArea(rect, event.clientX, event.clientY)) return;
 
