@@ -1,3 +1,11 @@
+### [2024.11.022] - Nov 30, 2024
+
+- in python, apply updates immutably
+- add tab example to llms.py
+- event.preventDefault() in Plot.events handleMouseDown
+- relax types, because JSCode can be anywhere
+- fix Row/Column ordering
+
 ### [2024.11.021] - Nov 28, 2024
 
 - add types
