@@ -106,7 +106,7 @@ class LayoutItem:
         if isinstance(self, Row):
             return Row(*self.items, other)
         if isinstance(other, Row):
-            return Row(*other.items, self)
+            return Row(self, *other.items)
         return Row(self, other)
 
     def __rand__(self, other: Any) -> "Row":
@@ -118,7 +118,7 @@ class LayoutItem:
         if isinstance(self, Column):
             return Column(*self.items, other)
         if isinstance(other, Column):
-            return Column(*other.items, self)
+            return Column(self, *other.items)
         return Column(self, other)
 
     def __ror__(self, other: Any) -> "Column":
