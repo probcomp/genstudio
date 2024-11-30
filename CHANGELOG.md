@@ -1,3 +1,8 @@
+### [2024.11.023] - Nov 30, 2024
+
+- Plot.events: only preventDefault on mousedown when in rectangle and dragging is enabled
+- Slider: don't clobber initialState value
+
 ### [2024.11.022] - Nov 30, 2024
 
 - in python, apply updates immutably
