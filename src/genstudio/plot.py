@@ -986,11 +986,12 @@ def Slider(
         raise ValueError("Slider: 'init', 'range', or 'rangeFrom' must be defined")
     if tail and rangeFrom is None:
         raise ValueError("Slider: 'tail' can only be used when 'rangeFrom' is provided")
-    init = init if init is not None else 0
-
+    init = (
+        Ref(init, state_key=key, sync=True) if init is not None else js(f"$state.{key}")
+    )
     slider_options = {
         "state_key": key,
-        "init": Ref(init, state_key=key, sync=True),
+        "init": init,
         "range": range,
         "kind": "Slider",
         **kwargs,
