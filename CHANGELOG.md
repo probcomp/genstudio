@@ -1,3 +1,7 @@
+### [2024.12.001] - Dec 01, 2024
+
+- Plot.events: add event.key for draw events to distinguish lines in 32 bits
+
 ### [2024.11.023] - Nov 30, 2024
 
 - Plot.events: only preventDefault on mousedown when in rectangle and dragging is enabled
