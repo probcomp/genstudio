@@ -25,6 +25,11 @@ function resolveRef(node, $state) {
   return node;
 }
 
+function createEvalEnv() {
+  const env = { d3, Plot, React };
+  return env;
+}
+
 export function evaluate(node, $state, experimental, buffers) {
   if (node === null || typeof node !== "object") return node;
   if (Array.isArray(node))
@@ -63,10 +68,13 @@ export function evaluate(node, $state, experimental, buffers) {
       );
       const paramVars = params.map((_, i) => `p${i}`);
       const code = source.replace(/%(\d+)/g, (_, i) => `p${parseInt(i) - 1}`);
-      return new Function("$state", "d3", "Plot", ...paramVars, code)(
+
+      // Use the evaluation environment
+      const env = $state.evalEnv;
+
+      return new Function("$state", ...Object.keys(env), ...paramVars, code)(
         $state,
-        d3,
-        Plot,
+        ...Object.values(env),
         ...params
       );
     case "datetime":
@@ -268,6 +276,7 @@ export function createStateStore({
   listeners = {},
   experimental,
   buffers,
+  evalEnv
 }) {
   syncedKeys = new Set(syncedKeys);
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
@@ -386,7 +395,7 @@ export function createStateStore({
   const $state = new Proxy(
     {
       evaluate: (ast) => evaluate(ast, $state, experimental, buffers),
-
+      evalEnv,
       __backfill: function (data) {
         syncedKeys = new Set(data.syncedKeys);
         for (const [key, value] of Object.entries(data.initialState)) {
@@ -458,7 +467,7 @@ const replaceBuffers = (data, buffers) => {
 
 export const StateProvider = mobxReact.observer(function (data) {
   const { ast, initialState, experimental, model } = data;
-  const $state = useMemo(() => createStateStore(data), []);
+  const $state = useMemo(() => createStateStore({...data, evalEnv: createEvalEnv()}), []);
 
   // a currentAst state field managed by the following useEffect hook,
   // to ensure that an ast is only rendered after $state has been populated
