@@ -16,12 +16,12 @@ export class EventHandler extends Plot.Mark {
   /**
    * Creates a new event handler mark.
    * @param {Object} options - Configuration options for the event handler mark.
-   * @param {Function} [options.onDrawStart] - Callback function called when drawing starts. Receives an event object with {type: "drawstart", x, y, startTime}.
-   * @param {Function} [options.onDraw] - Callback function called during drawing. Receives an event object with {type: "draw", x, y, startTime}.
-   * @param {Function} [options.onDrawEnd] - Callback function called when drawing ends. Receives an event object with {type: "drawend", x, y, startTime}.
-   * @param {Function} [options.onMouseMove] - Callback function called when the mouse moves over the drawing area. Receives an event object with {type: "mousemove", x, y}.
-   * @param {Function} [options.onClick] - Callback function called when the drawing area is clicked. Receives an event object with {type: "click", x, y}.
-   * @param {Function} [options.onMouseDown] - Callback function called when the mouse button is pressed down. Receives an event object with {type: "mousedown", x, y, startTime}.
+   * @param {Function} [options.onDrawStart] - Callback function called when drawing starts. Receives an event object with {type: "drawstart", x, y, startTime, key}.
+   * @param {Function} [options.onDraw] - Callback function called during drawing. Receives an event object with {type: "draw", x, y, startTime, key}.
+   * @param {Function} [options.onDrawEnd] - Callback function called when drawing ends. Receives an event object with {type: "drawend", x, y, startTime, key}.
+   * @param {Function} [options.onMouseMove] - Callback function called when the mouse moves over the drawing area. Receives an event object with {type: "mousemove", x, y, key}.
+   * @param {Function} [options.onClick] - Callback function called when the drawing area is clicked. Receives an event object with {type: "click", x, y, key}.
+   * @param {Function} [options.onMouseDown] - Callback function called when the mouse button is pressed down. Receives an event object with {type: "mousedown", x, y, startTime, key}.
    */
   constructor(options = {}) {
     super([null], {}, options, {
@@ -54,13 +54,15 @@ export class EventHandler extends Plot.Mark {
     let currentDrawingRect = null;
     let drawingArea = null;
     let scaleFactors;
-    let drawStartTime;
+    let lineStartTime;
+    let lineKey;
 
     const eventData = (eventType, point) => ({
       type: eventType,
       x: point[0],
       y: point[1],
-      startTime: drawStartTime
+      startTime: lineStartTime,
+      key: lineKey
     });
 
     const isWithinDrawingArea = (rect, x, y) =>
@@ -79,7 +81,8 @@ export class EventHandler extends Plot.Mark {
       if (this.onDrawStart || this.onDraw || this.onDrawEnd) {
         event.preventDefault()
         currentDrawingRect = rect;
-        drawStartTime = Date.now();
+        lineStartTime = Date.now();
+        lineKey = (Math.round(offsetX * offsetY * lineStartTime) % (2**32));
         this.onDrawStart?.(eventData("drawstart", point));
       }
 
@@ -92,7 +95,8 @@ export class EventHandler extends Plot.Mark {
         const point = invertPoint(offsetX, offsetY, scales, scaleFactors);
         this.onDrawEnd?.(eventData("drawend", point));
         currentDrawingRect = null;
-        drawStartTime = null;
+        lineStartTime = null;
+        lineKey = null;
       }
 
     };
