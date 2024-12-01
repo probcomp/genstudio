@@ -1,3 +1,7 @@
+### [2024.12.003] - Dec 01, 2024
+
+- Add html to evaluation env
+
 ### [2024.12.002] - Dec 01, 2024
 
 - add React to evaluation env
