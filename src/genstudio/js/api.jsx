@@ -391,6 +391,10 @@ export function Hiccup(tag, props, ...children) {
     return React.createElement(baseTag, props, children.map(node));
 }
 
+export function html(element) {
+    return Hiccup(...element)
+}
+
 function parsePairs(args) {
     const pairs = [];
     let valueElse;

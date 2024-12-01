@@ -26,7 +26,7 @@ function resolveRef(node, $state) {
 }
 
 function createEvalEnv() {
-  const env = { d3, Plot, React };
+  const env = { d3, Plot, React, html: api.html };
   return env;
 }
 
