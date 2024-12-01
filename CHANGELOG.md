@@ -1,3 +1,7 @@
+### [2024.12.002] - Dec 01, 2024
+
+- add React to evaluation env
+
 ### [2024.12.001] - Dec 01, 2024
 
 - Plot.events: add event.key for draw events to distinguish lines in 32 bits
