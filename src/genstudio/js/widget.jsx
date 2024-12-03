@@ -28,7 +28,7 @@ function resolveRef(node, $state) {
 
 async function createEvalEnv() {
 
-  const env = { d3, Plot, React };
+  const env = { d3, Plot: api, html: api.html, React };
 
   // Process imports in order
   for (const [name, spec] of imports) {
