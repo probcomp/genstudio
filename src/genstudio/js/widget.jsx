@@ -1,5 +1,4 @@
 import * as AnyWidgetReact from "@anywidget/react";
-import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import * as mobx from "mobx";
 import * as mobxReact from "mobx-react-lite";
@@ -8,7 +7,7 @@ import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
 import { evaluateNdarray, inferDtype, estimateJSONSize } from "./binary";
 import { $StateContext, CONTAINER_PADDING } from "./context";
-import { serializeEvent, useCellUnmounted, tw } from "./utils";
+import { serializeEvent, useCellUnmounted, tw, binding } from "./utils";
 
 const { createRender, useModelState, useModel, useExperimental } =
   AnyWidgetReact;
@@ -24,51 +23,117 @@ function resolveRef(node, $state) {
   }
   return node;
 }
+window.genstudio = {api, d3, React};
+window.moduleCache = window.moduleCache || new Map();
 
+async function createEvalEnv(imports) {
+  const env = { ...window.genstudio };
 
-async function createEvalEnv() {
-
-  const env = { d3, Plot: api, html: api.html, React };
-
-  // Process imports in order
-  for (const [name, spec] of imports) {
+  // Helper to evaluate non-ESM code in a controlled scope
+  function evaluateScript(source, scope = {}) {
+    const scopeKeys = Object.keys(scope);
+    const scopeValues = Object.values(scope);
+    // Set imports on genstudio before eval
+    window.genstudio.imports = scope;
     try {
-      if (spec.type === 'module') {
-        // ESM module from URL
-        env[name] = await import(spec.url);
-      } else if (spec.type === 'source') {
-        if (spec.module) {
-          // ES Module style source
-          const blob = new Blob(
-            [spec.source],
-            { type: 'text/javascript' }
-          );
-          const url = URL.createObjectURL(blob);
-          try {
-            env[name] = await import(url);
-          } finally {
-            URL.revokeObjectURL(url);
+      return new Function(...scopeKeys, `with(this) {\n${source}\n}`).apply(scope, scopeValues);
+    } finally {
+      delete window.genstudio.imports;
+    }
+  }
+
+  for (const spec of imports) {
+    try {
+      // Validate source specification
+      const sourceTypes = ['url', 'source'].filter(t => spec[t]);
+      if (sourceTypes.length !== 1) {
+        throw new Error('Exactly one of url=, path=, or source= must be specified');
+      }
+
+      let module;
+      const format = spec.format || 'esm'; // Default to ESM
+
+      // Check cache first
+      const cacheKey = spec.url || spec.source;
+      if (moduleCache.has(cacheKey)) {
+        module = moduleCache.get(cacheKey);
+      } else {
+        if (format === 'esm') {
+          // Original ESM handling
+          if (spec.url) {
+            module = await import(spec.url);
+          } else {
+            const sourceBlob = new Blob([spec.source], { type: 'text/javascript' });
+            const url = URL.createObjectURL(sourceBlob);
+            try {
+              module = await import(url);
+            } finally {
+              URL.revokeObjectURL(url);
+            }
           }
         } else {
-          // CommonJS style source
-          const moduleFactory = new Function(
-            'React', 'd3', 'Plot',
-            ...Object.keys(env),
-            `
-            const exports = {};
-            const module = { exports };
-            ${spec.source}
-            return module.exports;
-            `
-          );
-          env[name] = moduleFactory(
-            React, d3, Plot,
-            ...Object.values(env)
-          );
+          // Handle non-ESM scripts
+          let source;
+          if (spec.url) {
+            const response = await fetch(spec.url);
+            source = await response.text();
+          } else {
+            source = spec.source;
+          }
+
+          // Create a module-like object from the evaluated script
+          const exports = {};
+          const moduleScope = {
+            ...env, // Allow access to previously loaded modules
+            exports,
+            module: { exports }
+          };
+
+          evaluateScript(source, moduleScope);
+          module = moduleScope.module.exports;
+        }
+
+        // Cache the loaded module
+        moduleCache.set(cacheKey, module);
+      }
+
+      // Handle default export
+      if (spec.default) {
+        if (!module.default) {
+          throw new Error(`No default export found in module ${spec.url || spec.path || 'inline source'}`);
+        }
+        env[spec.default] = module.default;
+      }
+
+      // Handle namespace alias
+      if (spec.alias) {
+        env[spec.alias] = module;
+      }
+
+      // Handle refers
+      if (spec.refer) {
+        for (const key of spec.refer) {
+          if (!(key in module)) {
+            throw new Error(`${key} not found in module`);
+          }
+          const newName = spec.rename?.[key] || key;
+          env[newName] = module[key];
         }
       }
+
+      // Handle refer_all
+      if (spec.refer_all) {
+        const excludeSet = new Set(spec.exclude || []);
+        for (const [key, value] of Object.entries(module)) {
+          if (key !== 'default' && !excludeSet.has(key)) {
+            env[key] = value;
+          }
+        }
+      }
+
     } catch (e) {
-      console.error(`Failed to process import ${name}:`, e);
+      console.error(`Failed to process import:`, e);
+      console.error(`Spec:`, spec);
     }
   }
   return env;
@@ -114,7 +179,7 @@ export function evaluate(node, $state, experimental, buffers) {
       const code = source.replace(/%(\d+)/g, (_, i) => `p${parseInt(i) - 1}`);
 
       // Use the evaluation environment
-      const env = $state.evalEnv;
+      const env = $state.__evalEnv;
 
       return new Function("$state", ...Object.keys(env), ...paramVars, code)(
         $state,
@@ -432,10 +497,10 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
   const $state = new Proxy(
     {
       evaluate: (ast) => evaluate(ast, $state, experimental, buffers),
-      evalEnv,
-      __backfill: function (data) {
-        syncedKeys = new Set(data.syncedKeys);
-        for (const [key, value] of Object.entries(data.initialState)) {
+      __evalEnv: evalEnv,
+      __backfill: function (initialState, syncedKeys) {
+        syncedKeys = new Set(syncedKeys);
+        for (const [key, value] of Object.entries(initialState)) {
           if (!initialStateMap.has(key)) {
             initialStateMap.set(key, value);
           }
@@ -504,7 +569,7 @@ const replaceBuffers = (data, buffers) => {
 
 export const StateProvider = mobxReact.observer(
   function (data) {
-    const { ast, imports, initialState, model } = data
+    const { ast, syncedKeys, imports, initialState, model } = data
     const [evalEnv, setEnv] = useState(null);
 
     useEffect(() => {
@@ -513,7 +578,7 @@ export const StateProvider = mobxReact.observer(
 
     const $state = useMemo(
       () =>
-        createStateStore({
+        evalEnv && createStateStore({
           ...data,
           evalEnv,
         }),
@@ -528,14 +593,14 @@ export const StateProvider = mobxReact.observer(
 
       // when the widget is reset with a new ast/initialState, add missing entries
       // to the initialState and then reset the current ast.
-      $state.backfill(data)
+      $state.__backfill(initialState, syncedKeys)
       setCurrentAst(ast)
-    }, [ast, initialState, evalEnv])
+    }, [ast, initialState, $state])
 
   useEffect(() => {
     // if we have an AnyWidget model (ie. we are in widget model),
     // listen for `update_state` events.
-    if (model) {
+    if ($state && model) {
       const cb = (msg, buffers) => {
         if (msg.type === "update_state") {
           $state.__updateLocal(replaceBuffers(msg.updates, buffers));
@@ -544,7 +609,7 @@ export const StateProvider = mobxReact.observer(
       model.on("msg:custom", cb);
       return () => model.off("msg:custom", cb);
     }
-  }, [initialState, model, $state]);
+  }, [model, $state]);
 
   if (!currentAst) return;
 
@@ -554,6 +619,33 @@ export const StateProvider = mobxReact.observer(
     </$StateContext.Provider>
   );
 });
+
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className={tw("p-4 border border-red-500 rounded bg-red-50")}>
+          <h2 className={tw("text-red-700 font-bold mb-2")}>Something went wrong</h2>
+          <pre className={tw("text-sm text-red-600 whitespace-pre-wrap")}>
+            {this.state.error?.message}
+          </pre>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function Viewer(data) {
   const [el, setEl] = useState();
@@ -570,7 +662,11 @@ function Viewer(data) {
       style={{ padding: CONTAINER_PADDING }}
       ref={elRef}
     >
-      {el && <StateProvider {...data} />}
+      {el && (
+        <ErrorBoundary>
+          <StateProvider {...data} />
+        </ErrorBoundary>
+      )}
       {data.size && data.dev && (
         <div className={tw("text-xl p-3")}>{data.size}</div>
       )}

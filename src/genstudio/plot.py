@@ -3,6 +3,8 @@
 import json
 from typing import Any, Dict, List, Union, Optional
 
+import pathlib
+
 import genstudio.plot_defs as plot_defs
 from genstudio.layout import (
     Column,
@@ -1123,74 +1125,108 @@ def dimensions(data, dimensions=[], leaves=None):
     return Dimensioned(data, dimensions)
 
 
-class Import(LayoutItem):
+def Import(
+    url: Optional[str] = None,
+    path: Optional[str] = None,
+    source: Optional[str] = None,
+    alias: Optional[str] = None,
+    default: Optional[str] = None,
+    refer: Optional[list[str]] = None,
+    refer_all: bool = False,
+    rename: Optional[dict[str, str]] = None,
+    exclude: Optional[list[str]] = None,
+    format: str = "esm",
+) -> LayoutItem:
     """Import JavaScript code into the GenStudio environment.
 
+    Exactly one of url=, path=, or source= must be specified.
+
     Args:
-        name_or_imports: Either:
-            - str: Name for a single import (requires spec argument)
-            - dict: Multiple imports as {name: spec} pairs
-        spec: Import specification for single import, either:
-            - {"url": "..."} for ES modules from CDN/URL
-            - {"source": "...", "format": "commonjs"|"esm"} for source code
-            - str: Shorthand for {"source": str, "format": "commonjs"}
+        url: URL for ES modules from CDN/URL
+        path: Path to local JavaScript file
+        source: Inline JavaScript source code
+        alias: Namespace alias for the entire module
+        default: Name for the default export
+        refer: Set of names to import directly, or True to import all
+        refer_all: Alternative to refer=True
+        rename: Dict of original->new names for referred imports
+        exclude: Set of names to exclude when using refer_all
 
     Examples:
-        # Single imports
-        >>> Plot.Import("vega", {"url": "https://cdn.skypack.dev/vega@5.22.1"})
-        >>> Plot.Import("utils", '''
-        ...     function format(x) { return x.toFixed(2); }
-        ...     module.exports = { format };
-        ... ''')
-        >>> Plot.Import("utils", {
-        ...     "source": '''
-        ...     function format(x) { return x.toFixed(2); }
-        ...     module.exports = { format };
-        ...     ''',
-        ...     "format": "commonjs"
-        ... })
+        # CDN import with namespace alias
+        >>> Plot.require(
+        ...     url="https://cdn.skypack.dev/lodash-es",
+        ...     alias="_",
+        ...     refer=["flattenDeep", "partition"],
+        ...     rename=["flattenDeep": "deepFlatten"]
+        ... )
 
-        # Multiple imports
-        >>> Plot.Import({
-        ...     "vega": {"url": "https://cdn.skypack.dev/vega@5.22.1"},
-        ...     "utils": "module.exports = { format: x => x.toFixed(2) }"
-        ... })
+        # Local file import
+        >>> Plot.require(
+        ...     path="src/app/utils.js", # relative to working directory
+        ...     refer=["formatDate"]
+        ... )
+
+        # Inline source with refer_all
+        >>> Plot.require(
+        ...     source='''
+        ...     export const add = (a, b) => a + b;
+        ...     export const subtract = (a, b) => a - b;
+        ...     ''',
+        ...     refer_all=True,
+        ...     exclude=["subtract"]
+        ... )
+
+        # Default export handling
+        >>> Plot.require(
+        ...     url="https://cdn.skypack.dev/d3-scale",
+        ...     default="createScale"
+        ... )
     """
 
-    def __init__(self, name_or_imports, spec=None):
-        super().__init__()
-        if spec is not None:
-            # Single import
-            imports = {name_or_imports: self._normalize_spec(spec)}
-        else:
-            # Multiple imports
-            imports = {
-                name: self._normalize_spec(spec)
-                for name, spec in name_or_imports.items()
-            }
+    # Validate source specification
+    sources = sum(1 for s in (url, path, source) if s is not None)
+    if sources != 1:
+        raise ValueError("Exactly one of url=, path=, or source= must be specified")
 
-        self._state_imports = {
-            name: self._process_spec(spec) for name, spec in imports.items()
-        }
+    # Create spec for the import
+    spec: dict[str, Union[str, list[str], bool, dict[str, str]]] = {"format": format}
 
-    def _normalize_spec(self, spec):
-        """Convert string specs to dict format"""
-        if isinstance(spec, str):
-            return {"source": spec, "format": "commonjs"}
-        return spec
+    if url:
+        spec["url"] = url
+    elif path:
+        try:
+            resolved_path = pathlib.Path.cwd() / path
+            with open(resolved_path) as f:
+                spec["source"] = f.read()
+        except Exception as e:
+            raise ValueError(f"Failed to load file at {path}: {e}")
+    elif source is not None:
+        spec["source"] = source
 
-    def _process_spec(self, spec):
-        """Convert normalized spec to internal format"""
-        if "url" in spec:
-            return {"type": "module", "url": spec["url"]}
-        return {
-            "type": "source",
-            "source": spec["source"],
-            "module": spec.get("format") == "esm",
-        }
+    if alias:
+        spec["alias"] = alias
+    if default:
+        spec["default"] = str(default)
+    if refer:
+        spec["refer"] = refer
+    if refer_all:
+        spec["refer_all"] = True
+    if rename:
+        spec["rename"] = rename
+    if exclude:
+        spec["exclude"] = exclude
 
-    def for_json(self):
-        return None
+    class RequireItem(LayoutItem):
+        def __init__(self, spec):
+            super().__init__()
+            # Store as a list of specs instead of dict
+            self._state_imports = [spec]
+
+        def for_json(self):
+            return None
+
+    return RequireItem(spec)
 
 
 # Add this near the top of the file, after the imports

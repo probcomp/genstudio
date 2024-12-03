@@ -26,7 +26,7 @@ class CollectedState:
         self.initialState = {}
         self.initialStateJSON = {}
         self.listeners = {"py": {}, "js": {}}
-        self.imports = []  # Changed to list to maintain order
+        self.imports = []  # List of import specs
 
     def state_entry(self, state_key, value, sync=False, **kwargs):
         if sync:
@@ -36,15 +36,13 @@ class CollectedState:
             self.initialStateJSON[state_key] = to_json(value, **kwargs)
         return {"__type__": "ref", "state_key": state_key}
 
-    def add_import(self, name: str, spec: dict):
+    def add_import(self, spec: dict):
         """Add an import specification.
 
         Args:
-            name: Name to use when referencing the module
-            spec: Import specification with 'type' and either 'url' or 'source'
+            spec: Import specification with format, source info, and options
         """
-        if name != "__type__":  # Skip the type marker
-            self.imports.append((name, spec))  # Append tuple to maintain order
+        self.imports.append(spec)
         return None
 
     def _add_listener(self, state_key, listener):
@@ -109,8 +107,8 @@ def to_json(
     # Handle state-related objects
     if collected_state is not None:
         if hasattr(data, "_state_imports"):
-            for name, spec in data._state_imports.items():
-                collected_state.add_import(name, spec)
+            for spec in data._state_imports:
+                collected_state.add_import(spec)
             return None
         if hasattr(data, "_state_key"):
             return collected_state.state_entry(
