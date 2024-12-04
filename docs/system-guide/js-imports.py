@@ -10,7 +10,7 @@
 # Import from CDN
 import genstudio.plot as Plot
 
-Plot.Import(url="https://cdn.skypack.dev/lodash-es", refer=["sum"]) | Plot.js(
+Plot.Import(source="https://cdn.skypack.dev/lodash-es", refer=["sum"]) | Plot.js(
     "sum([1, 2, 3])"
 )
 
@@ -28,17 +28,19 @@ Plot.Import(
 # - ES Modules (ESM) format is supported by default. CommonJS modules can be used by setting format="commonjs".
 #   When using CommonJS format, previous imports are available via `genstudio.imports`.
 # - Imports are processed in the order they appear in a plot.
+# - Imported modules are cached by source content to avoid reloading
 #
 # ## Import Sources
 # There are three ways to provide JavaScript code to import:
 #
-# - `url`: Import from a CDN or web URL
-# - `path`: Import from a local file (relative to current working directory)
-# - `source`: Import inline JavaScript source code
+# - Remote URL: Import from a CDN or web URL starting with http(s)://
+# - Local file: Import from a local file using "path:" prefix (relative to working directory)
+# - Inline: Import JavaScript source code directly as a string
 #
 # ## Import Options
 # Control how imports are exposed in your code:
 #
+# - `source`: Required. The JavaScript code to import (URL, file path, or inline code)
 # - `alias`: Create a namespace object containing all exports
 # - `default`: Import the default export with a specific name
 # - `refer`: List of named exports to import
@@ -48,14 +50,16 @@ Plot.Import(
 # - `format`: Module format - "esm" (default) or "commonjs"
 #
 # ## GenStudio API Access
-# Your JavaScript code can access `genstudio.api` which  for HTML rendering (`html` tagged template)
+# Your JavaScript code can access:
+# - `genstudio.api`: Core utilities like HTML rendering (`html` tagged template), d3, React
+# - `genstudio.imports`: Previous imports in the current plot
 # %%
 import genstudio.plot as Plot
 
 # %%
 # CDN import showing namespace alias and selective imports
 Plot.Import(
-    url="https://cdn.skypack.dev/lodash-es",
+    source="https://cdn.skypack.dev/lodash-es",
     alias="_",
     refer=["flattenDeep", "partition"],
     rename={"flattenDeep": "deepFlatten"},
@@ -66,7 +70,7 @@ Plot.Import(
 
 # %%
 # Local file import - useful for project-specific code
-Plot.Import(path="docs/system-guide/sample.js", refer=["formatDate"]) | Plot.js(
+Plot.Import(source="path:docs/system-guide/sample.js", refer=["formatDate"]) | Plot.js(
     "formatDate(new Date())"
 )
 # JS equivalent:
@@ -91,13 +95,14 @@ Plot.Import(
 # %%
 # Cherry-picking specific functions from a module
 Plot.Import(
-    url="https://cdn.skypack.dev/d3-scale",
+    source="https://cdn.skypack.dev/d3-scale",
     refer=["scaleLinear", "scaleLog", "scaleTime"],
 ) | Plot.js("scaleLinear().domain([0, 1]).range([0, 100])(0.5)")
 # JS equivalent:
 # import { scaleLinear, scaleLog, scaleTime } from "https://cdn.skypack.dev/d3-scale"
 
 # %%
+# Using genstudio.api utilities
 Plot.Import(
     source="""
     const {html} = genstudio.api;
@@ -109,7 +114,7 @@ Plot.Import(
 # import { greeting } from "[inline module]"
 
 # %%
-# CommonJS modules can depend on previous imports
+# CommonJS modules can access previous imports via genstudio.imports
 (
     Plot.Import(
         source="""

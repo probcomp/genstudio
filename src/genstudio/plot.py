@@ -1126,9 +1126,7 @@ def dimensions(data, dimensions=[], leaves=None):
 
 
 def Import(
-    url: Optional[str] = None,
-    path: Optional[str] = None,
-    source: Optional[str] = None,
+    source: str,
     alias: Optional[str] = None,
     default: Optional[str] = None,
     refer: Optional[list[str]] = None,
@@ -1139,36 +1137,36 @@ def Import(
 ) -> LayoutItem:
     """Import JavaScript code into the GenStudio environment.
 
-    Exactly one of url=, path=, or source= must be specified.
-
     Args:
-        url: URL for ES modules from CDN/URL
-        path: Path to local JavaScript file
-        source: Inline JavaScript source code
+        source: JavaScript source code. Can be:
+            - Inline JavaScript code
+            - URL starting with http(s):// for remote modules
+            - Local file path starting with path: prefix
         alias: Namespace alias for the entire module
         default: Name for the default export
         refer: Set of names to import directly, or True to import all
         refer_all: Alternative to refer=True
         rename: Dict of original->new names for referred imports
         exclude: Set of names to exclude when using refer_all
+        format: Module format ('esm' or 'commonjs')
 
     Examples:
         # CDN import with namespace alias
-        >>> Plot.require(
-        ...     url="https://cdn.skypack.dev/lodash-es",
+        >>> Plot.Import(
+        ...     source="https://cdn.skypack.dev/lodash-es",
         ...     alias="_",
         ...     refer=["flattenDeep", "partition"],
-        ...     rename=["flattenDeep": "deepFlatten"]
+        ...     rename={"flattenDeep": "deepFlatten"}
         ... )
 
         # Local file import
-        >>> Plot.require(
-        ...     path="src/app/utils.js", # relative to working directory
+        >>> Plot.Import(
+        ...     source="path:src/app/utils.js",  # relative to working directory
         ...     refer=["formatDate"]
         ... )
 
         # Inline source with refer_all
-        >>> Plot.require(
+        >>> Plot.Import(
         ...     source='''
         ...     export const add = (a, b) => a + b;
         ...     export const subtract = (a, b) => a - b;
@@ -1178,30 +1176,25 @@ def Import(
         ... )
 
         # Default export handling
-        >>> Plot.require(
-        ...     url="https://cdn.skypack.dev/d3-scale",
+        >>> Plot.Import(
+        ...     source="https://cdn.skypack.dev/d3-scale",
         ...     default="createScale"
         ... )
     """
 
-    # Validate source specification
-    sources = sum(1 for s in (url, path, source) if s is not None)
-    if sources != 1:
-        raise ValueError("Exactly one of url=, path=, or source= must be specified")
-
     # Create spec for the import
     spec: dict[str, Union[str, list[str], bool, dict[str, str]]] = {"format": format}
 
-    if url:
-        spec["url"] = url
-    elif path:
+    # Handle source based on prefix
+    if source.startswith("path:"):
+        path = source[5:]  # Remove 'path:' prefix
         try:
             resolved_path = pathlib.Path.cwd() / path
             with open(resolved_path) as f:
                 spec["source"] = f.read()
         except Exception as e:
             raise ValueError(f"Failed to load file at {path}: {e}")
-    elif source is not None:
+    else:
         spec["source"] = source
 
     if alias:

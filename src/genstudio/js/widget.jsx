@@ -23,6 +23,8 @@ function resolveRef(node, $state) {
   }
   return node;
 }
+
+
 window.genstudio = {api, d3, React};
 window.moduleCache = window.moduleCache || new Map();
 
@@ -44,24 +46,21 @@ async function createEvalEnv(imports) {
 
   for (const spec of imports) {
     try {
-      // Validate source specification
-      const sourceTypes = ['url', 'source'].filter(t => spec[t]);
-      if (sourceTypes.length !== 1) {
-        throw new Error('Exactly one of url=, path=, or source= must be specified');
+      if (!spec.source) {
+        throw new Error('source must be specified');
       }
 
       let module;
       const format = spec.format || 'esm'; // Default to ESM
 
       // Check cache first
-      const cacheKey = spec.url || spec.source;
-      if (moduleCache.has(cacheKey)) {
-        module = moduleCache.get(cacheKey);
+      if (moduleCache.has(spec.source)) {
+        module = moduleCache.get(spec.source);
       } else {
         if (format === 'esm') {
-          // Original ESM handling
-          if (spec.url) {
-            module = await import(spec.url);
+          // Handle ESM modules
+          if (spec.source.startsWith('http')) {
+            module = await import(spec.source);
           } else {
             const sourceBlob = new Blob([spec.source], { type: 'text/javascript' });
             const url = URL.createObjectURL(sourceBlob);
@@ -74,8 +73,8 @@ async function createEvalEnv(imports) {
         } else {
           // Handle non-ESM scripts
           let source;
-          if (spec.url) {
-            const response = await fetch(spec.url);
+          if (spec.source.startsWith('http')) {
+            const response = await fetch(spec.source);
             source = await response.text();
           } else {
             source = spec.source;
@@ -94,13 +93,13 @@ async function createEvalEnv(imports) {
         }
 
         // Cache the loaded module
-        moduleCache.set(cacheKey, module);
+        moduleCache.set(spec.source, module);
       }
 
       // Handle default export
       if (spec.default) {
         if (!module.default) {
-          throw new Error(`No default export found in module ${spec.url || spec.path || 'inline source'}`);
+          throw new Error(`No default export found in module ${spec.source}`);
         }
         env[spec.default] = module.default;
       }
