@@ -139,14 +139,12 @@ Plot.Import(
 #
 # `Plot.Import` and `Plot.js` serve different purposes:
 #
-# - `Plot.Import`: Used to define reusable code, functions and dependencies that your plots will need. This is where you put implementation details and library code.
-# - `Plot.js`: Used to create and control your actual plots, possibly using the code imported via `Plot.Import`. This is where you compose your visualization.
-#
-# ### Key Differences
+# - `Plot.js`: Used to create and control your plots, reactively computed, using $state. Often this is all you need.
+# - `Plot.Import`: Used to define reusable code, functions and dependencies that can be used in `Plot.js`.
 #
 # #### Scope Access
-# - `Plot.js`'s scope includes `genstudio.api`, `$state`, `html`, and `d3`.
-# - `Plot.Import` must use `genstudio.imports` to access other imports, and requires `format="commonjs"` for this to work
+# - `Plot.js`'s scope includes `$state`, `html`, `d3`, all imports, and `genstudio.api`.
+# - `Plot.Import`'s scope includes `genstudio.api`. If `format="commonjs"`, then `genstudio.imports` are also available.
 #
 # %%
 # Direct scope access in Plot.js
@@ -203,31 +201,4 @@ Plot.Import(
     )
     | Plot.js("Counter($state)")
     | Plot.initialState({"count": 0})
-)
-
-Plot.js(
-    """
-// Create an SVG using d3
-const svg = d3.create("svg")
-  .attr("width", 200)
-  .attr("height", 200);
-
-// Add a circle
-svg.append("circle")
-  .attr("cx", 100)
-  .attr("cy", 100)
-  .attr("r", 50)
-  .attr("fill", "steelblue");
-
-// Add some text
-svg.append("text")
-  .attr("x", 100)
-  .attr("y", 100)
-  .attr("text-anchor", "middle")
-  .attr("fill", "white")
-  .text("D3 SVG");
-
-return html(["div", svg.node()]);
-""",
-    expression=False,
 )

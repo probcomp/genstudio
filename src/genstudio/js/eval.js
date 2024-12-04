@@ -16,16 +16,13 @@ window.html = api.html
 window.moduleCache = window.moduleCache || new Map();
 
 export async function createEvalEnv(imports) {
-  const env = { genstudio: {api} };
+  const envImports = {};
 
   // Helper to evaluate non-ESM code in a controlled scope
-  function evaluateScript(source, scope = {}) {
-    const scopeKeys = Object.keys(scope);
-    const scopeValues = Object.values(scope);
-    // Set imports on genstudio before eval
-    window.genstudio.imports = scope;
+  function evaluateScriptWithImports(source, scope) {
     try {
-      return new Function(...scopeKeys, `with(this) {\n${source}\n}`).apply(scope, scopeValues);
+      window.genstudio.imports = envImports;
+      return new Function(...Object.keys(scope), source)(...Object.values(scope));
     } finally {
       delete window.genstudio.imports;
     }
@@ -70,12 +67,10 @@ export async function createEvalEnv(imports) {
           // Create a module-like object from the evaluated script
           const exports = {};
           const moduleScope = {
-            ...env, // Allow access to previously loaded modules
             exports,
             module: { exports }
           };
-
-          evaluateScript(source, moduleScope);
+          evaluateScriptWithImports(source, moduleScope);
           module = moduleScope.module.exports;
         }
 
@@ -88,12 +83,12 @@ export async function createEvalEnv(imports) {
         if (!module.default) {
           throw new Error(`No default export found in module ${spec.source}`);
         }
-        env[spec.default] = module.default;
+        envImports[spec.default] = module.default;
       }
 
       // Handle namespace alias
       if (spec.alias) {
-        env[spec.alias] = module;
+        envImports[spec.alias] = module;
       }
 
       // Handle refers
@@ -103,7 +98,7 @@ export async function createEvalEnv(imports) {
             throw new Error(`${key} not found in module`);
           }
           const newName = spec.rename?.[key] || key;
-          env[newName] = module[key];
+          envImports[newName] = module[key];
         }
       }
 
@@ -112,7 +107,7 @@ export async function createEvalEnv(imports) {
         const excludeSet = new Set(spec.exclude || []);
         for (const [key, value] of Object.entries(module)) {
           if (key !== 'default' && !excludeSet.has(key)) {
-            env[key] = value;
+            envImports[key] = value;
           }
         }
       }
@@ -122,7 +117,7 @@ export async function createEvalEnv(imports) {
       console.error(`Spec:`, spec);
     }
   }
-  return env;
+  return { genstudio: {api}, ...envImports };;
 }
 
 export function evaluate(node, $state, experimental, buffers) {
