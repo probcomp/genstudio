@@ -1,4 +1,5 @@
 import * as api from "./api";
+import * as Plot from "@observablehq/plot";
 import { evaluateNdarray, inferDtype } from "./binary";
 import { serializeEvent } from "./utils";
 
@@ -7,12 +8,15 @@ function resolveReference(path, obj) {
 }
 
 // genstudio is on window so that ESM scripts can access it
-window.genstudio = {api, d3: api.d3, React: api.React};
+window.genstudio = {api};
+window.d3 = api.d3
+window.html = api.html
+
 // moduleCache is on window so that multiple copies of this script can share it
 window.moduleCache = window.moduleCache || new Map();
 
 export async function createEvalEnv(imports) {
-  const env = { ...window.genstudio };
+  const env = { genstudio: {api} };
 
   // Helper to evaluate non-ESM code in a controlled scope
   function evaluateScript(source, scope = {}) {

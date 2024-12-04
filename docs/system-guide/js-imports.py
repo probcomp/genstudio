@@ -25,10 +25,11 @@ Plot.Import(
 
 # ## Things to know
 # - Imports don't affect the global namespace: a `Plot.Import` only applies to the plot it is included in.
-# - ES Modules (ESM) format is supported by default. CommonJS modules can be used by setting format="commonjs".
-#   When using CommonJS format, previous imports are available via `genstudio.imports`.
-# - Imports are processed in the order they appear in a plot.
-# - Imported modules are cached by source content to avoid reloading
+# - Imports are processed in the order they appear.
+# - Imported modules are cached to avoid reloading.
+# - ES Modules (ESM) format is supported by default. CommonJS modules can be used by setting format="commonjs". Differences:
+#   - ESM can load from HTTP via `import` but can't access other plot imports
+#   - CommonJS cannot load external modules (eg. `require` won't work) but can access other plot imports by reading from `genstudio.imports`
 #
 # ## Import Sources
 # There are three ways to provide JavaScript code to import:
@@ -52,7 +53,7 @@ Plot.Import(
 # ## GenStudio API Access
 # Your JavaScript code can access:
 # - `genstudio.api`: Core utilities like HTML rendering (`html` tagged template), d3, React
-# - `genstudio.imports`: Previous imports in the current plot
+# - `genstudio.imports`: Previous imports in the current plot (only for CommonJS imports)
 # %%
 import genstudio.plot as Plot
 
@@ -114,7 +115,7 @@ Plot.Import(
 # import { greeting } from "[inline module]"
 
 # %%
-# CommonJS modules can access previous imports via genstudio.imports
+# CommonJS modules can access previous `genstudio.imports`
 (
     Plot.Import(
         source="""
@@ -131,4 +132,102 @@ Plot.Import(
         refer=["addTwice"],
     )
     | Plot.js("addTwice(5)")
+)
+
+# %% [markdown]
+# ## Plot.Import vs Plot.js
+#
+# `Plot.Import` and `Plot.js` serve different purposes:
+#
+# - `Plot.Import`: Used to define reusable code, functions and dependencies that your plots will need. This is where you put implementation details and library code.
+# - `Plot.js`: Used to create and control your actual plots, possibly using the code imported via `Plot.Import`. This is where you compose your visualization.
+#
+# ### Key Differences
+#
+# #### Scope Access
+# - `Plot.js`'s scope includes `genstudio.api`, `$state`, `html`, and `d3`.
+# - `Plot.Import` must use `genstudio.imports` to access other imports, and requires `format="commonjs"` for this to work
+#
+# %%
+# Direct scope access in Plot.js
+Plot.Import(
+    source="""
+    export const message = "Hello!";
+    """,
+    refer=["message"],
+) | Plot.js("message")  # Direct access to 'message'
+
+# %%
+# Must use genstudio and commonjs format in Plot.Import
+(
+    Plot.Import(
+        source="""
+        export const message = "Hello!";
+        """,
+        refer=["message"],
+    )
+    | Plot.Import(
+        source="""
+        const { message } = genstudio.imports;  // Access previous imports
+        exports.echo = () => message;
+        """,
+        refer=["echo"],
+        format="commonjs",
+    )
+    | Plot.js("echo()")
+)
+
+# %% [markdown]
+# ### Reactivity
+# - `Plot.js` automatically re-runs when `$state` changes
+# - `Plot.Import` code runs once at import time
+# - Functions in `Plot.Import` can be reactive by accepting `$state` parameter
+#
+# %%
+# Interactive counter example
+(
+    Plot.Import(
+        source="""
+    const { html } = genstudio.api;
+    export const Counter = ($state) => {
+        return html([
+            "div.p-3",
+            ["div.text-lg.mb-2", `Count: ${$state.count}`],
+            ["button.px-4.py-2.bg-blue-500.text-white.rounded",
+             { onClick: () => $state.count ++ },
+             "Increment"]
+        ]);
+    };
+    """,
+        refer=["Counter"],
+    )
+    | Plot.js("Counter($state)")
+    | Plot.initialState({"count": 0})
+)
+
+Plot.js(
+    """
+// Create an SVG using d3
+const svg = d3.create("svg")
+  .attr("width", 200)
+  .attr("height", 200);
+
+// Add a circle
+svg.append("circle")
+  .attr("cx", 100)
+  .attr("cy", 100)
+  .attr("r", 50)
+  .attr("fill", "steelblue");
+
+// Add some text
+svg.append("text")
+  .attr("x", 100)
+  .attr("y", 100)
+  .attr("text-anchor", "middle")
+  .attr("fill", "white")
+  .text("D3 SVG");
+
+return html(["div", svg.node()]);
+""",
+    expression=False,
 )

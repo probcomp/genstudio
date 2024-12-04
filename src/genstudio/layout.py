@@ -282,6 +282,12 @@ class JSCode(LayoutItem):
 def js(txt: str, *params: Any, expression=True) -> JSCode:
     """Represents raw JavaScript code to be evaluated as a LayoutItem.
 
+    The code will be evaluated in a scope that includes:
+    - $state: Current plot state
+    - html: render HTML using a JavaScript hiccup syntax
+    - d3: D3.js library
+    - genstudio.api: roughly, the api exposed via the genstudio.plot module
+
     Args:
         txt (str): JavaScript code with optional %1, %2, etc. placeholders
         *params: Values to substitute for %1, %2, etc. placeholders
