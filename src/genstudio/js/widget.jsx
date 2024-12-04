@@ -5,17 +5,13 @@ import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
-import { evaluateNdarray, inferDtype, estimateJSONSize } from "./binary";
+import { evaluate, createEvalEnv, collectBuffers, replaceBuffers } from "./eval";
 import { $StateContext, CONTAINER_PADDING } from "./context";
-import { serializeEvent, useCellUnmounted, tw, binding } from "./utils";
+import { useCellUnmounted, tw } from "./utils";
 
 const { createRender, useModelState, useModel, useExperimental } =
   AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;
-
-function resolveReference(path, obj) {
-  return path.split(".").reduce((acc, key) => acc[key], obj);
-}
 
 function resolveRef(node, $state) {
   if (node && typeof node === "object" && node["__type__"] === "ref") {
@@ -24,195 +20,8 @@ function resolveRef(node, $state) {
   return node;
 }
 
-
 window.genstudio = {api, d3, React};
 window.moduleCache = window.moduleCache || new Map();
-
-async function createEvalEnv(imports) {
-  const env = { ...window.genstudio };
-
-  // Helper to evaluate non-ESM code in a controlled scope
-  function evaluateScript(source, scope = {}) {
-    const scopeKeys = Object.keys(scope);
-    const scopeValues = Object.values(scope);
-    // Set imports on genstudio before eval
-    window.genstudio.imports = scope;
-    try {
-      return new Function(...scopeKeys, `with(this) {\n${source}\n}`).apply(scope, scopeValues);
-    } finally {
-      delete window.genstudio.imports;
-    }
-  }
-
-  for (const spec of imports) {
-    try {
-      if (!spec.source) {
-        throw new Error('source must be specified');
-      }
-
-      let module;
-      const format = spec.format || 'esm'; // Default to ESM
-
-      // Check cache first
-      if (moduleCache.has(spec.source)) {
-        module = moduleCache.get(spec.source);
-      } else {
-        if (format === 'esm') {
-          // Handle ESM modules
-          if (spec.source.startsWith('http')) {
-            module = await import(spec.source);
-          } else {
-            const sourceBlob = new Blob([spec.source], { type: 'text/javascript' });
-            const url = URL.createObjectURL(sourceBlob);
-            try {
-              module = await import(url);
-            } finally {
-              URL.revokeObjectURL(url);
-            }
-          }
-        } else {
-          // Handle non-ESM scripts
-          let source;
-          if (spec.source.startsWith('http')) {
-            const response = await fetch(spec.source);
-            source = await response.text();
-          } else {
-            source = spec.source;
-          }
-
-          // Create a module-like object from the evaluated script
-          const exports = {};
-          const moduleScope = {
-            ...env, // Allow access to previously loaded modules
-            exports,
-            module: { exports }
-          };
-
-          evaluateScript(source, moduleScope);
-          module = moduleScope.module.exports;
-        }
-
-        // Cache the loaded module
-        moduleCache.set(spec.source, module);
-      }
-
-      // Handle default export
-      if (spec.default) {
-        if (!module.default) {
-          throw new Error(`No default export found in module ${spec.source}`);
-        }
-        env[spec.default] = module.default;
-      }
-
-      // Handle namespace alias
-      if (spec.alias) {
-        env[spec.alias] = module;
-      }
-
-      // Handle refers
-      if (spec.refer) {
-        for (const key of spec.refer) {
-          if (!(key in module)) {
-            throw new Error(`${key} not found in module`);
-          }
-          const newName = spec.rename?.[key] || key;
-          env[newName] = module[key];
-        }
-      }
-
-      // Handle refer_all
-      if (spec.refer_all) {
-        const excludeSet = new Set(spec.exclude || []);
-        for (const [key, value] of Object.entries(module)) {
-          if (key !== 'default' && !excludeSet.has(key)) {
-            env[key] = value;
-          }
-        }
-      }
-
-    } catch (e) {
-      console.error(`Failed to process import:`, e);
-      console.error(`Spec:`, spec);
-    }
-  }
-  return env;
-}
-
-export function evaluate(node, $state, experimental, buffers) {
-  if (node === null || typeof node !== "object") return node;
-  if (Array.isArray(node))
-    return node.map((item) => evaluate(item, $state, experimental, buffers));
-  if (node.constructor !== Object) {
-    if (node instanceof DataView) {
-      return node;
-    }
-    return node;
-  }
-
-  switch (node["__type__"]) {
-    case "function":
-      const fn = resolveReference(node.path, api);
-      if (!fn) {
-        console.error("Function not found", node);
-        return null;
-      }
-      // functions marked as macros are passed unevaluated args + $state (for selective evaluation)
-      const args = fn.macro
-        ? [$state, ...node.args]
-        : evaluate(node.args, $state, experimental, buffers);
-      if (fn.prototype?.constructor === fn) {
-        return new fn(...args);
-      } else {
-        return fn(...args);
-      }
-    case "js_ref":
-      return resolveReference(node.path, api);
-    case "js_source":
-      const source = node.expression
-        ? `return ${node.value.trimLeft()}`
-        : node.value;
-      const params = (node.params || []).map((p) =>
-        evaluate(p, $state, experimental, buffers)
-      );
-      const paramVars = params.map((_, i) => `p${i}`);
-      const code = source.replace(/%(\d+)/g, (_, i) => `p${parseInt(i) - 1}`);
-
-      // Use the evaluation environment
-      const env = $state.__evalEnv;
-
-      return new Function("$state", ...Object.keys(env), ...paramVars, code)(
-        $state,
-        ...Object.values(env),
-        ...params
-      );
-    case "datetime":
-      return new Date(node.value);
-    case "ref":
-      return $state.__computed(node.state_key);
-    case "callback":
-      if (experimental) {
-        return (e) =>
-          experimental.invoke("handle_callback", {
-            id: node.id,
-            event: serializeEvent(e),
-          });
-      } else {
-        return undefined;
-      }
-    case "ndarray":
-      if (node.data?.__type__ === "buffer") {
-        node.data = buffers[node.data.index];
-      }
-      return evaluateNdarray(node);
-    default:
-      return Object.fromEntries(
-        Object.entries(node).map(([key, value]) => [
-          key,
-          evaluate(value, $state, experimental, buffers),
-        ])
-      );
-  }
-}
 
 function applyUpdate($state, init, op, payload) {
   const evaluatedPayload = $state.evaluate(payload);
@@ -243,53 +52,6 @@ function normalizeUpdates(updates) {
     const [key, operation, payload] = entry;
     return [[typeof key === "string" ? key : key.id, operation, payload]];
   });
-}
-
-function collectBuffers(data) {
-  const buffers = [];
-
-  function traverse(value) {
-    // Handle ArrayBuffer and TypedArray instances
-    if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
-      const index = buffers.length;
-      buffers.push(value);
-
-      // Add metadata about the array type
-      const metadata = {
-        __buffer_index__: index,
-        __type__: "ndarray",
-        dtype: inferDtype(value),
-      };
-
-      // Add shape if available
-      if (value instanceof ArrayBuffer) {
-        metadata.shape = [value.byteLength];
-      } else {
-        metadata.shape = [value.length];
-      }
-
-      return metadata;
-    }
-
-    // Handle arrays recursively
-    if (Array.isArray(value)) {
-      return value.map(traverse);
-    }
-
-    // Handle objects recursively
-    if (value && typeof value === "object") {
-      const result = {};
-      for (const [key, val] of Object.entries(value)) {
-        result[key] = traverse(val);
-      }
-      return result;
-    }
-
-    // Return primitives as-is
-    return value;
-  }
-
-  return [traverse(data), buffers];
 }
 
 /**
@@ -538,33 +300,6 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
 
   return $state;
 }
-
-/**
- * Recursively replaces buffer index references with actual buffer data in a nested data structure.
- * Mirrors the functionality of replace_buffers() in widget.py.
- *
- * @param {Object|Array} data - The data structure containing buffer references
- * @param {Array<Buffer>} buffers - Array of binary buffers
- * @returns {Object|Array} The data structure with buffer references replaced with actual data
- */
-const replaceBuffers = (data, buffers) => {
-  if (!buffers || !buffers.length) return data;
-
-  if (data && typeof data === "object") {
-    if ("__buffer_index__" in data) {
-      data.data = buffers[data.__buffer_index__];
-      delete data.__buffer_index__;
-      return data;
-    }
-
-    if (Array.isArray(data)) {
-      data.forEach((item) => replaceBuffers(item, buffers));
-    } else {
-      Object.values(data).forEach((value) => replaceBuffers(value, buffers));
-    }
-  }
-  return data;
-};
 
 export const StateProvider = mobxReact.observer(
   function (data) {
