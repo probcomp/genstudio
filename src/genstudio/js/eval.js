@@ -151,23 +151,17 @@ export function evaluate(node, $state, experimental, buffers) {
     case "js_ref":
       return resolveReference(node.path, api);
     case "js_source":
-      const source = node.expression
-        ? `return ${node.value.trimLeft()}`
-        : node.value;
-      const params = (node.params || []).map((p) =>
-        evaluate(p, $state, experimental, buffers)
-      );
-      const paramVars = params.map((_, i) => `p${i}`);
-      const code = source.replace(/%(\d+)/g, (_, i) => `p${parseInt(i) - 1}`);
 
-      // Use the evaluation environment
+      let source = node.expression ? `return ${node.value.trimLeft()}` : node.value;
+      source = node.params?.length ? source.replace(/%(\d+)/g, (_, i) => `p${parseInt(i) - 1}`) : source;
+
+      const paramValues = (node.params || []).map((p) => evaluate(p, $state, experimental, buffers));
+      const paramNames = paramValues.map((_, i) => `p${i}`);
+
       const env = $state.__evalEnv;
 
-      return new Function("$state", ...Object.keys(env), ...paramVars, code)(
-        $state,
-        ...Object.values(env),
-        ...params
-      );
+      return new Function("$state", ...Object.keys(env),   ...paramNames, source)(
+                           $state,  ...Object.values(env), ...paramValues);
     case "datetime":
       return new Date(node.value);
     case "ref":

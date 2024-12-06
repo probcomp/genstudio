@@ -140,7 +140,7 @@ function setDeep(stateHandler, target, prop, value) {
  * @param {Object} experimental - The experimental interface for sync operations
  * @returns {Proxy} A proxied state store with reactive capabilities
  */
-export function createStateStore({ initialState, syncedKeys, listeners = {}, experimental, buffers, evalEnv }) {
+export function createStateStore({ initialState, syncedKeys, listeners = {}, experimental, buffers, evalEnv = {} }) {
   syncedKeys = new Set(syncedKeys)
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
@@ -301,13 +301,12 @@ export function createStateStore({ initialState, syncedKeys, listeners = {}, exp
   return $state;
 }
 
-export const StateProvider = mobxReact.observer(
-  function (data) {
+export function StateProvider(data) {
     const { ast, syncedKeys, imports, initialState, model } = data
     const [evalEnv, setEnv] = useState(null);
 
     useEffect(() => {
-      createEvalEnv(imports || {}).then(setEnv);
+      createEvalEnv(imports || []).then(setEnv);
     }, [imports]);
 
     const $state = useMemo(
@@ -352,7 +351,7 @@ export const StateProvider = mobxReact.observer(
       <api.Node value={currentAst} />
     </$StateContext.Provider>
   );
-});
+};
 
 
 class ErrorBoundary extends React.Component {
