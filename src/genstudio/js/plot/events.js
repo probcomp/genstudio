@@ -82,7 +82,7 @@ export class EventHandler extends Plot.Mark {
         event.preventDefault()
         currentDrawingRect = rect;
         lineStartTime = Date.now();
-        lineKey = (Math.round(offsetX * offsetY * lineStartTime) % (2**32));
+        lineKey = (Math.round(offsetX * offsetY * lineStartTime) % (2**31));
         this.onDrawStart?.(eventData("drawstart", point));
       }
 

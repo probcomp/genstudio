@@ -11,6 +11,7 @@ function resolveReference(path, obj) {
 window.genstudio = {api};
 window.d3 = api.d3
 window.html = api.html
+window.React = api.React
 
 // moduleCache is on window so that multiple copies of this script can share it
 window.moduleCache = window.moduleCache || new Map();
@@ -247,7 +248,9 @@ export function replaceBuffers(data, buffers) {
   function traverse(value) {
     if (value && typeof value === "object") {
       if (value.__type__ === "ndarray" && value.__buffer_index__ !== undefined) {
-        return buffers[value.__buffer_index__];
+        value.data = buffers[value.__buffer_index__]
+        delete value.__buffer_index__
+        return value;
       }
       if (Array.isArray(value)) {
         return value.map(traverse);

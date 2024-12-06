@@ -63,10 +63,12 @@ def serialize_binary_data(
 ):
     if buffers is None:
         return entry
+
     buffers.append(entry["data"])
+    index = len(buffers) - 1
     return {
         **entry,
-        "__buffer_index__": len(buffers) - 1,
+        "__buffer_index__": index,
         "data": None,
     }
 
@@ -368,6 +370,7 @@ class WidgetState:
 
         # send all updates to JS regardless of sync status
         buffers: List[bytes | bytearray | memoryview] = []
+
         json_updates = to_json(normalized_updates, widget=self, buffers=buffers)
         self._widget.send(
             {"type": "update_state", "updates": json_updates}, buffers=buffers
