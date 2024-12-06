@@ -316,9 +316,28 @@ function renderArray($state, value) {
     }
 }
 
+function DOMElementWrapper({ element }) {
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        if (containerRef.current) {
+            containerRef.current.innerHTML = '';
+            containerRef.current.appendChild(element);
+        }
+        return () => {
+            if (containerRef.current) {
+                containerRef.current.innerHTML = '';
+            }
+        };
+    }, [element]);
+
+    return <div ref={containerRef} />;
+}
+
 // Node is a reactive component that lazily evaluates AST expressions using $state.evaluate().
 // Values are only evaluated when rendered, and the component automatically re-renders
 // when any $state dependencies change, thanks to mobx-react observer.
+
 export const Node = mobxReact.observer(
     function ({ value }) {
         const $state = useContext($StateContext)
@@ -337,6 +356,15 @@ export const Node = mobxReact.observer(
         if (typeof evaluatedValue === 'object' && evaluatedValue !== null && 'render' in evaluatedValue) {
             return evaluatedValue.render();
         }
+
+        if (evaluatedValue instanceof HTMLElement || evaluatedValue instanceof SVGElement) {
+            return <DOMElementWrapper element={evaluatedValue} />;
+        }
+
+        if (typeof evaluatedValue === 'string' || typeof evaluatedValue === 'number') {
+            return <span>{evaluatedValue}</span>;
+        }
+
         return evaluatedValue;
     }
 )

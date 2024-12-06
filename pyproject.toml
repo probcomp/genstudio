@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "genstudio"
-version = "2024.12.003"
+version = "2024.12.004"
 description = ""
 authors = [ "Matthew Huebert <me@matt.is>",]
 license = "MIT"
@@ -29,7 +29,7 @@ reportUnusedExpression = false
 reportFunctionMemberAccess = false
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
+python = ">=3.11,<3.13"
 anywidget = "^0.9.10"
 traitlets = "^5.14.3"
 html2image = "^2.0.4.3"

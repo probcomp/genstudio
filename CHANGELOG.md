@@ -1,3 +1,12 @@
+### [2024.12.004] - Dec 06, 2024
+
+- fix replaceBuffers ndarray handling
+- clarify Plot.js vs Plot.Import
+- return html/svg elements directly in hiccup/html
+- bring genstudio.api into Plot.js scope
+- use a `source=` param with https?: and path: prefixes possible
+- add Plot.Import
+
 ### [2024.12.003] - Dec 01, 2024
 
 - Add html to evaluation env

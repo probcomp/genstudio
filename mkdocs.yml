@@ -27,6 +27,7 @@ nav:
     - Layouts: system-guide/layouts.py
     - State: system-guide/state.py
     - HTML with Hiccup: system-guide/html-with-hiccup.py
+    - JS Imports: system-guide/js-imports.py
   - Interactivity & Animation:
     - Sliders: interactivity/sliders.py
     - Animating Frames: interactivity/frames.py

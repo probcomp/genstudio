@@ -1,8 +1,9 @@
 import * as Plot from "@observablehq/plot";
-import { render } from '@testing-library/react';
+import { render, act } from '@testing-library/react';
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createStateStore, evaluate, StateProvider } from '../../src/genstudio/js/widget';
+import { createStateStore, StateProvider } from '../../src/genstudio/js/widget';
+import { evaluate } from '../../src/genstudio/js/eval';
 
 // Add this at the top of the file
 beforeEach(() => {
@@ -12,6 +13,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
 })
+
+const emptyState = {__evalEnv: {}}
 
 describe('Widget', () => {
 
@@ -23,7 +26,7 @@ describe('Widget', () => {
         args: ['# Hello, World!']
       }
 
-      const result = evaluate(ast, {}, null)
+      const result = evaluate(ast, emptyState, {}, null)
       expect(result).toBeDefined()
       expect(React.isValidElement(result)).toBe(true)
     })
@@ -33,7 +36,7 @@ describe('Widget', () => {
         __type__: "js_ref",
         path: 'Plot.dot'
       }
-      const result = evaluate(ast, {}, {}, null)
+      const result = evaluate(ast, emptyState, {}, null)
       expect(result).toBe(Plot.dot)
     })
 
@@ -43,7 +46,7 @@ describe('Widget', () => {
         expression: true,
         value: '2 + 2'
       }
-      const result = evaluate(ast, {}, {}, null)
+      const result = evaluate(ast, emptyState, {}, null)
       expect(result).toBe(4)
     })
 
@@ -54,7 +57,7 @@ describe('Widget', () => {
         value: '%1 + %2',
         params: [2, 3]
       }
-      const result = evaluate(ast, {}, null)
+      const result = evaluate(ast, emptyState, null)
       expect(result).toBe(5)
     })
 
@@ -65,7 +68,7 @@ describe('Widget', () => {
         value: '%1.map(x => x * %2)',
         params: [[1, 2, 3], 2]
       }
-      const result = evaluate(ast, {}, null)
+      const result = evaluate(ast, emptyState, null)
       expect(result).toEqual([2, 4, 6])
     })
     it('should preserve object identity in params', () => {
@@ -76,7 +79,7 @@ describe('Widget', () => {
         value: '%1 === %2',
         params: [obj, obj]
       }
-      const result = evaluate(ast, {}, null)
+      const result = evaluate(ast, emptyState, null)
       expect(result).toBe(true)
     })
 
@@ -85,7 +88,7 @@ describe('Widget', () => {
         __type__: "js_source",
         value: 'let x = 0\n x = 1\n return x'
       }
-      const result = evaluate(ast, {}, {}, null)
+      const result = evaluate(ast, emptyState, {}, null)
       expect(result).toBe(1)
     })
 
@@ -95,7 +98,7 @@ describe('Widget', () => {
         value: 'let x = %1\n x += %2\n return x',
         params: [5, 3]
       }
-      const result = evaluate(ast, {}, null)
+      const result = evaluate(ast, emptyState, null)
       expect(result).toBe(8)
     })
 
@@ -104,7 +107,7 @@ describe('Widget', () => {
         __type__: 'datetime',
         value: '2023-04-01T12:00:00Z'
       }
-      const result = evaluate(ast, {}, {}, null)
+      const result = evaluate(ast, emptyState, {}, null)
       expect(result).toBeInstanceOf(Date)
       expect(result.toISOString()).toBe('2023-04-01T12:00:00.000Z')
     })
@@ -130,7 +133,7 @@ describe('Widget', () => {
   })
 
   describe('StateProvider', () => {
-    it('should render a reactive variable in markdown', () => {
+    it('should render a reactive variable in markdown', async () => {
       const ast = {
         __type__: 'function',
         path: 'Hiccup',
@@ -157,10 +160,13 @@ describe('Widget', () => {
         syncedKeys: new Set(["count"])
       };
 
-
-      const { container, rerender } = render(
-        <StateProvider {...data}  />
-      );
+      let container;
+      await act(async () => {
+        const result = render(
+          <StateProvider {...data}  />
+        );
+        container = result.container;
+      });
 
       expect(container.innerHTML).toContain('Count: 0');
     });
@@ -188,9 +194,12 @@ describe('Widget', () => {
         syncedKeys: new Set(['foo'])
       };
 
-      render(
-        <StateProvider {...data} />
-      );
+      await act(async () => {
+        render(
+          <StateProvider {...data} />
+        );
+      });
+
       // Check that console.log was called with the correct value
       expect(consoleSpy).toHaveBeenCalledWith(123);
       expect(consoleSpy).toHaveBeenCalledTimes(1);

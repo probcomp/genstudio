@@ -26,6 +26,7 @@ class CollectedState:
         self.initialState = {}
         self.initialStateJSON = {}
         self.listeners = {"py": {}, "js": {}}
+        self.imports = []  # List of import specs
 
     def state_entry(self, state_key, value, sync=False, **kwargs):
         if sync:
@@ -34,6 +35,15 @@ class CollectedState:
             self.initialState[state_key] = value
             self.initialStateJSON[state_key] = to_json(value, **kwargs)
         return {"__type__": "ref", "state_key": state_key}
+
+    def add_import(self, spec: dict):
+        """Add an import specification.
+
+        Args:
+            spec: Import specification with format, source info, and options
+        """
+        self.imports.append(spec)
+        return None
 
     def _add_listener(self, state_key, listener):
         listeners = [listener] if not isinstance(listener, list) else listener
@@ -53,10 +63,12 @@ def serialize_binary_data(
 ):
     if buffers is None:
         return entry
+
     buffers.append(entry["data"])
+    index = len(buffers) - 1
     return {
         **entry,
-        "__buffer_index__": len(buffers) - 1,
+        "__buffer_index__": index,
         "data": None,
     }
 
@@ -96,6 +108,10 @@ def to_json(
 
     # Handle state-related objects
     if collected_state is not None:
+        if hasattr(data, "_state_imports"):
+            for spec in data._state_imports:
+                collected_state.add_import(spec)
+            return None
         if hasattr(data, "_state_key"):
             return collected_state.state_entry(
                 state_key=data._state_key,
@@ -105,7 +121,8 @@ def to_json(
                 collected_state=collected_state,
             )
         if hasattr(data, "_state_listeners"):
-            return collected_state.add_listeners(data._state_listeners)
+            collected_state.add_listeners(data._state_listeners)
+            return None
 
     # Handle numpy and jax arrays
     if isinstance(data, np.ndarray) or type(data).__name__ in (
@@ -131,7 +148,7 @@ def to_json(
         )
 
     # Handle objects with custom serialization
-    if hasattr(data, "for_json"):
+    if hasattr(data, "for_json") and callable(data.for_json):
         return to_json(
             data.for_json(),
             collected_state=collected_state,
@@ -192,6 +209,7 @@ def to_json_with_initialState(
             "initialState": collected_state.initialStateJSON,
             "syncedKeys": collected_state.syncedKeys,
             "listeners": collected_state.listeners["js"],
+            "imports": collected_state.imports,
             **CONFIG,
         },
         buffers=buffers,
@@ -352,6 +370,7 @@ class WidgetState:
 
         # send all updates to JS regardless of sync status
         buffers: List[bytes | bytearray | memoryview] = []
+
         json_updates = to_json(normalized_updates, widget=self, buffers=buffers)
         self._widget.send(
             {"type": "update_state", "updates": json_updates}, buffers=buffers

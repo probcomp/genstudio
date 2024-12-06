@@ -1,22 +1,17 @@
 import * as AnyWidgetReact from "@anywidget/react";
-import * as Plot from "@observablehq/plot";
 import * as d3 from "d3";
 import * as mobx from "mobx";
 import * as mobxReact from "mobx-react-lite";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
 import * as api from "./api";
-import { evaluateNdarray, inferDtype, estimateJSONSize } from "./binary";
+import { evaluate, createEvalEnv, collectBuffers, replaceBuffers } from "./eval";
 import { $StateContext, CONTAINER_PADDING } from "./context";
-import { serializeEvent, useCellUnmounted, tw } from "./utils";
+import { useCellUnmounted, tw } from "./utils";
 
 const { createRender, useModelState, useModel, useExperimental } =
   AnyWidgetReact;
 const { useState, useMemo, useCallback, useEffect } = React;
-
-function resolveReference(path, obj) {
-  return path.split(".").reduce((acc, key) => acc[key], obj);
-}
 
 function resolveRef(node, $state) {
   if (node && typeof node === "object" && node["__type__"] === "ref") {
@@ -25,86 +20,8 @@ function resolveRef(node, $state) {
   return node;
 }
 
-function createEvalEnv() {
-  const env = { d3, Plot, React, html: api.html };
-  return env;
-}
-
-export function evaluate(node, $state, experimental, buffers) {
-  if (node === null || typeof node !== "object") return node;
-  if (Array.isArray(node))
-    return node.map((item) => evaluate(item, $state, experimental, buffers));
-  if (node.constructor !== Object) {
-    if (node instanceof DataView) {
-      return node;
-    }
-    return node;
-  }
-
-  switch (node["__type__"]) {
-    case "function":
-      const fn = resolveReference(node.path, api);
-      if (!fn) {
-        console.error("Function not found", node);
-        return null;
-      }
-      // functions marked as macros are passed unevaluated args + $state (for selective evaluation)
-      const args = fn.macro
-        ? [$state, ...node.args]
-        : evaluate(node.args, $state, experimental, buffers);
-      if (fn.prototype?.constructor === fn) {
-        return new fn(...args);
-      } else {
-        return fn(...args);
-      }
-    case "js_ref":
-      return resolveReference(node.path, api);
-    case "js_source":
-      const source = node.expression
-        ? `return ${node.value.trimLeft()}`
-        : node.value;
-      const params = (node.params || []).map((p) =>
-        evaluate(p, $state, experimental, buffers)
-      );
-      const paramVars = params.map((_, i) => `p${i}`);
-      const code = source.replace(/%(\d+)/g, (_, i) => `p${parseInt(i) - 1}`);
-
-      // Use the evaluation environment
-      const env = $state.evalEnv;
-
-      return new Function("$state", ...Object.keys(env), ...paramVars, code)(
-        $state,
-        ...Object.values(env),
-        ...params
-      );
-    case "datetime":
-      return new Date(node.value);
-    case "ref":
-      return $state.__computed(node.state_key);
-    case "callback":
-      if (experimental) {
-        return (e) =>
-          experimental.invoke("handle_callback", {
-            id: node.id,
-            event: serializeEvent(e),
-          });
-      } else {
-        return undefined;
-      }
-    case "ndarray":
-      if (node.data?.__type__ === "buffer") {
-        node.data = buffers[node.data.index];
-      }
-      return evaluateNdarray(node);
-    default:
-      return Object.fromEntries(
-        Object.entries(node).map(([key, value]) => [
-          key,
-          evaluate(value, $state, experimental, buffers),
-        ])
-      );
-  }
-}
+window.genstudio = {api, d3, React};
+window.moduleCache = window.moduleCache || new Map();
 
 function applyUpdate($state, init, op, payload) {
   const evaluatedPayload = $state.evaluate(payload);
@@ -135,53 +52,6 @@ function normalizeUpdates(updates) {
     const [key, operation, payload] = entry;
     return [[typeof key === "string" ? key : key.id, operation, payload]];
   });
-}
-
-function collectBuffers(data) {
-  const buffers = [];
-
-  function traverse(value) {
-    // Handle ArrayBuffer and TypedArray instances
-    if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
-      const index = buffers.length;
-      buffers.push(value);
-
-      // Add metadata about the array type
-      const metadata = {
-        __buffer_index__: index,
-        __type__: "ndarray",
-        dtype: inferDtype(value),
-      };
-
-      // Add shape if available
-      if (value instanceof ArrayBuffer) {
-        metadata.shape = [value.byteLength];
-      } else {
-        metadata.shape = [value.length];
-      }
-
-      return metadata;
-    }
-
-    // Handle arrays recursively
-    if (Array.isArray(value)) {
-      return value.map(traverse);
-    }
-
-    // Handle objects recursively
-    if (value && typeof value === "object") {
-      const result = {};
-      for (const [key, val] of Object.entries(value)) {
-        result[key] = traverse(val);
-      }
-      return result;
-    }
-
-    // Return primitives as-is
-    return value;
-  }
-
-  return [traverse(data), buffers];
 }
 
 /**
@@ -270,15 +140,8 @@ function setDeep(stateHandler, target, prop, value) {
  * @param {Object} experimental - The experimental interface for sync operations
  * @returns {Proxy} A proxied state store with reactive capabilities
  */
-export function createStateStore({
-  initialState,
-  syncedKeys,
-  listeners = {},
-  experimental,
-  buffers,
-  evalEnv
-}) {
-  syncedKeys = new Set(syncedKeys);
+export function createStateStore({ initialState, syncedKeys, listeners = {}, experimental, buffers, evalEnv = {} }) {
+  syncedKeys = new Set(syncedKeys)
   const initialStateMap = mobx.observable.map(initialState, { deep: false });
   const computeds = {};
   const reactions = {};
@@ -395,10 +258,10 @@ export function createStateStore({
   const $state = new Proxy(
     {
       evaluate: (ast) => evaluate(ast, $state, experimental, buffers),
-      evalEnv,
-      __backfill: function (data) {
-        syncedKeys = new Set(data.syncedKeys);
-        for (const [key, value] of Object.entries(data.initialState)) {
+      __evalEnv: evalEnv,
+      __backfill: function (initialState, syncedKeys) {
+        syncedKeys = new Set(syncedKeys);
+        for (const [key, value] of Object.entries(initialState)) {
           if (!initialStateMap.has(key)) {
             initialStateMap.set(key, value);
           }
@@ -438,53 +301,39 @@ export function createStateStore({
   return $state;
 }
 
-/**
- * Recursively replaces buffer index references with actual buffer data in a nested data structure.
- * Mirrors the functionality of replace_buffers() in widget.py.
- *
- * @param {Object|Array} data - The data structure containing buffer references
- * @param {Array<Buffer>} buffers - Array of binary buffers
- * @returns {Object|Array} The data structure with buffer references replaced with actual data
- */
-const replaceBuffers = (data, buffers) => {
-  if (!buffers || !buffers.length) return data;
+export function StateProvider(data) {
+    const { ast, syncedKeys, imports, initialState, model } = data
+    const [evalEnv, setEnv] = useState(null);
 
-  if (data && typeof data === "object") {
-    if ("__buffer_index__" in data) {
-      data.data = buffers[data.__buffer_index__];
-      delete data.__buffer_index__;
-      return data;
-    }
+    useEffect(() => {
+      createEvalEnv(imports || []).then(setEnv);
+    }, [imports]);
 
-    if (Array.isArray(data)) {
-      data.forEach((item) => replaceBuffers(item, buffers));
-    } else {
-      Object.values(data).forEach((value) => replaceBuffers(value, buffers));
-    }
-  }
-  return data;
-};
+    const $state = useMemo(
+      () =>
+        evalEnv && createStateStore({
+          ...data,
+          evalEnv,
+        }),
+      [evalEnv]
+    );
 
-export const StateProvider = mobxReact.observer(function (data) {
-  const { ast, initialState, experimental, model } = data;
-  const $state = useMemo(() => createStateStore({...data, evalEnv: createEvalEnv()}), []);
+    const [currentAst, setCurrentAst] = useState(null);
 
-  // a currentAst state field managed by the following useEffect hook,
-  // to ensure that an ast is only rendered after $state has been populated
-  // with the associated initialState entries.
-  const [currentAst, setCurrentAst] = useState(null);
+    useEffect(() => {
+      // wait for env to load (async)
+      if (!evalEnv) return;
 
-  useEffect(() => {
-    // when the widget is reset with a new ast/initialState, add missing entries
-    // to the initialState and then reset the current ast.
-    $state.__backfill(data);
-    setCurrentAst(ast);
-  }, [ast, initialState]);
+      // when the widget is reset with a new ast/initialState, add missing entries
+      // to the initialState and then reset the current ast.
+      $state.__backfill(initialState, syncedKeys)
+      setCurrentAst(ast)
+    }, [ast, initialState, $state])
 
   useEffect(() => {
     // if we have an AnyWidget model (ie. we are in widget model),
     // listen for `update_state` events.
-    if (model) {
+    if ($state && model) {
       const cb = (msg, buffers) => {
         if (msg.type === "update_state") {
           $state.__updateLocal(replaceBuffers(msg.updates, buffers));
@@ -493,7 +342,7 @@ export const StateProvider = mobxReact.observer(function (data) {
       model.on("msg:custom", cb);
       return () => model.off("msg:custom", cb);
     }
-  }, [initialState, model]);
+  }, [model, $state]);
 
   if (!currentAst) return;
 
@@ -502,7 +351,34 @@ export const StateProvider = mobxReact.observer(function (data) {
       <api.Node value={currentAst} />
     </$StateContext.Provider>
   );
-});
+};
+
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className={tw("p-4 border border-red-500 rounded bg-red-50")}>
+          <h2 className={tw("text-red-700 font-bold mb-2")}>Something went wrong</h2>
+          <pre className={tw("text-sm text-red-600 whitespace-pre-wrap")}>
+            {this.state.error?.message}
+          </pre>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function Viewer(data) {
   const [el, setEl] = useState();
@@ -519,7 +395,11 @@ function Viewer(data) {
       style={{ padding: CONTAINER_PADDING }}
       ref={elRef}
     >
-      {el && <StateProvider {...data} />}
+      {el && (
+        <ErrorBoundary>
+          <StateProvider {...data} />
+        </ErrorBoundary>
+      )}
       {data.size && data.dev && (
         <div className={tw("text-xl p-3")}>{data.size}</div>
       )}
