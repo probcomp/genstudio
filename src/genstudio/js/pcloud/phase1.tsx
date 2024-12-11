@@ -111,10 +111,16 @@ export function PointCloudViewer({
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // Enable depth testing and proper depth function
         gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LESS); // Ensure we get the closest point
+        gl.depthMask(true);    // Enable depth writing
 
         // Use picking shader and set uniforms
         gl.useProgram(pickingProgramRef.current);
+
+        // Set all uniforms to match main shader
         const projectionMatrix = mat4.perspective(
             mat4.create(),
             cameraParams.fov * Math.PI / 180,
@@ -128,19 +134,37 @@ export function PointCloudViewer({
         gl.uniformMatrix4fv(gl.getUniformLocation(pickingProgramRef.current, 'uViewMatrix'), false, viewMatrix);
         gl.uniform1f(gl.getUniformLocation(pickingProgramRef.current, 'uPointSize'), pointSize);
         gl.uniform2f(gl.getUniformLocation(pickingProgramRef.current, 'uCanvasSize'), gl.canvas.width, gl.canvas.height);
+        // Add highlighted point uniform to match main shader
+        gl.uniform1i(gl.getUniformLocation(pickingProgramRef.current, 'uHighlightedPoint'), hoveredPointRef.current ?? -1);
 
         // Draw points
         gl.bindVertexArray(pickingVaoRef.current);
         gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
 
-        // Read pixel
+        // Sample multiple pixels in a radius
         const rect = gl.canvas.getBoundingClientRect();
-        const pixelX = Math.floor((x - rect.left) * gl.canvas.width / rect.width);
-        const pixelY = Math.floor((rect.height - (y - rect.top)) * gl.canvas.height / rect.height);
-        const pixel = new Uint8Array(4);
-        gl.readPixels(pixelX, pixelY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        const centerX = Math.floor((x - rect.left) * gl.canvas.width / rect.width);
+        const centerY = Math.floor((rect.height - (y - rect.top)) * gl.canvas.height / rect.height);
 
-        // Restore default framebuffer
+        // Create arrays to store results
+        const pixels = new Uint8Array(4);
+        const depths = new Float32Array(1);
+        let closestPoint = null;
+        let minDepth = Infinity;
+
+        // Read center pixel
+        gl.readPixels(centerX, centerY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+        gl.readPixels(centerX, centerY, 1, 1, gl.DEPTH_COMPONENT, gl.FLOAT, depths);
+
+        if (pixels[3] !== 0) {
+            const pointId = pixels[0] + pixels[1] * 256 + pixels[2] * 256 * 256;
+            if (depths[0] < minDepth) {
+                minDepth = depths[0];
+                closestPoint = pointId;
+            }
+        }
+
+        // Restore default framebuffer and state
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
         gl.useProgram(programRef.current);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
@@ -148,8 +172,7 @@ export function PointCloudViewer({
         gl.bindVertexArray(vaoRef.current);
         requestRender();
 
-        if (pixel[3] === 0) return null;
-        return pixel[0] + pixel[1] * 256 + pixel[2] * 256 * 256;
+        return closestPoint;
     }, [cameraParams, points.xyz.length, pointSize, requestRender]);
 
     // Update the mouse handlers to use picking:
@@ -326,19 +349,26 @@ export function PointCloudViewer({
         const depthBuffer = gl.createRenderbuffer();
         gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
         gl.renderbufferStorage(
-            gl.RENDERBUFFER, gl.DEPTH_COMPONENT16,
-            gl.canvas.width, gl.canvas.height
-        );
-        gl.framebufferRenderbuffer(
-            gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,
-            gl.RENDERBUFFER, depthBuffer
+            gl.RENDERBUFFER,
+            gl.DEPTH_COMPONENT24, // Use 24-bit depth buffer for better precision
+            gl.canvas.width,
+            gl.canvas.height
         );
 
-        // Attach texture to framebuffer
-        gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFb);
+        // Attach both color and depth buffers to the framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFbRef.current);
         gl.framebufferTexture2D(
-            gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
-            gl.TEXTURE_2D, pickingTexture, 0
+            gl.FRAMEBUFFER,
+            gl.COLOR_ATTACHMENT0,
+            gl.TEXTURE_2D,
+            pickingTextureRef.current,
+            0
+        );
+        gl.framebufferRenderbuffer(
+            gl.FRAMEBUFFER,
+            gl.DEPTH_ATTACHMENT,
+            gl.RENDERBUFFER,
+            depthBuffer
         );
 
         // Verify framebuffer is complete
