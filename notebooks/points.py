@@ -83,6 +83,7 @@ def scene(controlled, point_size=4):
             "className": "h-[400px] w-[400px]",
             "pointSize": point_size,
             "onPointClick": js("(e) => console.log('clicked', e)"),
+            "onPointHover": js("(e) => console.log('hovered', e)"),
             "highlightColor": [1.0, 1.0, 0.0],
             **cameraProps,
         }
@@ -91,6 +92,6 @@ def scene(controlled, point_size=4):
 
 (
     Plot.initialState({"camera": camera})
-    | scene(True, 1) & scene(True, 10)
-    | scene(False, 4) & scene(False, 8)
+    | scene(True, 0.01) & scene(True, 1)
+    | scene(False, 0.1) & scene(False, 0.5)
 )

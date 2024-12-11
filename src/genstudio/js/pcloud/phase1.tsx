@@ -1,140 +1,10 @@
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { mat4, vec3 } from 'gl-matrix';
-
-// Basic vertex shader for point cloud rendering
-const vertexShader = `#version 300 es
-uniform mat4 uProjectionMatrix;
-uniform mat4 uViewMatrix;
-uniform float uPointSize;
-
-layout(location = 0) in vec3 position;
-layout(location = 1) in vec3 color;
-
-out vec3 vColor;
-
-void main() {
-    vColor = color;
-    gl_Position = uProjectionMatrix * uViewMatrix * vec4(position, 1.0);
-    gl_PointSize = uPointSize;
-}`;
-
-// Fragment shader for point rendering
-const fragmentShader = `#version 300 es
-precision highp float;
-
-in vec3 vColor;
-out vec4 fragColor;
-
-void main() {
-    // Create a circular point with soft anti-aliasing
-    vec2 coord = gl_PointCoord * 2.0 - 1.0;
-    float r = dot(coord, coord);
-    if (r > 1.0) {
-        discard;
-    }
-    fragColor = vec4(vColor, 1.0);
-}`;
-
-interface PointCloudData {
-    xyz: Float32Array;
-    rgb?: Uint8Array;
-}
-
-interface CameraParams {
-    position: vec3 | [number, number, number];
-    target: vec3 | [number, number, number];
-    up: vec3 | [number, number, number];
-    fov: number;
-    near: number;
-    far: number;
-}
-
-interface PointCloudViewerProps {
-    // For controlled mode
-    camera?: CameraParams;
-    onCameraChange?: (camera: CameraParams) => void;
-    // For uncontrolled mode
-    defaultCamera?: CameraParams;
-    // Other props
-    points: PointCloudData;
-    backgroundColor?: [number, number, number];
-    className?: string;
-    pointSize?: number;
-}
-
-class OrbitCamera {
-    position: vec3;
-    target: vec3;
-    up: vec3;
-    radius: number;
-    phi: number;
-    theta: number;
-
-    constructor(position: vec3, target: vec3, up: vec3) {
-        this.position = position;
-        this.target = target;
-        this.up = up;
-
-        // Initialize orbit parameters
-        this.radius = vec3.distance(position, target);
-        this.phi = Math.acos(this.position[1] / this.radius);
-        this.theta = Math.atan2(this.position[0], this.position[2]);
-    }
-
-    getViewMatrix(): mat4 {
-        return mat4.lookAt(mat4.create(), this.position, this.target, this.up);
-    }
-
-    orbit(deltaX: number, deltaY: number): void {
-        // Update angles
-        this.theta += deltaX * 0.01;
-        this.phi += deltaY * 0.01;
-
-        // Calculate new position using spherical coordinates
-        const sinPhi = Math.sin(this.phi);
-        const cosPhi = Math.cos(this.phi);
-        const sinTheta = Math.sin(this.theta);
-        const cosTheta = Math.cos(this.theta);
-
-        this.position[0] = this.target[0] + this.radius * sinPhi * sinTheta;
-        this.position[1] = this.target[1] + this.radius * cosPhi;
-        this.position[2] = this.target[2] + this.radius * sinPhi * cosTheta;
-    }
-
-    zoom(delta: number): void {
-        // Update radius
-        this.radius = Math.max(0.1, this.radius + delta * 0.1);
-
-        // Get direction vector from position to target
-        const direction = vec3.sub(vec3.create(), this.target, this.position);
-        vec3.normalize(direction, direction);
-
-        // Scale direction by new radius and update position
-        vec3.scaleAndAdd(this.position, this.target, direction, -this.radius);
-    }
-
-    pan(deltaX: number, deltaY: number): void {
-        // Calculate right vector
-        const forward = vec3.sub(vec3.create(), this.target, this.position);
-        const right = vec3.cross(vec3.create(), forward, this.up);
-        vec3.normalize(right, right);
-
-        // Calculate actual up vector (not world up)
-        const actualUp = vec3.cross(vec3.create(), right, forward);
-        vec3.normalize(actualUp, actualUp);
-
-        // Scale the movement
-        const scale = this.radius * 0.002; // Adjust pan speed based on distance
-
-        // Move both position and target
-        const movement = vec3.create();
-        vec3.scaleAndAdd(movement, movement, right, -deltaX * scale);
-        vec3.scaleAndAdd(movement, movement, actualUp, deltaY * scale);
-
-        vec3.add(this.position, this.position, movement);
-        vec3.add(this.target, this.target, movement);
-    }
-}
+import { createProgram } from './webgl-utils';
+import { PointCloudData, CameraParams, PointCloudViewerProps } from './types';
+import { mainShaders } from './shaders';
+import { OrbitCamera } from './orbit-camera';
+import { pickingShaders } from './shaders';
 
 export function PointCloudViewer({
     points,
@@ -143,13 +13,21 @@ export function PointCloudViewer({
     onCameraChange,
     backgroundColor = [0.1, 0.1, 0.1],
     className,
-    pointSize = 4.0
+    pointSize = 4.0,
+    onPointClick,
+    onPointHover,
+    highlightColor = [1.0, 0.3, 0.0],
+    pickingRadius = 5.0
 }: PointCloudViewerProps) {
     // Track whether we're in controlled mode
     const isControlled = camera !== undefined;
 
     // Use defaultCamera for initial setup only
     const initialCamera = isControlled ? camera : defaultCamera;
+
+    if (!initialCamera) {
+        throw new Error('Either camera or defaultCamera must be provided');
+    }
 
     // Memoize camera parameters to avoid unnecessary updates
     const cameraParams = useMemo(() => ({
@@ -185,6 +63,12 @@ export function PointCloudViewer({
     const needsRenderRef = useRef<boolean>(true);
     const lastFrameTimesRef = useRef<number[]>([]);
     const MAX_FRAME_SAMPLES = 10;  // Keep last 10 frames for averaging
+    const vaoRef = useRef(null);
+    const pickingProgramRef = useRef<WebGLProgram | null>(null);
+    const pickingVaoRef = useRef(null);
+    const pickingFbRef = useRef<WebGLFramebuffer | null>(null);
+    const pickingTextureRef = useRef<WebGLTexture | null>(null);
+    const hoveredPointRef = useRef<number | null>(null);
 
     // Move requestRender before handleCameraUpdate
     const requestRender = useCallback(() => {
@@ -217,7 +101,100 @@ export function PointCloudViewer({
         }
     }, [isControlled, notifyCameraChange, requestRender]);
 
-    // Update handleMouseMove dependency
+    // Add this function inside the component, before the useEffect:
+    const pickPoint = useCallback((x: number, y: number): number | null => {
+        const gl = glRef.current;
+        if (!gl || !pickingProgramRef.current || !pickingVaoRef.current || !pickingFbRef.current || !cameraRef.current) {
+            return null;
+        }
+
+        // Switch to picking framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFbRef.current);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.DEPTH_TEST);
+
+        // Use picking shader
+        gl.useProgram(pickingProgramRef.current);
+
+        // Set uniforms
+        const projectionMatrix = mat4.perspective(
+            mat4.create(),
+            cameraParams.fov * Math.PI / 180,
+            gl.canvas.width / gl.canvas.height,
+            cameraParams.near,
+            cameraParams.far
+        );
+        const viewMatrix = cameraRef.current.getViewMatrix();
+
+        const projectionLoc = gl.getUniformLocation(pickingProgramRef.current, 'uProjectionMatrix');
+        const viewLoc = gl.getUniformLocation(pickingProgramRef.current, 'uViewMatrix');
+        const pointSizeLoc = gl.getUniformLocation(pickingProgramRef.current, 'uPointSize');
+        const canvasSizeLoc = gl.getUniformLocation(pickingProgramRef.current, 'uCanvasSize');
+
+        // Debug: Check uniform locations
+        console.log('Picking uniforms:', { projectionLoc, viewLoc, pointSizeLoc, canvasSizeLoc });
+
+        gl.uniformMatrix4fv(projectionLoc, false, projectionMatrix);
+        gl.uniformMatrix4fv(viewLoc, false, viewMatrix);
+        gl.uniform1f(pointSizeLoc, pointSize);
+        gl.uniform2f(canvasSizeLoc, gl.canvas.width, gl.canvas.height);
+
+        // Draw points with picking shader
+        gl.bindVertexArray(pickingVaoRef.current);
+
+        // Debug: Check if we're drawing the right number of points
+        console.log('Drawing points:', points.xyz.length / 3);
+
+        gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
+
+        // Read pixel at mouse position
+        const rect = gl.canvas.getBoundingClientRect();
+        const pixelX = Math.floor((x - rect.left) * gl.canvas.width / rect.width);
+        const pixelY = Math.floor((rect.height - (y - rect.top)) * gl.canvas.height / rect.height);
+        const pixel = new Uint8Array(4);
+        gl.readPixels(pixelX, pixelY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+
+        // Debug: Check pixel values
+        console.log('Read pixel:', {
+            x, y,
+            pixelX, pixelY,
+            pixel: Array.from(pixel),
+            alpha: pixel[3]
+        });
+
+        // Restore default framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.useProgram(programRef.current);
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.bindVertexArray(vaoRef.current);
+        requestRender();
+
+        // If alpha is 0, no point was picked
+        if (pixel[3] === 0) return null;
+
+        return pixel[0] + pixel[1] * 256 + pixel[2] * 256 * 256;
+    }, [cameraParams, points.xyz.length, pointSize, requestRender]);
+
+    // Update the mouse handlers to use picking:
+    const handleMouseDown = useCallback((e: MouseEvent) => {
+        if (e.button === 0 && !e.shiftKey) {
+            interactionState.current.isDragging = true;
+        } else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+            interactionState.current.isPanning = true;
+        } else if (onPointClick) {
+            const pointIndex = pickPoint(e.clientX, e.clientY);
+            if (pointIndex !== null) {
+                onPointClick(pointIndex, e);
+            }
+        }
+        interactionState.current.lastX = e.clientX;
+        interactionState.current.lastY = e.clientY;
+    }, [pickPoint, onPointClick]);
+
+    // Update handleMouseMove to include hover:
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!cameraRef.current) return;
 
@@ -228,16 +205,32 @@ export function PointCloudViewer({
             handleCameraUpdate(camera => camera.orbit(deltaX, deltaY));
         } else if (interactionState.current.isPanning) {
             handleCameraUpdate(camera => camera.pan(deltaX, deltaY));
+        } else if (onPointHover) {
+            console.log('Attempting hover check...', {
+                mouseX: e.clientX,
+                mouseY: e.clientY,
+                onPointHover: !!onPointHover
+            });
+            const pointIndex = pickPoint(e.clientX, e.clientY);
+            hoveredPointRef.current = pointIndex;
+            onPointHover(pointIndex);
+            requestRender();
         }
 
         interactionState.current.lastX = e.clientX;
         interactionState.current.lastY = e.clientY;
-    }, [handleCameraUpdate]);
+    }, [handleCameraUpdate, pickPoint, onPointHover, requestRender]);
 
     const handleWheel = useCallback((e: WheelEvent) => {
         e.preventDefault();
         handleCameraUpdate(camera => camera.zoom(e.deltaY));
     }, [handleCameraUpdate]);
+
+    // Add this with the other mouse handlers
+    const handleMouseUp = useCallback(() => {
+        interactionState.current.isDragging = false;
+        interactionState.current.isPanning = false;
+    }, []);
 
     useEffect(() => {
         if (!canvasRef.current) return;
@@ -250,22 +243,18 @@ export function PointCloudViewer({
         }
         glRef.current = gl;
 
-        // Create and compile shaders
-        const program = gl.createProgram();
-        if (!program) return;
+        // Ensure canvas and framebuffer are the same size
+        const dpr = window.devicePixelRatio || 1;
+        gl.canvas.width = gl.canvas.clientWidth * dpr;
+        gl.canvas.height = gl.canvas.clientHeight * dpr;
+
+        // Replace the manual shader compilation with createProgram
+        const program = createProgram(gl, mainShaders.vertex, mainShaders.fragment);
+        if (!program) {
+            console.error('Failed to create shader program');
+            return;
+        }
         programRef.current = program;
-
-        const vShader = gl.createShader(gl.VERTEX_SHADER);
-        const fShader = gl.createShader(gl.FRAGMENT_SHADER);
-        if (!vShader || !fShader) return;
-
-        gl.shaderSource(vShader, vertexShader);
-        gl.shaderSource(fShader, fragmentShader);
-        gl.compileShader(vShader);
-        gl.compileShader(fShader);
-        gl.attachShader(program, vShader);
-        gl.attachShader(program, fShader);
-        gl.linkProgram(program);
 
         // Initialize camera
         cameraRef.current = new OrbitCamera(
@@ -297,6 +286,7 @@ export function PointCloudViewer({
         // Set up vertex attributes
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
+        vaoRef.current = vao;
 
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
         gl.enableVertexAttribArray(0);
@@ -306,9 +296,103 @@ export function PointCloudViewer({
         gl.enableVertexAttribArray(1);
         gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
 
+        // Point ID buffer for main VAO
+        const mainPointIdBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, mainPointIdBuffer);
+        const mainPointIds = new Float32Array(points.xyz.length / 3);
+        for (let i = 0; i < mainPointIds.length; i++) {
+            mainPointIds[i] = i;
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, mainPointIds, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(2);
+        gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 0, 0);
+
+        // Create picking program
+        const pickingProgram = createProgram(gl, pickingShaders.vertex, pickingShaders.fragment);
+        if (!pickingProgram) {
+            console.error('Failed to create picking program');
+            return;
+        }
+        pickingProgramRef.current = pickingProgram;
+
+        // After setting up the main VAO, set up picking VAO:
+        const pickingVao = gl.createVertexArray();
+        gl.bindVertexArray(pickingVao);
+        pickingVaoRef.current = pickingVao;
+
+        // Position buffer (reuse the same buffer)
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+        // Point ID buffer
+        const pickingPointIdBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, pickingPointIdBuffer);
+        const pickingPointIds = new Float32Array(points.xyz.length / 3);
+        for (let i = 0; i < pickingPointIds.length; i++) {
+            pickingPointIds[i] = i;
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, pickingPointIds, gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 0, 0);
+
+        // Restore main VAO binding
+        gl.bindVertexArray(vao);
+
+        // Create framebuffer and texture for picking
+        const pickingFb = gl.createFramebuffer();
+        const pickingTexture = gl.createTexture();
+        if (!pickingFb || !pickingTexture) {
+            console.error('Failed to create picking framebuffer');
+            return;
+        }
+        pickingFbRef.current = pickingFb;
+        pickingTextureRef.current = pickingTexture;
+
+        // Initialize texture
+        gl.bindTexture(gl.TEXTURE_2D, pickingTexture);
+        gl.texImage2D(
+            gl.TEXTURE_2D, 0, gl.RGBA,
+            gl.canvas.width, gl.canvas.height, 0,
+            gl.RGBA, gl.UNSIGNED_BYTE, null
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        // Create and attach depth buffer
+        const depthBuffer = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+        gl.renderbufferStorage(
+            gl.RENDERBUFFER, gl.DEPTH_COMPONENT16,
+            gl.canvas.width, gl.canvas.height
+        );
+        gl.framebufferRenderbuffer(
+            gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,
+            gl.RENDERBUFFER, depthBuffer
+        );
+
+        // Attach texture to framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFb);
+        gl.framebufferTexture2D(
+            gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+            gl.TEXTURE_2D, pickingTexture, 0
+        );
+
+        // Verify framebuffer is complete
+        const fbStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        if (fbStatus !== gl.FRAMEBUFFER_COMPLETE) {
+            console.error('Picking framebuffer is incomplete');
+            return;
+        }
+
+        // Restore default framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
         // Render function
         function render(timestamp: number) {
-            if (!gl || !program || !cameraRef.current) return;
+            if (!gl || !programRef.current || !cameraRef.current) return;
 
             // Only render if needed
             if (!needsRenderRef.current) {
@@ -343,7 +427,7 @@ export function PointCloudViewer({
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             gl.enable(gl.DEPTH_TEST);
 
-            gl.useProgram(program);
+            gl.useProgram(programRef.current);
 
             // Set up matrices
             const projectionMatrix = mat4.perspective(
@@ -356,14 +440,33 @@ export function PointCloudViewer({
 
             const viewMatrix = cameraRef.current.getViewMatrix();
 
-            const projectionLoc = gl.getUniformLocation(program, 'uProjectionMatrix');
-            const viewLoc = gl.getUniformLocation(program, 'uViewMatrix');
-            const pointSizeLoc = gl.getUniformLocation(program, 'uPointSize');
+            const projectionLoc = gl.getUniformLocation(programRef.current, 'uProjectionMatrix');
+            const viewLoc = gl.getUniformLocation(programRef.current, 'uViewMatrix');
+            const pointSizeLoc = gl.getUniformLocation(programRef.current, 'uPointSize');
 
             gl.uniformMatrix4fv(projectionLoc, false, projectionMatrix);
             gl.uniformMatrix4fv(viewLoc, false, viewMatrix);
             gl.uniform1f(pointSizeLoc, pointSize);
 
+            const highlightedPointLoc = gl.getUniformLocation(programRef.current, 'uHighlightedPoint');
+            const highlightColorLoc = gl.getUniformLocation(programRef.current, 'uHighlightColor');
+
+            console.log('Highlight uniforms:', {
+                highlightedPoint: hoveredPointRef.current ?? -1,
+                highlightColor,
+                locs: {
+                    point: highlightedPointLoc,
+                    color: highlightColorLoc
+                }
+            });
+
+            gl.uniform1i(highlightedPointLoc, hoveredPointRef.current ?? -1);
+            gl.uniform3fv(highlightColorLoc, highlightColor);
+
+            const canvasSizeLoc = gl.getUniformLocation(programRef.current, 'uCanvasSize');
+            gl.uniform2f(canvasSizeLoc, gl.canvas.width, gl.canvas.height);
+
+            gl.bindVertexArray(vao);
             gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
 
             // Store the animation frame ID
@@ -372,21 +475,6 @@ export function PointCloudViewer({
 
         // Start the render loop
         animationFrameRef.current = requestAnimationFrame(render);
-
-        const handleMouseDown = (e: MouseEvent) => {
-            if (e.button === 0 && !e.shiftKey) {
-                interactionState.current.isDragging = true;
-            } else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
-                interactionState.current.isPanning = true;
-            }
-            interactionState.current.lastX = e.clientX;
-            interactionState.current.lastY = e.clientY;
-        };
-
-        const handleMouseUp = () => {
-            interactionState.current.isDragging = false;
-            interactionState.current.isPanning = false;
-        };
 
         canvasRef.current.addEventListener('mousedown', handleMouseDown);
         canvasRef.current.addEventListener('mousemove', handleMouseMove);
@@ -399,11 +487,49 @@ export function PointCloudViewer({
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
             }
-            if (!canvasRef.current) return;
-            canvasRef.current.removeEventListener('mousedown', handleMouseDown);
-            canvasRef.current.removeEventListener('mousemove', handleMouseMove);
-            canvasRef.current.removeEventListener('mouseup', handleMouseUp);
-            canvasRef.current.removeEventListener('wheel', handleWheel);
+            if (gl) {
+                if (programRef.current) {
+                    gl.deleteProgram(programRef.current);
+                    programRef.current = null;
+                }
+                if (pickingProgramRef.current) {
+                    gl.deleteProgram(pickingProgramRef.current);
+                    pickingProgramRef.current = null;
+                }
+                if (vao) {
+                    gl.deleteVertexArray(vao);
+                }
+                if (pickingVao) {
+                    gl.deleteVertexArray(pickingVao);
+                }
+                if (positionBuffer) {
+                    gl.deleteBuffer(positionBuffer);
+                }
+                if (colorBuffer) {
+                    gl.deleteBuffer(colorBuffer);
+                }
+                if (mainPointIdBuffer) {
+                    gl.deleteBuffer(mainPointIdBuffer);
+                }
+                if (pickingPointIdBuffer) {
+                    gl.deleteBuffer(pickingPointIdBuffer);
+                }
+                if (pickingFb) {
+                    gl.deleteFramebuffer(pickingFb);
+                }
+                if (pickingTexture) {
+                    gl.deleteTexture(pickingTexture);
+                }
+                if (depthBuffer) {
+                    gl.deleteRenderbuffer(depthBuffer);
+                }
+            }
+            if (canvasRef.current) {
+                canvasRef.current.removeEventListener('mousedown', handleMouseDown);
+                canvasRef.current.removeEventListener('mousemove', handleMouseMove);
+                canvasRef.current.removeEventListener('mouseup', handleMouseUp);
+                canvasRef.current.removeEventListener('wheel', handleWheel);
+            }
         };
     }, [points, initialCamera, backgroundColor, handleCameraUpdate, handleMouseMove, handleWheel, requestRender, pointSize]);
 
