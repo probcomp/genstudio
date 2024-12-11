@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { mat4, vec3 } from 'gl-matrix';
 import { createProgram, createPointIdBuffer } from './webgl-utils';
-import { PointCloudData, CameraParams, PointCloudViewerProps, ShaderUniforms } from './types';
+import { PointCloudData, CameraParams, PointCloudViewerProps, ShaderUniforms, PickingUniforms } from './types';
 import { mainShaders } from './shaders';
 import { OrbitCamera } from './orbit-camera';
 import { pickingShaders } from './shaders';
@@ -94,8 +94,6 @@ export function PointCloudViewer({
     });
     const fpsRef = useRef<HTMLDivElement>(null);
     const lastFrameTimeRef = useRef<number>(0);
-    const frameCountRef = useRef<number>(0);
-    const lastFpsUpdateRef = useRef<number>(0);
     const animationFrameRef = useRef<number>();
     const needsRenderRef = useRef<boolean>(true);
     const lastFrameTimesRef = useRef<number[]>([]);
@@ -107,6 +105,7 @@ export function PointCloudViewer({
     const pickingTextureRef = useRef<WebGLTexture | null>(null);
     const hoveredPointRef = useRef<number | null>(null);
     const uniformsRef = useRef<ShaderUniforms | null>(null);
+    const pickingUniformsRef = useRef<PickingUniforms | null>(null);
 
     // Move requestRender before handleCameraUpdate
     const requestRender = useCallback(() => {
@@ -165,10 +164,10 @@ export function PointCloudViewer({
         const { projectionMatrix, viewMatrix } = setupMatrices(gl);
 
         // Set uniforms for picking shader
-        gl.uniformMatrix4fv(gl.getUniformLocation(pickingProgramRef.current, 'uProjectionMatrix'), false, projectionMatrix);
-        gl.uniformMatrix4fv(gl.getUniformLocation(pickingProgramRef.current, 'uViewMatrix'), false, viewMatrix);
-        gl.uniform1f(gl.getUniformLocation(pickingProgramRef.current, 'uPointSize'), pointSize);
-        gl.uniform2f(gl.getUniformLocation(pickingProgramRef.current, 'uCanvasSize'), gl.canvas.width, gl.canvas.height);
+        gl.uniformMatrix4fv(pickingUniformsRef.current.projection, false, projectionMatrix);
+        gl.uniformMatrix4fv(pickingUniformsRef.current.view, false, viewMatrix);
+        gl.uniform1f(pickingUniformsRef.current.pointSize, pointSize);
+        gl.uniform2f(pickingUniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
 
         // Draw points for picking
         gl.bindVertexArray(pickingVaoRef.current);
@@ -345,6 +344,14 @@ export function PointCloudViewer({
             return;
         }
         pickingProgramRef.current = pickingProgram;
+
+        // Cache picking uniforms
+        pickingUniformsRef.current = {
+            projection: gl.getUniformLocation(pickingProgram, 'uProjectionMatrix'),
+            view: gl.getUniformLocation(pickingProgram, 'uViewMatrix'),
+            pointSize: gl.getUniformLocation(pickingProgram, 'uPointSize'),
+            canvasSize: gl.getUniformLocation(pickingProgram, 'uCanvasSize')
+        };
 
         // After setting up the main VAO, set up picking VAO:
         const pickingVao = gl.createVertexArray();
