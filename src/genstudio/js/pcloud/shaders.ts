@@ -59,6 +59,7 @@ export const pickingShaders = {
         uniform mat4 uViewMatrix;
         uniform float uPointSize;
         uniform vec2 uCanvasSize;
+        uniform int uHighlightedPoint;
 
         layout(location = 0) in vec3 position;
         layout(location = 1) in float pointId;
@@ -71,10 +72,16 @@ export const pickingShaders = {
             float dist = -viewPos.z;
 
             float projectedSize = (uPointSize * uCanvasSize.y) / (2.0 * dist);
-            float pointSize = clamp(projectedSize, 1.0, 20.0);
+            float baseSize = clamp(projectedSize, 1.0, 20.0);
+
+            bool isHighlighted = (int(pointId) == uHighlightedPoint);
+            float minHighlightSize = 8.0;
+            float relativeHighlightSize = min(uCanvasSize.x, uCanvasSize.y) * 0.02;
+            float sizeFromBase = baseSize * 2.0;
+            float highlightSize = max(max(minHighlightSize, relativeHighlightSize), sizeFromBase);
 
             gl_Position = uProjectionMatrix * viewPos;
-            gl_PointSize = pointSize;
+            gl_PointSize = isHighlighted ? highlightSize : baseSize;
         }`,
 
     fragment: `#version 300 es
@@ -96,5 +103,6 @@ export const pickingShaders = {
             float red = id - blue * 256.0 * 256.0 - green * 256.0;
 
             fragColor = vec4(red / 255.0, green / 255.0, blue / 255.0, 1.0);
+            gl_FragDepth = gl_FragCoord.z;
         }`
 };
