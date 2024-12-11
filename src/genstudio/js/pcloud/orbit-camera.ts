@@ -15,8 +15,14 @@ export class OrbitCamera {
 
         // Initialize orbit parameters
         this.radius = vec3.distance(position, target);
-        this.phi = Math.acos(this.position[1] / this.radius);
-        this.theta = Math.atan2(this.position[0], this.position[2]);
+
+        // Calculate relative position from target
+        const relativePos = vec3.sub(vec3.create(), position, target);
+
+        // Calculate angles
+        this.phi = Math.acos(relativePos[2] / this.radius);  // Changed from position[1]
+        this.theta = Math.atan2(relativePos[0], relativePos[1]);  // Changed from position[0], position[2]
+
     }
 
     getViewMatrix(): mat4 {
@@ -24,9 +30,12 @@ export class OrbitCamera {
     }
 
     orbit(deltaX: number, deltaY: number): void {
-        // Update angles
-        this.theta += deltaX * 0.01;
-        this.phi = Math.max(0.1, Math.min(Math.PI - 0.1, this.phi + deltaY * 0.01));
+        // Update angles - note we swap the relationship here
+        this.theta += deltaX * 0.01;  // Left/right movement affects azimuthal angle
+        this.phi -= deltaY * 0.01;    // Up/down movement affects polar angle (note: + instead of -)
+
+        // Clamp phi to avoid flipping and keep camera above ground
+        this.phi = Math.max(0.01, Math.min(Math.PI - 0.01, this.phi));
 
         // Calculate new position using spherical coordinates
         const sinPhi = Math.sin(this.phi);
@@ -34,9 +43,11 @@ export class OrbitCamera {
         const sinTheta = Math.sin(this.theta);
         const cosTheta = Math.cos(this.theta);
 
+        // Update position in world space
+        // Note: Changed coordinate mapping to match expected behavior
         this.position[0] = this.target[0] + this.radius * sinPhi * sinTheta;
-        this.position[1] = this.target[1] + this.radius * cosPhi;
-        this.position[2] = this.target[2] + this.radius * sinPhi * cosTheta;
+        this.position[1] = this.target[1] + this.radius * sinPhi * cosTheta;
+        this.position[2] = this.target[2] + this.radius * cosPhi;
     }
 
     zoom(delta: number): void {
