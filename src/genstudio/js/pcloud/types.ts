@@ -49,3 +49,10 @@ export interface ShaderUniforms {
     hoveredPoint: WebGLUniformLocation | null;
     hoveredHighlightColor: WebGLUniformLocation | null;
 }
+
+export interface PickingUniforms {
+    projection: WebGLUniformLocation | null;
+    view: WebGLUniformLocation | null;
+    pointSize: WebGLUniformLocation | null;
+    canvasSize: WebGLUniformLocation | null;
+}
