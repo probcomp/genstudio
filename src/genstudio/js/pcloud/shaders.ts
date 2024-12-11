@@ -3,9 +3,12 @@ export const mainShaders = {
         uniform mat4 uProjectionMatrix;
         uniform mat4 uViewMatrix;
         uniform float uPointSize;
-        uniform int uHighlightedPoint;
         uniform vec3 uHighlightColor;
+        uniform vec3 uHoveredHighlightColor;
         uniform vec2 uCanvasSize;
+        uniform int uHighlightedPoints[100];  // For permanent highlights
+        uniform int uHoveredPoint;           // For hover highlight
+        uniform int uHighlightCount;         // Number of highlights
 
         layout(location = 0) in vec3 position;
         layout(location = 1) in vec3 color;
@@ -13,28 +16,35 @@ export const mainShaders = {
 
         out vec3 vColor;
 
+        bool isHighlighted() {
+            for(int i = 0; i < uHighlightCount; i++) {
+                if(int(pointId) == uHighlightedPoints[i]) return true;
+            }
+            return false;
+        }
+
         void main() {
-            bool isHighlighted = (int(pointId) == uHighlightedPoint);
-            vColor = isHighlighted ? uHighlightColor : color;
+            bool highlighted = isHighlighted();
+            bool hovered = (int(pointId) == uHoveredPoint);
+
+            // Priority: hover > highlight > normal
+            vColor = hovered ? uHoveredHighlightColor :
+                    highlighted ? uHighlightColor :
+                    color;
 
             vec4 viewPos = uViewMatrix * vec4(position, 1.0);
             float dist = -viewPos.z;
 
-            // Physical size scaling:
-            // - uPointSize represents the desired size in world units
-            // - Scale by canvas height to maintain size in screen space
-            // - Multiply by 0.5 to convert from diameter to radius
             float projectedSize = (uPointSize * uCanvasSize.y) / (2.0 * dist);
             float baseSize = clamp(projectedSize, 1.0, 20.0);
 
             float minHighlightSize = 8.0;
             float relativeHighlightSize = min(uCanvasSize.x, uCanvasSize.y) * 0.02;
             float sizeFromBase = baseSize * 2.0;
-
             float highlightSize = max(max(minHighlightSize, relativeHighlightSize), sizeFromBase);
 
             gl_Position = uProjectionMatrix * viewPos;
-            gl_PointSize = isHighlighted ? highlightSize : baseSize;
+            gl_PointSize = (highlighted || hovered) ? highlightSize : baseSize;
         }`,
 
     fragment: `#version 300 es
