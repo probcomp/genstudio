@@ -36,3 +36,16 @@ export interface PointCloudViewerProps {
     pickingRadius?: number;
     highlights?: number[];
 }
+
+export interface ShaderUniforms {
+    projection: WebGLUniformLocation | null;
+    view: WebGLUniformLocation | null;
+    pointSize: WebGLUniformLocation | null;
+    highlightedPoint: WebGLUniformLocation | null;
+    highlightColor: WebGLUniformLocation | null;
+    canvasSize: WebGLUniformLocation | null;
+    highlightedPoints: WebGLUniformLocation | null;
+    highlightCount: WebGLUniformLocation | null;
+    hoveredPoint: WebGLUniformLocation | null;
+    hoveredHighlightColor: WebGLUniformLocation | null;
+}

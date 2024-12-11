@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { mat4, vec3 } from 'gl-matrix';
-import { createProgram } from './webgl-utils';
-import { PointCloudData, CameraParams, PointCloudViewerProps } from './types';
+import { createProgram, createPointIdBuffer } from './webgl-utils';
+import { PointCloudData, CameraParams, PointCloudViewerProps, ShaderUniforms } from './types';
 import { mainShaders } from './shaders';
 import { OrbitCamera } from './orbit-camera';
 import { pickingShaders } from './shaders';
@@ -70,6 +70,20 @@ export function PointCloudViewer({
         }
     }, [isControlled, cameraParams]);
 
+    const setupMatrices = useCallback((gl: WebGL2RenderingContext) => {
+        const projectionMatrix = mat4.perspective(
+            mat4.create(),
+            cameraParams.fov * Math.PI / 180,
+            gl.canvas.width / gl.canvas.height,
+            cameraParams.near,
+            cameraParams.far
+        );
+
+        const viewMatrix = cameraRef.current?.getViewMatrix() || mat4.create();
+
+        return { projectionMatrix, viewMatrix };
+    }, [cameraParams]);
+
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const glRef = useRef<WebGL2RenderingContext>(null);
     const programRef = useRef<WebGLProgram>(null);
@@ -92,6 +106,7 @@ export function PointCloudViewer({
     const pickingFbRef = useRef<WebGLFramebuffer | null>(null);
     const pickingTextureRef = useRef<WebGLTexture | null>(null);
     const hoveredPointRef = useRef<number | null>(null);
+    const uniformsRef = useRef<ShaderUniforms | null>(null);
 
     // Move requestRender before handleCameraUpdate
     const requestRender = useCallback(() => {
@@ -146,14 +161,8 @@ export function PointCloudViewer({
         // Use picking shader
         gl.useProgram(pickingProgramRef.current);
 
-        const projectionMatrix = mat4.perspective(
-            mat4.create(),
-            cameraParams.fov * Math.PI / 180,
-            gl.canvas.width / gl.canvas.height,
-            cameraParams.near,
-            cameraParams.far
-        );
-        const viewMatrix = cameraRef.current.getViewMatrix();
+        // Use shared matrix setup
+        const { projectionMatrix, viewMatrix } = setupMatrices(gl);
 
         // Set uniforms for picking shader
         gl.uniformMatrix4fv(gl.getUniformLocation(pickingProgramRef.current, 'uProjectionMatrix'), false, projectionMatrix);
@@ -180,7 +189,7 @@ export function PointCloudViewer({
 
         if (pixel[3] === 0) return null;
         return pixel[0] + pixel[1] * 256 + pixel[2] * 256 * 256;
-    }, [cameraParams, points.xyz.length, pointSize, requestRender]);
+    }, [points.xyz.length, pointSize, setupMatrices]);
 
     // Update the mouse handlers to properly handle clicks
     const handleMouseDown = useCallback((e: MouseEvent) => {
@@ -233,6 +242,28 @@ export function PointCloudViewer({
         }
     }, []);
 
+    // Add this function before useEffect
+    const updateFPS = useCallback((timestamp: number) => {
+        const frameTime = timestamp - lastFrameTimeRef.current;
+        lastFrameTimeRef.current = timestamp;
+
+        if (frameTime > 0) {
+            lastFrameTimesRef.current.push(frameTime);
+            if (lastFrameTimesRef.current.length > MAX_FRAME_SAMPLES) {
+                lastFrameTimesRef.current.shift();
+            }
+
+            const avgFrameTime = lastFrameTimesRef.current.reduce((a, b) => a + b, 0) /
+                lastFrameTimesRef.current.length;
+            const fps = Math.round(1000 / avgFrameTime);
+
+            if (fpsRef.current) {
+                fpsRef.current.textContent = `${fps} FPS`;
+            }
+        }
+    }, []);
+
+
     useEffect(() => {
         if (!canvasRef.current) return;
 
@@ -257,6 +288,19 @@ export function PointCloudViewer({
         }
         programRef.current = program;
 
+        // Cache uniform locations during setup
+        uniformsRef.current = {
+            projection: gl.getUniformLocation(program, 'uProjectionMatrix'),
+            view: gl.getUniformLocation(program, 'uViewMatrix'),
+            pointSize: gl.getUniformLocation(program, 'uPointSize'),
+            highlightedPoint: gl.getUniformLocation(program, 'uHighlightedPoint'),
+            highlightColor: gl.getUniformLocation(program, 'uHighlightColor'),
+            canvasSize: gl.getUniformLocation(program, 'uCanvasSize'),
+            highlightedPoints: gl.getUniformLocation(program, 'uHighlightedPoints'),
+            highlightCount: gl.getUniformLocation(program, 'uHighlightCount'),
+            hoveredPoint: gl.getUniformLocation(program, 'uHoveredPoint'),
+            hoveredHighlightColor: gl.getUniformLocation(program, 'uHoveredHighlightColor')
+        };
 
         // Set up buffers
         const positionBuffer = gl.createBuffer();
@@ -292,15 +336,7 @@ export function PointCloudViewer({
         gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
 
         // Point ID buffer for main VAO
-        const mainPointIdBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, mainPointIdBuffer);
-        const mainPointIds = new Float32Array(points.xyz.length / 3);
-        for (let i = 0; i < mainPointIds.length; i++) {
-            mainPointIds[i] = i;
-        }
-        gl.bufferData(gl.ARRAY_BUFFER, mainPointIds, gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(2);
-        gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 0, 0);
+        const mainPointIdBuffer = createPointIdBuffer(gl, points.xyz.length / 3, 2);
 
         // Create picking program
         const pickingProgram = createProgram(gl, pickingShaders.vertex, pickingShaders.fragment);
@@ -321,15 +357,7 @@ export function PointCloudViewer({
         gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 
         // Point ID buffer
-        const pickingPointIdBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, pickingPointIdBuffer);
-        const pickingPointIds = new Float32Array(points.xyz.length / 3);
-        for (let i = 0; i < pickingPointIds.length; i++) {
-            pickingPointIds[i] = i;
-        }
-        gl.bufferData(gl.ARRAY_BUFFER, pickingPointIds, gl.STATIC_DRAW);
-        gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 0, 0);
+        const pickingPointIdBuffer = createPointIdBuffer(gl, points.xyz.length / 3, 1);
 
         // Restore main VAO binding
         gl.bindVertexArray(vao);
@@ -402,27 +430,8 @@ export function PointCloudViewer({
                 return;
             }
 
-            // Reset the flag
             needsRenderRef.current = false;
-
-            // Track actual frame time
-            const frameTime = timestamp - lastFrameTimeRef.current;
-            lastFrameTimeRef.current = timestamp;
-
-            if (frameTime > 0) {  // Avoid division by zero
-                lastFrameTimesRef.current.push(frameTime);
-                if (lastFrameTimesRef.current.length > MAX_FRAME_SAMPLES) {
-                    lastFrameTimesRef.current.shift();
-                }
-
-                // Calculate average frame time and FPS
-                const avgFrameTime = lastFrameTimesRef.current.reduce((a, b) => a + b, 0) / lastFrameTimesRef.current.length;
-                const fps = Math.round(1000 / avgFrameTime);
-
-                if (fpsRef.current) {
-                    fpsRef.current.textContent = `${fps} FPS`;
-                }
-            }
+            updateFPS(timestamp);
 
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             gl.clearColor(backgroundColor[0], backgroundColor[1], backgroundColor[2], 1.0);
@@ -432,52 +441,26 @@ export function PointCloudViewer({
             gl.useProgram(programRef.current);
 
             // Set up matrices
-            const projectionMatrix = mat4.perspective(
-                mat4.create(),
-                cameraParams.fov * Math.PI / 180,
-                gl.canvas.width / gl.canvas.height,
-                cameraParams.near,
-                cameraParams.far
-            );
+            const { projectionMatrix, viewMatrix } = setupMatrices(gl);
 
-            const viewMatrix = cameraRef.current.getViewMatrix();
 
-            // Get uniform locations once and cache them
-            const uniforms = {
-                projection: gl.getUniformLocation(programRef.current, 'uProjectionMatrix'),
-                view: gl.getUniformLocation(programRef.current, 'uViewMatrix'),
-                pointSize: gl.getUniformLocation(programRef.current, 'uPointSize'),
-                highlightedPoint: gl.getUniformLocation(programRef.current, 'uHighlightedPoint'),
-                highlightColor: gl.getUniformLocation(programRef.current, 'uHighlightColor'),
-                canvasSize: gl.getUniformLocation(programRef.current, 'uCanvasSize')
-            };
+            // Set all uniforms in one place
+            gl.uniformMatrix4fv(uniformsRef.current.projection, false, projectionMatrix);
+            gl.uniformMatrix4fv(uniformsRef.current.view, false, viewMatrix);
+            gl.uniform1f(uniformsRef.current.pointSize, pointSize);
+            gl.uniform2f(uniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
 
-            // Set uniforms
-            gl.uniformMatrix4fv(uniforms.projection, false, projectionMatrix);
-            gl.uniformMatrix4fv(uniforms.view, false, viewMatrix);
-            gl.uniform1f(uniforms.pointSize, pointSize);
-            gl.uniform1i(uniforms.highlightedPoint, hoveredPointRef.current ?? -1);
-            gl.uniform3fv(uniforms.highlightColor, highlightColor);
-            gl.uniform2f(uniforms.canvasSize, gl.canvas.width, gl.canvas.height);
-
-            // Update uniforms for highlights
-            const highlightedPointsLoc = gl.getUniformLocation(programRef.current, 'uHighlightedPoints');
-            const highlightCountLoc = gl.getUniformLocation(programRef.current, 'uHighlightCount');
-            const hoveredPointLoc = gl.getUniformLocation(programRef.current, 'uHoveredPoint');
-            const highlightColorLoc = gl.getUniformLocation(programRef.current, 'uHighlightColor');
-            const hoveredHighlightColorLoc = gl.getUniformLocation(programRef.current, 'uHoveredHighlightColor');
-
-            // Set highlight uniforms
-            const highlightArray = new Int32Array(100).fill(-1);  // Initialize with -1
+            // Handle all highlight-related uniforms together
+            const highlightArray = new Int32Array(100).fill(-1);
             highlights.slice(0, 100).forEach((idx, i) => {
                 highlightArray[i] = idx;
             });
 
-            gl.uniform1iv(highlightedPointsLoc, highlightArray);
-            gl.uniform1i(highlightCountLoc, Math.min(highlights.length, 100));
-            gl.uniform1i(hoveredPointLoc, hoveredPointRef.current ?? -1);
-            gl.uniform3fv(highlightColorLoc, highlightColor);
-            gl.uniform3fv(hoveredHighlightColorLoc, hoveredHighlightColor);
+            gl.uniform1iv(uniformsRef.current.highlightedPoints, highlightArray);
+            gl.uniform1i(uniformsRef.current.highlightCount, Math.min(highlights.length, 100));
+            gl.uniform1i(uniformsRef.current.hoveredPoint, hoveredPointRef.current ?? -1);
+            gl.uniform3fv(uniformsRef.current.highlightColor, highlightColor);
+            gl.uniform3fv(uniformsRef.current.hoveredHighlightColor, hoveredHighlightColor);
 
             // Ensure correct VAO is bound
             gl.bindVertexArray(vaoRef.current);
