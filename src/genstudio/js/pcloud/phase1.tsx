@@ -51,9 +51,7 @@ export function PointCloudViewer({
     const cameraRef = useRef<OrbitCamera>(null);
     const interactionState = useRef({
         isDragging: false,
-        isPanning: false,
-        lastX: 0,
-        lastY: 0
+        isPanning: false
     });
     const fpsRef = useRef<HTMLDivElement>(null);
     const lastFrameTimeRef = useRef<number>(0);
@@ -115,10 +113,8 @@ export function PointCloudViewer({
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.enable(gl.DEPTH_TEST);
 
-        // Use picking shader
+        // Use picking shader and set uniforms
         gl.useProgram(pickingProgramRef.current);
-
-        // Set uniforms
         const projectionMatrix = mat4.perspective(
             mat4.create(),
             cameraParams.fov * Math.PI / 180,
@@ -128,41 +124,21 @@ export function PointCloudViewer({
         );
         const viewMatrix = cameraRef.current.getViewMatrix();
 
-        const projectionLoc = gl.getUniformLocation(pickingProgramRef.current, 'uProjectionMatrix');
-        const viewLoc = gl.getUniformLocation(pickingProgramRef.current, 'uViewMatrix');
-        const pointSizeLoc = gl.getUniformLocation(pickingProgramRef.current, 'uPointSize');
-        const canvasSizeLoc = gl.getUniformLocation(pickingProgramRef.current, 'uCanvasSize');
+        gl.uniformMatrix4fv(gl.getUniformLocation(pickingProgramRef.current, 'uProjectionMatrix'), false, projectionMatrix);
+        gl.uniformMatrix4fv(gl.getUniformLocation(pickingProgramRef.current, 'uViewMatrix'), false, viewMatrix);
+        gl.uniform1f(gl.getUniformLocation(pickingProgramRef.current, 'uPointSize'), pointSize);
+        gl.uniform2f(gl.getUniformLocation(pickingProgramRef.current, 'uCanvasSize'), gl.canvas.width, gl.canvas.height);
 
-        // Debug: Check uniform locations
-        console.log('Picking uniforms:', { projectionLoc, viewLoc, pointSizeLoc, canvasSizeLoc });
-
-        gl.uniformMatrix4fv(projectionLoc, false, projectionMatrix);
-        gl.uniformMatrix4fv(viewLoc, false, viewMatrix);
-        gl.uniform1f(pointSizeLoc, pointSize);
-        gl.uniform2f(canvasSizeLoc, gl.canvas.width, gl.canvas.height);
-
-        // Draw points with picking shader
+        // Draw points
         gl.bindVertexArray(pickingVaoRef.current);
-
-        // Debug: Check if we're drawing the right number of points
-        console.log('Drawing points:', points.xyz.length / 3);
-
         gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
 
-        // Read pixel at mouse position
+        // Read pixel
         const rect = gl.canvas.getBoundingClientRect();
         const pixelX = Math.floor((x - rect.left) * gl.canvas.width / rect.width);
         const pixelY = Math.floor((rect.height - (y - rect.top)) * gl.canvas.height / rect.height);
         const pixel = new Uint8Array(4);
         gl.readPixels(pixelX, pixelY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
-
-        // Debug: Check pixel values
-        console.log('Read pixel:', {
-            x, y,
-            pixelX, pixelY,
-            pixel: Array.from(pixel),
-            alpha: pixel[3]
-        });
 
         // Restore default framebuffer
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -172,9 +148,7 @@ export function PointCloudViewer({
         gl.bindVertexArray(vaoRef.current);
         requestRender();
 
-        // If alpha is 0, no point was picked
         if (pixel[3] === 0) return null;
-
         return pixel[0] + pixel[1] * 256 + pixel[2] * 256 * 256;
     }, [cameraParams, points.xyz.length, pointSize, requestRender]);
 
@@ -190,35 +164,22 @@ export function PointCloudViewer({
                 onPointClick(pointIndex, e);
             }
         }
-        interactionState.current.lastX = e.clientX;
-        interactionState.current.lastY = e.clientY;
     }, [pickPoint, onPointClick]);
 
     // Update handleMouseMove to include hover:
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!cameraRef.current) return;
 
-        const deltaX = e.clientX - interactionState.current.lastX;
-        const deltaY = e.clientY - interactionState.current.lastY;
-
         if (interactionState.current.isDragging) {
-            handleCameraUpdate(camera => camera.orbit(deltaX, deltaY));
+            handleCameraUpdate(camera => camera.orbit(e.movementX, e.movementY));
         } else if (interactionState.current.isPanning) {
-            handleCameraUpdate(camera => camera.pan(deltaX, deltaY));
+            handleCameraUpdate(camera => camera.pan(e.movementX, e.movementY));
         } else if (onPointHover) {
-            console.log('Attempting hover check...', {
-                mouseX: e.clientX,
-                mouseY: e.clientY,
-                onPointHover: !!onPointHover
-            });
             const pointIndex = pickPoint(e.clientX, e.clientY);
             hoveredPointRef.current = pointIndex;
             onPointHover(pointIndex);
             requestRender();
         }
-
-        interactionState.current.lastX = e.clientX;
-        interactionState.current.lastY = e.clientY;
     }, [handleCameraUpdate, pickPoint, onPointHover, requestRender]);
 
     const handleWheel = useCallback((e: WheelEvent) => {
@@ -451,14 +412,6 @@ export function PointCloudViewer({
             const highlightedPointLoc = gl.getUniformLocation(programRef.current, 'uHighlightedPoint');
             const highlightColorLoc = gl.getUniformLocation(programRef.current, 'uHighlightColor');
 
-            console.log('Highlight uniforms:', {
-                highlightedPoint: hoveredPointRef.current ?? -1,
-                highlightColor,
-                locs: {
-                    point: highlightedPointLoc,
-                    color: highlightColorLoc
-                }
-            });
 
             gl.uniform1i(highlightedPointLoc, hoveredPointRef.current ?? -1);
             gl.uniform3fv(highlightColorLoc, highlightColor);
