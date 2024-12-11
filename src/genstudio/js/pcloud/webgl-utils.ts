@@ -51,3 +51,20 @@ export function createProgram(
 
     return program;
 }
+
+export function createPointIdBuffer(
+    gl: WebGL2RenderingContext,
+    numPoints: number,
+    attributeLocation: number
+): WebGLBuffer {
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    const ids = new Float32Array(numPoints);
+    for (let i = 0; i < numPoints; i++) {
+        ids[i] = i;
+    }
+    gl.bufferData(gl.ARRAY_BUFFER, ids, gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(attributeLocation);
+    gl.vertexAttribPointer(attributeLocation, 1, gl.FLOAT, false, 0, 0);
+    return buffer;
+}
