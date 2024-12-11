@@ -117,7 +117,10 @@ def scene(controlled, point_size=4, xyz=torus_xyz, rgb=torus_rgb):
             "backgroundColor": [0.1, 0.1, 0.1, 1],  # Dark background to make colors pop
             "className": "h-[400px] w-[400px]",
             "pointSize": point_size,
-            "onPointClick": js("(e) => console.log('clicked', e)"),
+            "onPointClick": js(
+                "(i) => $state.update({highlights: $state.highlights.includes(i) ? $state.highlights.filter(h => h !== i) : [...$state.highlights, i]})"
+            ),
+            "highlights": js("$state.highlights"),
             "onPointHover": js("(e) => null"),
             "highlightColor": [1.0, 1.0, 0.0],
             **cameraProps,
@@ -126,7 +129,7 @@ def scene(controlled, point_size=4, xyz=torus_xyz, rgb=torus_rgb):
 
 
 (
-    Plot.initialState({"camera": camera})
+    Plot.initialState({"camera": camera, "highlights": []})
     | scene(True, 0.01, xyz=cube_xyz, rgb=cube_rgb) & scene(True, 1)
     | scene(False, 0.1, xyz=cube_xyz, rgb=cube_rgb) & scene(False, 0.5)
 )

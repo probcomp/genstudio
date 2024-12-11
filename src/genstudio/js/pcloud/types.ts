@@ -28,9 +28,11 @@ export interface PointCloudViewerProps {
     className?: string;
     pointSize?: number;
     highlightColor?: [number, number, number];
+    hoveredHighlightColor?: [number, number, number];
 
     // Interaction
     onPointClick?: (pointIndex: number, event: MouseEvent) => void;
     onPointHover?: (pointIndex: number | null) => void;
     pickingRadius?: number;
+    highlights?: number[];
 }
