@@ -303,6 +303,73 @@ function setupPickingFramebuffer(gl: WebGL2RenderingContext) {
     return { pickingFb, pickingTexture, depthBuffer };
 }
 
+// Add this helper at the top level, before PointCloudViewer
+function initWebGL(canvas: HTMLCanvasElement): WebGL2RenderingContext | null {
+    const gl = canvas.getContext('webgl2');
+    if (!gl) {
+        console.error('WebGL2 not supported');
+        return null;
+    }
+
+    // Set up initial WebGL state
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+
+    return gl;
+}
+
+function setupBuffers(
+    gl: WebGL2RenderingContext,
+    points: PointCloudData
+): { positionBuffer: WebGLBuffer, colorBuffer: WebGLBuffer } | null {
+    const positionBuffer = gl.createBuffer();
+    const colorBuffer = gl.createBuffer();
+
+    if (!positionBuffer || !colorBuffer) {
+        console.error('Failed to create buffers');
+        return null;
+    }
+
+    // Position buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, points.xyz, gl.STATIC_DRAW);
+
+    // Color buffer
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+    if (points.rgb) {
+        const normalizedColors = new Float32Array(points.rgb.length);
+        for (let i = 0; i < points.rgb.length; i++) {
+            normalizedColors[i] = points.rgb[i] / 255.0;
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, normalizedColors, gl.STATIC_DRAW);
+    } else {
+        const defaultColors = new Float32Array(points.xyz.length);
+        defaultColors.fill(0.7);
+        gl.bufferData(gl.ARRAY_BUFFER, defaultColors, gl.STATIC_DRAW);
+    }
+
+    return { positionBuffer, colorBuffer };
+}
+
+function cacheUniformLocations(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram
+): ShaderUniforms {
+    return {
+        projection: gl.getUniformLocation(program, 'uProjectionMatrix'),
+        view: gl.getUniformLocation(program, 'uViewMatrix'),
+        pointSize: gl.getUniformLocation(program, 'uPointSize'),
+        highlightedPoint: gl.getUniformLocation(program, 'uHighlightedPoint'),
+        highlightColor: gl.getUniformLocation(program, 'uHighlightColor'),
+        canvasSize: gl.getUniformLocation(program, 'uCanvasSize'),
+        highlightedPoints: gl.getUniformLocation(program, 'uHighlightedPoints'),
+        highlightCount: gl.getUniformLocation(program, 'uHighlightCount'),
+        hoveredPoint: gl.getUniformLocation(program, 'uHoveredPoint'),
+        hoveredHighlightColor: gl.getUniformLocation(program, 'uHoveredHighlightColor')
+    };
+}
+
 export function PointCloudViewer({
     points,
     camera,
@@ -465,20 +532,12 @@ export function PointCloudViewer({
     useEffect(() => {
         if (!canvasRef.current) return;
 
-        // Initialize WebGL2 context
-        const gl = canvasRef.current.getContext('webgl2');
-        if (!gl) {
-            console.error('WebGL2 not supported');
-            return;
-        }
+        const gl = initWebGL(canvasRef.current);
+        if (!gl) return;
+
         glRef.current = gl;
 
-        // Ensure canvas and framebuffer are the same size
-        const dpr = window.devicePixelRatio || 1;
-        gl.canvas.width = gl.canvas.clientWidth * dpr;
-        gl.canvas.height = gl.canvas.clientHeight * dpr;
-
-        // Replace the manual shader compilation with createProgram
+        // Create program and get uniforms
         const program = createProgram(gl, mainShaders.vertex, mainShaders.fragment);
         if (!program) {
             console.error('Failed to create shader program');
@@ -486,50 +545,23 @@ export function PointCloudViewer({
         }
         programRef.current = program;
 
-        // Cache uniform locations during setup
-        uniformsRef.current = {
-            projection: gl.getUniformLocation(program, 'uProjectionMatrix'),
-            view: gl.getUniformLocation(program, 'uViewMatrix'),
-            pointSize: gl.getUniformLocation(program, 'uPointSize'),
-            highlightedPoint: gl.getUniformLocation(program, 'uHighlightedPoint'),
-            highlightColor: gl.getUniformLocation(program, 'uHighlightColor'),
-            canvasSize: gl.getUniformLocation(program, 'uCanvasSize'),
-            highlightedPoints: gl.getUniformLocation(program, 'uHighlightedPoints'),
-            highlightCount: gl.getUniformLocation(program, 'uHighlightCount'),
-            hoveredPoint: gl.getUniformLocation(program, 'uHoveredPoint'),
-            hoveredHighlightColor: gl.getUniformLocation(program, 'uHoveredHighlightColor')
-        };
+        // Cache uniform locations
+        uniformsRef.current = cacheUniformLocations(gl, program);
 
         // Set up buffers
-        const positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, points.xyz, gl.STATIC_DRAW);
+        const buffers = setupBuffers(gl, points);
+        if (!buffers) return;
 
-        const colorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-        if (points.rgb) {
-            const normalizedColors = new Float32Array(points.rgb.length);
-            for (let i = 0; i < points.rgb.length; i++) {
-                normalizedColors[i] = points.rgb[i] / 255.0;
-            }
-            gl.bufferData(gl.ARRAY_BUFFER, normalizedColors, gl.STATIC_DRAW);
-        } else {
-            // Default color if none provided
-            const defaultColors = new Float32Array(points.xyz.length);
-            defaultColors.fill(0.7);
-            gl.bufferData(gl.ARRAY_BUFFER, defaultColors, gl.STATIC_DRAW);
-        }
-
-        // Set up vertex attributes
+        // Set up VAO
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
         vaoRef.current = vao;
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.positionBuffer);
         gl.enableVertexAttribArray(0);
         gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.colorBuffer);
         gl.enableVertexAttribArray(1);
         gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
 
@@ -558,7 +590,7 @@ export function PointCloudViewer({
         pickingVaoRef.current = pickingVao;
 
         // Position buffer (reuse the same buffer)
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffers.positionBuffer);
         gl.enableVertexAttribArray(0);
         gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 
@@ -704,11 +736,11 @@ export function PointCloudViewer({
                 if (pickingVao) {
                     gl.deleteVertexArray(pickingVao);
                 }
-                if (positionBuffer) {
-                    gl.deleteBuffer(positionBuffer);
+                if (buffers.positionBuffer) {
+                    gl.deleteBuffer(buffers.positionBuffer);
                 }
-                if (colorBuffer) {
-                    gl.deleteBuffer(colorBuffer);
+                if (buffers.colorBuffer) {
+                    gl.deleteBuffer(buffers.colorBuffer);
                 }
                 if (mainPointIdBuffer) {
                     gl.deleteBuffer(mainPointIdBuffer);
