@@ -54,46 +54,35 @@ function useFPSCounter() {
     return { fps, updateFPS };
 }
 
-export function PointCloudViewer({
-    points,
-    camera,
-    defaultCamera,
-    onCameraChange,
-    backgroundColor = [0.1, 0.1, 0.1],
-    className,
-    pointSize = 4.0,
-    highlights = [],
-    onPointClick,
-    onPointHover,
-    highlightColor = [1.0, 0.3, 0.0],
-    hoveredHighlightColor = [1.0, 0.5, 0.0],
-}: PointCloudViewerProps) {
-    // Track whether we're in controlled mode
+function useCamera(
+    requestRender: () => void,
+    camera: CameraParams | undefined,
+    defaultCamera: CameraParams | undefined,
+    onCameraChange?: (camera: CameraParams) => void,
+) {
     const isControlled = camera !== undefined;
-
-    // Use defaultCamera for initial setup only
     const initialCamera = isControlled ? camera : defaultCamera;
 
     if (!initialCamera) {
         throw new Error('Either camera or defaultCamera must be provided');
     }
 
-    const cameraParams = useMemo(() => {
-        return {
-            position: Array.isArray(initialCamera.position)
-                ? vec3.fromValues(...initialCamera.position)
-                : vec3.clone(initialCamera.position),
-            target: Array.isArray(initialCamera.target)
-                ? vec3.fromValues(...initialCamera.target)
-                : vec3.clone(initialCamera.target),
-            up: Array.isArray(initialCamera.up)
-                ? vec3.fromValues(...initialCamera.up)
-                : vec3.clone(initialCamera.up),
-            fov: initialCamera.fov,
-            near: initialCamera.near,
-            far: initialCamera.far
-        }
-    }, [initialCamera]);
+    const cameraParams = useMemo(() => ({
+        position: Array.isArray(initialCamera.position)
+            ? vec3.fromValues(...initialCamera.position)
+            : vec3.clone(initialCamera.position),
+        target: Array.isArray(initialCamera.target)
+            ? vec3.fromValues(...initialCamera.target)
+            : vec3.clone(initialCamera.target),
+        up: Array.isArray(initialCamera.up)
+            ? vec3.fromValues(...initialCamera.up)
+            : vec3.clone(initialCamera.up),
+        fov: initialCamera.fov,
+        near: initialCamera.near,
+        far: initialCamera.far
+    }), [initialCamera]);
+
+    const cameraRef = useRef<OrbitCamera | null>(null);
 
     // Initialize camera only once for uncontrolled mode
     useEffect(() => {
@@ -131,16 +120,73 @@ export function PointCloudViewer({
         return { projectionMatrix, viewMatrix };
     }, [cameraParams]);
 
+    const notifyCameraChange = useCallback(() => {
+        if (!cameraRef.current || !onCameraChange) return;
+
+        const camera = cameraRef.current;
+        tempCamera.position = [...camera.position] as [number, number, number];
+        tempCamera.target = [...camera.target] as [number, number, number];
+        tempCamera.up = [...camera.up] as [number, number, number];
+        tempCamera.fov = cameraParams.fov;
+        tempCamera.near = cameraParams.near;
+        tempCamera.far = cameraParams.far;
+
+        onCameraChange(tempCamera);
+    }, [onCameraChange, cameraParams]);
+
+    const handleCameraUpdate = useCallback((action: (camera: OrbitCamera) => void) => {
+        if (!cameraRef.current) return;
+        action(cameraRef.current);
+        requestRender();
+        if (isControlled) {
+            notifyCameraChange();
+        }
+    }, [isControlled, notifyCameraChange, requestRender]);
+
+    return {
+        cameraRef,
+        setupMatrices,
+        cameraParams,
+        handleCameraUpdate
+    };
+}
+
+export function PointCloudViewer({
+    points,
+    camera,
+    defaultCamera,
+    onCameraChange,
+    backgroundColor = [0.1, 0.1, 0.1],
+    className,
+    pointSize = 4.0,
+    highlights = [],
+    onPointClick,
+    onPointHover,
+    highlightColor = [1.0, 0.3, 0.0],
+    hoveredHighlightColor = [1.0, 0.5, 0.0],
+}: PointCloudViewerProps) {
+
+
+    const needsRenderRef = useRef<boolean>(true);
+    const requestRender = useCallback(() => {
+        needsRenderRef.current = true;
+    }, []);
+
+    const {
+        cameraRef,
+        setupMatrices,
+        cameraParams,
+        handleCameraUpdate
+    } = useCamera(requestRender, camera, defaultCamera, onCameraChange);
+
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const glRef = useRef<WebGL2RenderingContext>(null);
     const programRef = useRef<WebGLProgram>(null);
-    const cameraRef = useRef<OrbitCamera>(null);
     const interactionState = useRef({
         isDragging: false,
         isPanning: false
     });
     const animationFrameRef = useRef<number>();
-    const needsRenderRef = useRef<boolean>(true);
     const vaoRef = useRef(null);
     const pickingProgramRef = useRef<WebGLProgram | null>(null);
     const pickingVaoRef = useRef(null);
@@ -154,36 +200,7 @@ export function PointCloudViewer({
 
     const { fps, updateFPS } = useFPSCounter();
 
-    // Move requestRender before handleCameraUpdate
-    const requestRender = useCallback(() => {
-        needsRenderRef.current = true;
-    }, []);
 
-    // Optimize notification by reusing arrays
-    const notifyCameraChange = useCallback(() => {
-        if (!cameraRef.current || !onCameraChange) return;
-
-        // Reuse arrays to avoid allocations
-        const camera = cameraRef.current;
-        tempCamera.position = [...camera.position] as [number, number, number];
-        tempCamera.target = [...camera.target] as [number, number, number];
-        tempCamera.up = [...camera.up] as [number, number, number];
-        tempCamera.fov = cameraParams.fov;
-        tempCamera.near = cameraParams.near;
-        tempCamera.far = cameraParams.far;
-
-        onCameraChange(tempCamera);
-    }, [onCameraChange, cameraParams]);
-
-    // Add back handleCameraUpdate
-    const handleCameraUpdate = useCallback((action: (camera: OrbitCamera) => void) => {
-        if (!cameraRef.current) return;
-        action(cameraRef.current);
-        requestRender();
-        if (isControlled) {
-            notifyCameraChange();
-        }
-    }, [isControlled, notifyCameraChange, requestRender]);
 
     // Add this function inside the component, before the useEffect:
     const pickPoint = useCallback((x: number, y: number): number | null => {
@@ -303,97 +320,6 @@ export function PointCloudViewer({
 
         mouseDownPositionRef.current = null;
     }, [pickPoint, onPointClick]);
-
-    // Before the main useEffect, add these memoized values:
-    const bufferSetup = useMemo(() => {
-        if (!glRef.current) return null;
-        const gl = glRef.current;
-
-        const positionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, points.xyz, gl.STATIC_DRAW);
-
-        const colorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-        if (points.rgb) {
-            const normalizedColors = new Float32Array(points.rgb.length);
-            for (let i = 0; i < points.rgb.length; i++) {
-                normalizedColors[i] = points.rgb[i] / 255.0;
-            }
-            gl.bufferData(gl.ARRAY_BUFFER, normalizedColors, gl.STATIC_DRAW);
-        } else {
-            const defaultColors = new Float32Array(points.xyz.length);
-            defaultColors.fill(0.7);
-            gl.bufferData(gl.ARRAY_BUFFER, defaultColors, gl.STATIC_DRAW);
-        }
-
-        return { positionBuffer, colorBuffer };
-    }, [points.xyz, points.rgb]);
-
-    // The VAO setup could also be memoized:
-    const vaoSetup = useMemo(() => {
-        if (!glRef.current || !bufferSetup) return null;
-        const gl = glRef.current;
-
-        const vao = gl.createVertexArray();
-        gl.bindVertexArray(vao);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, bufferSetup.positionBuffer);
-        gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, bufferSetup.colorBuffer);
-        gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
-
-        return vao;
-    }, [bufferSetup]);
-
-    const pickingFramebufferSetup = useMemo(() => {
-        if (!glRef.current) return null;
-        const gl = glRef.current;
-
-        const pickingFb = gl.createFramebuffer();
-        const pickingTexture = gl.createTexture();
-        if (!pickingFb || !pickingTexture) return null;
-
-        gl.bindTexture(gl.TEXTURE_2D, pickingTexture);
-        gl.texImage2D(
-            gl.TEXTURE_2D, 0, gl.RGBA,
-            gl.canvas.width, gl.canvas.height, 0,
-            gl.RGBA, gl.UNSIGNED_BYTE, null
-        );
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-        const depthBuffer = gl.createRenderbuffer();
-        gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
-        gl.renderbufferStorage(
-            gl.RENDERBUFFER,
-            gl.DEPTH_COMPONENT24,
-            gl.canvas.width,
-            gl.canvas.height
-        );
-
-        gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFb);
-        gl.framebufferTexture2D(
-            gl.FRAMEBUFFER,
-            gl.COLOR_ATTACHMENT0,
-            gl.TEXTURE_2D,
-            pickingTexture,
-            0
-        );
-        gl.framebufferRenderbuffer(
-            gl.FRAMEBUFFER,
-            gl.DEPTH_ATTACHMENT,
-            gl.RENDERBUFFER,
-            depthBuffer
-        );
-
-        return { pickingFb, pickingTexture, depthBuffer };
-    }, []);
 
     const normalizedColors = useMemo(() => {
         if (!points.rgb) {
