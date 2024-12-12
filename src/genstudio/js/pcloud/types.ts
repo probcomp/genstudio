@@ -65,6 +65,7 @@ export interface DecorationGroup {
   color?: [number, number, number];  // RGB color override
   alpha?: number;                    // 0-1 opacity
   scale?: number;                    // Size multiplier for points
+  minSize?: number;           // Minimum size in pixels, regardless of distance
 
   // Color blend modes
   blendMode?: 'replace' | 'multiply' | 'add' | 'screen';

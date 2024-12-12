@@ -13,6 +13,7 @@ export const mainShaders = {
 
         // Decoration property uniforms
         uniform float uDecorationScales[MAX_DECORATIONS];
+        uniform float uDecorationMinSizes[MAX_DECORATIONS];
 
         // Decoration mapping texture
         uniform sampler2D uDecorationMap;
@@ -48,12 +49,16 @@ export const mainShaders = {
             float baseSize = clamp(projectedSize, 1.0, 20.0);
 
             float scale = 1.0;
+            float minSize = 0.0;
             if (vDecorationIndex >= 0) {
                 scale = uDecorationScales[vDecorationIndex];
+                minSize = uDecorationMinSizes[vDecorationIndex];
             }
 
+            float finalSize = max(baseSize * scale, minSize);
+            gl_PointSize = finalSize;
+
             gl_Position = uProjectionMatrix * viewPos;
-            gl_PointSize = baseSize * scale;
         }`,
 
     fragment: `#version 300 es
