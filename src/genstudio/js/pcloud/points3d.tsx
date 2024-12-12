@@ -205,6 +205,12 @@ function usePicking(
             return null;
         }
 
+        // Type guard to ensure we have an HTMLCanvasElement
+        if (!(gl.canvas instanceof HTMLCanvasElement)) {
+            console.error('Canvas must be an HTMLCanvasElement for picking');
+            return null;
+        }
+
         // Save current WebGL state
         const currentFBO = gl.getParameter(gl.FRAMEBUFFER_BINDING);
 
@@ -217,13 +223,9 @@ function usePicking(
         gl.depthFunc(gl.LESS);
         gl.depthMask(true);
 
-        // Use picking shader
+        // Use picking shader and set uniforms
         gl.useProgram(pickingProgramRef.current);
-
-        // Use shared matrix setup
         const { projectionMatrix, viewMatrix } = setupMatrices(gl);
-
-        // Set uniforms for picking shader
         gl.uniformMatrix4fv(pickingUniformsRef.current.projection, false, projectionMatrix);
         gl.uniformMatrix4fv(pickingUniformsRef.current.view, false, viewMatrix);
         gl.uniform1f(pickingUniformsRef.current.pointSize, pointSize);
@@ -501,33 +503,6 @@ export function PointCloudViewer({
         }
         return colors;
     }, [points.rgb, points.xyz.length]);
-
-    const programSetup = useMemo(() => {
-        if (!glRef.current) return null;
-        const gl = glRef.current;
-
-        const program = createProgram(gl, mainShaders.vertex, mainShaders.fragment);
-        if (!program) return null;
-
-        const pickingProgram = createProgram(gl, pickingShaders.vertex, pickingShaders.fragment);
-        if (!pickingProgram) return null;
-
-        // Cache uniform locations
-        const uniforms = {
-            projection: gl.getUniformLocation(program, 'uProjectionMatrix'),
-            view: gl.getUniformLocation(program, 'uViewMatrix'),
-            pointSize: gl.getUniformLocation(program, 'uPointSize'),
-            highlightedPoint: gl.getUniformLocation(program, 'uHighlightedPoint'),
-            highlightColor: gl.getUniformLocation(program, 'uHighlightColor'),
-            canvasSize: gl.getUniformLocation(program, 'uCanvasSize'),
-            highlightedPoints: gl.getUniformLocation(program, 'uHighlightedPoints'),
-            highlightCount: gl.getUniformLocation(program, 'uHighlightCount'),
-            hoveredPoint: gl.getUniformLocation(program, 'uHoveredPoint'),
-            hoveredHighlightColor: gl.getUniformLocation(program, 'uHoveredHighlightColor')
-        };
-
-        return { program, pickingProgram, uniforms };
-    }, []);
 
     useEffect(() => {
         if (!canvasRef.current) return;
