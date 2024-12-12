@@ -19,7 +19,6 @@ export function PointCloudViewer({
     onPointHover,
     highlightColor = [1.0, 0.3, 0.0],
     hoveredHighlightColor = [1.0, 0.5, 0.0],
-    pickingRadius = 5.0
 }: PointCloudViewerProps) {
     // Track whether we're in controlled mode
     const isControlled = camera !== undefined;
@@ -106,6 +105,8 @@ export function PointCloudViewer({
     const hoveredPointRef = useRef<number | null>(null);
     const uniformsRef = useRef<ShaderUniforms | null>(null);
     const pickingUniformsRef = useRef<PickingUniforms | null>(null);
+    const mouseDownPositionRef = useRef<{x: number, y: number} | null>(null);
+    const CLICK_THRESHOLD = 3; // Pixels of movement allowed before considering it a drag
 
     // Move requestRender before handleCameraUpdate
     const requestRender = useCallback(() => {
@@ -193,25 +194,30 @@ export function PointCloudViewer({
     // Update the mouse handlers to properly handle clicks
     const handleMouseDown = useCallback((e: MouseEvent) => {
         if (e.button === 0 && !e.shiftKey) {  // Left click without shift
-            if (onPointClick) {
-                const pointIndex = pickPoint(e.clientX, e.clientY);
-                if (pointIndex !== null) {
-                    onPointClick(pointIndex, e);
-                }
-            }
+            mouseDownPositionRef.current = { x: e.clientX, y: e.clientY };
             interactionState.current.isDragging = true;
         } else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {  // Middle click or shift+left click
             interactionState.current.isPanning = true;
         }
-    }, [pickPoint, onPointClick]);
+    }, []);
 
     // Update handleMouseMove to include hover:
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!cameraRef.current) return;
 
         if (interactionState.current.isDragging) {
+            // Clear hover state on first drag movement
+            if (hoveredPointRef.current !== null && onPointHover) {
+                hoveredPointRef.current = null;
+                onPointHover(null);
+            }
             handleCameraUpdate(camera => camera.orbit(e.movementX, e.movementY));
         } else if (interactionState.current.isPanning) {
+            // Clear hover state on first pan movement
+            if (hoveredPointRef.current !== null && onPointHover) {
+                hoveredPointRef.current = null;
+                onPointHover(null);
+            }
             handleCameraUpdate(camera => camera.pan(e.movementX, e.movementY));
         } else if (onPointHover) {
             const pointIndex = pickPoint(e.clientX, e.clientY);
@@ -226,20 +232,31 @@ export function PointCloudViewer({
         handleCameraUpdate(camera => camera.zoom(e.deltaY));
     }, [handleCameraUpdate]);
 
-    // Update handleMouseUp to properly reset state
+    // Update handleMouseUp to handle click detection
     const handleMouseUp = useCallback((e: MouseEvent) => {
-        // Only consider it a click if we didn't drag much
         const wasDragging = interactionState.current.isDragging;
         const wasPanning = interactionState.current.isPanning;
 
         interactionState.current.isDragging = false;
         interactionState.current.isPanning = false;
 
-        // If we were dragging, don't trigger click
-        if (wasDragging || wasPanning) {
-            return;
+        // Only handle clicks if we were in drag mode (not pan mode)
+        if (wasDragging && !wasPanning && mouseDownPositionRef.current && onPointClick) {
+            const dx = e.clientX - mouseDownPositionRef.current.x;
+            const dy = e.clientY - mouseDownPositionRef.current.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // Only consider it a click if movement was below threshold
+            if (distance < CLICK_THRESHOLD) {
+                const pointIndex = pickPoint(e.clientX, e.clientY);
+                if (pointIndex !== null) {
+                    onPointClick(pointIndex, e);
+                }
+            }
         }
-    }, []);
+
+        mouseDownPositionRef.current = null;
+    }, [pickPoint, onPointClick]);
 
     // Add this function before useEffect
     const updateFPS = useCallback((timestamp: number) => {
