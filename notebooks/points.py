@@ -102,7 +102,7 @@ camera = {
 }
 
 
-def scene(controlled, point_size=4, xyz=torus_xyz, rgb=torus_rgb):
+def scene(controlled, point_size, xyz, rgb):
     cameraProps = (
         {"defaultCamera": camera}
         if not controlled
@@ -119,34 +119,91 @@ def scene(controlled, point_size=4, xyz=torus_xyz, rgb=torus_rgb):
             "pointSize": point_size,
             "onPointHover": js("(i) => $state.update({hovered: i})"),
             "onPointClick": js(
-                "(i) => $state.update({highlights: $state.highlights.includes(i) ? $state.highlights.filter(h => h !== i) : [...$state.highlights, i]})"
+                """(i) => {
+                    $state.selected_region_i = i;
+                    $state.update({highlights: $state.highlights.includes(i) ? $state.highlights.filter(h => h !== i) : [...$state.highlights, i]});
+                    }"""
             ),
-            # "highlights": js("$state.highlights"),
-            "decorations": [
-                {
+            "decorations": {
+                "clicked": {
                     "indexes": js("$state.highlights"),
                     "scale": 2,
-                    "alpha": 0.8,
                     "minSize": 4,
                     "color": [1, 1, 0],
                 },
-                {
+                "hovered": {
                     "indexes": js("[$state.hovered]"),
                     "scale": 2,
-                    "alpha": 0.8,
                     "minSize": 8,
                     "color": [0, 1, 0],
                 },
-            ],
+                "selected_region": {
+                    "indexes": js("$state.selected_region_indexes"),
+                    "alpha": 1,
+                },
+            },
             "highlightColor": [1.0, 1.0, 0.0],
             **cameraProps,
         }
     )
 
 
+def find_similar_colors(rgb, point_idx, threshold=0.1):
+    """Find points with similar colors to the selected point.
+
+    Args:
+        rgb: Uint8Array or list of RGB values (flattened, so [r,g,b,r,g,b,...])
+        point_idx: Index of the point to match (not the raw RGB array index)
+        threshold: How close colors need to be to match (0-1 range)
+
+    Returns:
+        List of point indices that have similar colors
+    """
+    # Convert to numpy array and reshape to Nx3
+    rgb_arr = np.array(rgb).reshape(-1, 3)
+
+    # Get the reference color (the point we clicked)
+    ref_color = rgb_arr[point_idx]
+
+    # Calculate color differences using broadcasting
+    # Normalize to 0-1 range since input is 0-255
+    color_diffs = np.abs(rgb_arr.astype(float) - ref_color.astype(float)) / 255.0
+
+    # Find points where all RGB channels are within threshold
+    matches = np.all(color_diffs <= threshold, axis=1)
+
+    # Return list of matching point indices
+    return np.where(matches)[0].tolist()
+
+
 (
-    Plot.initialState({"camera": camera, "highlights": [], "hovered": []})
-    | scene(True, 0.01) & scene(True, 1)
-    | scene(False, 0.1, xyz=cube_xyz, rgb=cube_rgb)
-    & scene(False, 0.5, xyz=cube_xyz, rgb=cube_rgb)
+    Plot.initialState(
+        {
+            "camera": camera,
+            "highlights": [],
+            "hovered": [],
+            "selected_region_i": None,
+            "selected_region_indexes": [],
+            "cube_xyz": cube_xyz,
+            "cube_rgb": cube_rgb,
+            "torus_xyz": torus_xyz,
+            "torus_rgb": torus_rgb,
+        },
+        sync={"selected_region_i", "cube_rgb"},
+    )
+    | scene(True, 0.01, js("$state.torus_xyz"), js("$state.torus_rgb"))
+    & scene(True, 1, js("$state.torus_xyz"), js("$state.torus_rgb"))
+    | scene(False, 0.1, js("$state.cube_xyz"), js("$state.cube_rgb"))
+    & scene(False, 0.5, js("$state.cube_xyz"), js("$state.cube_rgb"))
+    | Plot.onChange(
+        {
+            "selected_region_i": lambda w, e: w.state.update(
+                {
+                    "selected_region_indexes": find_similar_colors(
+                        w.state.cube_rgb, e.value, 0.25
+                    )
+                }
+            )
+        }
+    )
 )

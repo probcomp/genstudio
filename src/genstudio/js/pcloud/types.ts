@@ -14,6 +14,24 @@ export interface CameraParams {
     far: number;
 }
 
+export interface DecorationGroup {
+  indexes: number[];
+
+  // Visual modifications
+  color?: [number, number, number];  // RGB color override
+  alpha?: number;                    // 0-1 opacity
+  scale?: number;                    // Size multiplier for points
+  minSize?: number;           // Minimum size in pixels, regardless of distance
+
+  // Color blend modes
+  blendMode?: 'replace' | 'multiply' | 'add' | 'screen';
+  blendStrength?: number;           // 0-1, how strongly to apply the blend
+}
+
+export interface DecorationGroups {
+    [name: string]: DecorationGroup;
+}
+
 export interface PointCloudViewerProps {
     // Data
     points: PointCloudData;
@@ -32,7 +50,7 @@ export interface PointCloudViewerProps {
     onPointClick?: (pointIndex: number, event: MouseEvent) => void;
     onPointHover?: (pointIndex: number | null) => void;
     pickingRadius?: number;
-    decorations?: DecorationGroup[];
+    decorations?: DecorationGroups;
 }
 
 export interface ShaderUniforms {
@@ -56,18 +74,4 @@ export interface PickingUniforms {
     view: WebGLUniformLocation | null;
     pointSize: WebGLUniformLocation | null;
     canvasSize: WebGLUniformLocation | null;
-}
-
-export interface DecorationGroup {
-  indexes: number[];
-
-  // Visual modifications
-  color?: [number, number, number];  // RGB color override
-  alpha?: number;                    // 0-1 opacity
-  scale?: number;                    // Size multiplier for points
-  minSize?: number;           // Minimum size in pixels, regardless of distance
-
-  // Color blend modes
-  blendMode?: 'replace' | 'multiply' | 'add' | 'screen';
-  blendStrength?: number;           // 0-1, how strongly to apply the blend
 }
