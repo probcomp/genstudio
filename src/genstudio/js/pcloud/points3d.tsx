@@ -410,7 +410,10 @@ function cacheUniformLocations(
 
         // Decoration map uniforms
         decorationMap: gl.getUniformLocation(program, 'uDecorationMap'),
-        decorationMapSize: gl.getUniformLocation(program, 'uDecorationMapSize')
+        decorationMapSize: gl.getUniformLocation(program, 'uDecorationMapSize'),
+
+        // Decoration min sizes
+        decorationMinSizes: gl.getUniformLocation(program, 'uDecorationMinSizes'),
     };
 }
 
@@ -803,6 +806,7 @@ export function PointCloudViewer({
             const alphas = new Float32Array(MAX_DECORATIONS).fill(1.0);
             const blendModes = new Int32Array(MAX_DECORATIONS).fill(0);
             const blendStrengths = new Float32Array(MAX_DECORATIONS).fill(1.0);
+            const minSizes = new Float32Array(MAX_DECORATIONS).fill(0.0);
 
             // Fill arrays with decoration data
             const numDecorations = Math.min(decorations?.length || 0, MAX_DECORATIONS);
@@ -829,6 +833,9 @@ export function PointCloudViewer({
                 // Set blend mode and strength
                 blendModes[i] = blendModeToInt(decoration.blendMode);
                 blendStrengths[i] = decoration.blendStrength ?? 1.0;
+
+                // Set minimum size (default to 0 = no minimum)
+                minSizes[i] = decoration.minSize ?? 0.0;
             }
 
             // Set uniforms
@@ -839,6 +846,7 @@ export function PointCloudViewer({
             gl.uniform1iv(uniformsRef.current.decorationBlendModes, blendModes);
             gl.uniform1fv(uniformsRef.current.decorationBlendStrengths, blendStrengths);
             gl.uniform1i(uniformsRef.current.decorationCount, numDecorations);
+            gl.uniform1fv(uniformsRef.current.decorationMinSizes, minSizes);
 
             // Ensure correct VAO is bound
             gl.bindVertexArray(vaoRef.current);
