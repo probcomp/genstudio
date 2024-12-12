@@ -117,11 +117,25 @@ def scene(controlled, point_size=4, xyz=torus_xyz, rgb=torus_rgb):
             "backgroundColor": [0.1, 0.1, 0.1, 1],  # Dark background to make colors pop
             "className": "h-[400px] w-[400px]",
             "pointSize": point_size,
+            "onPointHover": js("(i) => $state.update({hovered: i})"),
             "onPointClick": js(
                 "(i) => $state.update({highlights: $state.highlights.includes(i) ? $state.highlights.filter(h => h !== i) : [...$state.highlights, i]})"
             ),
-            "highlights": js("$state.highlights"),
-            "onPointHover": js("(e) => null"),
+            # "highlights": js("$state.highlights"),
+            "decorations": [
+                {
+                    "indexes": js("$state.highlights"),
+                    "scale": 2,
+                    "alpha": 0.8,
+                    "color": [1, 1, 0],
+                },
+                {
+                    "indexes": js("[$state.hovered]"),
+                    "scale": 2,
+                    "alpha": 0.8,
+                    "color": [0, 1, 0],
+                },
+            ],
             "highlightColor": [1.0, 1.0, 0.0],
             **cameraProps,
         }
@@ -129,7 +143,8 @@ def scene(controlled, point_size=4, xyz=torus_xyz, rgb=torus_rgb):
 
 
 (
-    Plot.initialState({"camera": camera, "highlights": []})
-    | scene(True, 0.01, xyz=cube_xyz, rgb=cube_rgb) & scene(True, 1)
-    | scene(False, 0.1, xyz=cube_xyz, rgb=cube_rgb) & scene(False, 0.5)
+    Plot.initialState({"camera": camera, "highlights": [], "hovered": []})
+    | scene(True, 0.01) & scene(True, 1)
+    | scene(False, 0.1, xyz=cube_xyz, rgb=cube_rgb)
+    & scene(False, 0.5, xyz=cube_xyz, rgb=cube_rgb)
 )

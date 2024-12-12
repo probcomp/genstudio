@@ -2,9 +2,8 @@ import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react'
 import { mat4, vec3 } from 'gl-matrix';
 import { createProgram, createPointIdBuffer } from './webgl-utils';
 import { PointCloudData, CameraParams, PointCloudViewerProps, ShaderUniforms, PickingUniforms } from './types';
-import { mainShaders } from './shaders';
+import { mainShaders, pickingShaders, MAX_DECORATIONS } from './shaders';
 import { OrbitCamera } from './orbit-camera';
-import { pickingShaders } from './shaders';
 
 interface FPSCounterProps {
     fps: number;
@@ -398,13 +397,16 @@ function cacheUniformLocations(
         projection: gl.getUniformLocation(program, 'uProjectionMatrix'),
         view: gl.getUniformLocation(program, 'uViewMatrix'),
         pointSize: gl.getUniformLocation(program, 'uPointSize'),
-        highlightedPoint: gl.getUniformLocation(program, 'uHighlightedPoint'),
-        highlightColor: gl.getUniformLocation(program, 'uHighlightColor'),
         canvasSize: gl.getUniformLocation(program, 'uCanvasSize'),
-        highlightedPoints: gl.getUniformLocation(program, 'uHighlightedPoints'),
-        highlightCount: gl.getUniformLocation(program, 'uHighlightCount'),
-        hoveredPoint: gl.getUniformLocation(program, 'uHoveredPoint'),
-        hoveredHighlightColor: gl.getUniformLocation(program, 'uHoveredHighlightColor')
+
+        // Decoration uniforms
+        decorationIndices: gl.getUniformLocation(program, 'uDecorationIndices'),
+        decorationScales: gl.getUniformLocation(program, 'uDecorationScales'),
+        decorationColors: gl.getUniformLocation(program, 'uDecorationColors'),
+        decorationAlphas: gl.getUniformLocation(program, 'uDecorationAlphas'),
+        decorationBlendModes: gl.getUniformLocation(program, 'uDecorationBlendModes'),
+        decorationBlendStrengths: gl.getUniformLocation(program, 'uDecorationBlendStrengths'),
+        decorationCount: gl.getUniformLocation(program, 'uDecorationCount')
     };
 }
 
@@ -422,6 +424,17 @@ function useThrottledPicking(pickingFn: (x: number, y: number) => number | null)
     }, [pickingFn]);
 }
 
+// Add helper to convert blend mode string to int
+function blendModeToInt(mode: DecorationGroup['blendMode']): number {
+    switch (mode) {
+        case 'replace': return 0;
+        case 'multiply': return 1;
+        case 'add': return 2;
+        case 'screen': return 3;
+        default: return 0;
+    }
+}
+
 export function PointCloudViewer({
     points,
     camera,
@@ -430,11 +443,9 @@ export function PointCloudViewer({
     backgroundColor = [0.1, 0.1, 0.1],
     className,
     pointSize = 4.0,
-    highlights = [],
+    decorations = [],
     onPointClick,
     onPointHover,
-    highlightColor = [1.0, 0.3, 0.0],
-    hoveredHighlightColor = [1.0, 0.5, 0.0],
 }: PointCloudViewerProps) {
 
 
@@ -726,17 +737,49 @@ export function PointCloudViewer({
             gl.uniform1f(uniformsRef.current.pointSize, pointSize);
             gl.uniform2f(uniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
 
-            // Handle all highlight-related uniforms together
-            const highlightArray = new Int32Array(100).fill(-1);
-            highlights.slice(0, 100).forEach((idx, i) => {
-                highlightArray[i] = idx;
-            });
+            // Prepare decoration data
+            const indices = new Int32Array(MAX_DECORATIONS).fill(-1);
+            const scales = new Float32Array(MAX_DECORATIONS).fill(1.0);
+            const colors = new Float32Array(MAX_DECORATIONS * 3).fill(1.0);
+            const alphas = new Float32Array(MAX_DECORATIONS).fill(1.0);
+            const blendModes = new Int32Array(MAX_DECORATIONS).fill(0);
+            const blendStrengths = new Float32Array(MAX_DECORATIONS).fill(1.0);
 
-            gl.uniform1iv(uniformsRef.current.highlightedPoints, highlightArray);
-            gl.uniform1i(uniformsRef.current.highlightCount, Math.min(highlights.length, 100));
-            gl.uniform1i(uniformsRef.current.hoveredPoint, hoveredPointRef.current ?? -1);
-            gl.uniform3fv(uniformsRef.current.highlightColor, highlightColor);
-            gl.uniform3fv(uniformsRef.current.hoveredHighlightColor, hoveredHighlightColor);
+            // Fill arrays with decoration data
+            const numDecorations = Math.min(decorations?.length || 0, MAX_DECORATIONS);
+            for (let i = 0; i < numDecorations; i++) {
+                const decoration = decorations[i];
+
+                // Set index (for now just use first index)
+                indices[i] = decoration.indexes[0];
+
+                // Set scale (default to 1.0)
+                scales[i] = decoration.scale ?? 1.0;
+
+                // Set color (default to white)
+                if (decoration.color) {
+                    const baseIdx = i * 3;
+                    colors[baseIdx] = decoration.color[0];
+                    colors[baseIdx + 1] = decoration.color[1];
+                    colors[baseIdx + 2] = decoration.color[2];
+                }
+
+                // Set alpha (default to 1.0)
+                alphas[i] = decoration.alpha ?? 1.0;
+
+                // Set blend mode and strength
+                blendModes[i] = blendModeToInt(decoration.blendMode);
+                blendStrengths[i] = decoration.blendStrength ?? 1.0;
+            }
+
+            // Set uniforms
+            gl.uniform1iv(uniformsRef.current.decorationIndices, indices);
+            gl.uniform1fv(uniformsRef.current.decorationScales, scales);
+            gl.uniform3fv(uniformsRef.current.decorationColors, colors);
+            gl.uniform1fv(uniformsRef.current.decorationAlphas, alphas);
+            gl.uniform1iv(uniformsRef.current.decorationBlendModes, blendModes);
+            gl.uniform1fv(uniformsRef.current.decorationBlendStrengths, blendStrengths);
+            gl.uniform1i(uniformsRef.current.decorationCount, numDecorations);
 
             // Ensure correct VAO is bound
             gl.bindVertexArray(vaoRef.current);
