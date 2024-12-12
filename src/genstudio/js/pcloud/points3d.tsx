@@ -450,7 +450,7 @@ export function PointCloudViewer({
     backgroundColor = [0.1, 0.1, 0.1],
     className,
     pointSize = 4.0,
-    decorations = [],
+    decorations = {},
     onPointClick,
     onPointHover,
 }: PointCloudViewerProps) {
@@ -510,10 +510,10 @@ export function PointCloudViewer({
         const mapping = new Uint8Array(size * size).fill(0);
 
         // Fill in decoration mappings
-        decorations.forEach((decoration, decorationIndex) => {
+        Object.values(decorations).forEach((decoration, decorationIndex) => {
             decoration.indexes.forEach(pointIndex => {
                 if (pointIndex < numPoints) {
-                    mapping[pointIndex] = decorationIndex + 1; // +1 because 0 means no decoration
+                    mapping[pointIndex] = decorationIndex + 1;
                 }
             });
         });
@@ -809,10 +809,8 @@ export function PointCloudViewer({
             const minSizes = new Float32Array(MAX_DECORATIONS).fill(0.0);
 
             // Fill arrays with decoration data
-            const numDecorations = Math.min(decorations?.length || 0, MAX_DECORATIONS);
-            for (let i = 0; i < numDecorations; i++) {
-                const decoration = decorations[i];
-
+            const numDecorations = Math.min(Object.keys(decorations).length, MAX_DECORATIONS);
+            Object.values(decorations).slice(0, MAX_DECORATIONS).forEach((decoration, i) => {
                 // Set index (for now just use first index)
                 indices[i] = decoration.indexes[0];
 
@@ -836,7 +834,7 @@ export function PointCloudViewer({
 
                 // Set minimum size (default to 0 = no minimum)
                 minSizes[i] = decoration.minSize ?? 0.0;
-            }
+            });
 
             // Set uniforms
             gl.uniform1iv(uniformsRef.current.decorationIndices, indices);
