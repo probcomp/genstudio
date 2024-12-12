@@ -151,61 +151,57 @@ function useCamera(
     };
 }
 
-export function PointCloudViewer({
-    points,
-    camera,
-    defaultCamera,
-    onCameraChange,
-    backgroundColor = [0.1, 0.1, 0.1],
-    className,
-    pointSize = 4.0,
-    highlights = [],
-    onPointClick,
-    onPointHover,
-    highlightColor = [1.0, 0.3, 0.0],
-    hoveredHighlightColor = [1.0, 0.5, 0.0],
-}: PointCloudViewerProps) {
-
-
-    const needsRenderRef = useRef<boolean>(true);
-    const requestRender = useCallback(() => {
-        needsRenderRef.current = true;
-    }, []);
-
-    const {
-        cameraRef,
-        setupMatrices,
-        cameraParams,
-        handleCameraUpdate
-    } = useCamera(requestRender, camera, defaultCamera, onCameraChange);
-
-    const canvasRef = useRef<HTMLCanvasElement>(null);
-    const glRef = useRef<WebGL2RenderingContext>(null);
-    const programRef = useRef<WebGLProgram>(null);
-    const interactionState = useRef({
-        isDragging: false,
-        isPanning: false
-    });
-    const animationFrameRef = useRef<number>();
-    const vaoRef = useRef(null);
+function usePicking(
+    gl: WebGL2RenderingContext | null,
+    points: PointCloudData,
+    pointSize: number,
+    setupMatrices: (gl: WebGL2RenderingContext) => { projectionMatrix: mat4, viewMatrix: mat4 },
+    requestRender: () => void
+) {
     const pickingProgramRef = useRef<WebGLProgram | null>(null);
     const pickingVaoRef = useRef(null);
     const pickingFbRef = useRef<WebGLFramebuffer | null>(null);
     const pickingTextureRef = useRef<WebGLTexture | null>(null);
-    const hoveredPointRef = useRef<number | null>(null);
-    const uniformsRef = useRef<ShaderUniforms | null>(null);
     const pickingUniformsRef = useRef<PickingUniforms | null>(null);
-    const mouseDownPositionRef = useRef<{x: number, y: number} | null>(null);
-    const CLICK_THRESHOLD = 3; // Pixels of movement allowed before considering it a drag
+    const hoveredPointRef = useRef<number | null>(null);
 
-    const { fps, updateFPS } = useFPSCounter();
+    // Initialize picking system
+    useEffect(() => {
+        if (!gl) return;
 
+        // Create picking program
+        const pickingProgram = createProgram(gl, pickingShaders.vertex, pickingShaders.fragment);
+        if (!pickingProgram) {
+            console.error('Failed to create picking program');
+            return;
+        }
+        pickingProgramRef.current = pickingProgram;
 
+        // Cache picking uniforms
+        pickingUniformsRef.current = {
+            projection: gl.getUniformLocation(pickingProgram, 'uProjectionMatrix'),
+            view: gl.getUniformLocation(pickingProgram, 'uViewMatrix'),
+            pointSize: gl.getUniformLocation(pickingProgram, 'uPointSize'),
+            canvasSize: gl.getUniformLocation(pickingProgram, 'uCanvasSize')
+        };
 
-    // Add this function inside the component, before the useEffect:
+        // Create framebuffer and texture
+        const { pickingFb, pickingTexture, depthBuffer } = setupPickingFramebuffer(gl);
+        if (!pickingFb || !pickingTexture) return;
+
+        pickingFbRef.current = pickingFb;
+        pickingTextureRef.current = pickingTexture;
+
+        return () => {
+            gl.deleteProgram(pickingProgram);
+            gl.deleteFramebuffer(pickingFb);
+            gl.deleteTexture(pickingTexture);
+            gl.deleteRenderbuffer(depthBuffer);
+        };
+    }, [gl]);
+
     const pickPoint = useCallback((x: number, y: number): number | null => {
-        const gl = glRef.current;
-        if (!gl || !pickingProgramRef.current || !pickingVaoRef.current || !pickingFbRef.current || !cameraRef.current) {
+        if (!gl || !pickingProgramRef.current || !pickingVaoRef.current || !pickingFbRef.current) {
             return null;
         }
 
@@ -246,37 +242,131 @@ export function PointCloudViewer({
 
         // Restore previous state
         gl.bindFramebuffer(gl.FRAMEBUFFER, currentFBO);
-        gl.useProgram(programRef.current);
-        gl.bindVertexArray(vaoRef.current);
         requestRender();
 
         if (pixel[3] === 0) return null;
         return pixel[0] + pixel[1] * 256 + pixel[2] * 256 * 256;
-    }, [points.xyz.length, pointSize, setupMatrices]);
+    }, [gl, points.xyz.length, pointSize, setupMatrices, requestRender]);
 
-    // Update the mouse handlers to properly handle clicks
-    const handleMouseDown = useCallback((e: MouseEvent) => {
-        if (e.button === 0 && !e.shiftKey) {  // Left click without shift
-            mouseDownPositionRef.current = { x: e.clientX, y: e.clientY };
-            interactionState.current.isDragging = true;
-        } else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {  // Middle click or shift+left click
-            interactionState.current.isPanning = true;
-        }
+    return {
+        pickingProgramRef,
+        pickingVaoRef,
+        pickingFbRef,
+        pickingTextureRef,
+        pickingUniformsRef,
+        hoveredPointRef,
+        pickPoint
+    };
+}
+
+// Helper function to set up picking framebuffer
+function setupPickingFramebuffer(gl: WebGL2RenderingContext) {
+    const pickingFb = gl.createFramebuffer();
+    const pickingTexture = gl.createTexture();
+    if (!pickingFb || !pickingTexture) return {};
+
+    gl.bindTexture(gl.TEXTURE_2D, pickingTexture);
+    gl.texImage2D(
+        gl.TEXTURE_2D, 0, gl.RGBA,
+        gl.canvas.width, gl.canvas.height, 0,
+        gl.RGBA, gl.UNSIGNED_BYTE, null
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    const depthBuffer = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+    gl.renderbufferStorage(
+        gl.RENDERBUFFER,
+        gl.DEPTH_COMPONENT24,
+        gl.canvas.width,
+        gl.canvas.height
+    );
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFb);
+    gl.framebufferTexture2D(
+        gl.FRAMEBUFFER,
+        gl.COLOR_ATTACHMENT0,
+        gl.TEXTURE_2D,
+        pickingTexture,
+        0
+    );
+    gl.framebufferRenderbuffer(
+        gl.FRAMEBUFFER,
+        gl.DEPTH_ATTACHMENT,
+        gl.RENDERBUFFER,
+        depthBuffer
+    );
+
+    return { pickingFb, pickingTexture, depthBuffer };
+}
+
+export function PointCloudViewer({
+    points,
+    camera,
+    defaultCamera,
+    onCameraChange,
+    backgroundColor = [0.1, 0.1, 0.1],
+    className,
+    pointSize = 4.0,
+    highlights = [],
+    onPointClick,
+    onPointHover,
+    highlightColor = [1.0, 0.3, 0.0],
+    hoveredHighlightColor = [1.0, 0.5, 0.0],
+}: PointCloudViewerProps) {
+
+
+    const needsRenderRef = useRef<boolean>(true);
+    const requestRender = useCallback(() => {
+        needsRenderRef.current = true;
     }, []);
 
-    // Update handleMouseMove to include hover:
+    const {
+        cameraRef,
+        setupMatrices,
+        cameraParams,
+        handleCameraUpdate
+    } = useCamera(requestRender, camera, defaultCamera, onCameraChange);
+
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const glRef = useRef<WebGL2RenderingContext>(null);
+    const programRef = useRef<WebGLProgram>(null);
+    const interactionState = useRef({
+        isDragging: false,
+        isPanning: false
+    });
+    const animationFrameRef = useRef<number>();
+    const vaoRef = useRef(null);
+    const uniformsRef = useRef<ShaderUniforms | null>(null);
+    const mouseDownPositionRef = useRef<{x: number, y: number} | null>(null);
+    const CLICK_THRESHOLD = 3; // Pixels of movement allowed before considering it a drag
+
+    const { fps, updateFPS } = useFPSCounter();
+
+    const {
+        pickingProgramRef,
+        pickingVaoRef,
+        pickingFbRef,
+        pickingTextureRef,
+        pickingUniformsRef,
+        hoveredPointRef,
+        pickPoint
+    } = usePicking(glRef.current, points, pointSize, setupMatrices, requestRender);
+
+    // Update mouse handlers to use the new pickPoint function
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!cameraRef.current) return;
 
         if (interactionState.current.isDragging) {
-            // Clear hover state on first drag movement
             if (hoveredPointRef.current !== null && onPointHover) {
                 hoveredPointRef.current = null;
                 onPointHover(null);
             }
             handleCameraUpdate(camera => camera.orbit(e.movementX, e.movementY));
         } else if (interactionState.current.isPanning) {
-            // Clear hover state on first pan movement
             if (hoveredPointRef.current !== null && onPointHover) {
                 hoveredPointRef.current = null;
                 onPointHover(null);
@@ -289,6 +379,16 @@ export function PointCloudViewer({
             requestRender();
         }
     }, [handleCameraUpdate, pickPoint, onPointHover, requestRender]);
+
+    // Update the mouse handlers to properly handle clicks
+    const handleMouseDown = useCallback((e: MouseEvent) => {
+        if (e.button === 0 && !e.shiftKey) {  // Left click without shift
+            mouseDownPositionRef.current = { x: e.clientX, y: e.clientY };
+            interactionState.current.isDragging = true;
+        } else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {  // Middle click or shift+left click
+            interactionState.current.isPanning = true;
+        }
+    }, []);
 
     const handleWheel = useCallback((e: WheelEvent) => {
         e.preventDefault();
