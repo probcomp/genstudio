@@ -27,27 +27,28 @@ export interface PointCloudViewerProps {
     backgroundColor?: [number, number, number];
     className?: string;
     pointSize?: number;
-    highlightColor?: [number, number, number];
-    hoveredHighlightColor?: [number, number, number];
 
     // Interaction
     onPointClick?: (pointIndex: number, event: MouseEvent) => void;
     onPointHover?: (pointIndex: number | null) => void;
     pickingRadius?: number;
-    highlights?: number[];
+    decorations?: DecorationGroup[];
 }
 
 export interface ShaderUniforms {
     projection: WebGLUniformLocation | null;
     view: WebGLUniformLocation | null;
     pointSize: WebGLUniformLocation | null;
-    highlightedPoint: WebGLUniformLocation | null;
-    highlightColor: WebGLUniformLocation | null;
     canvasSize: WebGLUniformLocation | null;
-    highlightedPoints: WebGLUniformLocation | null;
-    highlightCount: WebGLUniformLocation | null;
-    hoveredPoint: WebGLUniformLocation | null;
-    hoveredHighlightColor: WebGLUniformLocation | null;
+
+    // Decoration uniforms
+    decorationIndices: WebGLUniformLocation | null;
+    decorationScales: WebGLUniformLocation | null;
+    decorationColors: WebGLUniformLocation | null;
+    decorationAlphas: WebGLUniformLocation | null;
+    decorationBlendModes: WebGLUniformLocation | null;
+    decorationBlendStrengths: WebGLUniformLocation | null;
+    decorationCount: WebGLUniformLocation | null;
 }
 
 export interface PickingUniforms {
@@ -55,4 +56,17 @@ export interface PickingUniforms {
     view: WebGLUniformLocation | null;
     pointSize: WebGLUniformLocation | null;
     canvasSize: WebGLUniformLocation | null;
+}
+
+export interface DecorationGroup {
+  indexes: number[];
+
+  // Visual modifications
+  color?: [number, number, number];  // RGB color override
+  alpha?: number;                    // 0-1 opacity
+  scale?: number;                    // Size multiplier for points
+
+  // Color blend modes
+  blendMode?: 'replace' | 'multiply' | 'add' | 'screen';
+  blendStrength?: number;           // 0-1, how strongly to apply the blend
 }

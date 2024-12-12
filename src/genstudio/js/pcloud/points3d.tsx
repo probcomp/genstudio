@@ -406,7 +406,11 @@ function cacheUniformLocations(
         decorationAlphas: gl.getUniformLocation(program, 'uDecorationAlphas'),
         decorationBlendModes: gl.getUniformLocation(program, 'uDecorationBlendModes'),
         decorationBlendStrengths: gl.getUniformLocation(program, 'uDecorationBlendStrengths'),
-        decorationCount: gl.getUniformLocation(program, 'uDecorationCount')
+        decorationCount: gl.getUniformLocation(program, 'uDecorationCount'),
+
+        // Decoration map uniforms
+        decorationMap: gl.getUniformLocation(program, 'uDecorationMap'),
+        decorationMapSize: gl.getUniformLocation(program, 'uDecorationMapSize')
     };
 }
 
@@ -487,6 +491,52 @@ export function PointCloudViewer({
     } = usePicking(glRef.current, points, pointSize, setupMatrices, requestRender);
 
     const throttledPickPoint = useThrottledPicking(pickPoint);
+
+    // Add refs for decoration texture
+    const decorationMapRef = useRef<WebGLTexture | null>(null);
+    const decorationMapSizeRef = useRef<number>(0);
+
+    // Helper to create/update decoration map texture
+    const updateDecorationMap = useCallback((gl: WebGL2RenderingContext, numPoints: number) => {
+        // Calculate texture size (power of 2 that can fit all points)
+        const texSize = Math.ceil(Math.sqrt(numPoints));
+        const size = Math.pow(2, Math.ceil(Math.log2(texSize)));
+        decorationMapSizeRef.current = size;
+
+        // Create mapping array (default to 0 = no decoration)
+        const mapping = new Uint8Array(size * size).fill(0);
+
+        // Fill in decoration mappings
+        decorations.forEach((decoration, decorationIndex) => {
+            decoration.indexes.forEach(pointIndex => {
+                if (pointIndex < numPoints) {
+                    mapping[pointIndex] = decorationIndex + 1; // +1 because 0 means no decoration
+                }
+            });
+        });
+
+        // Create/update texture
+        if (!decorationMapRef.current) {
+            decorationMapRef.current = gl.createTexture();
+        }
+
+        gl.bindTexture(gl.TEXTURE_2D, decorationMapRef.current);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.R8,
+            size,
+            size,
+            0,
+            gl.RED,
+            gl.UNSIGNED_BYTE,
+            mapping
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }, [decorations]);
 
     // Update handleMouseMove to properly clear hover state and handle all cases
     const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -737,6 +787,15 @@ export function PointCloudViewer({
             gl.uniform1f(uniformsRef.current.pointSize, pointSize);
             gl.uniform2f(uniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
 
+            // Update decoration map
+            updateDecorationMap(gl, points.xyz.length / 3);
+
+            // Set decoration map uniforms
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, decorationMapRef.current);
+            gl.uniform1i(uniformsRef.current.decorationMap, 0);
+            gl.uniform1i(uniformsRef.current.decorationMapSize, decorationMapSizeRef.current);
+
             // Prepare decoration data
             const indices = new Int32Array(MAX_DECORATIONS).fill(-1);
             const scales = new Float32Array(MAX_DECORATIONS).fill(1.0);
@@ -883,6 +942,16 @@ export function PointCloudViewer({
             interactionState.current.isPanning = true;
         }
     }, []);
+
+    // Clean up
+    useEffect(() => {
+        const gl = glRef.current;  // Get gl from ref
+        return () => {
+            if (gl && decorationMapRef.current) {
+                gl.deleteTexture(decorationMapRef.current);
+            }
+        };
+    }, []);  // Remove gl from deps since we're getting it from ref
 
     return (
         <div style={{ position: 'relative' }}>
