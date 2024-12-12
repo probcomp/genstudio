@@ -1,65 +1,108 @@
+export const MAX_DECORATIONS = 16; // Adjust based on needs
+
 export const mainShaders = {
     vertex: `#version 300 es
+        precision highp float;
+        precision highp int;
+        #define MAX_DECORATIONS ${MAX_DECORATIONS}
+
         uniform mat4 uProjectionMatrix;
         uniform mat4 uViewMatrix;
         uniform float uPointSize;
-        uniform vec3 uHighlightColor;
-        uniform vec3 uHoveredHighlightColor;
         uniform vec2 uCanvasSize;
-        uniform int uHighlightedPoints[100];  // For permanent highlights
-        uniform int uHoveredPoint;           // For hover highlight
-        uniform int uHighlightCount;         // Number of highlights
+
+        // Decoration data passed as individual uniforms for better compatibility
+        uniform highp int uDecorationIndices[MAX_DECORATIONS];
+        uniform float uDecorationScales[MAX_DECORATIONS];
+        uniform int uDecorationCount;
 
         layout(location = 0) in vec3 position;
         layout(location = 1) in vec3 color;
         layout(location = 2) in float pointId;
 
         out vec3 vColor;
-
-        bool isHighlighted() {
-            for(int i = 0; i < uHighlightCount; i++) {
-                if(int(pointId) == uHighlightedPoints[i]) return true;
-            }
-            return false;
-        }
+        flat out int vVertexID;
 
         void main() {
-            bool highlighted = isHighlighted();
-            bool hovered = (int(pointId) == uHoveredPoint);
-
-            // Priority: hover > highlight > normal
-            vColor = hovered ? uHoveredHighlightColor :
-                    highlighted ? uHighlightColor :
-                    color;
+            vVertexID = int(pointId);
+            vColor = color;
 
             vec4 viewPos = uViewMatrix * vec4(position, 1.0);
             float dist = -viewPos.z;
 
+            // Calculate base point size with perspective
             float projectedSize = (uPointSize * uCanvasSize.y) / (2.0 * dist);
             float baseSize = clamp(projectedSize, 1.0, 20.0);
 
-            float minHighlightSize = 8.0;
-            float relativeHighlightSize = min(uCanvasSize.x, uCanvasSize.y) * 0.02;
-            float sizeFromBase = baseSize * 2.0;
-            float highlightSize = max(max(minHighlightSize, relativeHighlightSize), sizeFromBase);
+            // Apply decoration scaling if point is decorated
+            float scale = 1.0;
+            for (int i = 0; i < uDecorationCount; i++) {
+                if (uDecorationIndices[i] == vVertexID) {
+                    scale = uDecorationScales[i];
+                    break;
+                }
+            }
 
             gl_Position = uProjectionMatrix * viewPos;
-            gl_PointSize = (highlighted || hovered) ? highlightSize : baseSize;
+            gl_PointSize = baseSize * scale;
         }`,
 
     fragment: `#version 300 es
         precision highp float;
+        precision highp int;
+        #define MAX_DECORATIONS ${MAX_DECORATIONS}
 
         in vec3 vColor;
+        flat in int vVertexID;
         out vec4 fragColor;
 
+        // Decoration appearance uniforms
+        uniform highp int uDecorationIndices[MAX_DECORATIONS];
+        uniform vec3 uDecorationColors[MAX_DECORATIONS];
+        uniform float uDecorationAlphas[MAX_DECORATIONS];
+        uniform int uDecorationBlendModes[MAX_DECORATIONS];
+        uniform float uDecorationBlendStrengths[MAX_DECORATIONS];
+        uniform int uDecorationCount;
+
+        vec3 applyBlend(vec3 base, vec3 blend, int mode, float strength) {
+            vec3 result = base;
+            if (mode == 0) { // replace
+                result = blend;
+            } else if (mode == 1) { // multiply
+                result = base * blend;
+            } else if (mode == 2) { // add
+                result = min(base + blend, 1.0);
+            } else if (mode == 3) { // screen
+                result = 1.0 - (1.0 - base) * (1.0 - blend);
+            }
+            return mix(base, result, strength);
+        }
+
         void main() {
+            // Basic point shape
             vec2 coord = gl_PointCoord * 2.0 - 1.0;
             float dist = dot(coord, coord);
             if (dist > 1.0) {
                 discard;
             }
-            fragColor = vec4(vColor, 1.0);
+
+            vec3 baseColor = vColor;
+            float alpha = 1.0;
+
+            // Apply decorations in order
+            for (int i = 0; i < uDecorationCount; i++) {
+                if (uDecorationIndices[i] == vVertexID) {
+                    baseColor = applyBlend(
+                        baseColor,
+                        uDecorationColors[i],
+                        uDecorationBlendModes[i],
+                        uDecorationBlendStrengths[i]
+                    );
+                    alpha *= uDecorationAlphas[i];
+                }
+            }
+
+            fragColor = vec4(baseColor, alpha);
         }`
 };
 
