@@ -1,10 +1,58 @@
-import React, { useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { mat4, vec3 } from 'gl-matrix';
 import { createProgram, createPointIdBuffer } from './webgl-utils';
 import { PointCloudData, CameraParams, PointCloudViewerProps, ShaderUniforms, PickingUniforms } from './types';
 import { mainShaders } from './shaders';
 import { OrbitCamera } from './orbit-camera';
 import { pickingShaders } from './shaders';
+
+interface FPSCounterProps {
+    fps: number;
+}
+
+function FPSCounter({ fps }: FPSCounterProps) {
+    return (
+        <div
+            style={{
+                position: 'absolute',
+                top: '10px',
+                left: '10px',
+                color: 'white',
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                padding: '5px',
+                borderRadius: '3px',
+                fontSize: '14px'
+            }}
+        >
+            {fps} FPS
+        </div>
+    );
+}
+
+function useFPSCounter() {
+    const [fps, setFPS] = useState(0);
+    const lastFrameTimeRef = useRef<number>(0);
+    const lastFrameTimesRef = useRef<number[]>([]);
+    const MAX_FRAME_SAMPLES = 10;
+
+    const updateFPS = useCallback((timestamp: number) => {
+        const frameTime = timestamp - lastFrameTimeRef.current;
+        lastFrameTimeRef.current = timestamp;
+
+        if (frameTime > 0) {
+            lastFrameTimesRef.current.push(frameTime);
+            if (lastFrameTimesRef.current.length > MAX_FRAME_SAMPLES) {
+                lastFrameTimesRef.current.shift();
+            }
+
+            const avgFrameTime = lastFrameTimesRef.current.reduce((a, b) => a + b, 0) /
+                lastFrameTimesRef.current.length;
+            setFPS(Math.round(1000 / avgFrameTime));
+        }
+    }, []);
+
+    return { fps, updateFPS };
+}
 
 export function PointCloudViewer({
     points,
@@ -91,12 +139,8 @@ export function PointCloudViewer({
         isDragging: false,
         isPanning: false
     });
-    const fpsRef = useRef<HTMLDivElement>(null);
-    const lastFrameTimeRef = useRef<number>(0);
     const animationFrameRef = useRef<number>();
     const needsRenderRef = useRef<boolean>(true);
-    const lastFrameTimesRef = useRef<number[]>([]);
-    const MAX_FRAME_SAMPLES = 10;  // Keep last 10 frames for averaging
     const vaoRef = useRef(null);
     const pickingProgramRef = useRef<WebGLProgram | null>(null);
     const pickingVaoRef = useRef(null);
@@ -107,6 +151,8 @@ export function PointCloudViewer({
     const pickingUniformsRef = useRef<PickingUniforms | null>(null);
     const mouseDownPositionRef = useRef<{x: number, y: number} | null>(null);
     const CLICK_THRESHOLD = 3; // Pixels of movement allowed before considering it a drag
+
+    const { fps, updateFPS } = useFPSCounter();
 
     // Move requestRender before handleCameraUpdate
     const requestRender = useCallback(() => {
@@ -258,27 +304,137 @@ export function PointCloudViewer({
         mouseDownPositionRef.current = null;
     }, [pickPoint, onPointClick]);
 
-    // Add this function before useEffect
-    const updateFPS = useCallback((timestamp: number) => {
-        const frameTime = timestamp - lastFrameTimeRef.current;
-        lastFrameTimeRef.current = timestamp;
+    // Before the main useEffect, add these memoized values:
+    const bufferSetup = useMemo(() => {
+        if (!glRef.current) return null;
+        const gl = glRef.current;
 
-        if (frameTime > 0) {
-            lastFrameTimesRef.current.push(frameTime);
-            if (lastFrameTimesRef.current.length > MAX_FRAME_SAMPLES) {
-                lastFrameTimesRef.current.shift();
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, points.xyz, gl.STATIC_DRAW);
+
+        const colorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+        if (points.rgb) {
+            const normalizedColors = new Float32Array(points.rgb.length);
+            for (let i = 0; i < points.rgb.length; i++) {
+                normalizedColors[i] = points.rgb[i] / 255.0;
             }
-
-            const avgFrameTime = lastFrameTimesRef.current.reduce((a, b) => a + b, 0) /
-                lastFrameTimesRef.current.length;
-            const fps = Math.round(1000 / avgFrameTime);
-
-            if (fpsRef.current) {
-                fpsRef.current.textContent = `${fps} FPS`;
-            }
+            gl.bufferData(gl.ARRAY_BUFFER, normalizedColors, gl.STATIC_DRAW);
+        } else {
+            const defaultColors = new Float32Array(points.xyz.length);
+            defaultColors.fill(0.7);
+            gl.bufferData(gl.ARRAY_BUFFER, defaultColors, gl.STATIC_DRAW);
         }
+
+        return { positionBuffer, colorBuffer };
+    }, [points.xyz, points.rgb]);
+
+    // The VAO setup could also be memoized:
+    const vaoSetup = useMemo(() => {
+        if (!glRef.current || !bufferSetup) return null;
+        const gl = glRef.current;
+
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, bufferSetup.positionBuffer);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, bufferSetup.colorBuffer);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+
+        return vao;
+    }, [bufferSetup]);
+
+    const pickingFramebufferSetup = useMemo(() => {
+        if (!glRef.current) return null;
+        const gl = glRef.current;
+
+        const pickingFb = gl.createFramebuffer();
+        const pickingTexture = gl.createTexture();
+        if (!pickingFb || !pickingTexture) return null;
+
+        gl.bindTexture(gl.TEXTURE_2D, pickingTexture);
+        gl.texImage2D(
+            gl.TEXTURE_2D, 0, gl.RGBA,
+            gl.canvas.width, gl.canvas.height, 0,
+            gl.RGBA, gl.UNSIGNED_BYTE, null
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        const depthBuffer = gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+        gl.renderbufferStorage(
+            gl.RENDERBUFFER,
+            gl.DEPTH_COMPONENT24,
+            gl.canvas.width,
+            gl.canvas.height
+        );
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFb);
+        gl.framebufferTexture2D(
+            gl.FRAMEBUFFER,
+            gl.COLOR_ATTACHMENT0,
+            gl.TEXTURE_2D,
+            pickingTexture,
+            0
+        );
+        gl.framebufferRenderbuffer(
+            gl.FRAMEBUFFER,
+            gl.DEPTH_ATTACHMENT,
+            gl.RENDERBUFFER,
+            depthBuffer
+        );
+
+        return { pickingFb, pickingTexture, depthBuffer };
     }, []);
 
+    const normalizedColors = useMemo(() => {
+        if (!points.rgb) {
+            const defaultColors = new Float32Array(points.xyz.length);
+            defaultColors.fill(0.7);
+            return defaultColors;
+        }
+
+        const colors = new Float32Array(points.rgb.length);
+        for (let i = 0; i < points.rgb.length; i++) {
+            colors[i] = points.rgb[i] / 255.0;
+        }
+        return colors;
+    }, [points.rgb, points.xyz.length]);
+
+    const programSetup = useMemo(() => {
+        if (!glRef.current) return null;
+        const gl = glRef.current;
+
+        const program = createProgram(gl, mainShaders.vertex, mainShaders.fragment);
+        if (!program) return null;
+
+        const pickingProgram = createProgram(gl, pickingShaders.vertex, pickingShaders.fragment);
+        if (!pickingProgram) return null;
+
+        // Cache uniform locations
+        const uniforms = {
+            projection: gl.getUniformLocation(program, 'uProjectionMatrix'),
+            view: gl.getUniformLocation(program, 'uViewMatrix'),
+            pointSize: gl.getUniformLocation(program, 'uPointSize'),
+            highlightedPoint: gl.getUniformLocation(program, 'uHighlightedPoint'),
+            highlightColor: gl.getUniformLocation(program, 'uHighlightColor'),
+            canvasSize: gl.getUniformLocation(program, 'uCanvasSize'),
+            highlightedPoints: gl.getUniformLocation(program, 'uHighlightedPoints'),
+            highlightCount: gl.getUniformLocation(program, 'uHighlightCount'),
+            hoveredPoint: gl.getUniformLocation(program, 'uHoveredPoint'),
+            hoveredHighlightColor: gl.getUniformLocation(program, 'uHoveredHighlightColor')
+        };
+
+        return { program, pickingProgram, uniforms };
+    }, []);
 
     useEffect(() => {
         if (!canvasRef.current) return;
@@ -565,6 +721,20 @@ export function PointCloudViewer({
         return () => resizeObserver.disconnect();
     }, [requestRender]);
 
+    useEffect(() => {
+        if (!glRef.current) return;
+        const gl = glRef.current;
+
+        const positionBuffer = gl.createBuffer();
+        const colorBuffer = gl.createBuffer();
+        // ... buffer setup code ...
+
+        return () => {
+            gl.deleteBuffer(positionBuffer);
+            gl.deleteBuffer(colorBuffer);
+        };
+    }, [points.xyz, normalizedColors]);
+
     return (
         <div style={{ position: 'relative' }}>
             <canvas
@@ -573,21 +743,7 @@ export function PointCloudViewer({
                 width={600}
                 height={600}
             />
-            <div
-                ref={fpsRef}
-                style={{
-                    position: 'absolute',
-                    top: '10px',
-                    left: '10px',
-                    color: 'white',
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    padding: '5px',
-                    borderRadius: '3px',
-                    fontSize: '14px'
-                }}
-            >
-                0 FPS
-            </div>
+            <FPSCounter fps={fps} />
         </div>
     );
 }
