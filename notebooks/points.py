@@ -102,7 +102,7 @@ camera = {
 }
 
 
-def scene(controlled, point_size, xyz, rgb):
+def scene(controlled, point_size, xyz, rgb, select_region=False):
     cameraProps = (
         {"defaultCamera": camera}
         if not controlled
@@ -117,10 +117,13 @@ def scene(controlled, point_size, xyz, rgb):
             "backgroundColor": [0.1, 0.1, 0.1, 1],  # Dark background to make colors pop
             "className": "h-[400px] w-[400px]",
             "pointSize": point_size,
-            "onPointHover": js("(i) => $state.update({hovered: i})"),
+            "onPointHover": js("""(i) => {
+                 $state.update({hovered: i})
+                }"""),
             "onPointClick": js(
-                """(i) => {
-                    $state.selected_region_i = i;
+                """(i) => $state.update({"selected_region_i": i})"""
+                if select_region
+                else """(i) => {
                     $state.update({highlights: $state.highlights.includes(i) ? $state.highlights.filter(h => h !== i) : [...$state.highlights, i]});
                     }"""
             ),
@@ -128,18 +131,21 @@ def scene(controlled, point_size, xyz, rgb):
                 "clicked": {
                     "indexes": js("$state.highlights"),
                     "scale": 2,
-                    "minSize": 4,
+                    "minSize": 10,
                     "color": [1, 1, 0],
                 },
                 "hovered": {
                     "indexes": js("[$state.hovered]"),
                     "scale": 2,
-                    "minSize": 8,
+                    "minSize": 10,
                     "color": [0, 1, 0],
                 },
                 "selected_region": {
-                    "indexes": js("$state.selected_region_indexes"),
-                    "alpha": 1,
+                    "indexes": js("$state.selected_region_indexes")
+                    if select_region
+                    else [],
+                    "alpha": 0.2,
+                    "scale": 0.5,
                 },
             },
             "highlightColor": [1.0, 1.0, 0.0],
@@ -193,8 +199,8 @@ def find_similar_colors(rgb, point_idx, threshold=0.1):
     )
     | scene(True, 0.01, js("$state.torus_xyz"), js("$state.torus_rgb"))
     & scene(True, 1, js("$state.torus_xyz"), js("$state.torus_rgb"))
-    | scene(False, 0.1, js("$state.cube_xyz"), js("$state.cube_rgb"))
-    & scene(False, 0.5, js("$state.cube_xyz"), js("$state.cube_rgb"))
+    | scene(False, 0.1, js("$state.cube_xyz"), js("$state.cube_rgb"), True)
+    & scene(False, 0.5, js("$state.cube_xyz"), js("$state.cube_rgb"), True)
     | Plot.onChange(
         {
             "selected_region_i": lambda w, e: w.state.update(

@@ -82,6 +82,8 @@ export const mainShaders = {
         out vec4 fragColor;
 
         vec3 applyBlend(vec3 base, vec3 blend, int mode, float strength) {
+            if (blend.r < 0.0) return base;  // No color override
+
             vec3 result = base;
             if (mode == 0) { // replace
                 result = blend;
@@ -106,12 +108,15 @@ export const mainShaders = {
             float alpha = 1.0;
 
             if (vDecorationIndex >= 0) {
-                baseColor = applyBlend(
-                    baseColor,
-                    uDecorationColors[vDecorationIndex],
-                    uDecorationBlendModes[vDecorationIndex],
-                    uDecorationBlendStrengths[vDecorationIndex]
-                );
+                vec3 decorationColor = uDecorationColors[vDecorationIndex];
+                if (decorationColor.r >= 0.0) {  // Only apply color if specified
+                    baseColor = applyBlend(
+                        baseColor,
+                        decorationColor,
+                        uDecorationBlendModes[vDecorationIndex],
+                        uDecorationBlendStrengths[vDecorationIndex]
+                    );
+                }
                 alpha *= uDecorationAlphas[vDecorationIndex];
             }
 
