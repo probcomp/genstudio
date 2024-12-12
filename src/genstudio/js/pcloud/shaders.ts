@@ -11,10 +11,12 @@ export const mainShaders = {
         uniform float uPointSize;
         uniform vec2 uCanvasSize;
 
-        // Decoration data passed as individual uniforms for better compatibility
-        uniform highp int uDecorationIndices[MAX_DECORATIONS];
+        // Decoration property uniforms
         uniform float uDecorationScales[MAX_DECORATIONS];
-        uniform int uDecorationCount;
+
+        // Decoration mapping texture
+        uniform sampler2D uDecorationMap;
+        uniform int uDecorationMapSize;
 
         layout(location = 0) in vec3 position;
         layout(location = 1) in vec3 color;
@@ -22,25 +24,32 @@ export const mainShaders = {
 
         out vec3 vColor;
         flat out int vVertexID;
+        flat out int vDecorationIndex;
+
+        int getDecorationIndex(int pointId) {
+            // Convert pointId to texture coordinates
+            int texWidth = uDecorationMapSize;
+            int x = pointId % texWidth;
+            int y = pointId / texWidth;
+
+            vec2 texCoord = (vec2(x, y) + 0.5) / float(texWidth);
+            return int(texture(uDecorationMap, texCoord).r * 255.0) - 1; // -1 means no decoration
+        }
 
         void main() {
             vVertexID = int(pointId);
             vColor = color;
+            vDecorationIndex = getDecorationIndex(vVertexID);
 
             vec4 viewPos = uViewMatrix * vec4(position, 1.0);
             float dist = -viewPos.z;
 
-            // Calculate base point size with perspective
             float projectedSize = (uPointSize * uCanvasSize.y) / (2.0 * dist);
             float baseSize = clamp(projectedSize, 1.0, 20.0);
 
-            // Apply decoration scaling if point is decorated
             float scale = 1.0;
-            for (int i = 0; i < uDecorationCount; i++) {
-                if (uDecorationIndices[i] == vVertexID) {
-                    scale = uDecorationScales[i];
-                    break;
-                }
+            if (vDecorationIndex >= 0) {
+                scale = uDecorationScales[vDecorationIndex];
             }
 
             gl_Position = uProjectionMatrix * viewPos;
@@ -52,17 +61,20 @@ export const mainShaders = {
         precision highp int;
         #define MAX_DECORATIONS ${MAX_DECORATIONS}
 
-        in vec3 vColor;
-        flat in int vVertexID;
-        out vec4 fragColor;
-
-        // Decoration appearance uniforms
-        uniform highp int uDecorationIndices[MAX_DECORATIONS];
+        // Decoration property uniforms
         uniform vec3 uDecorationColors[MAX_DECORATIONS];
         uniform float uDecorationAlphas[MAX_DECORATIONS];
         uniform int uDecorationBlendModes[MAX_DECORATIONS];
         uniform float uDecorationBlendStrengths[MAX_DECORATIONS];
-        uniform int uDecorationCount;
+
+        // Decoration mapping texture
+        uniform sampler2D uDecorationMap;
+        uniform int uDecorationMapSize;
+
+        in vec3 vColor;
+        flat in int vVertexID;
+        flat in int vDecorationIndex;
+        out vec4 fragColor;
 
         vec3 applyBlend(vec3 base, vec3 blend, int mode, float strength) {
             vec3 result = base;
@@ -79,7 +91,6 @@ export const mainShaders = {
         }
 
         void main() {
-            // Basic point shape
             vec2 coord = gl_PointCoord * 2.0 - 1.0;
             float dist = dot(coord, coord);
             if (dist > 1.0) {
@@ -89,17 +100,14 @@ export const mainShaders = {
             vec3 baseColor = vColor;
             float alpha = 1.0;
 
-            // Apply decorations in order
-            for (int i = 0; i < uDecorationCount; i++) {
-                if (uDecorationIndices[i] == vVertexID) {
-                    baseColor = applyBlend(
-                        baseColor,
-                        uDecorationColors[i],
-                        uDecorationBlendModes[i],
-                        uDecorationBlendStrengths[i]
-                    );
-                    alpha *= uDecorationAlphas[i];
-                }
+            if (vDecorationIndex >= 0) {
+                baseColor = applyBlend(
+                    baseColor,
+                    uDecorationColors[vDecorationIndex],
+                    uDecorationBlendModes[vDecorationIndex],
+                    uDecorationBlendStrengths[vDecorationIndex]
+                );
+                alpha *= uDecorationAlphas[vDecorationIndex];
             }
 
             fragColor = vec4(baseColor, alpha);
