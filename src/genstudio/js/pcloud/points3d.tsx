@@ -509,10 +509,11 @@ export function PointCloudViewer({
         // Create mapping array (default to 0 = no decoration)
         const mapping = new Uint8Array(size * size).fill(0);
 
-        // Fill in decoration mappings
+        // Fill in decoration mappings - make sure we're using the correct point indices
         Object.values(decorations).forEach((decoration, decorationIndex) => {
             decoration.indexes.forEach(pointIndex => {
                 if (pointIndex < numPoints) {
+                    // The mapping array should be indexed by the actual point index
                     mapping[pointIndex] = decorationIndex + 1;
                 }
             });
@@ -777,6 +778,8 @@ export function PointCloudViewer({
             gl.clearColor(backgroundColor[0], backgroundColor[1], backgroundColor[2], 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             gl.enable(gl.DEPTH_TEST);
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);  // Standard alpha blending
 
             gl.useProgram(programRef.current);
 
@@ -802,7 +805,7 @@ export function PointCloudViewer({
             // Prepare decoration data
             const indices = new Int32Array(MAX_DECORATIONS).fill(-1);
             const scales = new Float32Array(MAX_DECORATIONS).fill(1.0);
-            const colors = new Float32Array(MAX_DECORATIONS * 3).fill(1.0);
+            const colors = new Float32Array(MAX_DECORATIONS * 3).fill(-1);  // Use -1 to indicate no color override
             const alphas = new Float32Array(MAX_DECORATIONS).fill(1.0);
             const blendModes = new Int32Array(MAX_DECORATIONS).fill(0);
             const blendStrengths = new Float32Array(MAX_DECORATIONS).fill(1.0);
@@ -817,7 +820,7 @@ export function PointCloudViewer({
                 // Set scale (default to 1.0)
                 scales[i] = decoration.scale ?? 1.0;
 
-                // Set color (default to white)
+                // Only set color if specified
                 if (decoration.color) {
                     const baseIdx = i * 3;
                     colors[baseIdx] = decoration.color[0];
