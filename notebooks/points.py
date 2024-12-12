@@ -88,7 +88,7 @@ class Points(Plot.LayoutItem):
         self.props = props
 
     def for_json(self) -> Any:
-        return [Plot.JSRef("points.PointCloudViewer"), self.props]
+        return [Plot.JSRef("points3d.PointCloudViewer"), self.props]
 
 
 # Camera parameters - positioned to see the spiral structure
