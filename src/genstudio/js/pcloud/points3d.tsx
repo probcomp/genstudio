@@ -200,12 +200,11 @@ function usePicking(
         };
     }, [gl]);
 
-    const pickPoint = useCallback((x: number, y: number): number | null => {
+    const pickPoint = useCallback((x: number, y: number, radius: number = 5): number | null => {
         if (!gl || !pickingProgramRef.current || !pickingVaoRef.current || !pickingFbRef.current) {
             return null;
         }
 
-        // Type guard to ensure we have an HTMLCanvasElement
         if (!(gl.canvas instanceof HTMLCanvasElement)) {
             console.error('Canvas must be an HTMLCanvasElement for picking');
             return null;
@@ -240,17 +239,51 @@ function usePicking(
         gl.bindVertexArray(pickingVaoRef.current);
         gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
 
-        // Read picked point ID
-        const pixel = new Uint8Array(4);
-        gl.readPixels(pixelX, gl.canvas.height - pixelY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        // Read pixels in the region around the cursor
+        const size = radius * 2 + 1;
+        const startX = Math.max(0, pixelX - radius);
+        const startY = Math.max(0, gl.canvas.height - pixelY - radius);
+        const pixels = new Uint8Array(size * size * 4);
+        gl.readPixels(
+            startX,
+            startY,
+            size,
+            size,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            pixels
+        );
 
-        // Restore previous state
+        // Find closest point in the region
+        let closestPoint: number | null = null;
+        let minDistance = Infinity;
+        const centerX = radius;
+        const centerY = radius;
+
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const i = (y * size + x) * 4;
+                if (pixels[i + 3] > 0) { // If alpha > 0, there's a point here
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    const distance = dx * dx + dy * dy;
+
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestPoint = pixels[i] +
+                                     pixels[i + 1] * 256 +
+                                     pixels[i + 2] * 256 * 256;
+                    }
+                }
+            }
+        }
+
+        // Restore WebGL state
         gl.bindFramebuffer(gl.FRAMEBUFFER, currentFBO);
         gl.viewport(...currentViewport);
         requestRender();
 
-        if (pixel[3] === 0) return null;
-        return pixel[0] + pixel[1] * 256 + pixel[2] * 256 * 256;
+        return closestPoint;
     }, [gl, points.xyz.length, pointSize, setupMatrices, requestRender]);
 
     return {
@@ -375,6 +408,20 @@ function cacheUniformLocations(
     };
 }
 
+function useThrottledPicking(pickingFn: (x: number, y: number) => number | null) {
+    const lastPickTime = useRef(0);
+    const THROTTLE_MS = 32; // About 30fps
+
+    return useCallback((x: number, y: number) => {
+        const now = performance.now();
+        if (now - lastPickTime.current < THROTTLE_MS) {
+            return null;
+        }
+        lastPickTime.current = now;
+        return pickingFn(x, y);
+    }, [pickingFn]);
+}
+
 export function PointCloudViewer({
     points,
     camera,
@@ -428,46 +475,35 @@ export function PointCloudViewer({
         pickPoint
     } = usePicking(glRef.current, points, pointSize, setupMatrices, requestRender);
 
-    // Update mouse handlers to use the new pickPoint function
+    const throttledPickPoint = useThrottledPicking(pickPoint);
+
+    // Update handleMouseMove to properly clear hover state and handle all cases
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!cameraRef.current) return;
 
         if (interactionState.current.isDragging) {
+            // Clear hover state when dragging
             if (hoveredPointRef.current !== null && onPointHover) {
                 hoveredPointRef.current = null;
                 onPointHover(null);
             }
             handleCameraUpdate(camera => camera.orbit(e.movementX, e.movementY));
         } else if (interactionState.current.isPanning) {
+            // Clear hover state when panning
             if (hoveredPointRef.current !== null && onPointHover) {
                 hoveredPointRef.current = null;
                 onPointHover(null);
             }
             handleCameraUpdate(camera => camera.pan(e.movementX, e.movementY));
         } else if (onPointHover) {
-            const pointIndex = pickPoint(e.clientX, e.clientY);
+            const pointIndex = pickPoint(e.clientX, e.clientY, 4); // Use consistent radius
             hoveredPointRef.current = pointIndex;
             onPointHover(pointIndex);
             requestRender();
         }
     }, [handleCameraUpdate, pickPoint, onPointHover, requestRender]);
 
-    // Update the mouse handlers to properly handle clicks
-    const handleMouseDown = useCallback((e: MouseEvent) => {
-        if (e.button === 0 && !e.shiftKey) {  // Left click without shift
-            mouseDownPositionRef.current = { x: e.clientX, y: e.clientY };
-            interactionState.current.isDragging = true;
-        } else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {  // Middle click or shift+left click
-            interactionState.current.isPanning = true;
-        }
-    }, []);
-
-    const handleWheel = useCallback((e: WheelEvent) => {
-        e.preventDefault();
-        handleCameraUpdate(camera => camera.zoom(e.deltaY));
-    }, [handleCameraUpdate]);
-
-    // Update handleMouseUp to handle click detection
+    // Update handleMouseUp to use the same radius
     const handleMouseUp = useCallback((e: MouseEvent) => {
         const wasDragging = interactionState.current.isDragging;
         const wasPanning = interactionState.current.isPanning;
@@ -475,15 +511,13 @@ export function PointCloudViewer({
         interactionState.current.isDragging = false;
         interactionState.current.isPanning = false;
 
-        // Only handle clicks if we were in drag mode (not pan mode)
         if (wasDragging && !wasPanning && mouseDownPositionRef.current && onPointClick) {
             const dx = e.clientX - mouseDownPositionRef.current.x;
             const dy = e.clientY - mouseDownPositionRef.current.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            // Only consider it a click if movement was below threshold
             if (distance < CLICK_THRESHOLD) {
-                const pointIndex = pickPoint(e.clientX, e.clientY);
+                const pointIndex = pickPoint(e.clientX, e.clientY, 4); // Same radius as hover
                 if (pointIndex !== null) {
                     onPointClick(pointIndex, e);
                 }
@@ -492,6 +526,32 @@ export function PointCloudViewer({
 
         mouseDownPositionRef.current = null;
     }, [pickPoint, onPointClick]);
+
+    const handleWheel = useCallback((e: WheelEvent) => {
+        e.preventDefault();
+        handleCameraUpdate(camera => camera.zoom(e.deltaY));
+    }, [handleCameraUpdate]);
+
+    // Add mouseLeave handler to clear hover state when leaving canvas
+    useEffect(() => {
+        if (!canvasRef.current) return;
+
+        const handleMouseLeave = () => {
+            if (hoveredPointRef.current !== null && onPointHover) {
+                hoveredPointRef.current = null;
+                onPointHover(null);
+                requestRender();
+            }
+        };
+
+        canvasRef.current.addEventListener('mouseleave', handleMouseLeave);
+
+        return () => {
+            if (canvasRef.current) {
+                canvasRef.current.removeEventListener('mouseleave', handleMouseLeave);
+            }
+        };
+    }, [onPointHover, requestRender]);
 
     const normalizedColors = useMemo(() => {
         if (!points.rgb) {
@@ -770,6 +830,16 @@ export function PointCloudViewer({
             gl.deleteBuffer(colorBuffer);
         };
     }, [points.xyz, normalizedColors]);
+
+    // Add back handleMouseDown
+    const handleMouseDown = useCallback((e: MouseEvent) => {
+        if (e.button === 0 && !e.shiftKey) {  // Left click without shift
+            mouseDownPositionRef.current = { x: e.clientX, y: e.clientY };
+            interactionState.current.isDragging = true;
+        } else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {  // Middle click or shift+left click
+            interactionState.current.isPanning = true;
+        }
+    }, []);
 
     return (
         <div style={{ position: 'relative' }}>
