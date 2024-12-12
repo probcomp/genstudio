@@ -211,19 +211,24 @@ function usePicking(
             return null;
         }
 
-        // Save current WebGL state
-        const currentFBO = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+        // Convert mouse coordinates to device pixels
+        const rect = gl.canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        const pixelX = Math.floor((x - rect.left) * dpr);
+        const pixelY = Math.floor((y - rect.top) * dpr);
 
-        // Switch to picking framebuffer
+        // Save WebGL state
+        const currentFBO = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+        const currentViewport = gl.getParameter(gl.VIEWPORT);
+
+        // Render to picking framebuffer
         gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFbRef.current);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         gl.clearColor(0, 0, 0, 0);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.enable(gl.DEPTH_TEST);
-        gl.depthFunc(gl.LESS);
-        gl.depthMask(true);
 
-        // Use picking shader and set uniforms
+        // Set up picking shader
         gl.useProgram(pickingProgramRef.current);
         const { projectionMatrix, viewMatrix } = setupMatrices(gl);
         gl.uniformMatrix4fv(pickingUniformsRef.current.projection, false, projectionMatrix);
@@ -231,19 +236,17 @@ function usePicking(
         gl.uniform1f(pickingUniformsRef.current.pointSize, pointSize);
         gl.uniform2f(pickingUniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
 
-        // Draw points for picking
+        // Draw points
         gl.bindVertexArray(pickingVaoRef.current);
         gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
 
-        // Read pixel
-        const rect = gl.canvas.getBoundingClientRect();
-        const pixelX = Math.floor((x - rect.left) * gl.canvas.width / rect.width);
-        const pixelY = Math.floor((rect.height - (y - rect.top)) * gl.canvas.height / rect.height);
+        // Read picked point ID
         const pixel = new Uint8Array(4);
-        gl.readPixels(pixelX, pixelY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        gl.readPixels(pixelX, gl.canvas.height - pixelY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
 
         // Restore previous state
         gl.bindFramebuffer(gl.FRAMEBUFFER, currentFBO);
+        gl.viewport(...currentViewport);
         requestRender();
 
         if (pixel[3] === 0) return null;
