@@ -467,7 +467,7 @@ function computeCanvasDimensions(containerWidth, width, height, aspectRatio = 1)
     };
   }
 
-export function PointCloudViewer({
+export function Scene({
     points,
     camera,
     defaultCamera,
