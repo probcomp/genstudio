@@ -13,9 +13,9 @@ import { joinClasses, tw } from "./utils";
 const { useState, useEffect, useContext, useRef, useCallback } = React
 import Katex from "katex";
 import markdownItKatex from "./markdown-it-katex";
-import * as points3d from "./pcloud/points3d"
+import * as scene3d from "./scene3d/scene3d"
 
-export { render, points3d };
+export { render, scene3d };
 export const CONTAINER_PADDING = 10;
 const KATEX_CSS_URL = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
 
