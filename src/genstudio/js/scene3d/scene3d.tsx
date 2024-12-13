@@ -4,67 +4,9 @@ import { createProgram, createPointIdBuffer } from './webgl-utils';
 import { PointCloudData, CameraParams, PointCloudViewerProps, ShaderUniforms, PickingUniforms } from './types';
 import { mainShaders, pickingShaders, MAX_DECORATIONS } from './shaders';
 import { OrbitCamera } from './orbit-camera';
-import deepEqual from 'fast-deep-equal';
-import { useContainerWidth } from '../utils';
+import { useContainerWidth, useDeepMemo } from '../utils';
+import { FPSCounter, useFPSCounter } from './fps';
 
-function useDeepMemo<T>(value: T): T {
-    const ref = useRef<T>();
-
-    if (!ref.current || !deepEqual(value, ref.current)) {
-        ref.current = value;
-    }
-
-    return ref.current;
-}
-
-interface FPSCounterProps {
-    fpsRef: React.RefObject<HTMLDivElement>;
-}
-
-function FPSCounter({ fpsRef }: FPSCounterProps) {
-    return (
-        <div
-            ref={fpsRef}
-            style={{
-                position: 'absolute',
-                top: '10px',
-                left: '10px',
-                color: 'white',
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                padding: '5px',
-                borderRadius: '3px',
-                fontSize: '14px'
-            }}
-        >
-            0 FPS
-        </div>
-    );
-}
-
-function useFPSCounter() {
-    const fpsDisplayRef = useRef<HTMLDivElement>(null);
-    const renderTimesRef = useRef<number[]>([]);
-    const MAX_SAMPLES = 10;
-
-    const updateDisplay = useCallback((renderTime: number) => {
-        renderTimesRef.current.push(renderTime);
-        if (renderTimesRef.current.length > MAX_SAMPLES) {
-            renderTimesRef.current.shift();
-        }
-
-        const avgRenderTime = renderTimesRef.current.reduce((a, b) => a + b, 0) /
-            renderTimesRef.current.length;
-
-        const avgFps = 1000 / avgRenderTime;
-
-        if (fpsDisplayRef.current) {
-            fpsDisplayRef.current.textContent =
-                `${avgFps.toFixed(1)} FPS`;
-        }
-    }, []);
-
-    return { fpsDisplayRef, updateDisplay };
-}
 
 function useCamera(
     requestRender: () => void,
