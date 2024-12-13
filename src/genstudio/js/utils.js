@@ -164,11 +164,10 @@ function debounce(func, wait, leading = true) {
   };
 }
 
-export function useContainerWidth() {
+export function useContainerWidth(threshold=10) {
   const containerRef = React.useRef(null);
   const [containerWidth, setContainerWidth] = React.useState(0);
   const lastWidthRef = React.useRef(0);
-  const THRESHOLD_PX = 10;
   const DEBOUNCE = false;
 
   React.useEffect(() => {
@@ -176,7 +175,7 @@ export function useContainerWidth() {
 
     const handleWidth = width => {
       const diff = Math.abs(width - lastWidthRef.current);
-      if (diff >= THRESHOLD_PX) {
+      if (diff >= threshold) {
         lastWidthRef.current = width;
         setContainerWidth(width);
       }
