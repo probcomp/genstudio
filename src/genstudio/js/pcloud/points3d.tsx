@@ -4,14 +4,26 @@ import { createProgram, createPointIdBuffer } from './webgl-utils';
 import { PointCloudData, CameraParams, PointCloudViewerProps, ShaderUniforms, PickingUniforms } from './types';
 import { mainShaders, pickingShaders, MAX_DECORATIONS } from './shaders';
 import { OrbitCamera } from './orbit-camera';
+import deepEqual from 'fast-deep-equal';
 
-interface FPSCounterProps {
-    fps: number;
+function useDeepMemo<T>(value: T): T {
+    const ref = useRef<T>();
+
+    if (!ref.current || !deepEqual(value, ref.current)) {
+        ref.current = value;
+    }
+
+    return ref.current;
 }
 
-function FPSCounter({ fps }: FPSCounterProps) {
+interface FPSCounterProps {
+    fpsRef: React.RefObject<HTMLDivElement>;
+}
+
+function FPSCounter({ fpsRef }: FPSCounterProps) {
     return (
         <div
+            ref={fpsRef}
             style={{
                 position: 'absolute',
                 top: '10px',
@@ -23,34 +35,34 @@ function FPSCounter({ fps }: FPSCounterProps) {
                 fontSize: '14px'
             }}
         >
-            {fps} FPS
+            0 FPS
         </div>
     );
 }
 
 function useFPSCounter() {
-    const [fps, setFPS] = useState(0);
-    const lastFrameTimeRef = useRef<number>(0);
-    const lastFrameTimesRef = useRef<number[]>([]);
-    const MAX_FRAME_SAMPLES = 10;
+    const fpsDisplayRef = useRef<HTMLDivElement>(null);
+    const renderTimesRef = useRef<number[]>([]);
+    const MAX_SAMPLES = 10;
 
-    const updateFPS = useCallback((timestamp: number) => {
-        const frameTime = timestamp - lastFrameTimeRef.current;
-        lastFrameTimeRef.current = timestamp;
+    const updateDisplay = useCallback((renderTime: number) => {
+        renderTimesRef.current.push(renderTime);
+        if (renderTimesRef.current.length > MAX_SAMPLES) {
+            renderTimesRef.current.shift();
+        }
 
-        if (frameTime > 0) {
-            lastFrameTimesRef.current.push(frameTime);
-            if (lastFrameTimesRef.current.length > MAX_FRAME_SAMPLES) {
-                lastFrameTimesRef.current.shift();
-            }
+        const avgRenderTime = renderTimesRef.current.reduce((a, b) => a + b, 0) /
+            renderTimesRef.current.length;
 
-            const avgFrameTime = lastFrameTimesRef.current.reduce((a, b) => a + b, 0) /
-                lastFrameTimesRef.current.length;
-            setFPS(Math.round(1000 / avgFrameTime));
+        const avgFps = 1000 / avgRenderTime;
+
+        if (fpsDisplayRef.current) {
+            fpsDisplayRef.current.textContent =
+                `${avgFps.toFixed(1)} FPS`;
         }
     }, []);
 
-    return { fps, updateFPS };
+    return { fpsDisplayRef, updateDisplay };
 }
 
 function useCamera(
@@ -136,9 +148,11 @@ function useCamera(
     const handleCameraUpdate = useCallback((action: (camera: OrbitCamera) => void) => {
         if (!cameraRef.current) return;
         action(cameraRef.current);
-        requestRender();
+
         if (isControlled) {
             notifyCameraChange();
+        } else {
+            requestRender();
         }
     }, [isControlled, notifyCameraChange, requestRender]);
 
@@ -280,10 +294,10 @@ function usePicking(
         // Restore WebGL state
         gl.bindFramebuffer(gl.FRAMEBUFFER, currentFBO);
         gl.viewport(...currentViewport);
-        requestRender();
+
 
         return closestPoint;
-    }, [gl, points.xyz.length, pointSize, setupMatrices, requestRender]);
+    }, [gl, points.xyz.length, pointSize, setupMatrices]);
 
     return {
         pickingProgramRef,
@@ -417,20 +431,6 @@ function cacheUniformLocations(
     };
 }
 
-function useThrottledPicking(pickingFn: (x: number, y: number) => number | null) {
-    const lastPickTime = useRef(0);
-    const THROTTLE_MS = 32; // About 30fps
-
-    return useCallback((x: number, y: number) => {
-        const now = performance.now();
-        if (now - lastPickTime.current < THROTTLE_MS) {
-            return null;
-        }
-        lastPickTime.current = now;
-        return pickingFn(x, y);
-    }, [pickingFn]);
-}
-
 // Add helper to convert blend mode string to int
 function blendModeToInt(mode: DecorationGroup['blendMode']): number {
     switch (mode) {
@@ -455,11 +455,37 @@ export function PointCloudViewer({
     onPointHover,
 }: PointCloudViewerProps) {
 
+    camera = useDeepMemo(camera)
+    defaultCamera = useDeepMemo(defaultCamera)
+    // decorations = useDeepMemo(decorations)
 
-    const needsRenderRef = useRef<boolean>(true);
+    const renderFunctionRef = useRef<(() => void) | null>(null);
+    const renderRAFRef = useRef<number | null>(null);
+    const lastRenderTime = useRef<number | null>(null);
+
     const requestRender = useCallback(() => {
-        needsRenderRef.current = true;
+        if (renderFunctionRef.current) {
+            // Cancel any pending render
+            if (renderRAFRef.current) {
+                cancelAnimationFrame(renderRAFRef.current);
+            }
+
+            renderRAFRef.current = requestAnimationFrame(() => {
+                renderFunctionRef.current();
+
+                const now = performance.now();
+                if (lastRenderTime.current) {
+                    const timeBetweenRenders = now - lastRenderTime.current;
+                    updateDisplay(timeBetweenRenders);
+                }
+                lastRenderTime.current = now;
+
+                renderRAFRef.current = null;
+            });
+        }
     }, []);
+
+    useEffect(() => requestRender(), [points, camera, defaultCamera, decorations])
 
     const {
         cameraRef,
@@ -481,7 +507,7 @@ export function PointCloudViewer({
     const mouseDownPositionRef = useRef<{x: number, y: number} | null>(null);
     const CLICK_THRESHOLD = 3; // Pixels of movement allowed before considering it a drag
 
-    const { fps, updateFPS } = useFPSCounter();
+    const { fpsDisplayRef, updateDisplay } = useFPSCounter();
 
     const {
         pickingProgramRef,
@@ -492,8 +518,6 @@ export function PointCloudViewer({
         hoveredPointRef,
         pickPoint
     } = usePicking(glRef.current, points, pointSize, setupMatrices, requestRender);
-
-    const throttledPickPoint = useThrottledPicking(pickPoint);
 
     // Add refs for decoration texture
     const decorationMapRef = useRef<WebGLTexture | null>(null);
@@ -564,7 +588,6 @@ export function PointCloudViewer({
             const pointIndex = pickPoint(e.clientX, e.clientY, 4); // Use consistent radius
             hoveredPointRef.current = pointIndex;
             onPointHover(pointIndex);
-            requestRender();
         }
     }, [handleCameraUpdate, pickPoint, onPointHover, requestRender]);
 
@@ -605,7 +628,6 @@ export function PointCloudViewer({
             if (hoveredPointRef.current !== null && onPointHover) {
                 hoveredPointRef.current = null;
                 onPointHover(null);
-                requestRender();
             }
         };
 
@@ -616,7 +638,7 @@ export function PointCloudViewer({
                 canvasRef.current.removeEventListener('mouseleave', handleMouseLeave);
             }
         };
-    }, [onPointHover, requestRender]);
+    }, [onPointHover]);
 
     const normalizedColors = useMemo(() => {
         if (!points.rgb) {
@@ -762,17 +784,10 @@ export function PointCloudViewer({
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
         // Render function
-        function render(timestamp: number) {
+        function render() {
             if (!gl || !programRef.current || !cameraRef.current) return;
 
-            // Only render if needed
-            if (!needsRenderRef.current) {
-                animationFrameRef.current = requestAnimationFrame(render);
-                return;
-            }
 
-            needsRenderRef.current = false;
-            updateFPS(timestamp);
 
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
             gl.clearColor(backgroundColor[0], backgroundColor[1], backgroundColor[2], 1.0);
@@ -853,18 +868,13 @@ export function PointCloudViewer({
             gl.bindVertexArray(vaoRef.current);
             gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
 
-            animationFrameRef.current = requestAnimationFrame(render);
         }
 
-        // Start the render loop
-        animationFrameRef.current = requestAnimationFrame(render);
-
+        renderFunctionRef.current = render
         canvasRef.current.addEventListener('mousedown', handleMouseDown);
         canvasRef.current.addEventListener('mousemove', handleMouseMove);
         canvasRef.current.addEventListener('mouseup', handleMouseUp);
         canvasRef.current.addEventListener('wheel', handleWheel, { passive: false });
-
-        requestRender(); // Request initial render
 
         return () => {
             if (animationFrameRef.current) {
@@ -914,6 +924,7 @@ export function PointCloudViewer({
                 canvasRef.current.removeEventListener('wheel', handleWheel);
             }
         };
+
     }, [points, cameraParams, backgroundColor, handleCameraUpdate, handleMouseMove, handleWheel, requestRender, pointSize]);
 
     useEffect(() => {
@@ -934,7 +945,6 @@ export function PointCloudViewer({
 
         const positionBuffer = gl.createBuffer();
         const colorBuffer = gl.createBuffer();
-        // ... buffer setup code ...
 
         return () => {
             gl.deleteBuffer(positionBuffer);
@@ -970,7 +980,7 @@ export function PointCloudViewer({
                 width={600}
                 height={600}
             />
-            <FPSCounter fps={fps} />
+            <FPSCounter fpsRef={fpsDisplayRef} />
         </div>
     );
 }

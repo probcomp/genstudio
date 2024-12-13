@@ -78,11 +78,6 @@ def make_cube(n_points: int):
     return xyz, rgb
 
 
-# Create point clouds with 50k points
-torus_xyz, torus_rgb = make_torus_knot(50000)
-cube_xyz, cube_rgb = make_cube(50000)
-
-
 class Points(Plot.LayoutItem):
     def __init__(self, props):
         self.props = props
@@ -181,6 +176,10 @@ def find_similar_colors(rgb, point_idx, threshold=0.1):
     # Return list of matching point indices
     return np.where(matches)[0].tolist()
 
+
+# Create point clouds with 50k points
+torus_xyz, torus_rgb = make_torus_knot(500000)
+cube_xyz, cube_rgb = make_cube(500000)
 
 (
     Plot.initialState(
