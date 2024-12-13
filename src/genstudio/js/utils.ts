@@ -1,4 +1,5 @@
 import * as Twind from "@twind/core";
+import deepEqual from 'fast-deep-equal';
 import presetAutoprefix from "@twind/preset-autoprefix";
 import presetTailwind from "@twind/preset-tailwind";
 import presetTypography from "@twind/preset-typography";
@@ -206,4 +207,14 @@ export function joinClasses(...classes) {
     if (classes[i]) result += " " + classes[i];
   }
   return result;
+}
+
+export function useDeepMemo<T>(value: T): T {
+  const ref = useRef<T>();
+
+  if (!ref.current || !deepEqual(value, ref.current)) {
+      ref.current = value;
+  }
+
+  return ref.current;
 }
