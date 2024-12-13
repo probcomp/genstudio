@@ -46,6 +46,11 @@ export interface PointCloudViewerProps {
     className?: string;
     pointSize?: number;
 
+    // Dimensions
+    width?: number;
+    height?: number;
+    aspectRatio?: number;
+
     // Interaction
     onPointClick?: (pointIndex: number, event: MouseEvent) => void;
     onPointHover?: (pointIndex: number | null) => void;

@@ -5,6 +5,7 @@ import { PointCloudData, CameraParams, PointCloudViewerProps, ShaderUniforms, Pi
 import { mainShaders, pickingShaders, MAX_DECORATIONS } from './shaders';
 import { OrbitCamera } from './orbit-camera';
 import deepEqual from 'fast-deep-equal';
+import { useContainerWidth } from '../utils';
 
 function useDeepMemo<T>(value: T): T {
     const ref = useRef<T>();
@@ -354,22 +355,6 @@ function setupPickingFramebuffer(gl: WebGL2RenderingContext) {
     return { pickingFb, pickingTexture, depthBuffer };
 }
 
-// Add this helper at the top level, before PointCloudViewer
-function initWebGL(canvas: HTMLCanvasElement): WebGL2RenderingContext | null {
-    const gl = canvas.getContext('webgl2');
-    if (!gl) {
-        console.error('WebGL2 not supported');
-        return null;
-    }
-
-    // Set up initial WebGL state
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.clientWidth * dpr;
-    canvas.height = canvas.clientHeight * dpr;
-
-    return gl;
-}
-
 function setupBuffers(
     gl: WebGL2RenderingContext,
     points: PointCloudData
@@ -442,6 +427,46 @@ function blendModeToInt(mode: DecorationGroup['blendMode']): number {
     }
 }
 
+function computeCanvasDimensions(containerWidth, width, height, aspectRatio = 1) {
+    if (!containerWidth && !width) return;
+
+    let finalWidth, finalHeight;
+
+    // Case 1: Only height specified
+    if (height && !width) {
+      finalHeight = height;
+      finalWidth = containerWidth;
+    }
+
+    // Case 2: Only width specified
+    else if (width && !height) {
+      finalWidth = width;
+      finalHeight = width / aspectRatio;
+    }
+
+    // Case 3: Both dimensions specified
+    else if (width && height) {
+      finalWidth = width;
+      finalHeight = height;
+    }
+
+    // Case 4: Neither dimension specified
+    else {
+      finalWidth = containerWidth;
+      finalHeight = containerWidth / aspectRatio;
+    }
+
+    return {
+      width: finalWidth,
+      height: finalHeight,
+      style: {
+        // Only set explicit width if user provided it
+        width: width ? `${width}px` : '100%',
+        height: `${finalHeight}px`
+      }
+    };
+  }
+
 export function PointCloudViewer({
     points,
     camera,
@@ -453,7 +478,13 @@ export function PointCloudViewer({
     decorations = {},
     onPointClick,
     onPointHover,
+    width,
+    height,
+    aspectRatio
 }: PointCloudViewerProps) {
+
+    const [containerRef, containerWidth] = useContainerWidth(1);
+    const dimensions = useMemo(() => computeCanvasDimensions(containerWidth, width, height, aspectRatio), [containerWidth, width, height, aspectRatio])
 
     camera = useDeepMemo(camera)
     defaultCamera = useDeepMemo(defaultCamera)
@@ -622,7 +653,7 @@ export function PointCloudViewer({
 
     // Add mouseLeave handler to clear hover state when leaving canvas
     useEffect(() => {
-        if (!canvasRef.current) return;
+        if (!canvasRef.current || !dimensions) return;
 
         const handleMouseLeave = () => {
             if (hoveredPointRef.current !== null && onPointHover) {
@@ -657,9 +688,11 @@ export function PointCloudViewer({
     useEffect(() => {
         if (!canvasRef.current) return;
 
-        const gl = initWebGL(canvasRef.current);
-        if (!gl) return;
-
+        const gl = canvasRef.current.getContext('webgl2');
+        if (!gl) {
+            console.error('WebGL2 not supported');
+            return null;
+        }
         glRef.current = gl;
 
         // Create program and get uniforms
@@ -927,30 +960,26 @@ export function PointCloudViewer({
 
     }, [points, cameraParams, backgroundColor, handleCameraUpdate, handleMouseMove, handleWheel, requestRender, pointSize]);
 
+    // Set up resize observer
     useEffect(() => {
-        if (!canvasRef.current) return;
+        if (!canvasRef.current || !glRef.current || !dimensions) return;
 
-        const resizeObserver = new ResizeObserver(() => {
-            requestRender();
-        });
-
-        resizeObserver.observe(canvasRef.current);
-
-        return () => resizeObserver.disconnect();
-    }, [requestRender]);
-
-    useEffect(() => {
-        if (!glRef.current) return;
         const gl = glRef.current;
+        const canvas = canvasRef.current;
 
-        const positionBuffer = gl.createBuffer();
-        const colorBuffer = gl.createBuffer();
+        const dpr = window.devicePixelRatio || 1;
+        const displayWidth = Math.floor(dimensions.width * dpr);
+        const displayHeight = Math.floor(dimensions.height * dpr);
 
-        return () => {
-            gl.deleteBuffer(positionBuffer);
-            gl.deleteBuffer(colorBuffer);
-        };
-    }, [points.xyz, normalizedColors]);
+        if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+            canvas.width = displayWidth;
+            canvas.height = displayHeight;
+            canvas.style.width = dimensions.style.width;
+            canvas.style.height = dimensions.style.height;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            requestRender();
+        }
+    }, [dimensions]);
 
     // Add back handleMouseDown
     const handleMouseDown = useCallback((e: MouseEvent) => {
@@ -973,12 +1002,16 @@ export function PointCloudViewer({
     }, []);  // Remove gl from deps since we're getting it from ref
 
     return (
-        <div style={{ position: 'relative' }}>
+        <div
+            ref={containerRef}
+            style={{
+                position: 'relative'
+            }}
+        >
             <canvas
                 ref={canvasRef}
                 className={className}
-                width={600}
-                height={600}
+                style={dimensions?.style}
             />
             <FPSCounter fpsRef={fpsDisplayRef} />
         </div>
