@@ -12,7 +12,7 @@ function useCamera(
     requestRender: () => void,
     camera: CameraParams | undefined,
     defaultCamera: CameraParams | undefined,
-    onCameraChange?: (camera: CameraParams) => void,
+    callbacksRef
 ) {
     const isControlled = camera !== undefined;
     const initialCamera = isControlled ? camera : defaultCamera;
@@ -75,6 +75,7 @@ function useCamera(
     }, [cameraParams]);
 
     const notifyCameraChange = useCallback(() => {
+        const onCameraChange = callbacksRef.current.onCameraChange
         if (!cameraRef.current || !onCameraChange) return;
 
         const camera = cameraRef.current;
@@ -86,7 +87,7 @@ function useCamera(
         tempCamera.far = cameraParams.far;
 
         onCameraChange(tempCamera);
-    }, [onCameraChange, cameraParams]);
+    }, [cameraParams]);
 
     const handleCameraUpdate = useCallback((action: (camera: OrbitCamera) => void) => {
         if (!cameraRef.current) return;
@@ -111,15 +112,13 @@ function usePicking(
     gl: WebGL2RenderingContext | null,
     points: PointCloudData,
     pointSize: number,
-    setupMatrices: (gl: WebGL2RenderingContext) => { projectionMatrix: mat4, viewMatrix: mat4 },
-    requestRender: () => void
+    setupMatrices: (gl: WebGL2RenderingContext) => { projectionMatrix: mat4, viewMatrix: mat4 }
 ) {
     const pickingProgramRef = useRef<WebGLProgram | null>(null);
     const pickingVaoRef = useRef(null);
     const pickingFbRef = useRef<WebGLFramebuffer | null>(null);
     const pickingTextureRef = useRef<WebGLTexture | null>(null);
     const pickingUniformsRef = useRef<PickingUniforms | null>(null);
-    const hoveredPointRef = useRef<number | null>(null);
 
     // Initialize picking system
     useEffect(() => {
@@ -248,7 +247,6 @@ function usePicking(
         pickingFbRef,
         pickingTextureRef,
         pickingUniformsRef,
-        hoveredPointRef,
         pickPoint
     };
 }
@@ -425,6 +423,12 @@ export function Scene({
     aspectRatio
 }: PointCloudViewerProps) {
 
+
+    const callbacksRef = useRef({})
+    useEffect(() => {
+        callbacksRef.current = {onPointHover, onPointClick, onCameraChange}
+    },[onPointHover, onPointClick])
+
     const [containerRef, containerWidth] = useContainerWidth(1);
     const dimensions = useMemo(() => computeCanvasDimensions(containerWidth, width, height, aspectRatio), [containerWidth, width, height, aspectRatio])
 
@@ -458,14 +462,14 @@ export function Scene({
         }
     }, []);
 
-    useEffect(() => requestRender(), [points, camera, defaultCamera, decorations])
+    useEffect(() => requestRender(), [points.xyz, points.rgb, camera, defaultCamera, decorations])
 
     const {
         cameraRef,
         setupMatrices,
         cameraParams,
         handleCameraUpdate
-    } = useCamera(requestRender, camera, defaultCamera, onCameraChange);
+    } = useCamera(requestRender, camera, defaultCamera, callbacksRef);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const glRef = useRef<WebGL2RenderingContext>(null);
@@ -488,9 +492,8 @@ export function Scene({
         pickingFbRef,
         pickingTextureRef,
         pickingUniformsRef,
-        hoveredPointRef,
         pickPoint
-    } = usePicking(glRef.current, points, pointSize, setupMatrices, requestRender);
+    } = usePicking(glRef.current, points, pointSize, setupMatrices);
 
     // Add refs for decoration texture
     const decorationMapRef = useRef<WebGLTexture | null>(null);
@@ -542,37 +545,31 @@ export function Scene({
     // Update handleMouseMove to properly clear hover state and handle all cases
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!cameraRef.current) return;
+        const onHover = callbacksRef.current.onPointHover
 
         if (interactionState.current.isDragging) {
-            // Clear hover state when dragging
-            if (hoveredPointRef.current !== null && onPointHover) {
-                hoveredPointRef.current = null;
-                onPointHover(null);
-            }
+            onHover?.(null);
             handleCameraUpdate(camera => camera.orbit(e.movementX, e.movementY));
         } else if (interactionState.current.isPanning) {
-            // Clear hover state when panning
-            if (hoveredPointRef.current !== null && onPointHover) {
-                hoveredPointRef.current = null;
-                onPointHover(null);
-            }
+            onHover?.(null);
             handleCameraUpdate(camera => camera.pan(e.movementX, e.movementY));
-        } else if (onPointHover) {
+        } else if (onHover) {
             const pointIndex = pickPoint(e.clientX, e.clientY, 4); // Use consistent radius
-            hoveredPointRef.current = pointIndex;
-            onPointHover(pointIndex);
+            onHover?.(pointIndex);
         }
-    }, [handleCameraUpdate, pickPoint, onPointHover, requestRender]);
+    }, [handleCameraUpdate, pickPoint, requestRender]);
 
     // Update handleMouseUp to use the same radius
     const handleMouseUp = useCallback((e: MouseEvent) => {
         const wasDragging = interactionState.current.isDragging;
         const wasPanning = interactionState.current.isPanning;
 
+        const onClick = callbacksRef.current.onPointClick
+
         interactionState.current.isDragging = false;
         interactionState.current.isPanning = false;
 
-        if (wasDragging && !wasPanning && mouseDownPositionRef.current && onPointClick) {
+        if (wasDragging && !wasPanning && mouseDownPositionRef.current && onClick) {
             const dx = e.clientX - mouseDownPositionRef.current.x;
             const dy = e.clientY - mouseDownPositionRef.current.y;
             const distance = Math.sqrt(dx * dx + dy * dy);
@@ -580,13 +577,13 @@ export function Scene({
             if (distance < CLICK_THRESHOLD) {
                 const pointIndex = pickPoint(e.clientX, e.clientY, 4); // Same radius as hover
                 if (pointIndex !== null) {
-                    onPointClick(pointIndex, e);
+                    onClick(pointIndex, e);
                 }
             }
         }
 
         mouseDownPositionRef.current = null;
-    }, [pickPoint, onPointClick]);
+    }, [pickPoint]);
 
     const handleWheel = useCallback((e: WheelEvent) => {
         e.preventDefault();
@@ -598,10 +595,7 @@ export function Scene({
         if (!canvasRef.current || !dimensions) return;
 
         const handleMouseLeave = () => {
-            if (hoveredPointRef.current !== null && onPointHover) {
-                hoveredPointRef.current = null;
-                onPointHover(null);
-            }
+            callbacksRef.current.onPointHover?.(null);
         };
 
         canvasRef.current.addEventListener('mouseleave', handleMouseLeave);
@@ -611,23 +605,12 @@ export function Scene({
                 canvasRef.current.removeEventListener('mouseleave', handleMouseLeave);
             }
         };
-    }, [onPointHover]);
-
-    const normalizedColors = useMemo(() => {
-        if (!points.rgb) {
-            const defaultColors = new Float32Array(points.xyz.length);
-            defaultColors.fill(0.7);
-            return defaultColors;
-        }
-
-        const colors = new Float32Array(points.rgb.length);
-        for (let i = 0; i < points.rgb.length; i++) {
-            colors[i] = points.rgb[i] / 255.0;
-        }
-        return colors;
-    }, [points.rgb, points.xyz.length]);
+    }, []);
 
     useEffect(() => {
+        // NOTE
+        // The picking framebuffer updates should be decoupled from the main render setup. This effect is doing too much - it's both initializing WebGL and handling per-frame picking updates. These concerns should be separated into different effects or functions.
+
         if (!canvasRef.current) return;
 
         const gl = canvasRef.current.getContext('webgl2');
@@ -703,10 +686,6 @@ export function Scene({
         // Create framebuffer and texture for picking
         const pickingFb = gl.createFramebuffer();
         const pickingTexture = gl.createTexture();
-        if (!pickingFb || !pickingTexture) {
-            console.error('Failed to create picking framebuffer');
-            return;
-        }
         pickingFbRef.current = pickingFb;
         pickingTextureRef.current = pickingTexture;
 
@@ -900,7 +879,19 @@ export function Scene({
             }
         };
 
-    }, [points, cameraParams, backgroundColor, handleCameraUpdate, handleMouseMove, handleWheel, requestRender, pointSize]);
+    }, [points.xyz,
+        points.rgb,
+        cameraParams,
+        // IMPORTANT
+        // this currently needs to be invalidated in order for 'picking' to work.
+        // backgroundColor is an array whose identity always changes, which causes
+        // this to invalidate.
+        // this _should_ be ...backgroundColor (potentially) IF we can
+        // figure out how to get picking to update when it needs to.
+        backgroundColor,
+        handleMouseMove,
+        requestRender,
+        pointSize]);
 
     // Set up resize observer
     useEffect(() => {
