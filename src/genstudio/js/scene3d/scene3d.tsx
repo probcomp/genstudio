@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { mat4, vec3 } from 'gl-matrix';
 import { createProgram, createPointIdBuffer } from './webgl-utils';
-import { PointCloudData, CameraParams, PointCloudViewerProps, ShaderUniforms, PickingUniforms } from './types';
+import { CameraParams, PointCloudViewerProps, ShaderUniforms, PickingUniforms } from './types';
 import { useContainerWidth, useDeepMemo } from '../utils';
 import { FPSCounter, useFPSCounter } from './fps';
 
@@ -137,7 +137,6 @@ export const pickingShaders = {
         uniform mat4 uViewMatrix;
         uniform float uPointSize;
         uniform vec2 uCanvasSize;
-        uniform int uHighlightedPoint;
 
         layout(location = 0) in vec3 position;
         layout(location = 1) in float pointId;
@@ -150,16 +149,10 @@ export const pickingShaders = {
             float dist = -viewPos.z;
 
             float projectedSize = (uPointSize * uCanvasSize.y) / (2.0 * dist);
-            float baseSize = clamp(projectedSize, 1.0, 20.0);
-
-            bool isHighlighted = (int(pointId) == uHighlightedPoint);
-            float minHighlightSize = 8.0;
-            float relativeHighlightSize = min(uCanvasSize.x, uCanvasSize.y) * 0.02;
-            float sizeFromBase = baseSize * 2.0;
-            float highlightSize = max(max(minHighlightSize, relativeHighlightSize), sizeFromBase);
+            float size = clamp(projectedSize, 1.0, 20.0);
 
             gl_Position = uProjectionMatrix * viewPos;
-            gl_PointSize = isHighlighted ? highlightSize : baseSize;
+            gl_PointSize = size;
         }`,
 
     fragment: `#version 300 es
@@ -407,11 +400,6 @@ function usePicking(pointSize: number) {
             return null;
         }
 
-        if (!(gl.canvas instanceof HTMLCanvasElement)) {
-            console.error('Canvas must be an HTMLCanvasElement for picking');
-            return null;
-        }
-
         const [pixelX, pixelY] = pixelCoords
         // 1. Save current WebGL state
         const currentFBO = gl.getParameter(gl.FRAMEBUFFER_BINDING);
@@ -456,7 +444,49 @@ function usePicking(pointSize: number) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, currentFBO);
         gl.viewport(...currentViewport);
 
-        return findClosestPoint(pixels, PICK_RADIUS, size);
+        const centerX = PICK_RADIUS;
+        const centerY = PICK_RADIUS;
+
+        // Spiral outward from center
+        let x = 0, y = 0;
+        let dx = 0, dy = -1;
+        let length = 0;
+        let steps = 0;
+        const maxSteps = size * size;
+
+        while (steps < maxSteps) {
+            // Check current position
+            const px = centerX + x;
+            const py = centerY + y;
+
+            const i = (py * size + px) * 4;
+            if (pixels[i + 3] > 0) { // Found a point
+                return pixels[i] +
+                    pixels[i + 1] * 256 +
+                    pixels[i + 2] * 256 * 256;
+            }
+
+            // More efficient spiral movement
+            steps++;
+            if (x === length && y === length) {
+                length++;
+                dx = -1;
+                dy = 0;
+            } else if (x === -length && y === length) {
+                dx = 0;
+                dy = -1;
+            } else if (x === -length && y === -length) {
+                dx = 1;
+                dy = 0;
+            } else if (x === length && y === -length) {
+                dx = 0;
+                dy = 1;
+            }
+            x += dx;
+            y += dy;
+        }
+
+        return null;
     }, [pointSize]);
 
     function initPicking(gl, positionBuffer) {
@@ -487,6 +517,9 @@ function usePicking(pointSize: number) {
 
         // Point ID buffer
         const pickingPointIdBuffer = createPointIdBuffer(gl, numPointsRef.current, 1);
+        gl.bindBuffer(gl.ARRAY_BUFFER, pickingPointIdBuffer);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 0, 0);
 
         // Restore main VAO binding
         gl.bindVertexArray(currentVAO);
@@ -572,52 +605,6 @@ function usePicking(pointSize: number) {
         initPicking,
         pickPoint
     };
-}
-
-function findClosestPoint(pixels, PICK_RADIUS, size) {
-    const centerX = PICK_RADIUS;
-    const centerY = PICK_RADIUS;
-
-    // Spiral outward from center
-    let x = 0, y = 0;
-    let dx = 0, dy = -1;
-    let length = 0;
-    let steps = 0;
-    const maxSteps = size * size;
-
-    while (steps < maxSteps) {
-        // Check current position
-        const px = centerX + x;
-        const py = centerY + y;
-
-        const i = (py * size + px) * 4;
-        if (pixels[i + 3] > 0) { // Found a point
-            return pixels[i] +
-                   pixels[i + 1] * 256 +
-                   pixels[i + 2] * 256 * 256;
-        }
-
-        // More efficient spiral movement
-        steps++;
-        if (x === length && y === length) {
-            length++;
-            dx = -1;
-            dy = 0;
-        } else if (x === -length && y === length) {
-            dx = 0;
-            dy = -1;
-        } else if (x === -length && y === -length) {
-            dx = 1;
-            dy = 0;
-        } else if (x === length && y === -length) {
-            dx = 0;
-            dy = 1;
-        }
-        x += dx;
-        y += dy;
-    }
-
-    return null;
 }
 
 function cacheUniformLocations(
@@ -851,7 +838,7 @@ export function Scene({
             onHover?.(null);
             handleCameraMove(camera => camera.pan(e.movementX, e.movementY));
         } else if (onHover) {
-            const pointIndex = pickingSystem.pickPoint(glRef.current, cameraRef.current, devicePixels(glRef.current, e.clientX, e.clientY), 4); // Use consistent radius
+            const pointIndex = pickingSystem.pickPoint(glRef.current, cameraRef.current, devicePixels(glRef.current, e.clientX, e.clientY));
             onHover?.(pointIndex);
         }
     }, [handleCameraMove, pickingSystem.pickPoint]);
