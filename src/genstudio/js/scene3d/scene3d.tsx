@@ -326,7 +326,7 @@ function useCamera(
         far: initialCamera.far
     }), [initialCamera.fov, initialCamera.near, initialCamera.far]);
 
-    // TODO put this into OrbitCamera
+
     const orientation = useMemo(() => ({
         position: Array.isArray(initialCamera.position)
             ? vec3.fromValues(...initialCamera.position)
@@ -393,19 +393,16 @@ function useCamera(
     };
 }
 
-function usePicking(
-    gl: WebGL2RenderingContext | null,
-    points: PointCloudData,
-    pointSize: number,
-    cameraRef: React.MutableRefObject<OrbitCamera>
-) {
+function usePicking(pointSize: number) {
     const pickingProgramRef = useRef<WebGLProgram | null>(null);
     const pickingVaoRef = useRef(null);
     const pickingFbRef = useRef<WebGLFramebuffer | null>(null);
     const pickingTextureRef = useRef<WebGLTexture | null>(null);
     const pickingUniformsRef = useRef<PickingUniforms | null>(null);
+    const numPointsRef = useRef<number>(0);
+    const PICK_RADIUS = 5;
 
-    const pickPoint = useCallback((x: number, y: number, radius: number = 5): number | null => {
+    const pickPoint = useCallback((gl, camera: OrbitCamera, pixelCoords: [number, number]): number | null => {
         if (!gl || !pickingProgramRef.current || !pickingVaoRef.current || !pickingFbRef.current) {
             return null;
         }
@@ -415,41 +412,35 @@ function usePicking(
             return null;
         }
 
-        // Convert mouse coordinates to device pixels
-        const rect = gl.canvas.getBoundingClientRect();
-        const dpr = window.devicePixelRatio || 1;
-
-        const pixelX = Math.floor((x - rect.left) * dpr);
-        const pixelY = Math.floor((y - rect.top) * dpr);
-
+        const [pixelX, pixelY] = pixelCoords
         // 1. Save current WebGL state
         const currentFBO = gl.getParameter(gl.FRAMEBUFFER_BINDING);
         const currentViewport = gl.getParameter(gl.VIEWPORT);
 
-         // 2. Set up picking render target
+        // 2. Set up picking render target
         gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFbRef.current);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         // 3. Render points with picking shader
         gl.useProgram(pickingProgramRef.current);
-        const perspectiveMatrix = cameraRef.current.getPerspectiveMatrix(gl)
-        const orientationMatrix = cameraRef.current.getOrientationMatrix()
+        const perspectiveMatrix = camera.getPerspectiveMatrix(gl)
+        const orientationMatrix = camera.getOrientationMatrix()
 
-            // Set uniforms
+        // Set uniforms
         gl.uniformMatrix4fv(pickingUniformsRef.current.projection, false, perspectiveMatrix);
         gl.uniformMatrix4fv(pickingUniformsRef.current.view, false, orientationMatrix);
         gl.uniform1f(pickingUniformsRef.current.pointSize, pointSize);
         gl.uniform2f(pickingUniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
 
-            // Draw points
+        // Draw points
         gl.bindVertexArray(pickingVaoRef.current);
-        gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
+        gl.drawArrays(gl.POINTS, 0, numPointsRef.current);
 
         // 4. Read pixels around mouse position
-        const size = radius * 2 + 1;
-        const startX = Math.max(0, pixelX - radius);
-        const startY = Math.max(0, gl.canvas.height - pixelY - radius);
+        const size = PICK_RADIUS * 2 + 1;
+        const startX = Math.max(0, pixelX - PICK_RADIUS);
+        const startY = Math.max(0, gl.canvas.height - pixelY - PICK_RADIUS);
         const pixels = new Uint8Array(size * size * 4);
         gl.readPixels(
             startX,
@@ -465,11 +456,13 @@ function usePicking(
         gl.bindFramebuffer(gl.FRAMEBUFFER, currentFBO);
         gl.viewport(...currentViewport);
 
-
-        return findClosestPoint(pixels, radius, size);
-    }, [gl, points.xyz.length, pointSize]);
+        return findClosestPoint(pixels, PICK_RADIUS, size);
+    }, [pointSize]);
 
     function initPicking(gl, positionBuffer) {
+        // Get number of points from buffer size
+        const bufferSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE);
+        numPointsRef.current = bufferSize / (3 * 4); // 3 floats per point, 4 bytes per float
 
         const currentVAO = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
         // Set up picking VAO for point selection
@@ -493,7 +486,7 @@ function usePicking(
         };
 
         // Point ID buffer
-        const pickingPointIdBuffer = createPointIdBuffer(gl, points.xyz.length / 3, 1);
+        const pickingPointIdBuffer = createPointIdBuffer(gl, numPointsRef.current, 1);
 
         // Restore main VAO binding
         gl.bindVertexArray(currentVAO);
@@ -573,8 +566,6 @@ function usePicking(
                 gl.deleteVertexArray(pickingVaoRef.current);
             }
         }
-
-
     }
 
     return {
@@ -688,6 +679,15 @@ function computeCanvasDimensions(containerWidth, width, height, aspectRatio = 1)
     };
   }
 
+function devicePixels(gl, clientX, clientY) {
+    const rect = gl.canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+
+    const pixelX = Math.floor((clientX - rect.left) * dpr);
+    const pixelY = Math.floor((clientY - rect.top) * dpr);
+    return [pixelX, pixelY]
+}
+
 export function Scene({
     points,
     camera,
@@ -703,6 +703,8 @@ export function Scene({
     height,
     aspectRatio
 }: PointCloudViewerProps) {
+
+    points = useDeepMemo(points)
 
 
     const callbacksRef = useRef({})
@@ -759,10 +761,7 @@ export function Scene({
 
     const { fpsDisplayRef, updateDisplay } = useFPSCounter();
 
-    const {
-        initPicking,
-        pickPoint
-    } = usePicking(glRef.current, points, pointSize, cameraRef);
+    const pickingSystem = usePicking(pointSize);
 
     // Add refs for decoration texture
     const decorationMapRef = useRef<WebGLTexture | null>(null);
@@ -824,10 +823,10 @@ export function Scene({
             onHover?.(null);
             handleCameraMove(camera => camera.pan(e.movementX, e.movementY));
         } else if (onHover) {
-            const pointIndex = pickPoint(e.clientX, e.clientY, 4); // Use consistent radius
+            const pointIndex = pickingSystem.pickPoint(glRef.current, cameraRef.current, devicePixels(glRef.current, e.clientX, e.clientY), 4); // Use consistent radius
             onHover?.(pointIndex);
         }
-    }, [handleCameraMove, pickPoint]);
+    }, [handleCameraMove, pickingSystem.pickPoint]);
 
     // Update handleMouseUp to use the same radius
     const handleMouseUp = useCallback((e: MouseEvent) => {
@@ -845,7 +844,7 @@ export function Scene({
             const distance = Math.sqrt(dx * dx + dy * dy);
 
             if (distance < CLICK_THRESHOLD) {
-                const pointIndex = pickPoint(e.clientX, e.clientY, 4); // Same radius as hover
+                const pointIndex = pickingSystem.pickPoint(glRef.current, cameraRef.current, devicePixels(glRef.current, e.clientX, e.clientY), 4); // Same radius as hover
                 if (pointIndex !== null) {
                     onClick(pointIndex, e);
                 }
@@ -853,7 +852,7 @@ export function Scene({
         }
 
         mouseDownPositionRef.current = null;
-    }, [pickPoint]);
+    }, [pickingSystem.pickPoint]);
 
     const handleWheel = useCallback((e: WheelEvent) => {
         e.preventDefault();
@@ -882,24 +881,17 @@ export function Scene({
     // Effect for WebGL initialization
     useEffect(() => {
         if (!canvasRef.current) return;
-        console.log("INIT: WEBGL")
-
+        const disposeFns = []
         const gl = canvasRef.current.getContext('webgl2');
         if (!gl) {
-            console.error('WebGL2 not supported');
-            return null;
+            return console.error('WebGL2 not supported');
         }
-
-        console.log("INIT: WEBGL")
+        console.log("Init gl")
 
         glRef.current = gl;
 
         // Create program and get uniforms
         const program = createProgram(gl, mainShaders.vertex, mainShaders.fragment);
-        if (!program) {
-            console.error('Failed to create shader program');
-            return;
-        }
         programRef.current = program;
 
         // Cache uniform locations
@@ -944,7 +936,9 @@ export function Scene({
         // Point ID buffer for main VAO
         const mainPointIdBuffer = createPointIdBuffer(gl, points.xyz.length / 3, 2);
 
-        const cleanupPicking = initPicking(gl, positionBuffer)
+
+
+        disposeFns.push(pickingSystem.initPicking(gl, positionBuffer))
 
         canvasRef.current.addEventListener('mousedown', handleMouseDown);
         canvasRef.current.addEventListener('mousemove', handleMouseMove);
@@ -972,7 +966,7 @@ export function Scene({
                 if (mainPointIdBuffer) {
                     gl.deleteBuffer(mainPointIdBuffer);
                 }
-                cleanupPicking()
+            disposeFns.forEach(fn => fn?.());
             }
             if (canvasRef.current) {
                 canvasRef.current.removeEventListener('mousedown', handleMouseDown);
@@ -981,7 +975,7 @@ export function Scene({
                 canvasRef.current.removeEventListener('wheel', handleWheel);
             }
         };
-    }, [points.xyz, points.rgb, handleMouseMove, handleMouseUp, handleWheel,  canvasRef.current?.width, canvasRef.current?.height]);
+    }, [points, handleMouseMove, handleMouseUp, handleWheel,  canvasRef.current?.width, canvasRef.current?.height]);
 
     // Effect for per-frame rendering and picking updates
     useEffect(() => {
@@ -1063,7 +1057,7 @@ export function Scene({
             gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
         }
 
-    }, [points.xyz, ...backgroundColor, requestRender, pointSize, decorations, canvasRef.current?.width, canvasRef.current?.height]);
+    }, [points, ...backgroundColor, requestRender, pointSize, decorations, canvasRef.current?.width, canvasRef.current?.height]);
 
     // Set up resize observer
     useEffect(() => {
@@ -1086,7 +1080,7 @@ export function Scene({
         }
     }, [dimensions]);
 
-    useEffect(() => requestRender(), [points.xyz, points.rgb, decorations])
+    useEffect(() => requestRender(), [decorations])
 
     // Add back handleMouseDown
     const handleMouseDown = useCallback((e: MouseEvent) => {
