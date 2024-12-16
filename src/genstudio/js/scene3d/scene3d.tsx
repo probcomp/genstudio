@@ -34,6 +34,8 @@ export const mainShaders = {
         flat out int vVertexID;
         flat out int vDecorationIndex;
 
+        uniform bool uRenderMode;  // false = normal, true = picking
+
         int getDecorationIndex(int pointId) {
             // Convert pointId to texture coordinates
             int texWidth = uDecorationMapSize;
@@ -88,6 +90,8 @@ export const mainShaders = {
         flat in int vDecorationIndex;
         out vec4 fragColor;
 
+        uniform bool uRenderMode;  // false = normal, true = picking
+
         vec3 applyBlend(vec3 base, vec3 blend, int mode, float strength) {
             if (blend.r < 0.0) return base;  // No color override
 
@@ -111,12 +115,23 @@ export const mainShaders = {
                 discard;
             }
 
+            if (uRenderMode) {
+                // Picking mode - output encoded point ID
+                float id = float(vVertexID);
+                float blue = floor(id / (256.0 * 256.0));
+                float green = floor((id - blue * 256.0 * 256.0) / 256.0);
+                float red = id - blue * 256.0 * 256.0 - green * 256.0;
+                fragColor = vec4(red / 255.0, green / 255.0, blue / 255.0, 1.0);
+                return;
+            }
+
+            // Normal rendering mode
             vec3 baseColor = vColor;
             float alpha = 1.0;
 
             if (vDecorationIndex >= 0) {
                 vec3 decorationColor = uDecorationColors[vDecorationIndex];
-                if (decorationColor.r >= 0.0) {  // Only apply color if specified
+                if (decorationColor.r >= 0.0) {
                     baseColor = applyBlend(
                         baseColor,
                         decorationColor,
@@ -128,53 +143,6 @@ export const mainShaders = {
             }
 
             fragColor = vec4(baseColor, alpha);
-        }`
-};
-
-export const pickingShaders = {
-    vertex: `#version 300 es
-        uniform mat4 uProjectionMatrix;
-        uniform mat4 uViewMatrix;
-        uniform float uPointSize;
-        uniform vec2 uCanvasSize;
-
-        layout(location = 0) in vec3 position;
-        layout(location = 1) in float pointId;
-
-        out float vPointId;
-
-        void main() {
-            vPointId = pointId;
-            vec4 viewPos = uViewMatrix * vec4(position, 1.0);
-            float dist = -viewPos.z;
-
-            float projectedSize = (uPointSize * uCanvasSize.y) / (2.0 * dist);
-            float size = clamp(projectedSize, 1.0, 20.0);
-
-            gl_Position = uProjectionMatrix * viewPos;
-            gl_PointSize = size;
-        }`,
-
-    fragment: `#version 300 es
-        precision highp float;
-
-        in float vPointId;
-        out vec4 fragColor;
-
-        void main() {
-            vec2 coord = gl_PointCoord * 2.0 - 1.0;
-            float dist = dot(coord, coord);
-            if (dist > 1.0) {
-                discard;
-            }
-
-            float id = vPointId;
-            float blue = floor(id / (256.0 * 256.0));
-            float green = floor((id - blue * 256.0 * 256.0) / 256.0);
-            float red = id - blue * 256.0 * 256.0 - green * 256.0;
-
-            fragColor = vec4(red / 255.0, green / 255.0, blue / 255.0, 1.0);
-            gl_FragDepth = gl_FragCoord.z;
         }`
 };
 
@@ -386,64 +354,63 @@ function useCamera(
     };
 }
 
-function usePicking(pointSize: number) {
-    const pickingProgramRef = useRef<WebGLProgram | null>(null);
-    const pickingVaoRef = useRef(null);
+function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
     const pickingFbRef = useRef<WebGLFramebuffer | null>(null);
     const pickingTextureRef = useRef<WebGLTexture | null>(null);
-    const pickingUniformsRef = useRef<PickingUniforms | null>(null);
     const numPointsRef = useRef<number>(0);
     const PICK_RADIUS = 10;
 
-    const pickPoint = useCallback((gl, camera: OrbitCamera, pixelCoords: [number, number]): number | null => {
-        if (!gl || !pickingProgramRef.current || !pickingVaoRef.current || !pickingFbRef.current) {
+    const pickPoint = useCallback((gl: WebGL2RenderingContext, camera: OrbitCamera, pixelCoords: [number, number]): number | null => {
+        if (!gl || !programRef.current || !pickingFbRef.current) {
             return null;
         }
 
-        const [pixelX, pixelY] = pixelCoords
-        // 1. Save current WebGL state
+        const [pixelX, pixelY] = pixelCoords;
+
+        // Save current WebGL state
         const currentFBO = gl.getParameter(gl.FRAMEBUFFER_BINDING);
         const currentViewport = gl.getParameter(gl.VIEWPORT);
+        const currentActiveTexture = gl.getParameter(gl.ACTIVE_TEXTURE);
+        const currentTexture = gl.getParameter(gl.TEXTURE_BINDING_2D);
 
-        // 2. Set up picking render target
+        // Before drawing, ensure the picking framebuffer and texture are still attached
         gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFbRef.current);
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // 3. Render points with picking shader
-        gl.useProgram(pickingProgramRef.current);
-        const perspectiveMatrix = camera.getPerspectiveMatrix(gl)
-        const orientationMatrix = camera.getOrientationMatrix()
+        // Use main program and set picking mode
+        gl.useProgram(programRef.current);
+        gl.uniform1i(uniformsRef.current.renderMode, 1); // Picking mode ON
 
-        // Set uniforms
-        gl.uniformMatrix4fv(pickingUniformsRef.current.projection, false, perspectiveMatrix);
-        gl.uniformMatrix4fv(pickingUniformsRef.current.view, false, orientationMatrix);
-        gl.uniform1f(pickingUniformsRef.current.pointSize, pointSize);
-        gl.uniform2f(pickingUniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
+        // Set all uniforms (projection, view, etc.) just like normal rendering
+        const perspectiveMatrix = camera.getPerspectiveMatrix(gl);
+        const orientationMatrix = camera.getOrientationMatrix();
+        gl.uniformMatrix4fv(uniformsRef.current.projection, false, perspectiveMatrix);
+        gl.uniformMatrix4fv(uniformsRef.current.view, false, orientationMatrix);
+        gl.uniform1f(uniformsRef.current.pointSize, pointSize);
+        gl.uniform2f(uniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
 
-        // Draw points
-        gl.bindVertexArray(pickingVaoRef.current);
+        // No need to detach the texture here! Just draw directly.
+        gl.bindVertexArray(vaoRef.current);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.drawArrays(gl.POINTS, 0, numPointsRef.current);
 
-        // 4. Read pixels around mouse position
+        // Now read the pixels after the points have been properly rendered
         const size = PICK_RADIUS * 2 + 1;
         const startX = Math.max(0, pixelX - PICK_RADIUS);
         const startY = Math.max(0, gl.canvas.height - pixelY - PICK_RADIUS);
         const pixels = new Uint8Array(size * size * 4);
-        gl.readPixels(
-            startX,
-            startY,
-            size,
-            size,
-            gl.RGBA,
-            gl.UNSIGNED_BYTE,
-            pixels
-        );
+        gl.readPixels(startX, startY, size, size, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
-        // 5. Restore WebGL state
+        // Restore state
+        gl.uniform1i(uniformsRef.current.renderMode, 0); // return to normal rendering mode
         gl.bindFramebuffer(gl.FRAMEBUFFER, currentFBO);
         gl.viewport(...currentViewport);
+        gl.activeTexture(currentActiveTexture);
+        gl.bindTexture(gl.TEXTURE_2D, currentTexture);
 
+        // Spiral search for closest point
         const centerX = PICK_RADIUS;
         const centerY = PICK_RADIUS;
 
@@ -459,11 +426,15 @@ function usePicking(pointSize: number) {
             const px = centerX + x;
             const py = centerY + y;
 
-            const i = (py * size + px) * 4;
-            if (pixels[i + 3] > 0) { // Found a point
-                return pixels[i] +
-                    pixels[i + 1] * 256 +
-                    pixels[i + 2] * 256 * 256;
+            if (px >= 0 && px < size && py >= 0 && py < size) {
+                const i = (py * size + px) * 4;
+                if (pixels[i + 3] > 0) { // Found a point
+                    const id = pixels[i] +
+                        pixels[i + 1] * 256 +
+                        pixels[i + 2] * 256 * 256;
+                    console.log('found', id)
+                    return id;
+                }
             }
 
             // More efficient spiral movement
@@ -489,40 +460,10 @@ function usePicking(pointSize: number) {
         return null;
     }, [pointSize]);
 
-    function initPicking(gl, positionBuffer) {
-        // Get number of points from buffer size
+    function initPicking(gl: WebGL2RenderingContext) {
+        // Get number of points
         const bufferSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE);
         numPointsRef.current = bufferSize / (3 * 4); // 3 floats per point, 4 bytes per float
-
-        const currentVAO = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
-        // Set up picking VAO for point selection
-        const pickingVao = gl.createVertexArray();
-        gl.bindVertexArray(pickingVao);
-        pickingVaoRef.current = pickingVao;
-
-        // Configure position attribute for picking VAO (reusing position buffer)
-        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.enableVertexAttribArray(0);
-        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-
-        // Create and set up picking program
-        const pickingProgram = createProgram(gl, pickingShaders.vertex, pickingShaders.fragment);
-        pickingProgramRef.current = pickingProgram;
-        pickingUniformsRef.current = {
-            projection: gl.getUniformLocation(pickingProgram, 'uProjectionMatrix'),
-            view: gl.getUniformLocation(pickingProgram, 'uViewMatrix'),
-            pointSize: gl.getUniformLocation(pickingProgram, 'uPointSize'),
-            canvasSize: gl.getUniformLocation(pickingProgram, 'uCanvasSize')
-        };
-
-        // Point ID buffer
-        const pickingPointIdBuffer = createPointIdBuffer(gl, numPointsRef.current, 1);
-        gl.bindBuffer(gl.ARRAY_BUFFER, pickingPointIdBuffer);
-        gl.enableVertexAttribArray(1);
-        gl.vertexAttribPointer(1, 1, gl.FLOAT, false, 0, 0);
-
-        // Restore main VAO binding
-        gl.bindVertexArray(currentVAO);
 
         // Create framebuffer and texture for picking
         const pickingFb = gl.createFramebuffer();
@@ -552,13 +493,13 @@ function usePicking(pointSize: number) {
             gl.canvas.height
         );
 
-        // Attach both color and depth buffers to the framebuffer
-        gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFbRef.current);
+        // Set up framebuffer
+        gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFb);
         gl.framebufferTexture2D(
             gl.FRAMEBUFFER,
             gl.COLOR_ATTACHMENT0,
             gl.TEXTURE_2D,
-            pickingTextureRef.current,
+            pickingTexture,
             0
         );
         gl.framebufferRenderbuffer(
@@ -579,26 +520,10 @@ function usePicking(pointSize: number) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
         return () => {
-            if (pickingPointIdBuffer) {
-                gl.deleteBuffer(pickingPointIdBuffer);
-            }
-            if (pickingFb) {
-                gl.deleteFramebuffer(pickingFb);
-            }
-            if (pickingTexture) {
-                gl.deleteTexture(pickingTexture);
-            }
-            if (depthBuffer) {
-                gl.deleteRenderbuffer(depthBuffer);
-            }
-            if (pickingProgramRef.current) {
-                gl.deleteProgram(pickingProgramRef.current);
-                pickingProgramRef.current = null;
-            }
-            if (pickingVaoRef.current) {
-                gl.deleteVertexArray(pickingVaoRef.current);
-            }
-        }
+            if (pickingFb) gl.deleteFramebuffer(pickingFb);
+            if (pickingTexture) gl.deleteTexture(pickingTexture);
+            if (depthBuffer) gl.deleteRenderbuffer(depthBuffer);
+        };
     }
 
     return {
@@ -632,6 +557,9 @@ function cacheUniformLocations(
 
         // Decoration min sizes
         decorationMinSizes: gl.getUniformLocation(program, 'uDecorationMinSizes'),
+
+        // Render mode
+        renderMode: gl.getUniformLocation(program, 'uRenderMode'),
     };
 }
 
@@ -770,7 +698,7 @@ export function Scene({
 
     const { fpsDisplayRef, updateDisplay } = useFPSCounter();
 
-    const pickingSystem = usePicking(pointSize);
+    const pickingSystem = usePicking(pointSize, programRef, uniformsRef, vaoRef);
 
     // Add refs for decoration texture
     const decorationMapRef = useRef<WebGLTexture | null>(null);
@@ -915,6 +843,7 @@ export function Scene({
         // Set up buffers
         const positionBuffer = gl.createBuffer();
         const colorBuffer = gl.createBuffer();
+        const pointIdBuffer = createPointIdBuffer(gl, points.xyz.length / 3, 2);
 
         // Position buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -939,21 +868,22 @@ export function Scene({
         gl.bindVertexArray(vao);
         vaoRef.current = vao;
 
-        // Configure position and color attributes for main VAO
+        // Configure position attribute
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
         gl.enableVertexAttribArray(0);
         gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 
+        // Configure color attribute
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
         gl.enableVertexAttribArray(1);
         gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
 
-        // Point ID buffer for main VAO
-        const mainPointIdBuffer = createPointIdBuffer(gl, points.xyz.length / 3, 2);
+        // Configure point ID attribute for main VAO
+        gl.bindBuffer(gl.ARRAY_BUFFER, pointIdBuffer);
+        gl.enableVertexAttribArray(2);
+        gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 0, 0);
 
-
-
-        disposeFns.push(pickingSystem.initPicking(gl, positionBuffer))
+        disposeFns.push(pickingSystem.initPicking(gl));
 
         canvasRef.current.addEventListener('mousedown', handleMouseDown);
         canvasRef.current.addEventListener('mousemove', handleMouseMove);
@@ -978,10 +908,10 @@ export function Scene({
                 if (colorBuffer) {
                     gl.deleteBuffer(colorBuffer);
                 }
-                if (mainPointIdBuffer) {
-                    gl.deleteBuffer(mainPointIdBuffer);
+                if (pointIdBuffer) {
+                    gl.deleteBuffer(pointIdBuffer);
                 }
-            disposeFns.forEach(fn => fn?.());
+                disposeFns.forEach(fn => fn?.());
             }
             if (canvasRef.current) {
                 canvasRef.current.removeEventListener('mousedown', handleMouseDown);
@@ -990,7 +920,7 @@ export function Scene({
                 canvasRef.current.removeEventListener('wheel', handleWheel);
             }
         };
-    }, [points, handleMouseMove, handleMouseUp, handleWheel,  canvasRef.current?.width, canvasRef.current?.height]);
+    }, [points, handleMouseMove, handleMouseUp, handleWheel, canvasRef.current?.width, canvasRef.current?.height]);
 
     // Effect for per-frame rendering and picking updates
     useEffect(() => {
