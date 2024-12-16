@@ -78,6 +78,34 @@ def make_cube(n_points: int):
     return xyz, rgb
 
 
+def make_wall(n_points: int):
+    # Create points in a vertical plane (wall)
+    x = np.zeros(n_points)  # All points at x=0
+    y = np.random.uniform(-2, 2, n_points)
+    z = np.random.uniform(-2, 2, n_points)
+
+    # Create gradient colors based on position
+    # Normalize y and z to 0-1 range for colors
+    y_norm = (y + 2) / 4
+    z_norm = (z + 2) / 4
+
+    # Create hue that varies with vertical position
+    hue = z_norm
+    # Saturation varies with horizontal position
+    saturation = 0.7 + 0.3 * y_norm
+    # Value varies with a slight random component
+    value = 0.7 + 0.3 * np.random.random(n_points)
+
+    # Convert HSV to RGB
+    colors = np.array([hsv_to_rgb(h, s, v) for h, s, v in zip(hue, saturation, value)])
+    rgb = (colors.reshape(-1, 3) * 255).astype(np.uint8).flatten()
+
+    # Prepare point cloud coordinates
+    xyz = np.column_stack([x, y, z]).astype(np.float32).flatten()
+
+    return xyz, rgb
+
+
 class Points(Plot.LayoutItem):
     def __init__(self, props):
         self.props = props
@@ -179,6 +207,7 @@ def find_similar_colors(rgb, point_idx, threshold=0.1):
 # Create point clouds with 50k points
 torus_xyz, torus_rgb = make_torus_knot(500000)
 cube_xyz, cube_rgb = make_cube(500000)
+wall_xyz, wall_rgb = make_wall(500000)
 
 (
     Plot.initialState(
@@ -192,11 +221,13 @@ cube_xyz, cube_rgb = make_cube(500000)
             "cube_rgb": cube_rgb,
             "torus_xyz": torus_xyz,
             "torus_rgb": torus_rgb,
+            "wall_xyz": wall_xyz,
+            "wall_rgb": wall_rgb,
         },
         sync={"selected_region_i", "cube_rgb"},
     )
-    | scene(True, 0.01, js("$state.torus_xyz"), js("$state.torus_rgb"))
-    & scene(True, 1, js("$state.torus_xyz"), js("$state.torus_rgb"))
+    | scene(True, 0.01, js("$state.wall_xyz"), js("$state.wall_rgb"))
+    & scene(True, 1, js("$state.wall_xyz"), js("$state.wall_rgb"))
     | scene(False, 0.1, js("$state.cube_xyz"), js("$state.cube_rgb"), True)
     & scene(False, 0.5, js("$state.cube_xyz"), js("$state.cube_rgb"), True)
     | Plot.onChange(

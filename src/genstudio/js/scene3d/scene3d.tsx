@@ -400,7 +400,7 @@ function usePicking(pointSize: number) {
     const pickingTextureRef = useRef<WebGLTexture | null>(null);
     const pickingUniformsRef = useRef<PickingUniforms | null>(null);
     const numPointsRef = useRef<number>(0);
-    const PICK_RADIUS = 5;
+    const PICK_RADIUS = 10;
 
     const pickPoint = useCallback((gl, camera: OrbitCamera, pixelCoords: [number, number]): number | null => {
         if (!gl || !pickingProgramRef.current || !pickingVaoRef.current || !pickingFbRef.current) {
@@ -574,30 +574,50 @@ function usePicking(pointSize: number) {
     };
 }
 
-function findClosestPoint(pixels, radius, size) {
-    let closestPoint: number | null = null;
-    let minDistance = Infinity;
-    const centerX = radius;
-    const centerY = radius;
+function findClosestPoint(pixels, PICK_RADIUS, size) {
+    const centerX = PICK_RADIUS;
+    const centerY = PICK_RADIUS;
 
-    for (let y = 0; y < size; y++) {
-        for (let x = 0; x < size; x++) {
-            const i = (y * size + x) * 4;
-            if (pixels[i + 3] > 0) { // If alpha > 0, there's a point here
-                const dx = x - centerX;
-                const dy = y - centerY;
-                const distance = dx * dx + dy * dy;
+    // Spiral outward from center
+    let x = 0, y = 0;
+    let dx = 0, dy = -1;
+    let length = 0;
+    let steps = 0;
+    const maxSteps = size * size;
 
-                if (distance < minDistance) {
-                    minDistance = distance;
-                    closestPoint = pixels[i] +
-                                    pixels[i + 1] * 256 +
-                                    pixels[i + 2] * 256 * 256;
-                }
-            }
+    while (steps < maxSteps) {
+        // Check current position
+        const px = centerX + x;
+        const py = centerY + y;
+
+        const i = (py * size + px) * 4;
+        if (pixels[i + 3] > 0) { // Found a point
+            return pixels[i] +
+                   pixels[i + 1] * 256 +
+                   pixels[i + 2] * 256 * 256;
         }
+
+        // More efficient spiral movement
+        steps++;
+        if (x === length && y === length) {
+            length++;
+            dx = -1;
+            dy = 0;
+        } else if (x === -length && y === length) {
+            dx = 0;
+            dy = -1;
+        } else if (x === -length && y === -length) {
+            dx = 1;
+            dy = 0;
+        } else if (x === length && y === -length) {
+            dx = 0;
+            dy = 1;
+        }
+        x += dx;
+        y += dy;
     }
-    return closestPoint
+
+    return null;
 }
 
 function cacheUniformLocations(
@@ -705,6 +725,8 @@ export function Scene({
 }: PointCloudViewerProps) {
 
     points = useDeepMemo(points)
+    decorations = useDeepMemo(decorations)
+    backgroundColor = useDeepMemo(backgroundColor)
 
 
     const callbacksRef = useRef({})
@@ -766,7 +788,13 @@ export function Scene({
     // Add refs for decoration texture
     const decorationMapRef = useRef<WebGLTexture | null>(null);
     const decorationMapSizeRef = useRef<number>(0);
-    decorations = useDeepMemo(decorations)
+    const decorationsRef = useRef(decorations);
+
+    // Update the ref when decorations change
+    useEffect(() => {
+        decorationsRef.current = decorations;
+        requestRender();
+    }, [decorations]);
 
     // Helper to create/update decoration map texture
     const updateDecorationMap = useCallback((gl: WebGL2RenderingContext, numPoints: number) => {
@@ -779,7 +807,7 @@ export function Scene({
         const mapping = new Uint8Array(size * size).fill(0);
 
         // Fill in decoration mappings - make sure we're using the correct point indices
-        Object.values(decorations).forEach((decoration, decorationIndex) => {
+        Object.values(decorationsRef.current).forEach((decoration, decorationIndex) => {
             decoration.indexes.forEach(pointIndex => {
                 if (pointIndex < numPoints) {
                     // The mapping array should be indexed by the actual point index
@@ -809,7 +837,7 @@ export function Scene({
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    }, [decorations]);
+    }, [decorationsRef]);
 
     // Update handleMouseMove to properly clear hover state and handle all cases
     const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -1014,6 +1042,8 @@ export function Scene({
             gl.uniform1i(uniformsRef.current.decorationMap, 0);
             gl.uniform1i(uniformsRef.current.decorationMapSize, decorationMapSizeRef.current);
 
+            const currentDecorations = decorationsRef.current;
+
             // Prepare decoration data
             const indices = new Int32Array(MAX_DECORATIONS).fill(-1);
             const scales = new Float32Array(MAX_DECORATIONS).fill(1.0);
@@ -1024,8 +1054,8 @@ export function Scene({
             const minSizes = new Float32Array(MAX_DECORATIONS).fill(0.0);
 
             // Fill arrays with decoration data
-            const numDecorations = Math.min(Object.keys(decorations).length, MAX_DECORATIONS);
-            Object.values(decorations).slice(0, MAX_DECORATIONS).forEach((decoration, i) => {
+            const numDecorations = Math.min(Object.keys(currentDecorations).length, MAX_DECORATIONS);
+            Object.values(currentDecorations).slice(0, MAX_DECORATIONS).forEach((decoration, i) => {
                 indices[i] = decoration.indexes[0];
                 scales[i] = decoration.scale ?? 1.0;
 
@@ -1057,7 +1087,8 @@ export function Scene({
             gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
         }
 
-    }, [points, ...backgroundColor, requestRender, pointSize, decorations, canvasRef.current?.width, canvasRef.current?.height]);
+    }, [points, backgroundColor, pointSize, canvasRef.current?.width, canvasRef.current?.height]);
+
 
     // Set up resize observer
     useEffect(() => {
@@ -1080,7 +1111,6 @@ export function Scene({
         }
     }, [dimensions]);
 
-    useEffect(() => requestRender(), [decorations])
 
     // Add back handleMouseDown
     const handleMouseDown = useCallback((e: MouseEvent) => {
