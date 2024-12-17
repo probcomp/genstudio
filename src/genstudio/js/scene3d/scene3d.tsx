@@ -116,7 +116,7 @@ export const mainShaders = {
             }
 
             if (uRenderMode) {
-                // Picking mode - output encoded point ID
+                // Just output ID, ignore decorations:
                 float id = float(vVertexID);
                 float blue = floor(id / (256.0 * 256.0));
                 float green = floor((id - blue * 256.0 * 256.0) / 256.0);
@@ -361,7 +361,7 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
     const PICK_RADIUS = 10;
 
     const pickPoint = useCallback((gl: WebGL2RenderingContext, camera: OrbitCamera, pixelCoords: [number, number]): number | null => {
-        if (!gl || !programRef.current || !pickingFbRef.current) {
+        if (!gl || !programRef.current || !pickingFbRef.current || !vaoRef.current) {
             return null;
         }
 
@@ -378,6 +378,7 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+
         // Use main program and set picking mode
         gl.useProgram(programRef.current);
         gl.uniform1i(uniformsRef.current.renderMode, 1); // Picking mode ON
@@ -390,10 +391,12 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
         gl.uniform1f(uniformsRef.current.pointSize, pointSize);
         gl.uniform2f(uniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
 
-        // No need to detach the texture here! Just draw directly.
+        // Use the same VAO as normal rendering
         gl.bindVertexArray(vaoRef.current);
-        gl.clearColor(0, 0, 0, 0);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+        // Draw points
+
+        gl.bindTexture(gl.TEXTURE_2D, null); // Unbind picking texture
         gl.drawArrays(gl.POINTS, 0, numPointsRef.current);
 
         // Now read the pixels after the points have been properly rendered
@@ -406,8 +409,9 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
         // Restore state
         gl.uniform1i(uniformsRef.current.renderMode, 0); // return to normal rendering mode
         gl.bindFramebuffer(gl.FRAMEBUFFER, currentFBO);
-        gl.viewport(...currentViewport);
+        gl.viewport(currentViewport[0], currentViewport[1], currentViewport[2], currentViewport[3]);
         gl.activeTexture(currentActiveTexture);
+
         gl.bindTexture(gl.TEXTURE_2D, currentTexture);
 
         // Spiral search for closest point
@@ -432,7 +436,6 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
                     const id = pixels[i] +
                         pixels[i + 1] * 256 +
                         pixels[i + 2] * 256 * 256;
-                    console.log('found', id)
                     return id;
                 }
             }
@@ -460,10 +463,9 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
         return null;
     }, [pointSize]);
 
-    function initPicking(gl: WebGL2RenderingContext) {
-        // Get number of points
-        const bufferSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE);
-        numPointsRef.current = bufferSize / (3 * 4); // 3 floats per point, 4 bytes per float
+    function initPicking(gl: WebGL2RenderingContext, numPoints) {
+
+        numPointsRef.current = numPoints
 
         // Create framebuffer and texture for picking
         const pickingFb = gl.createFramebuffer();
@@ -621,6 +623,22 @@ function devicePixels(gl, clientX, clientY) {
     const pixelX = Math.floor((clientX - rect.left) * dpr);
     const pixelY = Math.floor((clientY - rect.top) * dpr);
     return [pixelX, pixelY]
+}
+
+// Add this helper function at the top level
+function verifyPointIdBuffer(gl: WebGL2RenderingContext, buffer: WebGLBuffer, numPoints: number): boolean {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    const data = new Float32Array(numPoints);
+    gl.getBufferSubData(gl.ARRAY_BUFFER, 0, data);
+
+    // Verify IDs are sequential
+    for (let i = 0; i < numPoints; i++) {
+        if (data[i] !== i) {
+            console.error(`Point ID mismatch at index ${i}: expected ${i} but got ${data[i]}`);
+            return false;
+        }
+    }
+    return true;
 }
 
 export function Scene({
@@ -840,10 +858,24 @@ export function Scene({
         // Cache uniform locations
         uniformsRef.current = cacheUniformLocations(gl, program);
 
-        // Set up buffers
+        // Create buffers
         const positionBuffer = gl.createBuffer();
         const colorBuffer = gl.createBuffer();
-        const pointIdBuffer = createPointIdBuffer(gl, points.xyz.length / 3, 2);
+        const numPoints = points.xyz.length / 3;
+
+        // Create point ID buffer with verified sequential IDs
+        const pointIdBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, pointIdBuffer);
+        const pointIds = new Float32Array(numPoints);
+        for (let i = 0; i < numPoints; i++) {
+            pointIds[i] = i;
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, pointIds, gl.STATIC_DRAW);
+
+        // Verify point ID buffer contents
+        if (!verifyPointIdBuffer(gl, pointIdBuffer, numPoints)) {
+            console.error('Point ID buffer verification failed');
+        }
 
         // Position buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -863,27 +895,31 @@ export function Scene({
             gl.bufferData(gl.ARRAY_BUFFER, defaultColors, gl.STATIC_DRAW);
         }
 
-        // Set up main VAO for regular rendering
+        // Set up VAO with consistent attribute locations
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
         vaoRef.current = vao;
 
-        // Configure position attribute
+        // Position attribute (location 0)
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
         gl.enableVertexAttribArray(0);
         gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
 
-        // Configure color attribute
+        // Color attribute (location 1)
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
         gl.enableVertexAttribArray(1);
         gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
 
-        // Configure point ID attribute for main VAO
+        // Point ID attribute (location 2)
         gl.bindBuffer(gl.ARRAY_BUFFER, pointIdBuffer);
         gl.enableVertexAttribArray(2);
         gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 0, 0);
 
-        disposeFns.push(pickingSystem.initPicking(gl));
+        // Store numPoints in ref for picking system
+        // numPointsRef.current = numPoints;
+
+        // Initialize picking system after VAO setup is complete
+        disposeFns.push(pickingSystem.initPicking(gl, points.xyz.length / 3));
 
         canvasRef.current.addEventListener('mousedown', handleMouseDown);
         canvasRef.current.addEventListener('mousemove', handleMouseMove);
