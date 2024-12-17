@@ -632,25 +632,14 @@ export function Scene({
     const lastRenderTime = useRef<number | null>(null);
 
     const requestRender = useCallback(() => {
-        if (renderFunctionRef.current) {
-            // Cancel any pending render
-            if (renderRAFRef.current) {
-                cancelAnimationFrame(renderRAFRef.current);
-            }
+        if (!renderFunctionRef.current) return;
 
-            renderRAFRef.current = requestAnimationFrame(() => {
-                renderFunctionRef.current();
-
-                const now = performance.now();
-                if (lastRenderTime.current) {
-                    const timeBetweenRenders = now - lastRenderTime.current;
-                    updateDisplay(timeBetweenRenders);
-                }
-                lastRenderTime.current = now;
-
-                renderRAFRef.current = null;
-            });
-        }
+        cancelAnimationFrame(renderRAFRef.current);
+        renderRAFRef.current = requestAnimationFrame(() => {
+            renderFunctionRef.current();
+            updateDisplay(performance.now() - (lastRenderTime.current ?? performance.now()));
+            lastRenderTime.current = performance.now();
+        });
     }, []);
 
     const {
