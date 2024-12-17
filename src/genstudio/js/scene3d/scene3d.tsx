@@ -145,7 +145,6 @@ export const mainShaders = {
             fragColor = vec4(baseColor, alpha);
         }`
 };
-
 export class OrbitCamera {
     position: vec3;
     target: vec3;
@@ -267,7 +266,6 @@ export class OrbitCamera {
     }
 }
 
-
 function useCamera(
     requestRender: () => void,
     camera: CameraParams | undefined,
@@ -275,66 +273,77 @@ function useCamera(
     callbacksRef
 ) {
     const isControlled = camera !== undefined;
-    let initialCamera = isControlled ? camera : defaultCamera;
+    const initialCamera = isControlled ? camera : defaultCamera;
 
     if (!initialCamera) {
         throw new Error('Either camera or defaultCamera must be provided');
     }
 
-    const perspective = useMemo(() => ({
-        fov: initialCamera.fov,
-        near: initialCamera.near,
-        far: initialCamera.far
-    }), [initialCamera.fov, initialCamera.near, initialCamera.far]);
-
-
-    const orientation = useMemo(() => ({
-        position: Array.isArray(initialCamera.position)
-            ? vec3.fromValues(...initialCamera.position)
-            : vec3.clone(initialCamera.position),
-        target: Array.isArray(initialCamera.target)
-            ? vec3.fromValues(...initialCamera.target)
-            : vec3.clone(initialCamera.target),
-        up: Array.isArray(initialCamera.up)
-            ? vec3.fromValues(...initialCamera.up)
-            : vec3.clone(initialCamera.up)
-    }), [initialCamera.position, initialCamera.target, initialCamera.up]);
-
+    // Create camera instance once
     const cameraRef = useRef<OrbitCamera | null>(null);
 
-    // Initialize camera only once for uncontrolled mode
-    useEffect(() => {
-        if (!isControlled && !cameraRef.current) {
-            cameraRef.current = new OrbitCamera(orientation, perspective);
-        }
-    }, []); // Empty deps since we only want this on mount for uncontrolled mode
+    // Initialize camera once with default values
+    useMemo(() => {
+        const orientation = {
+            position: Array.isArray(initialCamera.position)
+                ? vec3.fromValues(...initialCamera.position)
+                : vec3.clone(initialCamera.position),
+            target: Array.isArray(initialCamera.target)
+                ? vec3.fromValues(...initialCamera.target)
+                : vec3.clone(initialCamera.target),
+            up: Array.isArray(initialCamera.up)
+                ? vec3.fromValues(...initialCamera.up)
+                : vec3.clone(initialCamera.up)
+        };
 
-    useEffect(() => {
-        if (isControlled) {
-            cameraRef.current = new OrbitCamera(orientation, perspective);
-        }
-    }, [isControlled, perspective]);
+        const perspective = {
+            fov: initialCamera.fov,
+            near: initialCamera.near,
+            far: initialCamera.far
+        };
 
+        cameraRef.current = new OrbitCamera(orientation, perspective);
+    }, []); // Empty deps since we only want this on mount
+
+    // Update camera when controlled props change
     useEffect(() => {
-        if (isControlled) {
-            cameraRef.current.setOrientation(orientation);
-            requestRender();
-        }
-    }, [isControlled, orientation]);
+        if (!isControlled || !cameraRef.current) return;
+
+        const orientation = {
+            position: Array.isArray(camera.position)
+                ? vec3.fromValues(...camera.position)
+                : vec3.clone(camera.position),
+            target: Array.isArray(camera.target)
+                ? vec3.fromValues(...camera.target)
+                : vec3.clone(camera.target),
+            up: Array.isArray(camera.up)
+                ? vec3.fromValues(...camera.up)
+                : vec3.clone(camera.up)
+        };
+
+        cameraRef.current.setOrientation(orientation);
+        cameraRef.current.setPerspective({
+            fov: camera.fov,
+            near: camera.near,
+            far: camera.far
+        });
+
+        requestRender();
+    }, [isControlled, camera]);
 
     const notifyCameraChange = useCallback(() => {
-        const onCameraChange = callbacksRef.current.onCameraChange
+        const onCameraChange = callbacksRef.current.onCameraChange;
         if (!cameraRef.current || !onCameraChange) return;
 
         const camera = cameraRef.current;
-        tempCamera.position = [...camera.position] as [number, number, number];
-        tempCamera.target = [...camera.target] as [number, number, number];
-        tempCamera.up = [...camera.up] as [number, number, number];
-        tempCamera.fov = camera.fov;
-        tempCamera.near = camera.near;
-        tempCamera.far = camera.far;
-
-        onCameraChange(tempCamera);
+        onCameraChange({
+            position: [...camera.position] as [number, number, number],
+            target: [...camera.target] as [number, number, number],
+            up: [...camera.up] as [number, number, number],
+            fov: camera.fov,
+            near: camera.near,
+            far: camera.far
+        });
     }, []);
 
     const handleCameraMove = useCallback((action: (camera: OrbitCamera) => void) => {
@@ -354,118 +363,97 @@ function useCamera(
     };
 }
 
+    // Helper to save and restore GL state
+const withGLState = (gl: WebGL2RenderingContext, uniformsRef, callback: () => void) => {
+    const fbo = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    const viewport = gl.getParameter(gl.VIEWPORT);
+    const activeTexture = gl.getParameter(gl.ACTIVE_TEXTURE);
+    const texture = gl.getParameter(gl.TEXTURE_BINDING_2D);
+    const renderMode = 0; // Normal rendering mode
+    const program = gl.getParameter(gl.CURRENT_PROGRAM);
+
+    try {
+        callback();
+    } finally {
+        // Restore state
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+        gl.viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+        gl.activeTexture(activeTexture);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.useProgram(program);
+        gl.uniform1i(uniformsRef.current.renderMode, renderMode);
+    }
+};
+
 function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
     const pickingFbRef = useRef<WebGLFramebuffer | null>(null);
     const pickingTextureRef = useRef<WebGLTexture | null>(null);
     const numPointsRef = useRef<number>(0);
     const PICK_RADIUS = 10;
-
     const pickPoint = useCallback((gl: WebGL2RenderingContext, camera: OrbitCamera, pixelCoords: [number, number]): number | null => {
         if (!gl || !programRef.current || !pickingFbRef.current || !vaoRef.current) {
             return null;
         }
 
         const [pixelX, pixelY] = pixelCoords;
+        let closestId: number | null = null;
 
-        // Save current WebGL state
-        const currentFBO = gl.getParameter(gl.FRAMEBUFFER_BINDING);
-        const currentViewport = gl.getParameter(gl.VIEWPORT);
-        const currentActiveTexture = gl.getParameter(gl.ACTIVE_TEXTURE);
-        const currentTexture = gl.getParameter(gl.TEXTURE_BINDING_2D);
+        withGLState(gl, uniformsRef, () => {
+            // Set up picking framebuffer
+            gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFbRef.current);
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        // Before drawing, ensure the picking framebuffer and texture are still attached
-        gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFbRef.current);
-        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            // Configure for picking render
+            gl.useProgram(programRef.current);
+            gl.uniform1i(uniformsRef.current.renderMode, 1); // Picking mode ON
 
+            // Set uniforms
+            const perspectiveMatrix = camera.getPerspectiveMatrix(gl);
+            const orientationMatrix = camera.getOrientationMatrix();
+            gl.uniformMatrix4fv(uniformsRef.current.projection, false, perspectiveMatrix);
+            gl.uniformMatrix4fv(uniformsRef.current.view, false, orientationMatrix);
+            gl.uniform1f(uniformsRef.current.pointSize, pointSize);
+            gl.uniform2f(uniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
 
-        // Use main program and set picking mode
-        gl.useProgram(programRef.current);
-        gl.uniform1i(uniformsRef.current.renderMode, 1); // Picking mode ON
+            // Draw points
+            gl.bindVertexArray(vaoRef.current);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+            gl.drawArrays(gl.POINTS, 0, numPointsRef.current);
 
-        // Set all uniforms (projection, view, etc.) just like normal rendering
-        const perspectiveMatrix = camera.getPerspectiveMatrix(gl);
-        const orientationMatrix = camera.getOrientationMatrix();
-        gl.uniformMatrix4fv(uniformsRef.current.projection, false, perspectiveMatrix);
-        gl.uniformMatrix4fv(uniformsRef.current.view, false, orientationMatrix);
-        gl.uniform1f(uniformsRef.current.pointSize, pointSize);
-        gl.uniform2f(uniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
+            // Read pixels
+            const size = PICK_RADIUS * 2 + 1;
+            const startX = Math.max(0, pixelX - PICK_RADIUS);
+            const startY = Math.max(0, gl.canvas.height - pixelY - PICK_RADIUS);
+            const pixels = new Uint8Array(size * size * 4);
+            gl.readPixels(startX, startY, size, size, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
-        // Use the same VAO as normal rendering
-        gl.bindVertexArray(vaoRef.current);
+            // Find closest point
+            const centerX = PICK_RADIUS;
+            const centerY = PICK_RADIUS;
+            let minDist = Infinity;
 
-        // Draw points
-
-        gl.bindTexture(gl.TEXTURE_2D, null); // Unbind picking texture
-        gl.drawArrays(gl.POINTS, 0, numPointsRef.current);
-
-        // Now read the pixels after the points have been properly rendered
-        const size = PICK_RADIUS * 2 + 1;
-        const startX = Math.max(0, pixelX - PICK_RADIUS);
-        const startY = Math.max(0, gl.canvas.height - pixelY - PICK_RADIUS);
-        const pixels = new Uint8Array(size * size * 4);
-        gl.readPixels(startX, startY, size, size, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
-
-        // Restore state
-        gl.uniform1i(uniformsRef.current.renderMode, 0); // return to normal rendering mode
-        gl.bindFramebuffer(gl.FRAMEBUFFER, currentFBO);
-        gl.viewport(currentViewport[0], currentViewport[1], currentViewport[2], currentViewport[3]);
-        gl.activeTexture(currentActiveTexture);
-
-        gl.bindTexture(gl.TEXTURE_2D, currentTexture);
-
-        // Spiral search for closest point
-        const centerX = PICK_RADIUS;
-        const centerY = PICK_RADIUS;
-
-        // Spiral outward from center
-        let x = 0, y = 0;
-        let dx = 0, dy = -1;
-        let length = 0;
-        let steps = 0;
-        const maxSteps = size * size;
-
-        while (steps < maxSteps) {
-            // Check current position
-            const px = centerX + x;
-            const py = centerY + y;
-
-            if (px >= 0 && px < size && py >= 0 && py < size) {
-                const i = (py * size + px) * 4;
-                if (pixels[i + 3] > 0) { // Found a point
-                    const id = pixels[i] +
-                        pixels[i + 1] * 256 +
-                        pixels[i + 2] * 256 * 256;
-                    return id;
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    const i = (y * size + x) * 4;
+                    if (pixels[i + 3] > 0) { // Found a point
+                        const dist = Math.hypot(x - centerX, y - centerY);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closestId = pixels[i] +
+                                pixels[i + 1] * 256 +
+                                pixels[i + 2] * 256 * 256;
+                        }
+                    }
                 }
             }
+        });
 
-            // More efficient spiral movement
-            steps++;
-            if (x === length && y === length) {
-                length++;
-                dx = -1;
-                dy = 0;
-            } else if (x === -length && y === length) {
-                dx = 0;
-                dy = -1;
-            } else if (x === -length && y === -length) {
-                dx = 1;
-                dy = 0;
-            } else if (x === length && y === -length) {
-                dx = 0;
-                dy = 1;
-            }
-            x += dx;
-            y += dy;
-        }
-
-        return null;
+        return closestId;
     }, [pointSize]);
 
     function initPicking(gl: WebGL2RenderingContext, numPoints) {
-
-        numPointsRef.current = numPoints
+        numPointsRef.current = numPoints;
 
         // Create framebuffer and texture for picking
         const pickingFb = gl.createFramebuffer();
@@ -545,13 +533,11 @@ function cacheUniformLocations(
         canvasSize: gl.getUniformLocation(program, 'uCanvasSize'),
 
         // Decoration uniforms
-        decorationIndices: gl.getUniformLocation(program, 'uDecorationIndices'),
         decorationScales: gl.getUniformLocation(program, 'uDecorationScales'),
         decorationColors: gl.getUniformLocation(program, 'uDecorationColors'),
         decorationAlphas: gl.getUniformLocation(program, 'uDecorationAlphas'),
         decorationBlendModes: gl.getUniformLocation(program, 'uDecorationBlendModes'),
         decorationBlendStrengths: gl.getUniformLocation(program, 'uDecorationBlendStrengths'),
-        decorationCount: gl.getUniformLocation(program, 'uDecorationCount'),
 
         // Decoration map uniforms
         decorationMap: gl.getUniformLocation(program, 'uDecorationMap'),
@@ -579,42 +565,21 @@ function blendModeToInt(mode: DecorationGroup['blendMode']): number {
 function computeCanvasDimensions(containerWidth, width, height, aspectRatio = 1) {
     if (!containerWidth && !width) return;
 
-    let finalWidth, finalHeight;
+    // Determine final width from explicit width or container width
+    const finalWidth = width || containerWidth;
 
-    // Case 1: Only height specified
-    if (height && !width) {
-      finalHeight = height;
-      finalWidth = containerWidth;
-    }
-
-    // Case 2: Only width specified
-    else if (width && !height) {
-      finalWidth = width;
-      finalHeight = width / aspectRatio;
-    }
-
-    // Case 3: Both dimensions specified
-    else if (width && height) {
-      finalWidth = width;
-      finalHeight = height;
-    }
-
-    // Case 4: Neither dimension specified
-    else {
-      finalWidth = containerWidth;
-      finalHeight = containerWidth / aspectRatio;
-    }
+    // Determine final height from explicit height or aspect ratio
+    const finalHeight = height || finalWidth / aspectRatio;
 
     return {
-      width: finalWidth,
-      height: finalHeight,
-      style: {
-        // Only set explicit width if user provided it
-        width: width ? `${width}px` : '100%',
-        height: `${finalHeight}px`
-      }
+        width: finalWidth,
+        height: finalHeight,
+        style: {
+            width: width ? `${width}px` : '100%',
+            height: `${finalHeight}px`
+        }
     };
-  }
+}
 
 function devicePixels(gl, clientX, clientY) {
     const rect = gl.canvas.getBoundingClientRect();
@@ -623,22 +588,6 @@ function devicePixels(gl, clientX, clientY) {
     const pixelX = Math.floor((clientX - rect.left) * dpr);
     const pixelY = Math.floor((clientY - rect.top) * dpr);
     return [pixelX, pixelY]
-}
-
-// Add this helper function at the top level
-function verifyPointIdBuffer(gl: WebGL2RenderingContext, buffer: WebGLBuffer, numPoints: number): boolean {
-    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    const data = new Float32Array(numPoints);
-    gl.getBufferSubData(gl.ARRAY_BUFFER, 0, data);
-
-    // Verify IDs are sequential
-    for (let i = 0; i < numPoints; i++) {
-        if (data[i] !== i) {
-            console.error(`Point ID mismatch at index ${i}: expected ${i} but got ${data[i]}`);
-            return false;
-        }
-    }
-    return true;
 }
 
 export function Scene({
@@ -847,7 +796,6 @@ export function Scene({
         if (!gl) {
             return console.error('WebGL2 not supported');
         }
-        console.log("Init gl")
 
         glRef.current = gl;
 
@@ -871,11 +819,6 @@ export function Scene({
             pointIds[i] = i;
         }
         gl.bufferData(gl.ARRAY_BUFFER, pointIds, gl.STATIC_DRAW);
-
-        // Verify point ID buffer contents
-        if (!verifyPointIdBuffer(gl, pointIdBuffer, numPoints)) {
-            console.error('Point ID buffer verification failed');
-        }
 
         // Position buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -962,8 +905,6 @@ export function Scene({
     useEffect(() => {
         if (!glRef.current || !programRef.current || !cameraRef.current) return;
 
-        console.log("INIT: NEW RENDER FUNCTION")
-
         const gl = glRef.current;
 
         renderFunctionRef.current = function render() {
@@ -998,7 +939,6 @@ export function Scene({
             const currentDecorations = decorationsRef.current;
 
             // Prepare decoration data
-            const indices = new Int32Array(MAX_DECORATIONS).fill(-1);
             const scales = new Float32Array(MAX_DECORATIONS).fill(1.0);
             const colors = new Float32Array(MAX_DECORATIONS * 3).fill(-1);
             const alphas = new Float32Array(MAX_DECORATIONS).fill(1.0);
@@ -1009,7 +949,6 @@ export function Scene({
             // Fill arrays with decoration data
             const numDecorations = Math.min(Object.keys(currentDecorations).length, MAX_DECORATIONS);
             Object.values(currentDecorations).slice(0, MAX_DECORATIONS).forEach((decoration, i) => {
-                indices[i] = decoration.indexes[0];
                 scales[i] = decoration.scale ?? 1.0;
 
                 if (decoration.color) {
@@ -1026,7 +965,7 @@ export function Scene({
             });
 
             // Set uniforms
-            gl.uniform1iv(uniformsRef.current.decorationIndices, indices);
+
             gl.uniform1fv(uniformsRef.current.decorationScales, scales);
             gl.uniform3fv(uniformsRef.current.decorationColors, colors);
             gl.uniform1fv(uniformsRef.current.decorationAlphas, alphas);
@@ -1101,13 +1040,3 @@ export function Scene({
         </div>
     );
 }
-
-// Reuse this object to avoid allocations
-const tempCamera: CameraParams = {
-    position: [0, 0, 0],
-    target: [0, 0, 0],
-    up: [0, 1, 0],
-    fov: 45,
-    near: 0.1,
-    far: 1000
-};
