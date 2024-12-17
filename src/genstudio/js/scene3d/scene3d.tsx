@@ -590,6 +590,14 @@ function devicePixels(gl, clientX, clientY) {
     return [pixelX, pixelY]
 }
 
+// Define interaction modes
+type InteractionMode = 'none' | 'orbit' | 'pan';
+type InteractionState = {
+    mode: InteractionMode;
+    startX: number;
+    startY: number;
+};
+
 export function Scene({
     points,
     camera,
@@ -653,9 +661,10 @@ export function Scene({
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const glRef = useRef<WebGL2RenderingContext>(null);
     const programRef = useRef<WebGLProgram>(null);
-    const interactionState = useRef({
-        isDragging: false,
-        isPanning: false
+    const interactionState = useRef<InteractionState>({
+        mode: 'none',
+        startX: 0,
+        startY: 0
     });
     const animationFrameRef = useRef<number>();
     const vaoRef = useRef(null);
@@ -721,47 +730,74 @@ export function Scene({
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     }, [decorationsRef]);
 
-    // Update handleMouseMove to properly clear hover state and handle all cases
+    // Simplified mouse handlers
+    const handleMouseDown = useCallback((e: MouseEvent) => {
+        const mode: InteractionMode = e.button === 0
+            ? (e.shiftKey ? 'pan' : 'orbit')
+            : e.button === 1 ? 'pan' : 'none';
+
+        if (mode !== 'none') {
+            interactionState.current = {
+                mode,
+                startX: e.clientX,
+                startY: e.clientY
+            };
+        }
+    }, []);
+
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!cameraRef.current) return;
-        const onHover = callbacksRef.current.onPointHover
+        const onHover = callbacksRef.current.onPointHover;
+        const { mode, startX, startY } = interactionState.current;
 
-        if (interactionState.current.isDragging) {
-            onHover?.(null);
-            handleCameraMove(camera => camera.orbit(e.movementX, e.movementY));
-        } else if (interactionState.current.isPanning) {
-            onHover?.(null);
-            handleCameraMove(camera => camera.pan(e.movementX, e.movementY));
-        } else if (onHover) {
-            const pointIndex = pickingSystem.pickPoint(glRef.current, cameraRef.current, devicePixels(glRef.current, e.clientX, e.clientY));
-            onHover?.(pointIndex);
+        switch (mode) {
+            case 'orbit':
+                onHover?.(null);
+                handleCameraMove(camera => camera.orbit(e.movementX, e.movementY));
+                break;
+            case 'pan':
+                onHover?.(null);
+                handleCameraMove(camera => camera.pan(e.movementX, e.movementY));
+                break;
+            case 'none':
+                if (onHover) {
+                    const pointIndex = pickingSystem.pickPoint(
+                        glRef.current,
+                        cameraRef.current,
+                        devicePixels(glRef.current, e.clientX, e.clientY)
+                    );
+                    onHover(pointIndex);
+                }
+                break;
         }
     }, [handleCameraMove, pickingSystem.pickPoint]);
 
-    // Update handleMouseUp to use the same radius
     const handleMouseUp = useCallback((e: MouseEvent) => {
-        const wasDragging = interactionState.current.isDragging;
-        const wasPanning = interactionState.current.isPanning;
+        const { mode, startX, startY } = interactionState.current;
+        const onClick = callbacksRef.current.onPointClick;
 
-        const onClick = callbacksRef.current.onPointClick
-
-        interactionState.current.isDragging = false;
-        interactionState.current.isPanning = false;
-
-        if (wasDragging && !wasPanning && mouseDownPositionRef.current && onClick) {
-            const dx = e.clientX - mouseDownPositionRef.current.x;
-            const dy = e.clientY - mouseDownPositionRef.current.y;
+        if (mode === 'orbit' && onClick) {
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
             if (distance < CLICK_THRESHOLD) {
-                const pointIndex = pickingSystem.pickPoint(glRef.current, cameraRef.current, devicePixels(glRef.current, e.clientX, e.clientY), 4); // Same radius as hover
+                const pointIndex = pickingSystem.pickPoint(
+                    glRef.current,
+                    cameraRef.current,
+                    devicePixels(glRef.current, e.clientX, e.clientY)
+                );
                 if (pointIndex !== null) {
                     onClick(pointIndex, e);
                 }
             }
         }
 
-        mouseDownPositionRef.current = null;
+        interactionState.current = {
+            mode: 'none',
+            startX: 0,
+            startY: 0
+        };
     }, [pickingSystem.pickPoint]);
 
     const handleWheel = useCallback((e: WheelEvent) => {
@@ -1003,16 +1039,6 @@ export function Scene({
         }
     }, [dimensions]);
 
-
-    // Add back handleMouseDown
-    const handleMouseDown = useCallback((e: MouseEvent) => {
-        if (e.button === 0 && !e.shiftKey) {  // Left click without shift
-            mouseDownPositionRef.current = { x: e.clientX, y: e.clientY };
-            interactionState.current.isDragging = true;
-        } else if (e.button === 1 || (e.button === 0 && e.shiftKey)) {  // Middle click or shift+left click
-            interactionState.current.isPanning = true;
-        }
-    }, []);
 
     // Clean up
     useEffect(() => {
