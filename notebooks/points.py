@@ -226,8 +226,8 @@ wall_xyz, wall_rgb = make_wall(500000)
         },
         sync={"selected_region_i", "cube_rgb"},
     )
-    | scene(True, 0.01, js("$state.wall_xyz"), js("$state.wall_rgb"))
-    & scene(True, 1, js("$state.wall_xyz"), js("$state.wall_rgb"))
+    | scene(True, 0.01, js("$state.torus_xyz"), js("$state.torus_rgb"))
+    & scene(True, 1, js("$state.torus_xyz"), js("$state.torus_rgb"))
     | scene(False, 0.1, js("$state.cube_xyz"), js("$state.cube_rgb"), True)
     & scene(False, 0.5, js("$state.cube_xyz"), js("$state.cube_rgb"), True)
     | Plot.onChange(
