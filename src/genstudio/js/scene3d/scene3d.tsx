@@ -145,7 +145,9 @@ export const mainShaders = {
             fragColor = vec4(baseColor, alpha);
         }`
 };
-export class OrbitCamera {
+
+// Camera state type
+type CameraState = {
     position: vec3;
     target: vec3;
     up: vec3;
@@ -155,115 +157,112 @@ export class OrbitCamera {
     fov: number;
     near: number;
     far: number;
+}
 
-    constructor(orientation: {
-        position: vec3,
-        target: vec3,
-        up: vec3
-    }, perspective: {
-        fov: number,
-        near: number,
-        far: number
-    }) {
-        this.setPerspective(perspective);
-        this.setOrientation(orientation);
-    }
+// Camera operations
+function createCamera(orientation: {
+    position: vec3,
+    target: vec3,
+    up: vec3
+}, perspective: {
+    fov: number,
+    near: number,
+    far: number
+}): CameraState {
+    const radius = vec3.distance(orientation.position, orientation.target);
+    const relativePos = vec3.sub(vec3.create(), orientation.position, orientation.target);
+    const phi = Math.acos(relativePos[2] / radius);
+    const theta = Math.atan2(relativePos[0], relativePos[1]);
 
-    setOrientation(orientation: {
-        position: vec3,
-        target: vec3,
-        up: vec3
-    }): void {
-        this.position = vec3.clone(orientation.position);
-        this.target = vec3.clone(orientation.target);
-        this.up = vec3.clone(orientation.up);
+    return {
+        position: vec3.clone(orientation.position),
+        target: vec3.clone(orientation.target),
+        up: vec3.clone(orientation.up),
+        radius,
+        phi,
+        theta,
+        fov: perspective.fov,
+        near: perspective.near,
+        far: perspective.far
+    };
+}
 
-        // Initialize orbit parameters
-        this.radius = vec3.distance(orientation.position, orientation.target);
+function setOrientation(camera: CameraState, orientation: {
+    position: vec3,
+    target: vec3,
+    up: vec3
+}): void {
+    vec3.copy(camera.position, orientation.position);
+    vec3.copy(camera.target, orientation.target);
+    vec3.copy(camera.up, orientation.up);
 
-        // Calculate relative position from target
-        const relativePos = vec3.sub(vec3.create(), orientation.position, orientation.target);
+    camera.radius = vec3.distance(orientation.position, orientation.target);
+    const relativePos = vec3.sub(vec3.create(), orientation.position, orientation.target);
+    camera.phi = Math.acos(relativePos[2] / camera.radius);
+    camera.theta = Math.atan2(relativePos[0], relativePos[1]);
+}
 
-        // Calculate angles
-        this.phi = Math.acos(relativePos[2] / this.radius);  // Changed from position[1]
-        this.theta = Math.atan2(relativePos[0], relativePos[1]);  // Changed from position[0], position[2]
-    }
+function setPerspective(camera: CameraState, perspective: {
+    fov: number,
+    near: number,
+    far: number
+}): void {
+    camera.fov = perspective.fov;
+    camera.near = perspective.near;
+    camera.far = perspective.far;
+}
 
-    setPerspective(perspective: {
-        fov: number,
-        near: number,
-        far: number
-    }): void {
-        this.fov = perspective.fov;
-        this.near = perspective.near;
-        this.far = perspective.far;
-    }
+function getOrientationMatrix(camera: CameraState): mat4 {
+    return mat4.lookAt(mat4.create(), camera.position, camera.target, camera.up);
+}
 
-    getOrientationMatrix(): mat4 {
-        return mat4.lookAt(mat4.create(), this.position, this.target, this.up);
-    }
-    getPerspectiveMatrix(gl): mat4 {
-        return mat4.perspective(
-            mat4.create(),
-            this.fov * Math.PI / 180,
-            gl.canvas.width / gl.canvas.height,
-            this.near,
-            this.far
-        )
-    }
+function getPerspectiveMatrix(camera: CameraState, gl: WebGL2RenderingContext): mat4 {
+    return mat4.perspective(
+        mat4.create(),
+        camera.fov * Math.PI / 180,
+        gl.canvas.width / gl.canvas.height,
+        camera.near,
+        camera.far
+    );
+}
 
-    orbit(deltaX: number, deltaY: number): void {
-        // Update angles - note we swap the relationship here
-        this.theta += deltaX * 0.01;  // Left/right movement affects azimuthal angle
-        this.phi -= deltaY * 0.01;    // Up/down movement affects polar angle (note: + instead of -)
+function orbit(camera: CameraState, deltaX: number, deltaY: number): void {
+    camera.theta += deltaX * 0.01;
+    camera.phi -= deltaY * 0.01;
+    camera.phi = Math.max(0.01, Math.min(Math.PI - 0.01, camera.phi));
 
-        // Clamp phi to avoid flipping and keep camera above ground
-        this.phi = Math.max(0.01, Math.min(Math.PI - 0.01, this.phi));
+    const sinPhi = Math.sin(camera.phi);
+    const cosPhi = Math.cos(camera.phi);
+    const sinTheta = Math.sin(camera.theta);
+    const cosTheta = Math.cos(camera.theta);
 
-        // Calculate new position using spherical coordinates
-        const sinPhi = Math.sin(this.phi);
-        const cosPhi = Math.cos(this.phi);
-        const sinTheta = Math.sin(this.theta);
-        const cosTheta = Math.cos(this.theta);
+    camera.position[0] = camera.target[0] + camera.radius * sinPhi * sinTheta;
+    camera.position[1] = camera.target[1] + camera.radius * sinPhi * cosTheta;
+    camera.position[2] = camera.target[2] + camera.radius * cosPhi;
+}
 
-        // Update position in world space
-        // Note: Changed coordinate mapping to match expected behavior
-        this.position[0] = this.target[0] + this.radius * sinPhi * sinTheta;
-        this.position[1] = this.target[1] + this.radius * sinPhi * cosTheta;
-        this.position[2] = this.target[2] + this.radius * cosPhi;
-    }
+function zoom(camera: CameraState, delta: number): void {
+    camera.radius = Math.max(0.1, Math.min(1000, camera.radius + delta * 0.1));
+    const direction = vec3.sub(vec3.create(), camera.target, camera.position);
+    vec3.normalize(direction, direction);
+    vec3.scaleAndAdd(camera.position, camera.target, direction, -camera.radius);
+}
 
-    zoom(delta: number): void {
-        // Update radius with limits
-        this.radius = Math.max(0.1, Math.min(1000, this.radius + delta * 0.1));
+function pan(camera: CameraState, deltaX: number, deltaY: number): void {
+    const forward = vec3.sub(vec3.create(), camera.target, camera.position);
+    const right = vec3.cross(vec3.create(), forward, camera.up);
+    vec3.normalize(right, right);
 
-        // Update position based on new radius
-        const direction = vec3.sub(vec3.create(), this.target, this.position);
-        vec3.normalize(direction, direction);
-        vec3.scaleAndAdd(this.position, this.target, direction, -this.radius);
-    }
+    const actualUp = vec3.cross(vec3.create(), right, forward);
+    vec3.normalize(actualUp, actualUp);
 
-    pan(deltaX: number, deltaY: number): void {
-        // Calculate right vector
-        const forward = vec3.sub(vec3.create(), this.target, this.position);
-        const right = vec3.cross(vec3.create(), forward, this.up);
-        vec3.normalize(right, right);
+    const scale = camera.radius * 0.002;
+    const movement = vec3.create();
+    vec3.scaleAndAdd(movement, movement, right, -deltaX * scale);
+    vec3.scaleAndAdd(movement, movement, actualUp, deltaY * scale);
 
-        // Calculate actual up vector (not world up)
-        const actualUp = vec3.cross(vec3.create(), right, forward);
-        vec3.normalize(actualUp, actualUp);
-
-        // Scale the movement based on distance
-        const scale = this.radius * 0.002;
-
-        // Move both position and target
-        const movement = vec3.create();
-        vec3.scaleAndAdd(movement, movement, right, -deltaX * scale);
-        vec3.scaleAndAdd(movement, movement, actualUp, deltaY * scale);
-
-        vec3.add(this.position, this.position, movement);
-        vec3.add(this.target, this.target, movement);
-    }
+    vec3.add(camera.position, camera.position, movement);
+    vec3.add(camera.target, camera.target, movement);
 }
 
 function useCamera(
@@ -279,10 +278,8 @@ function useCamera(
         throw new Error('Either camera or defaultCamera must be provided');
     }
 
-    // Create camera instance once
-    const cameraRef = useRef<OrbitCamera | null>(null);
+    const cameraRef = useRef<CameraState | null>(null);
 
-    // Initialize camera once with default values
     useMemo(() => {
         const orientation = {
             position: Array.isArray(initialCamera.position)
@@ -302,10 +299,9 @@ function useCamera(
             far: initialCamera.far
         };
 
-        cameraRef.current = new OrbitCamera(orientation, perspective);
-    }, []); // Empty deps since we only want this on mount
+        cameraRef.current = createCamera(orientation, perspective);
+    }, []);
 
-    // Update camera when controlled props change
     useEffect(() => {
         if (!isControlled || !cameraRef.current) return;
 
@@ -321,8 +317,8 @@ function useCamera(
                 : vec3.clone(camera.up)
         };
 
-        cameraRef.current.setOrientation(orientation);
-        cameraRef.current.setPerspective({
+        setOrientation(cameraRef.current, orientation);
+        setPerspective(cameraRef.current, {
             fov: camera.fov,
             near: camera.near,
             far: camera.far
@@ -346,7 +342,7 @@ function useCamera(
         });
     }, []);
 
-    const handleCameraMove = useCallback((action: (camera: OrbitCamera) => void) => {
+    const handleCameraMove = useCallback((action: (camera: CameraState) => void) => {
         if (!cameraRef.current) return;
         action(cameraRef.current);
 
@@ -390,7 +386,7 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
     const pickingTextureRef = useRef<WebGLTexture | null>(null);
     const numPointsRef = useRef<number>(0);
     const PICK_RADIUS = 10;
-    const pickPoint = useCallback((gl: WebGL2RenderingContext, camera: OrbitCamera, pixelCoords: [number, number]): number | null => {
+    const pickPoint = useCallback((gl: WebGL2RenderingContext, camera: CameraState, pixelCoords: [number, number]): number | null => {
         if (!gl || !programRef.current || !pickingFbRef.current || !vaoRef.current) {
             return null;
         }
@@ -409,8 +405,8 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
             gl.uniform1i(uniformsRef.current.renderMode, 1); // Picking mode ON
 
             // Set uniforms
-            const perspectiveMatrix = camera.getPerspectiveMatrix(gl);
-            const orientationMatrix = camera.getOrientationMatrix();
+            const perspectiveMatrix = getPerspectiveMatrix(camera, gl);
+            const orientationMatrix = getOrientationMatrix(camera);
             gl.uniformMatrix4fv(uniformsRef.current.projection, false, perspectiveMatrix);
             gl.uniformMatrix4fv(uniformsRef.current.view, false, orientationMatrix);
             gl.uniform1f(uniformsRef.current.pointSize, pointSize);
@@ -742,11 +738,11 @@ export function Scene({
         switch (mode) {
             case 'orbit':
                 onHover?.(null);
-                handleCameraMove(camera => camera.orbit(e.movementX, e.movementY));
+                handleCameraMove(camera => orbit(camera, e.movementX, e.movementY));
                 break;
             case 'pan':
                 onHover?.(null);
-                handleCameraMove(camera => camera.pan(e.movementX, e.movementY));
+                handleCameraMove(camera => pan(camera, e.movementX, e.movementY));
                 break;
             case 'none':
                 if (onHover) {
@@ -791,7 +787,7 @@ export function Scene({
 
     const handleWheel = useCallback((e: WheelEvent) => {
         e.preventDefault();
-        handleCameraMove(camera => camera.zoom(e.deltaY));
+        handleCameraMove(camera => zoom(camera, e.deltaY));
     }, [handleCameraMove]);
 
     // Add mouseLeave handler to clear hover state when leaving canvas
@@ -943,8 +939,8 @@ export function Scene({
             gl.useProgram(programRef.current);
 
             // Set up matrices
-            const perspectiveMatrix = cameraRef.current.getPerspectiveMatrix(gl);
-            const orientationMatrix = cameraRef.current.getOrientationMatrix()
+            const perspectiveMatrix = getPerspectiveMatrix(cameraRef.current, gl);
+            const orientationMatrix = getOrientationMatrix(cameraRef.current)
 
             // Set all uniforms in one place
             gl.uniformMatrix4fv(uniformsRef.current.projection, false, perspectiveMatrix);
