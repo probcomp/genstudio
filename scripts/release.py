@@ -21,10 +21,10 @@ def get_next_version(alpha_name=None):
     year_month = today.strftime("%Y.%m")
 
     if alpha_name:
-        # Read alpha tags for this month and name
-        base = f"{year_month}-alpha.{alpha_name}"
+        # Use format YYYY.MM.0.alpha1 (full word looks better than 'a')
+        base = f"{year_month}.0.alpha"
         tags = (
-            subprocess.check_output(["git", "tag", "-l", f"v{base}-[0-9][0-9][0-9]"])
+            subprocess.check_output(["git", "tag", "-l", f"v{base}[0-9][0-9][0-9]"])
             .decode()
             .strip()
             .split("\n")
@@ -34,12 +34,12 @@ def get_next_version(alpha_name=None):
         matching_tags = [tag[1:] for tag in tags if tag]
 
         if not matching_tags:
-            return f"{base}-001"
+            return f"{base}001"
 
         # Extract the highest number
-        numbers = [int(tag.split("-")[-1]) for tag in matching_tags]
+        numbers = [int(tag.split("alpha")[-1]) for tag in matching_tags]
         next_num = max(numbers) + 1
-        return f"{base}-{next_num:03d}"
+        return f"{base}{next_num:03d}"
     else:
         # Original version logic for regular releases
         tags = (
