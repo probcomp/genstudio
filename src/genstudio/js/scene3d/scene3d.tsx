@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { createProgram } from './webgl-utils';
-import { PointCloudViewerProps, ShaderUniforms, CameraState } from './types';
+import { PointCloudViewerProps, ShaderUniforms, CameraState, Decoration } from './types';
 import { useContainerWidth, useDeepMemo } from '../utils';
 import { FPSCounter, useFPSCounter } from './fps';
 import Camera from './camera'
@@ -415,7 +415,7 @@ export function Scene({
     // Add refs for decoration texture
     const decorationMapRef = useRef<WebGLTexture | null>(null);
     const decorationMapSizeRef = useRef<number>(0);
-    const decorationsRef = useRef(decorations);
+    const decorationsRef = useRef<Record<string, Decoration>>(decorations);
 
     // Update the ref when decorations change
     useEffect(() => {
@@ -434,7 +434,7 @@ export function Scene({
         const mapping = new Uint8Array(size * size).fill(0);
 
         // Fill in decoration mappings - make sure we're using the correct point indices
-        Object.values(decorationsRef.current).forEach((decoration, decorationIndex) => {
+        Object.values(decorationsRef.current as Record<string, Decoration>).forEach((decoration, decorationIndex) => {
             decoration.indexes.forEach(pointIndex => {
                 if (pointIndex < numPoints) {
                     // The mapping array should be indexed by the actual point index
@@ -563,7 +563,7 @@ export function Scene({
     // Effect for WebGL initialization
     useEffect(() => {
         if (!canvasRef.current) return;
-        const disposeFns = []
+        const disposeFns: (() => void)[] = []
         const gl = canvasRef.current.getContext('webgl2');
         if (!gl) {
             return console.error('WebGL2 not supported');
@@ -634,7 +634,10 @@ export function Scene({
         // numPointsRef.current = numPoints;
 
         // Initialize picking system after VAO setup is complete
-        disposeFns.push(pickingSystem.initPicking(gl, points.position.length / 3));
+        const cleanupFn = pickingSystem.initPicking(gl, points.position.length / 3);
+        if (cleanupFn) {
+            disposeFns.push(cleanupFn);
+        }
 
         canvasRef.current.addEventListener('mousedown', handleMouseDown);
         canvasRef.current.addEventListener('mousemove', handleMouseMove);
@@ -718,7 +721,7 @@ export function Scene({
 
             // Fill arrays with decoration data
 
-            Object.values(currentDecorations).slice(0, MAX_DECORATIONS).forEach((decoration, i) => {
+            Object.values(currentDecorations as Record<string, Decoration>).slice(0, MAX_DECORATIONS).forEach((decoration, i) => {
                 scales[i] = decoration.scale ?? 1.0;
 
                 if (decoration.color) {

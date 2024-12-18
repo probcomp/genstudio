@@ -30,15 +30,11 @@ export function createProgram(
     gl: WebGL2RenderingContext,
     vertexSource: string,
     fragmentSource: string
-): WebGLProgram | null {
-    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
-    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
+): WebGLProgram {
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource)!;
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource)!;
 
-    if (!vertexShader || !fragmentShader) return null;
-
-    const program = gl.createProgram();
-    if (!program) return null;
-
+    const program = gl.createProgram()!;
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
     gl.linkProgram(program);
@@ -46,7 +42,7 @@ export function createProgram(
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         console.error('Program link error:', gl.getProgramInfoLog(program));
         gl.deleteProgram(program);
-        return null;
+        throw new Error('Failed to link WebGL program');
     }
 
     return program;
