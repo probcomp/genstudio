@@ -78,8 +78,6 @@ export const mainShaders = {
         // Decoration property uniforms
         uniform vec3 uDecorationColors[MAX_DECORATIONS];
         uniform float uDecorationAlphas[MAX_DECORATIONS];
-        uniform int uDecorationBlendModes[MAX_DECORATIONS];
-        uniform float uDecorationBlendStrengths[MAX_DECORATIONS];
 
         // Decoration mapping texture
         uniform sampler2D uDecorationMap;
@@ -91,22 +89,6 @@ export const mainShaders = {
         out vec4 fragColor;
 
         uniform bool uRenderMode;  // false = normal, true = picking
-
-        vec3 applyBlend(vec3 base, vec3 blend, int mode, float strength) {
-            if (blend.r < 0.0) return base;  // No color override
-
-            vec3 result = base;
-            if (mode == 0) { // replace
-                result = blend;
-            } else if (mode == 1) { // multiply
-                result = base * blend;
-            } else if (mode == 2) { // add
-                result = min(base + blend, 1.0);
-            } else if (mode == 3) { // screen
-                result = 1.0 - (1.0 - base) * (1.0 - blend);
-            }
-            return mix(base, result, strength);
-        }
 
         void main() {
             vec2 coord = gl_PointCoord * 2.0 - 1.0;
@@ -132,12 +114,7 @@ export const mainShaders = {
             if (vDecorationIndex >= 0) {
                 vec3 decorationColor = uDecorationColors[vDecorationIndex];
                 if (decorationColor.r >= 0.0) {
-                    baseColor = applyBlend(
-                        baseColor,
-                        decorationColor,
-                        uDecorationBlendModes[vDecorationIndex],
-                        uDecorationBlendStrengths[vDecorationIndex]
-                    );
+                    baseColor = decorationColor;
                 }
                 alpha *= uDecorationAlphas[vDecorationIndex];
             }
@@ -532,8 +509,6 @@ function cacheUniformLocations(
         decorationScales: gl.getUniformLocation(program, 'uDecorationScales'),
         decorationColors: gl.getUniformLocation(program, 'uDecorationColors'),
         decorationAlphas: gl.getUniformLocation(program, 'uDecorationAlphas'),
-        decorationBlendModes: gl.getUniformLocation(program, 'uDecorationBlendModes'),
-        decorationBlendStrengths: gl.getUniformLocation(program, 'uDecorationBlendStrengths'),
 
         // Decoration map uniforms
         decorationMap: gl.getUniformLocation(program, 'uDecorationMap'),
@@ -545,17 +520,6 @@ function cacheUniformLocations(
         // Render mode
         renderMode: gl.getUniformLocation(program, 'uRenderMode'),
     };
-}
-
-// Add helper to convert blend mode string to int
-function blendModeToInt(mode: DecorationGroup['blendMode']): number {
-    switch (mode) {
-        case 'replace': return 0;
-        case 'multiply': return 1;
-        case 'add': return 2;
-        case 'screen': return 3;
-        default: return 0;
-    }
 }
 
 function computeCanvasDimensions(containerWidth, width, height, aspectRatio = 1) {
@@ -963,8 +927,6 @@ export function Scene({
             const scales = new Float32Array(MAX_DECORATIONS).fill(1.0);
             const colors = new Float32Array(MAX_DECORATIONS * 3).fill(-1);
             const alphas = new Float32Array(MAX_DECORATIONS).fill(1.0);
-            const blendModes = new Int32Array(MAX_DECORATIONS).fill(0);
-            const blendStrengths = new Float32Array(MAX_DECORATIONS).fill(1.0);
             const minSizes = new Float32Array(MAX_DECORATIONS).fill(0.0);
 
             // Fill arrays with decoration data
@@ -980,19 +942,13 @@ export function Scene({
                 }
 
                 alphas[i] = decoration.alpha ?? 1.0;
-                blendModes[i] = blendModeToInt(decoration.blendMode);
-                blendStrengths[i] = decoration.blendStrength ?? 1.0;
                 minSizes[i] = decoration.minSize ?? 0.0;
             });
 
             // Set uniforms
-
             gl.uniform1fv(uniformsRef.current.decorationScales, scales);
             gl.uniform3fv(uniformsRef.current.decorationColors, colors);
             gl.uniform1fv(uniformsRef.current.decorationAlphas, alphas);
-            gl.uniform1iv(uniformsRef.current.decorationBlendModes, blendModes);
-            gl.uniform1fv(uniformsRef.current.decorationBlendStrengths, blendStrengths);
-            gl.uniform1i(uniformsRef.current.decorationCount, numDecorations);
             gl.uniform1fv(uniformsRef.current.decorationMinSizes, minSizes);
 
             // Ensure correct VAO is bound

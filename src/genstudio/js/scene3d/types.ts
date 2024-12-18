@@ -16,16 +16,10 @@ export interface CameraParams {
 
 export interface DecorationGroup {
   indexes: number[];
-
-  // Visual modifications
-  color?: [number, number, number];  // RGB color override
-  alpha?: number;                    // 0-1 opacity
-  scale?: number;                    // Size multiplier for points
-  minSize?: number;           // Minimum size in pixels, regardless of distance
-
-  // Color blend modes
-  blendMode?: 'replace' | 'multiply' | 'add' | 'screen';
-  blendStrength?: number;           // 0-1, how strongly to apply the blend
+  color?: [number, number, number];
+  scale?: number;
+  alpha?: number;
+  minSize?: number;
 }
 
 export interface DecorationGroups {
@@ -63,15 +57,13 @@ export interface ShaderUniforms {
     view: WebGLUniformLocation | null;
     pointSize: WebGLUniformLocation | null;
     canvasSize: WebGLUniformLocation | null;
-
-    // Decoration uniforms
-    decorationIndices: WebGLUniformLocation | null;
     decorationScales: WebGLUniformLocation | null;
     decorationColors: WebGLUniformLocation | null;
     decorationAlphas: WebGLUniformLocation | null;
-    decorationBlendModes: WebGLUniformLocation | null;
-    decorationBlendStrengths: WebGLUniformLocation | null;
-    decorationCount: WebGLUniformLocation | null;
+    decorationMap: WebGLUniformLocation | null;
+    decorationMapSize: WebGLUniformLocation | null;
+    decorationMinSizes: WebGLUniformLocation | null;
+    renderMode: WebGLUniformLocation | null;
 }
 
 export interface PickingUniforms {
