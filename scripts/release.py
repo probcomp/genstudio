@@ -16,29 +16,48 @@ def check_working_directory():
         sys.exit(1)
 
 
-def get_next_version():
+def get_next_version(alpha_name=None):
     today = datetime.now()
     year_month = today.strftime("%Y.%m")
 
-    # Read all tags, including those with 'v' prefix
-    tags = (
-        subprocess.check_output(["git", "tag", "-l", f"v{year_month}.[0-9][0-9][0-9]"])
-        .decode()
-        .strip()
-        .split("\n")
-    )
+    if alpha_name:
+        # Read alpha tags for this month and name
+        base = f"{year_month}-alpha.{alpha_name}"
+        tags = (
+            subprocess.check_output(["git", "tag", "-l", f"v{base}-[0-9][0-9][0-9]"])
+            .decode()
+            .strip()
+            .split("\n")
+        )
 
-    # Filter out dev versions and empty strings, and remove 'v' prefix
-    release_tags = [tag[1:] for tag in tags if tag and not tag.endswith(".dev")]
+        # Filter out empty strings and remove 'v' prefix
+        matching_tags = [tag[1:] for tag in tags if tag]
 
-    if not release_tags:
-        return f"{year_month}.001"
+        if not matching_tags:
+            return f"{base}-001"
 
-    # Extract the highest patch number
-    patch_numbers = [int(tag.split(".")[-1]) for tag in release_tags]
-    next_patch = max(patch_numbers) + 1
+        # Extract the highest number
+        numbers = [int(tag.split("-")[-1]) for tag in matching_tags]
+        next_num = max(numbers) + 1
+        return f"{base}-{next_num:03d}"
+    else:
+        # Original version logic for regular releases
+        tags = (
+            subprocess.check_output(
+                ["git", "tag", "-l", f"v{year_month}.[0-9][0-9][0-9]"]
+            )
+            .decode()
+            .strip()
+            .split("\n")
+        )
+        release_tags = [tag[1:] for tag in tags if tag and not tag.endswith(".dev")]
 
-    return f"{year_month}.{next_patch:03d}"
+        if not release_tags:
+            return f"{year_month}.001"
+
+        patch_numbers = [int(tag.split(".")[-1]) for tag in release_tags]
+        next_patch = max(patch_numbers) + 1
+        return f"{year_month}.{next_patch:03d}"
 
 
 def update_pyproject_toml(new_version):
@@ -157,11 +176,26 @@ def main():
     # Check for uncommitted changes
     check_working_directory()
 
-    new_version = get_next_version()
+    # Add command line argument parsing
+    alpha_name = None
+    if len(sys.argv) > 2 and sys.argv[1] == "--alpha":
+        alpha_name = sys.argv[2]
+        skip_changelog = True
+    else:
+        skip_changelog = False
 
-    if not update_changelog(new_version):
-        print("Release process cancelled.")
-        return
+    new_version = get_next_version(alpha_name)
+
+    # Print version prominently for easy copying
+    if alpha_name:
+        print("\n" + "=" * 50)
+        print(f"Alpha version: {new_version}")
+        print("=" * 50 + "\n")
+
+    if not skip_changelog:
+        if not update_changelog(new_version):
+            print("Release process cancelled.")
+            return
 
     update_pyproject_toml(new_version)
     update_readme(new_version)
