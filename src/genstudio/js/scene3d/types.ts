@@ -14,6 +14,19 @@ export interface CameraParams {
     far: number;
 }
 
+export type CameraState = {
+    position: vec3;
+    target: vec3;
+    up: vec3;
+    radius: number;
+    phi: number;
+    theta: number;
+    fov: number;
+    near: number;
+    far: number;
+}
+
+
 export interface DecorationGroup {
   indexes: number[];
   color?: [number, number, number];
