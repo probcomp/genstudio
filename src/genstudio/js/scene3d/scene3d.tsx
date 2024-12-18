@@ -794,7 +794,7 @@ export function Scene({
         // Create buffers
         const positionBuffer = gl.createBuffer();
         const colorBuffer = gl.createBuffer();
-        const numPoints = points.xyz.length / 3;
+        const numPoints = points.position.length / 3;
 
         // Create point ID buffer with verified sequential IDs
         const pointIdBuffer = gl.createBuffer();
@@ -807,18 +807,18 @@ export function Scene({
 
         // Position buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-        gl.bufferData(gl.ARRAY_BUFFER, points.xyz, gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, points.position, gl.STATIC_DRAW);
 
         // Color buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-        if (points.rgb) {
-            const normalizedColors = new Float32Array(points.rgb.length);
-            for (let i = 0; i < points.rgb.length; i++) {
-                normalizedColors[i] = points.rgb[i] / 255.0;
+        if (points.color) {
+            const normalizedColors = new Float32Array(points.color.length);
+            for (let i = 0; i < points.color.length; i++) {
+                normalizedColors[i] = points.color[i] / 255.0;
             }
             gl.bufferData(gl.ARRAY_BUFFER, normalizedColors, gl.STATIC_DRAW);
         } else {
-            const defaultColors = new Float32Array(points.xyz.length);
+            const defaultColors = new Float32Array(points.position.length);
             defaultColors.fill(0.7);
             gl.bufferData(gl.ARRAY_BUFFER, defaultColors, gl.STATIC_DRAW);
         }
@@ -847,7 +847,7 @@ export function Scene({
         // numPointsRef.current = numPoints;
 
         // Initialize picking system after VAO setup is complete
-        disposeFns.push(pickingSystem.initPicking(gl, points.xyz.length / 3));
+        disposeFns.push(pickingSystem.initPicking(gl, points.position.length / 3));
 
         canvasRef.current.addEventListener('mousedown', handleMouseDown);
         canvasRef.current.addEventListener('mousemove', handleMouseMove);
@@ -913,7 +913,7 @@ export function Scene({
             gl.uniform2f(uniformsRef.current.canvasSize, gl.canvas.width, gl.canvas.height);
 
             // Update decoration map
-            updateDecorationMap(gl, points.xyz.length / 3);
+            updateDecorationMap(gl, points.position.length / 3);
 
             // Set decoration map uniforms
             gl.activeTexture(gl.TEXTURE0);
@@ -930,7 +930,7 @@ export function Scene({
             const minSizes = new Float32Array(MAX_DECORATIONS).fill(0.0);
 
             // Fill arrays with decoration data
-            const numDecorations = Math.min(Object.keys(currentDecorations).length, MAX_DECORATIONS);
+
             Object.values(currentDecorations).slice(0, MAX_DECORATIONS).forEach((decoration, i) => {
                 scales[i] = decoration.scale ?? 1.0;
 
@@ -953,7 +953,7 @@ export function Scene({
 
             // Ensure correct VAO is bound
             gl.bindVertexArray(vaoRef.current);
-            gl.drawArrays(gl.POINTS, 0, points.xyz.length / 3);
+            gl.drawArrays(gl.POINTS, 0, points.position.length / 3);
         }
 
     }, [points, backgroundColor, pointSize, canvasRef.current?.width, canvasRef.current?.height]);
