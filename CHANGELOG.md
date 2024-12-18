@@ -1,3 +1,7 @@
+### [2024.12.005] - Dec 18, 2024
+
+- 3d
+
 ### [2024.12.004] - Dec 06, 2024
 
 - fix replaceBuffers ndarray handling
