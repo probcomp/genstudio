@@ -26,6 +26,13 @@ export type CameraState = {
     far: number;
 }
 
+export type Decoration = {
+    indexes: number[];
+    scale?: number;
+    color?: [number, number, number];
+    alpha?: number;
+    minSize?: number;
+};
 
 export interface DecorationGroup {
   indexes: number[];
