@@ -1,8 +1,8 @@
 # %%
 import genstudio.plot as Plot
 import numpy as np
+from genstudio.alpha.scene3d import Points
 from genstudio.plot import js
-from typing import Any
 from colorsys import hsv_to_rgb
 
 
@@ -104,14 +104,6 @@ def make_wall(n_points: int):
     xyz = np.column_stack([x, y, z]).astype(np.float32).flatten()
 
     return xyz, rgb
-
-
-class Points(Plot.LayoutItem):
-    def __init__(self, points, props):
-        self.props = {**props, "points": points}
-
-    def for_json(self) -> Any:
-        return [Plot.JSRef("scene3d.Scene"), self.props]
 
 
 # Camera parameters - positioned to see the spiral structure
