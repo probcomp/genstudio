@@ -107,8 +107,8 @@ def make_wall(n_points: int):
 
 
 class Points(Plot.LayoutItem):
-    def __init__(self, props):
-        self.props = props
+    def __init__(self, points, props):
+        self.props = {**props, "points": points}
 
     def for_json(self) -> Any:
         return [Plot.JSRef("scene3d.Scene"), self.props]
@@ -135,9 +135,9 @@ def scene(controlled, point_size, xyz, rgb, select_region=False):
         }
     )
     return Points(
+        {"position": xyz, "color": rgb},
         {
-            "points": {"xyz": xyz, "rgb": rgb},
-            "backgroundColor": [0.1, 0.1, 0.1, 1],  # Dark background to make colors pop
+            "backgroundColor": [0.1, 0.1, 0.1, 1],
             "pointSize": point_size,
             "onPointHover": js("""(i) => {
                  $state.update({hovered: i})
@@ -172,7 +172,7 @@ def scene(controlled, point_size, xyz, rgb, select_region=False):
             },
             "highlightColor": [1.0, 1.0, 0.0],
             **cameraProps,
-        }
+        },
     )
 
 
