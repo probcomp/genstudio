@@ -117,7 +117,7 @@ camera = {
 }
 
 
-def scene(controlled, point_size, xyz, rgb, select_region=False):
+def scene(controlled, point_size, xyz, rgb, scale, select_region=False):
     cameraProps = (
         {"defaultCamera": camera}
         if not controlled
@@ -127,7 +127,7 @@ def scene(controlled, point_size, xyz, rgb, select_region=False):
         }
     )
     return Points(
-        {"position": xyz, "color": rgb},
+        {"position": xyz, "color": rgb, "scale": scale},
         {
             "backgroundColor": [0.1, 0.1, 0.1, 1],
             "pointSize": point_size,
@@ -150,7 +150,7 @@ def scene(controlled, point_size, xyz, rgb, select_region=False):
                 },
                 "hovered": {
                     "indexes": js("[$state.hovered]"),
-                    "scale": 2,
+                    "scale": 1.2,
                     "minSize": 10,
                     "color": [0, 1, 0],
                 },
@@ -197,9 +197,10 @@ def find_similar_colors(rgb, point_idx, threshold=0.1):
 
 
 # Create point clouds with 50k points
-torus_xyz, torus_rgb = make_torus_knot(500000)
-cube_xyz, cube_rgb = make_cube(500000)
-wall_xyz, wall_rgb = make_wall(500000)
+NUM_POINTS = 500000
+torus_xyz, torus_rgb = make_torus_knot(NUM_POINTS)
+cube_xyz, cube_rgb = make_cube(NUM_POINTS)
+wall_xyz, wall_rgb = make_wall(NUM_POINTS)
 
 (
     Plot.initialState(
@@ -218,10 +219,32 @@ wall_xyz, wall_rgb = make_wall(500000)
         },
         sync={"selected_region_i", "cube_rgb"},
     )
-    | scene(True, 0.01, js("$state.torus_xyz"), js("$state.torus_rgb"))
-    & scene(True, 1, js("$state.torus_xyz"), js("$state.torus_rgb"))
-    | scene(False, 0.1, js("$state.cube_xyz"), js("$state.cube_rgb"), True)
-    & scene(False, 0.5, js("$state.cube_xyz"), js("$state.cube_rgb"), True)
+    | scene(
+        True,
+        0.05,
+        js("$state.torus_xyz"),
+        js("$state.torus_rgb"),
+        np.random.uniform(0.1, 10, NUM_POINTS).astype(np.float32),
+    )
+    & scene(
+        True, 0.3, js("$state.torus_xyz"), js("$state.torus_rgb"), np.ones(NUM_POINTS)
+    )
+    | scene(
+        False,
+        0.05,
+        js("$state.cube_xyz"),
+        js("$state.cube_rgb"),
+        np.ones(NUM_POINTS),
+        True,
+    )
+    & scene(
+        False,
+        0.1,
+        js("$state.cube_xyz"),
+        js("$state.cube_rgb"),
+        np.random.uniform(0.2, 3, NUM_POINTS).astype(np.float32),
+        True,
+    )
     | Plot.onChange(
         {
             "selected_region_i": lambda w, e: w.state.update(
