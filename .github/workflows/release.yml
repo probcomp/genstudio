@@ -7,6 +7,7 @@ on:
       - main
     tags:
       - 'v*.*.*'
+      - 'v*.*.*.alpha*'
   release:
     types: [published]
 
@@ -57,8 +58,11 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "DEV_CHANNEL=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" =~ ^refs/tags/v.*\.alpha ]]; then
+            echo "ALPHA_CHANNEL=true" >> $GITHUB_OUTPUT
           else
             echo "DEV_CHANNEL=false" >> $GITHUB_OUTPUT
+            echo "ALPHA_CHANNEL=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Get current date and time
@@ -67,8 +71,14 @@ jobs:
         run: |
           echo "NEXT_VERSION=$(date +'%Y.%m.%d.%H%M.dev')" >> $GITHUB_ENV
 
+      - name: Extract version from tag for alpha releases
+        if: steps.check_trigger.outputs.ALPHA_CHANNEL == 'true'
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "NEXT_VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Update version in pyproject.toml
-        if: steps.check_trigger.outputs.DEV_CHANNEL == 'true'
+        if: steps.check_trigger.outputs.DEV_CHANNEL == 'true' || steps.check_trigger.outputs.ALPHA_CHANNEL == 'true'
         run: |
           poetry version ${{ env.NEXT_VERSION }}
 
