@@ -191,23 +191,28 @@ def main():
         print("\n" + "=" * 50)
         print(f"Alpha version: {new_version}")
         print("=" * 50 + "\n")
+        # Skip pyproject.toml and README updates for alpha releases
+    else:
+        if not skip_changelog:
+            if not update_changelog(new_version):
+                print("Release process cancelled.")
+                return
+        update_pyproject_toml(new_version)
+        update_readme(new_version)
 
-    if not skip_changelog:
-        if not update_changelog(new_version):
-            print("Release process cancelled.")
-            return
-
-    update_pyproject_toml(new_version)
-    update_readme(new_version)
+    # Modify which files to add based on release type
+    files_to_add = []
+    if not alpha_name:
+        files_to_add.extend(["pyproject.toml", "README.md", "CHANGELOG.md"])
 
     # Add changes
-    subprocess.run(["git", "add", "pyproject.toml", "README.md", "CHANGELOG.md"])
+    subprocess.run(["git", "add"] + files_to_add)
 
     # Run pre-commit
     subprocess.run(["pre-commit", "run", "--all-files"])
 
     # Add changes again (in case pre-commit made modifications)
-    subprocess.run(["git", "add", "pyproject.toml", "README.md", "CHANGELOG.md"])
+    subprocess.run(["git", "add"] + files_to_add)
 
     # Commit changes
     subprocess.run(["git", "commit", "-m", f"Release version {new_version}"])

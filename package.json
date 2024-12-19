@@ -39,6 +39,7 @@
   },
   "scripts": {
     "release": "poetry run python scripts/release.py",
+    "alpha": "poetry run python scripts/release.py --alpha",
     "build": "node esbuild.config.mjs",
     "watch": "node esbuild.config.mjs --watch",
     "watch:docs": "poetry run mkdocs serve",
