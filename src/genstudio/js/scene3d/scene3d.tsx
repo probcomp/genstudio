@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { PointCloudViewerProps, ShaderUniforms, CameraState, Decoration } from './types';
-import { useContainerWidth, useDeepMemo } from '../utils';
+import { useContainerWidth, useShallowMemo } from '../utils';
 import { FPSCounter, useFPSCounter } from './fps';
 import Camera from './camera'
 
@@ -79,6 +79,7 @@ export const mainShaders = {
         layout(location = 0) in vec3 position;
         layout(location = 1) in vec3 color;
         layout(location = 2) in float pointId;
+        layout(location = 3) in float pointScale;
 
         out vec3 vColor;
         flat out int vVertexID;
@@ -104,8 +105,8 @@ export const mainShaders = {
             vec4 viewPos = uViewMatrix * vec4(position, 1.0);
             float dist = -viewPos.z;
 
-            float projectedSize = (uPointSize * uCanvasSize.y) / (2.0 * dist);
-            float baseSize = clamp(projectedSize, 1.0, 20.0);
+            float projectedSize = (uPointSize * pointScale * uCanvasSize.y) / (2.0 * dist);
+            float baseSize = projectedSize;
 
             float scale = 1.0;
             float minSize = 0.0;
@@ -114,8 +115,7 @@ export const mainShaders = {
                 minSize = uDecorationMinSizes[vDecorationIndex];
             }
 
-            float finalSize = max(baseSize * scale, minSize);
-            gl_PointSize = finalSize;
+            gl_PointSize = baseSize * scale;
 
             gl_Position = uProjectionMatrix * viewPos;
         }`,
@@ -212,6 +212,7 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
             // Set up picking framebuffer
             gl.bindFramebuffer(gl.FRAMEBUFFER, pickingFbRef.current);
             gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0, 0, 0, 0)
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             // Configure for picking render
@@ -253,10 +254,11 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
                         const dist = Math.hypot(x - centerX, y - centerY);
                         if (dist < minDist) {
                             minDist = dist;
-                            closestId = pixels[i] +
-                                pixels[i + 1] * 256 +
-                                pixels[i + 2] * 256 * 256;
+                        closestId = pixels[i] +
+                            pixels[i + 1] * 256 +
+                            pixels[i + 2] * 256 * 256;
                         }
+
                     }
                 }
             }
@@ -349,13 +351,11 @@ function cacheUniformLocations(
         decorationScales: gl.getUniformLocation(program, 'uDecorationScales'),
         decorationColors: gl.getUniformLocation(program, 'uDecorationColors'),
         decorationAlphas: gl.getUniformLocation(program, 'uDecorationAlphas'),
+        decorationMinSizes: gl.getUniformLocation(program, 'uDecorationMinSizes'),
 
         // Decoration map uniforms
         decorationMap: gl.getUniformLocation(program, 'uDecorationMap'),
         decorationMapSize: gl.getUniformLocation(program, 'uDecorationMapSize'),
-
-        // Decoration min sizes
-        decorationMinSizes: gl.getUniformLocation(program, 'uDecorationMinSizes'),
 
         // Render mode
         renderMode: gl.getUniformLocation(program, 'uRenderMode'),
@@ -414,9 +414,9 @@ export function Scene({
     aspectRatio
 }: PointCloudViewerProps) {
 
-    points = useDeepMemo(points)
-    decorations = useDeepMemo(decorations)
-    backgroundColor = useDeepMemo(backgroundColor)
+    points = useShallowMemo(points)
+    decorations = useShallowMemo(decorations)
+    backgroundColor = useShallowMemo(backgroundColor)
 
 
     const callbacksRef = useRef({})
@@ -458,7 +458,6 @@ export function Scene({
     const animationFrameRef = useRef<number>();
     const vaoRef = useRef(null);
     const uniformsRef = useRef<ShaderUniforms | null>(null);
-    const mouseDownPositionRef = useRef<{x: number, y: number} | null>(null);
     const CLICK_THRESHOLD = 3; // Pixels of movement allowed before considering it a drag
 
     const { fpsDisplayRef, updateDisplay } = useFPSCounter();
@@ -537,7 +536,7 @@ export function Scene({
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!cameraRef.current) return;
         const onHover = callbacksRef.current.onPointHover;
-        const { mode, startX, startY } = interactionState.current;
+        const { mode } = interactionState.current;
 
         switch (mode) {
             case 'orbit':
@@ -631,19 +630,13 @@ export function Scene({
         // Cache uniform locations
         uniformsRef.current = cacheUniformLocations(gl, program);
 
-        // Create buffers
-        const positionBuffer = gl.createBuffer();
-        const colorBuffer = gl.createBuffer();
         const numPoints = points.position.length / 3;
 
-        // Create point ID buffer with verified sequential IDs
+        // Create buffers for position, color, id, scale
+        const positionBuffer = gl.createBuffer();
+        const colorBuffer = gl.createBuffer();
         const pointIdBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, pointIdBuffer);
-        const pointIds = new Float32Array(numPoints);
-        for (let i = 0; i < numPoints; i++) {
-            pointIds[i] = i;
-        }
-        gl.bufferData(gl.ARRAY_BUFFER, pointIds, gl.STATIC_DRAW);
+        const scaleBuffer = gl.createBuffer();
 
         // Position buffer
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -663,7 +656,27 @@ export function Scene({
             gl.bufferData(gl.ARRAY_BUFFER, defaultColors, gl.STATIC_DRAW);
         }
 
-        // Set up VAO with consistent attribute locations
+        // Point ID buffer
+        gl.bindBuffer(gl.ARRAY_BUFFER, pointIdBuffer);
+        const pointIds = new Float32Array(numPoints);
+        for (let i = 0; i < numPoints; i++) {
+            pointIds[i] = i;
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, pointIds, gl.STATIC_DRAW);
+
+        // Scale buffer
+        // If points.scale is provided, use it; otherwise, use an array of 1.0
+        gl.bindBuffer(gl.ARRAY_BUFFER, scaleBuffer);
+        if (points.scale) {
+            gl.bufferData(gl.ARRAY_BUFFER, points.scale, gl.STATIC_DRAW);
+        } else {
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(numPoints).fill(1.0), gl.STATIC_DRAW);
+
+        }
+
+
+
+        // Set up VAO
         const vao = gl.createVertexArray();
         gl.bindVertexArray(vao);
         vaoRef.current = vao;
@@ -683,11 +696,13 @@ export function Scene({
         gl.enableVertexAttribArray(2);
         gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 0, 0);
 
-        // Store numPoints in ref for picking system
-        // numPointsRef.current = numPoints;
+        // Point scale attribute (location 3)
+        gl.bindBuffer(gl.ARRAY_BUFFER, scaleBuffer);
+        gl.enableVertexAttribArray(3);
+        gl.vertexAttribPointer(3, 1, gl.FLOAT, false, 0, 0);
 
-        // Initialize picking system after VAO setup is complete
-        const cleanupFn = pickingSystem.initPicking(gl, points.position.length / 3);
+        // Initialize picking
+        const cleanupFn = pickingSystem.initPicking(gl, numPoints);
         if (cleanupFn) {
             disposeFns.push(cleanupFn);
         }
@@ -718,6 +733,9 @@ export function Scene({
                 if (pointIdBuffer) {
                     gl.deleteBuffer(pointIdBuffer);
                 }
+                if (scaleBuffer) {
+                    gl.deleteBuffer(scaleBuffer);
+                }
                 disposeFns.forEach(fn => fn?.());
             }
             if (canvasRef.current) {
@@ -745,14 +763,10 @@ export function Scene({
 
             gl.useProgram(programRef.current);
 
-            // Calculate aspect ratio separately
             const aspectRatio = gl.canvas.width / gl.canvas.height;
-
-            // Set up matrices
             const perspectiveMatrix = Camera.getPerspectiveMatrix(cameraRef.current, aspectRatio);
             const orientationMatrix = Camera.getOrientationMatrix(cameraRef.current)
 
-            // Set all uniforms in one place
             gl.uniformMatrix4fv(uniformsRef.current.projection, false, perspectiveMatrix);
             gl.uniformMatrix4fv(uniformsRef.current.view, false, orientationMatrix);
             gl.uniform1f(uniformsRef.current.pointSize, pointSize);
@@ -761,7 +775,6 @@ export function Scene({
             // Update decoration map
             updateDecorationMap(gl, points.position.length / 3);
 
-            // Set decoration map uniforms
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, decorationMapRef.current);
             gl.uniform1i(uniformsRef.current.decorationMap, 0);
@@ -769,13 +782,10 @@ export function Scene({
 
             const currentDecorations = decorationsRef.current;
 
-            // Prepare decoration data
             const scales = new Float32Array(MAX_DECORATIONS).fill(1.0);
             const colors = new Float32Array(MAX_DECORATIONS * 3).fill(-1);
             const alphas = new Float32Array(MAX_DECORATIONS).fill(1.0);
             const minSizes = new Float32Array(MAX_DECORATIONS).fill(0.0);
-
-            // Fill arrays with decoration data
 
             Object.values(currentDecorations as Record<string, Decoration>).slice(0, MAX_DECORATIONS).forEach((decoration, i) => {
                 scales[i] = decoration.scale ?? 1.0;
@@ -791,13 +801,11 @@ export function Scene({
                 minSizes[i] = decoration.minSize ?? 0.0;
             });
 
-            // Set uniforms
             gl.uniform1fv(uniformsRef.current.decorationScales, scales);
             gl.uniform3fv(uniformsRef.current.decorationColors, colors);
             gl.uniform1fv(uniformsRef.current.decorationAlphas, alphas);
             gl.uniform1fv(uniformsRef.current.decorationMinSizes, minSizes);
 
-            // Ensure correct VAO is bound
             gl.bindVertexArray(vaoRef.current);
             gl.drawArrays(gl.POINTS, 0, points.position.length / 3);
         }

@@ -1,5 +1,4 @@
 import * as Twind from "@twind/core";
-import deepEqual from 'fast-deep-equal';
 import presetAutoprefix from "@twind/preset-autoprefix";
 import presetTailwind from "@twind/preset-tailwind";
 import presetTypography from "@twind/preset-typography";
@@ -209,10 +208,37 @@ export function joinClasses(...classes) {
   return result;
 }
 
-export function useDeepMemo<T>(value: T): T {
+/**
+ * Deep equality check that only traverses plain objects and arrays.
+ * All other types (including TypedArrays) are compared by identity.
+ */
+export function shallowDeepEqual(a: any, b: any): boolean {
+    if (a === b) return true;
+
+    // Check if both are arrays OR both are plain objects
+    const aIsArray = Array.isArray(a);
+    const bIsArray = Array.isArray(b);
+    const aIsPlainObj = a && a.constructor === Object && Object.getPrototypeOf(a) === Object.prototype;
+    const bIsPlainObj = b && b.constructor === Object && Object.getPrototypeOf(b) === Object.prototype;
+
+    if ((aIsArray && bIsArray) || (aIsPlainObj && bIsPlainObj)) {
+        const keys = Object.keys(a);
+        if (keys.length !== Object.keys(b).length) return false;
+
+        return keys.every(key => (
+            Object.prototype.hasOwnProperty.call(b, key) &&
+            shallowDeepEqual(a[key], b[key])
+        ));
+    }
+
+    return a === b;
+}
+
+
+export function useShallowMemo<T>(value: T): T {
   const ref = useRef<T>();
 
-  if (!ref.current || !deepEqual(value, ref.current)) {
+  if (!ref.current || !shallowDeepEqual(value, ref.current)) {
       ref.current = value;
   }
 
