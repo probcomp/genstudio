@@ -405,7 +405,7 @@ export function Scene({
     onCameraChange,
     backgroundColor = [0.1, 0.1, 0.1],
     className,
-    pointSize = 4.0,
+    pointSize = 0.1,
     decorations = {},
     onPointClick,
     onPointHover,
