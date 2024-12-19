@@ -1,11 +1,61 @@
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
-import { createProgram } from './webgl-utils';
 import { PointCloudViewerProps, ShaderUniforms, CameraState, Decoration } from './types';
 import { useContainerWidth, useDeepMemo } from '../utils';
 import { FPSCounter, useFPSCounter } from './fps';
 import Camera from './camera'
 
 export const MAX_DECORATIONS = 16; // Adjust based on needs
+
+export function createShader(
+    gl: WebGL2RenderingContext,
+    type: number,
+    source: string
+): WebGLShader | null {
+    const shader = gl.createShader(type);
+    if (!shader) {
+        console.error('Failed to create shader');
+        return null;
+    }
+
+    gl.shaderSource(shader, source);
+    gl.compileShader(shader);
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        console.error(
+            'Shader compile error:',
+            gl.getShaderInfoLog(shader),
+            '\nSource:',
+            source
+        );
+        gl.deleteShader(shader);
+        return null;
+    }
+
+    return shader;
+}
+
+export function createProgram(
+    gl: WebGL2RenderingContext,
+    vertexSource: string,
+    fragmentSource: string
+): WebGLProgram {
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource)!;
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource)!;
+
+    const program = gl.createProgram()!;
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        console.error('Program link error:', gl.getProgramInfoLog(program));
+        gl.deleteProgram(program);
+        throw new Error('Failed to link WebGL program');
+    }
+
+    return program;
+}
+
 
 export const mainShaders = {
     vertex: `#version 300 es
@@ -168,8 +218,11 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
             gl.useProgram(programRef.current);
             gl.uniform1i(uniformsRef.current.renderMode, 1); // Picking mode ON
 
+            // Calculate aspect ratio
+            const aspectRatio = gl.canvas.width / gl.canvas.height;
+
             // Set uniforms
-            const perspectiveMatrix = Camera.getPerspectiveMatrix(camera, gl);
+            const perspectiveMatrix = Camera.getPerspectiveMatrix(camera, aspectRatio);
             const orientationMatrix = Camera.getOrientationMatrix(camera);
             gl.uniformMatrix4fv(uniformsRef.current.projection, false, perspectiveMatrix);
             gl.uniformMatrix4fv(uniformsRef.current.view, false, orientationMatrix);
@@ -692,8 +745,11 @@ export function Scene({
 
             gl.useProgram(programRef.current);
 
+            // Calculate aspect ratio separately
+            const aspectRatio = gl.canvas.width / gl.canvas.height;
+
             // Set up matrices
-            const perspectiveMatrix = Camera.getPerspectiveMatrix(cameraRef.current, gl);
+            const perspectiveMatrix = Camera.getPerspectiveMatrix(cameraRef.current, aspectRatio);
             const orientationMatrix = Camera.getOrientationMatrix(cameraRef.current)
 
             // Set all uniforms in one place

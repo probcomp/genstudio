@@ -47,3 +47,5 @@ export function createProgram(
 
     return program;
 }
+
+// These WebGL-specific utilities are no longer needed and can be removed.

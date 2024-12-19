@@ -30,7 +30,7 @@ export function createCamera(orientation: {
     };
 }
 
-export function setOrientation(camera: State, orientation: {
+export function setOrientation(camera: CameraState, orientation: {
     position: vec3,
     target: vec3,
     up: vec3
@@ -45,7 +45,7 @@ export function setOrientation(camera: State, orientation: {
     camera.theta = Math.atan2(relativePos[0], relativePos[1]);
 }
 
-export function setPerspective(camera: State, perspective: {
+export function setPerspective(camera: CameraState, perspective: {
     fov: number,
     near: number,
     far: number
@@ -55,21 +55,21 @@ export function setPerspective(camera: State, perspective: {
     camera.far = perspective.far;
 }
 
-export function getOrientationMatrix(camera: State): mat4 {
+export function getOrientationMatrix(camera: CameraState): mat4 {
     return mat4.lookAt(mat4.create(), camera.position, camera.target, camera.up);
 }
 
-export function getPerspectiveMatrix(camera: State, gl: WebGL2RenderingContext): mat4 {
+export function getPerspectiveMatrix(camera: CameraState, aspectRatio: number): mat4 {
     return mat4.perspective(
         mat4.create(),
         camera.fov * Math.PI / 180,
-        gl.canvas.width / gl.canvas.height,
+        aspectRatio,
         camera.near,
         camera.far
     );
 }
 
-export function orbit(camera: State, deltaX: number, deltaY: number): void {
+export function orbit(camera: CameraState, deltaX: number, deltaY: number): void {
     camera.theta += deltaX * 0.01;
     camera.phi -= deltaY * 0.01;
     camera.phi = Math.max(0.01, Math.min(Math.PI - 0.01, camera.phi));
@@ -84,14 +84,14 @@ export function orbit(camera: State, deltaX: number, deltaY: number): void {
     camera.position[2] = camera.target[2] + camera.radius * cosPhi;
 }
 
-export function zoom(camera: State, delta: number): void {
+export function zoom(camera: CameraState, delta: number): void {
     camera.radius = Math.max(0.1, Math.min(1000, camera.radius + delta * 0.1));
     const direction = vec3.sub(vec3.create(), camera.target, camera.position);
     vec3.normalize(direction, direction);
     vec3.scaleAndAdd(camera.position, camera.target, direction, -camera.radius);
 }
 
-export function pan(camera: State, deltaX: number, deltaY: number): void {
+export function pan(camera: CameraState, deltaX: number, deltaY: number): void {
     const forward = vec3.sub(vec3.create(), camera.target, camera.position);
     const right = vec3.cross(vec3.create(), forward, camera.up);
     vec3.normalize(right, right);
@@ -121,7 +121,7 @@ export function useCamera(
         throw new Error('Either camera or defaultCamera must be provided');
     }
 
-    const cameraRef = useRef<State | null>(null);
+    const cameraRef = useRef<CameraState | null>(null);
 
     useMemo(() => {
         const orientation = {
@@ -185,7 +185,7 @@ export function useCamera(
         });
     }, []);
 
-    const handleCameraMove = useCallback((action: (camera: State) => void) => {
+    const handleCameraMove = useCallback((action: (camera: CameraState) => void) => {
         if (!cameraRef.current) return;
         action(cameraRef.current);
 
