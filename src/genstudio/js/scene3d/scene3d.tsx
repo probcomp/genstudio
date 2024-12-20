@@ -442,6 +442,10 @@ export function Scene({
         });
     }, []);
 
+    useEffect(() => {
+        requestRender();
+    }, [points, requestRender]);
+
     const {
         cameraRef,
         handleCameraMove
