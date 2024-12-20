@@ -106,6 +106,67 @@ def make_wall(n_points: int):
     return xyz, rgb
 
 
+def rotate_points(
+    xyz: np.ndarray, n_frames: int = 10, origin: np.ndarray = None, axis: str = "z"
+) -> np.ndarray:
+    """Rotate points around an axis over n_frames.
+
+    Args:
+        xyz: Flattened array of point coordinates in [x1,y1,z1,x2,y2,z2,...] format
+        n_frames: Number of frames to generate
+        origin: Point to rotate around, defaults to [0,0,0]
+        axis: Axis to rotate around ('x', 'y' or 'z')
+
+    Returns:
+        (n_frames, N*3) array of rotated points, flattened for each frame
+    """
+    # Reshape flattened input to (N,3)
+    xyz = xyz.reshape(-1, 3)
+    input_dtype = xyz.dtype
+
+    # Set default origin to [0,0,0]
+    if origin is None:
+        origin = np.zeros(3, dtype=input_dtype)
+
+    # Initialize output array with same dtype as input
+    moved = np.zeros((n_frames, xyz.shape[0] * 3), dtype=input_dtype)
+
+    # Generate rotation angles for each frame (360 degrees = 2*pi radians)
+    angles = np.linspace(0, 2 * np.pi, n_frames, dtype=input_dtype)
+
+    # Center points around origin
+    centered = xyz - origin
+
+    # Apply rotation around specified axis
+    for i in range(n_frames):
+        angle = angles[i]
+        rotated = centered.copy()
+
+        if axis == "x":
+            # Rotate around x-axis
+            y = rotated[:, 1] * np.cos(angle) - rotated[:, 2] * np.sin(angle)
+            z = rotated[:, 1] * np.sin(angle) + rotated[:, 2] * np.cos(angle)
+            rotated[:, 1] = y
+            rotated[:, 2] = z
+        elif axis == "y":
+            # Rotate around y-axis
+            x = rotated[:, 0] * np.cos(angle) + rotated[:, 2] * np.sin(angle)
+            z = -rotated[:, 0] * np.sin(angle) + rotated[:, 2] * np.cos(angle)
+            rotated[:, 0] = x
+            rotated[:, 2] = z
+        else:  # z axis
+            # Rotate around z-axis
+            x = rotated[:, 0] * np.cos(angle) - rotated[:, 1] * np.sin(angle)
+            y = rotated[:, 0] * np.sin(angle) + rotated[:, 1] * np.cos(angle)
+            rotated[:, 0] = x
+            rotated[:, 1] = y
+
+        # Move back from origin and flatten
+        moved[i] = (rotated + origin).flatten()
+
+    return moved
+
+
 # Camera parameters - positioned to see the spiral structure
 camera = {
     "position": [7, 4, 4],
@@ -197,10 +258,14 @@ def find_similar_colors(rgb, point_idx, threshold=0.1):
 
 
 # Create point clouds with 50k points
-NUM_POINTS = 500000
+NUM_POINTS = 400000
+NUM_FRAMES = 4
 torus_xyz, torus_rgb = make_torus_knot(NUM_POINTS)
 cube_xyz, cube_rgb = make_cube(NUM_POINTS)
 wall_xyz, wall_rgb = make_wall(NUM_POINTS)
+torus_xyz = rotate_points(torus_xyz, n_frames=NUM_FRAMES)
+cube_xyz = rotate_points(cube_xyz, n_frames=NUM_FRAMES)
+wall_xyz = rotate_points(wall_xyz, n_frames=NUM_FRAMES)
 
 (
     Plot.initialState(
@@ -214,25 +279,29 @@ wall_xyz, wall_rgb = make_wall(NUM_POINTS)
             "cube_rgb": cube_rgb,
             "torus_xyz": torus_xyz,
             "torus_rgb": torus_rgb,
-            "wall_xyz": wall_xyz,
-            "wall_rgb": wall_rgb,
+            "frame": 0,
         },
         sync={"selected_region_i", "cube_rgb"},
     )
+    | Plot.Slider("frame", range=NUM_FRAMES, fps=0.5)
     | scene(
         True,
         0.05,
-        js("$state.torus_xyz"),
+        js("$state.torus_xyz[$state.frame]"),
         js("$state.torus_rgb"),
         np.random.uniform(0.1, 10, NUM_POINTS).astype(np.float32),
     )
     & scene(
-        True, 0.3, js("$state.torus_xyz"), js("$state.torus_rgb"), np.ones(NUM_POINTS)
+        True,
+        0.3,
+        js("$state.torus_xyz[$state.frame]"),
+        js("$state.torus_rgb"),
+        np.ones(NUM_POINTS),
     )
     | scene(
         False,
         0.05,
-        js("$state.cube_xyz"),
+        js("$state.cube_xyz[$state.frame]"),
         js("$state.cube_rgb"),
         np.ones(NUM_POINTS),
         True,
@@ -240,7 +309,7 @@ wall_xyz, wall_rgb = make_wall(NUM_POINTS)
     & scene(
         False,
         0.1,
-        js("$state.cube_xyz"),
+        js("$state.cube_xyz[$state.frame]"),
         js("$state.cube_rgb"),
         np.random.uniform(0.2, 3, NUM_POINTS).astype(np.float32),
         True,
