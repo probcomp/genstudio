@@ -14,8 +14,9 @@ const { useState, useEffect, useContext, useRef, useCallback } = React
 import Katex from "katex";
 import markdownItKatex from "./markdown-it-katex";
 import * as scene3d from "./scene3d/scene3d"
+import * as scene3dNew from "./scene3d/scene3dNew"
 
-export { render, scene3d };
+export { render, scene3d, scene3dNew };
 export const CONTAINER_PADDING = 10;
 const KATEX_CSS_URL = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
 
