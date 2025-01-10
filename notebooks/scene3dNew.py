@@ -1,5 +1,49 @@
 import genstudio.plot as Plot
 from typing import Any
+from colorsys import hsv_to_rgb
+
+import numpy as np
+
+
+def make_torus_knot(n_points: int):
+    # Create a torus knot
+    t = np.linspace(0, 4 * np.pi, n_points)
+    p, q = 3, 2  # Parameters that determine knot shape
+    R, r = 2, 1  # Major and minor radii
+
+    # Torus knot parametric equations
+    x = (R + r * np.cos(q * t)) * np.cos(p * t)
+    y = (R + r * np.cos(q * t)) * np.sin(p * t)
+    z = r * np.sin(q * t)
+
+    # Add Gaussian noise to create volume
+    noise_scale = 0.1
+    x += np.random.normal(0, noise_scale, n_points)
+    y += np.random.normal(0, noise_scale, n_points)
+    z += np.random.normal(0, noise_scale, n_points)
+
+    # Base color from position
+    angle = np.arctan2(y, x)
+    height = (z - z.min()) / (z.max() - z.min())
+    radius = np.sqrt(x * x + y * y)
+    radius_norm = (radius - radius.min()) / (radius.max() - radius.min())
+
+    # Create hue that varies with angle and height
+    hue = (angle / (2 * np.pi) + height) % 1.0
+    # Saturation that varies with radius
+    saturation = 0.8 + radius_norm * 0.2
+    # Value/brightness
+    value = 0.8 + np.random.uniform(0, 0.2, n_points)
+
+    # Convert HSV to RGB
+    colors = np.array([hsv_to_rgb(h, s, v) for h, s, v in zip(hue, saturation, value)])
+    # Reshape colors to match xyz structure before flattening
+    rgb = (colors.reshape(-1, 3) * 255).astype(np.uint8).flatten()
+
+    # Prepare point cloud coordinates
+    xyz = np.column_stack([x, y, z]).astype(np.float32).flatten()
+
+    return xyz, rgb
 
 
 #
@@ -89,5 +133,15 @@ class Points(Plot.LayoutItem):
         return [Plot.JSRef("scene3dNew.Scene"), self.props]
 
 
+xyz, rgb = make_torus_knot(10000)
 #
-Plot.html([Plot.JSRef("scene3dNew.App")])
+Plot.html(
+    [
+        Plot.JSRef("scene3dNew.Torus"),
+        {
+            "elements": [
+                {"type": "PointCloud", "data": {"positions": xyz, "colors": rgb}}
+            ]
+        },
+    ]
+)

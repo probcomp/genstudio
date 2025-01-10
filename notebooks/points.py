@@ -258,8 +258,8 @@ def find_similar_colors(rgb, point_idx, threshold=0.1):
 
 
 # Create point clouds with 50k points
-NUM_POINTS = 400000
-NUM_FRAMES = 4
+NUM_POINTS = 100000
+NUM_FRAMES = 30
 torus_xyz, torus_rgb = make_torus_knot(NUM_POINTS)
 cube_xyz, cube_rgb = make_cube(NUM_POINTS)
 wall_xyz, wall_rgb = make_wall(NUM_POINTS)
@@ -283,7 +283,7 @@ wall_xyz = rotate_points(wall_xyz, n_frames=NUM_FRAMES)
         },
         sync={"selected_region_i", "cube_rgb"},
     )
-    | Plot.Slider("frame", range=NUM_FRAMES, fps=0.5)
+    | Plot.Slider("frame", range=NUM_FRAMES, fps=30)
     | scene(
         True,
         0.05,

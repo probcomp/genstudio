@@ -55,6 +55,7 @@ interface SceneProps {
  * 4) SceneWrapper - measures container, uses <Scene>
  ******************************************************/
 export function SceneWrapper({ elements }: { elements: SceneElementConfig[] }) {
+  console.log("SW", elements)
   const [containerRef, measuredWidth] = useContainerWidth(1);
 
   return (
@@ -452,7 +453,7 @@ fn fs_main(
    ******************************************************/
   function buildInstanceData(
     positions: Float32Array,
-    colors?: Float32Array,
+    colors?: Float32Array | Uint8Array,
     scales?: Float32Array,
     decorations?: Decoration[],
   ): Float32Array {
@@ -466,9 +467,11 @@ fn fs_main(
 
       // color or white
       if (colors && colors.length === count * 3) {
-        instanceData[i * 8 + 3] = colors[i * 3 + 0];
-        instanceData[i * 8 + 4] = colors[i * 3 + 1];
-        instanceData[i * 8 + 5] = colors[i * 3 + 2];
+        // Normalize if colors are Uint8Array (0-255) to float (0-1)
+        const normalize = colors instanceof Uint8Array ? (1/255) : 1;
+        instanceData[i * 8 + 3] = colors[i * 3 + 0] * normalize;
+        instanceData[i * 8 + 4] = colors[i * 3 + 1] * normalize;
+        instanceData[i * 8 + 5] = colors[i * 3 + 2] * normalize;
       } else {
         instanceData[i * 8 + 3] = 1;
         instanceData[i * 8 + 4] = 1;
@@ -561,7 +564,7 @@ fn fs_main(
     if (mouseState.current.button === 2 || e.shiftKey) {
       setCamera(cam => ({
         ...cam,
-        panX: cam.panX + dx * 0.002,
+        panX: cam.panX - dx * 0.002,
         panY: cam.panY + dy * 0.002,
       }));
     }
@@ -733,4 +736,8 @@ export function App() {
       </p>
     </>
   );
+}
+
+export function Torus(props) {
+  return <SceneWrapper {...props} />
 }
