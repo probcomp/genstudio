@@ -1,6 +1,7 @@
 import esbuild from 'esbuild'
 import cssModulesPlugin from "esbuild-css-modules-plugin"
 import * as importMap from "esbuild-plugin-import-map";
+import {wgsl} from "@use-gpu/wgsl-loader/esbuild";
 
 const args = process.argv.slice(2);
 const watch = args.includes('--watch');
@@ -10,7 +11,7 @@ const options = {
   bundle: true,
   format: 'esm',
   outfile: 'src/genstudio/js/widget_build.js',
-  plugins: [cssModulesPlugin()],
+  plugins: [wgsl(), cssModulesPlugin()],
   minify: !watch,
   sourcemap: watch,
 };

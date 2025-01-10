@@ -1,3 +1,5 @@
+/// <reference types="react" />
+
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 import { PointCloudViewerProps, ShaderUniforms, CameraState, Decoration } from './types';
 import { useContainerWidth, useShallowMemo } from '../utils';
@@ -254,11 +256,10 @@ function usePicking(pointSize: number, programRef, uniformsRef, vaoRef) {
                         const dist = Math.hypot(x - centerX, y - centerY);
                         if (dist < minDist) {
                             minDist = dist;
-                        closestId = pixels[i] +
-                            pixels[i + 1] * 256 +
-                            pixels[i + 2] * 256 * 256;
+                            closestId = pixels[i] +
+                                pixels[i + 1] * 256 +
+                                pixels[i + 2] * 256 * 256;
                         }
-
                     }
                 }
             }
