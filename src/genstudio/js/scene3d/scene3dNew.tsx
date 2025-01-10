@@ -9,7 +9,7 @@ import { useContainerWidth } from '../utils';
 interface PointCloudData {
   positions: Float32Array;     // [x1, y1, z1, x2, y2, z2, ...]
   colors?: Float32Array;       // [r1, g1, b1, r2, g2, b2, ...] (each in [0..1])
-  scales?: Float32Array;       // per-point scale factors
+  scales?: Float32Array;       // per-point scale factors (optional)
 }
 
 interface Decoration {
@@ -23,11 +23,11 @@ interface Decoration {
 interface PointCloudElementConfig {
   type: 'PointCloud';
   data: PointCloudData;
-  pointSize?: number;       // (We won't use this anymore; we rely on scales[] for size)
+  pointSize?: number;       // Not directly used in this example
   decorations?: Decoration[];
 }
 
-// For now, we only implement PointCloud
+// We only implement PointCloud for now
 type SceneElementConfig = PointCloudElementConfig;
 
 /******************************************************
@@ -35,20 +35,46 @@ type SceneElementConfig = PointCloudElementConfig;
  ******************************************************/
 interface SceneProps {
   elements: SceneElementConfig[];
+  containerWidth: number;
 }
 
 /******************************************************
- * 3) The Scene Component (Stage 4: Scale & Decorations)
+ * SceneWrapper
+ *  - Measures container width using useContainerWidth
+ *  - Renders <Scene> once we have a non-zero width
  ******************************************************/
-export function Scene({ elements }: SceneProps) {
-  // --------------------------------------
-  // a) Canvas & Container
-  // --------------------------------------
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [containerRef, containerWidth] = useContainerWidth(1);
-  const canvasHeight = 400;
+export function SceneWrapper({ elements }: { elements: SceneElementConfig[] }) {
+  const [containerRef, measuredWidth] = useContainerWidth(1);
 
-  // Combine GPU state into a single ref
+  return (
+    <div ref={containerRef} style={{ width: '100%' }}>
+      {measuredWidth > 0 && (
+        <Scene
+          elements={elements}
+          containerWidth={measuredWidth}
+        />
+      )}
+    </div>
+  );
+}
+
+/******************************************************
+ * The Scene Component
+ *  - Renders a set of points as billboard quads using WebGPU.
+ *  - Demonstrates scale, color, alpha, and decorations.
+ ******************************************************/
+function Scene({ elements, containerWidth }: SceneProps) {
+  // ----------------------------------------------------
+  // A) Canvas Setup
+  // ----------------------------------------------------
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Ensure canvas dimensions are non-zero
+  const safeWidth = containerWidth > 0 ? containerWidth : 300;
+  const canvasWidth = safeWidth;
+  const canvasHeight = safeWidth;
+
+  // GPU references in a single object
   const gpuRef = useRef<{
     device: GPUDevice;
     context: GPUCanvasContext;
@@ -56,45 +82,42 @@ export function Scene({ elements }: SceneProps) {
     quadVertexBuffer: GPUBuffer;
     quadIndexBuffer: GPUBuffer;
     instanceBuffer: GPUBuffer | null;
-    indexCount: number;       // for the quad
-    instanceCount: number;    // number of points
+    indexCount: number;
+    instanceCount: number;
   } | null>(null);
 
   // Animation handle
   const rafIdRef = useRef<number>(0);
 
-  // Track readiness
+  // Track WebGPU readiness
   const [isWebGPUReady, setIsWebGPUReady] = useState(false);
 
-  // --------------------------------------
-  // b) Create a static "quad" for the billboard
-  //    We'll center it at (0,0) so we can
-  //    scale/translate it per-point in the shader.
-  // --------------------------------------
+  // ----------------------------------------------------
+  // B) Static Quad Data
+  // ----------------------------------------------------
+  // A 2D quad, centered at (0,0).
   const QUAD_VERTICES = new Float32Array([
     //   x,    y
-    -0.5, -0.5,   // bottom-left
-     0.5, -0.5,   // bottom-right
-    -0.5,  0.5,   // top-left
-     0.5,  0.5,   // top-right
+    -0.5, -0.5,  // bottom-left
+     0.5, -0.5,  // bottom-right
+    -0.5,  0.5,  // top-left
+     0.5,  0.5,  // top-right
   ]);
   const QUAD_INDICES = new Uint16Array([
-    0, 1, 2,  // first triangle (bottom-left, bottom-right, top-left)
-    2, 1, 3   // second triangle (top-left, bottom-right, top-right)
+    0, 1, 2,
+    2, 1, 3
   ]);
 
-  // We'll define the instance layout as:
-  //   struct InstanceData {
-  //       position : vec3<f32>,
-  //       color    : vec3<f32>,
-  //       alpha    : f32,
-  //       scale    : f32,
-  //   };
+  // Each instance has 8 floats:
+  //   position (x,y,z) => 3
+  //   color    (r,g,b) => 3
+  //   alpha              => 1
+  //   scale              => 1
   // => total 8 floats (32 bytes)
 
-  // --------------------------------------
-  // c) Init WebGPU (once)
-  // --------------------------------------
+  // ----------------------------------------------------
+  // C) Initialize WebGPU
+  // ----------------------------------------------------
   const initWebGPU = useCallback(async () => {
     if (!canvasRef.current) return;
     if (!navigator.gpu) {
@@ -103,22 +126,25 @@ export function Scene({ elements }: SceneProps) {
     }
 
     try {
+      // 1) Request adapter & device
       const adapter = await navigator.gpu.requestAdapter();
       if (!adapter) {
-        throw new Error('Failed to get GPU adapter.');
+        throw new Error('Failed to get GPU adapter. Check browser/system support.');
       }
       const device = await adapter.requestDevice();
+
+      // 2) Acquire WebGPU context
       const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
       const format = navigator.gpu.getPreferredCanvasFormat();
 
-      // Configure
+      // 3) Configure the swap chain
       context.configure({
         device,
         format,
         alphaMode: 'opaque',
       });
 
-      // Create buffers for the quad
+      // 4) Create buffers for the static quad
       const quadVertexBuffer = device.createBuffer({
         size: QUAD_VERTICES.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -131,43 +157,51 @@ export function Scene({ elements }: SceneProps) {
       });
       device.queue.writeBuffer(quadIndexBuffer, 0, QUAD_INDICES);
 
-      // Create pipeline
+      // 5) Create the render pipeline
+      //    NOTE: The fragment expects a color at @location(2),
+      //          so the vertex must OUTPUT something at location(2).
       const pipeline = device.createRenderPipeline({
         layout: 'auto',
         vertex: {
           module: device.createShaderModule({
             code: `
-            struct InstanceData {
-  position : vec3<f32>,
-  color    : vec3<f32>,
-  alpha    : f32,
-  scale    : f32,
+struct VertexOut {
+  @builtin(position) position : vec4<f32>,
+  @location(2) color : vec3<f32>,
+  @location(3) alpha : f32,
 };
 
 @vertex
 fn vs_main(
-  // Quad corner offset in 2D
+  // Quad corner in 2D
   @location(0) corner: vec2<f32>,
-  // Instance data
+
+  // Per-instance data
   @location(1) instancePos  : vec3<f32>,
   @location(2) instanceColor: vec3<f32>,
   @location(3) instanceAlpha: f32,
   @location(4) instanceScale: f32
-) -> @builtin(position) vec4<f32> {
-  // We'll expand the corner by scale, then translate by instancePos
-  let scaledCorner = corner * instanceScale;
+) -> VertexOut {
+  var out: VertexOut;
+
+  let cornerOffset = corner * instanceScale;
   let finalPos = vec3<f32>(
-    instancePos.x + scaledCorner.x,
-    instancePos.y + scaledCorner.y,
+    instancePos.x + cornerOffset.x,
+    instancePos.y + cornerOffset.y,
     instancePos.z
   );
-  return vec4<f32>(finalPos, 1.0);
-};
+
+  out.position = vec4<f32>(finalPos, 1.0);
+  out.color = instanceColor;
+  out.alpha = instanceAlpha;
+
+  return out;
+}
 
 @fragment
 fn fs_main(
-  @location(2) inColor : vec3<f32>,
-  @location(3) inAlpha : f32
+  @location(2) inColor: vec3<f32>,
+  @location(3) inAlpha: f32
 ) -> @location(0) vec4<f32> {
   return vec4<f32>(inColor, inAlpha);
 }
@@ -175,20 +209,20 @@ fn fs_main(
           }),
           entryPoint: 'vs_main',
           buffers: [
-            // Buffer(0): The quad's corner offsets (non-instanced)
+            // Buffer(0) => the quad corners
             {
-              arrayStride: 2 * 4, // 2 floats (x,y) * 4 bytes
+              arrayStride: 2 * 4, // 2 floats * 4 bytes
               attributes: [
                 {
-                  shaderLocation: 0,
+                  shaderLocation: 0, // "corner"
                   offset: 0,
                   format: 'float32x2',
                 },
               ],
             },
-            // Buffer(1): The per-instance data
+            // Buffer(1) => per-instance data
             {
-              arrayStride: 8 * 4, // 8 floats * 4 bytes
+              arrayStride: 8 * 4, // 8 floats * 4 bytes each
               stepMode: 'instance',
               attributes: [
                 // instancePos (3 floats)
@@ -222,13 +256,13 @@ fn fs_main(
         fragment: {
           module: device.createShaderModule({
             code: `
-            @fragment
-            fn fs_main(
-              @location(2) inColor : vec3<f32>,
-              @location(3) inAlpha : f32
-            ) -> @location(0) vec4<f32> {
-              return vec4<f32>(inColor, inAlpha);
-            }
+@fragment
+fn fs_main(
+  @location(2) inColor: vec3<f32>,
+  @location(3) inAlpha: f32
+) -> @location(0) vec4<f32> {
+  return vec4<f32>(inColor, inAlpha);
+}
             `,
           }),
           entryPoint: 'fs_main',
@@ -249,116 +283,120 @@ fn fs_main(
         indexCount: QUAD_INDICES.length,
         instanceCount: 0,
       };
+
       setIsWebGPUReady(true);
     } catch (err) {
       console.error('Error initializing WebGPU:', err);
     }
   }, []);
 
-  // --------------------------------------
-  // d) Render Loop
-  // --------------------------------------
+  // ----------------------------------------------------
+  // D) Render Loop
+  // ----------------------------------------------------
   const renderFrame = useCallback(() => {
     if (!gpuRef.current) {
       rafIdRef.current = requestAnimationFrame(renderFrame);
       return;
     }
+    const {
+      device,
+      context,
+      pipeline,
+      quadVertexBuffer,
+      quadIndexBuffer,
+      instanceBuffer,
+      indexCount,
+      instanceCount,
+    } = gpuRef.current;
 
-    const { device, context, pipeline, quadVertexBuffer, quadIndexBuffer, instanceBuffer, indexCount, instanceCount } = gpuRef.current;
     if (!device || !context || !pipeline) {
       rafIdRef.current = requestAnimationFrame(renderFrame);
       return;
     }
 
-    // 1) Get current texture
-    const currentTexture = context.getCurrentTexture();
+    // Attempt to grab the current swap-chain texture
+    let currentTexture: GPUTexture;
+    try {
+      currentTexture = context.getCurrentTexture();
+    } catch {
+      // If canvas is size 0 or something else is amiss, try again next frame
+      rafIdRef.current = requestAnimationFrame(renderFrame);
+      return;
+    }
+
     const renderPassDesc: GPURenderPassDescriptor = {
       colorAttachments: [
         {
           view: currentTexture.createView(),
-          clearValue: { r: 0.2, g: 0.2, b: 0.4, a: 1 },
+          clearValue: { r: 0.1, g: 0.1, b: 0.1, a: 1.0 },
           loadOp: 'clear',
           storeOp: 'store',
         },
       ],
     };
 
-    // 2) Encode
-    const commandEncoder = device.createCommandEncoder();
-    const passEncoder = commandEncoder.beginRenderPass(renderPassDesc);
+    // Encode commands
+    const cmdEncoder = device.createCommandEncoder();
+    const passEncoder = cmdEncoder.beginRenderPass(renderPassDesc);
 
     if (instanceBuffer && instanceCount > 0) {
       passEncoder.setPipeline(pipeline);
-      // Binding 0 => the quad
       passEncoder.setVertexBuffer(0, quadVertexBuffer);
-      // Binding 1 => the instance data
       passEncoder.setVertexBuffer(1, instanceBuffer);
       passEncoder.setIndexBuffer(quadIndexBuffer, 'uint16');
-      // Draw 6 indices (2 triangles), with `instanceCount` instances
-      passEncoder.drawIndexed(indexCount, instanceCount, 0, 0, 0);
+      passEncoder.drawIndexed(indexCount, instanceCount);
     }
 
     passEncoder.end();
+    device.queue.submit([cmdEncoder.finish()]);
 
-    // 3) Submit
-    const gpuCommands = commandEncoder.finish();
-    device.queue.submit([gpuCommands]);
-
-    // 4) Loop
+    // Loop
     rafIdRef.current = requestAnimationFrame(renderFrame);
   }, []);
 
-  // --------------------------------------
-  // e) Build final arrays (position, color, alpha, scale) + apply decorations
-  // --------------------------------------
+  // ----------------------------------------------------
+  // E) buildInstanceData
+  // ----------------------------------------------------
   function buildInstanceData(
     positions: Float32Array,
-    colors: Float32Array | undefined,
-    scales: Float32Array | undefined,
-    decorations: Decoration[] | undefined
+    colors?: Float32Array,
+    scales?: Float32Array,
+    decorations?: Decoration[]
   ): Float32Array {
-    const count = positions.length / 3;
+    const count = positions.length / 3; // each point is (x,y,z)
     const instanceData = new Float32Array(count * 8);
 
-    // We’ll fill in base data from positions, colors, scales
-    // Layout per point i:
-    //   0..2: (x,y,z)
-    //   3..5: (r,g,b)
-    //   6   : alpha
-    //   7   : scale
+    // Base fill: position, color, alpha=1, scale=0.02 (if missing)
     for (let i = 0; i < count; i++) {
-      // position
       instanceData[i * 8 + 0] = positions[i * 3 + 0];
       instanceData[i * 8 + 1] = positions[i * 3 + 1];
       instanceData[i * 8 + 2] = positions[i * 3 + 2];
-      // color
+
       if (colors && colors.length === count * 3) {
         instanceData[i * 8 + 3] = colors[i * 3 + 0];
         instanceData[i * 8 + 4] = colors[i * 3 + 1];
         instanceData[i * 8 + 5] = colors[i * 3 + 2];
       } else {
-        // default to white
         instanceData[i * 8 + 3] = 1.0;
         instanceData[i * 8 + 4] = 1.0;
         instanceData[i * 8 + 5] = 1.0;
       }
-      // alpha defaults to 1
-      instanceData[i * 8 + 6] = 1.0;
-      // scale
+
+      instanceData[i * 8 + 6] = 1.0; // alpha
       if (scales && scales.length === count) {
         instanceData[i * 8 + 7] = scales[i];
       } else {
-        // default scale
-        instanceData[i * 8 + 7] = 0.02; // arbitrary small
+        instanceData[i * 8 + 7] = 0.02;
       }
     }
 
-    // Apply any decorations
+    // Apply decorations
     if (decorations) {
       for (const dec of decorations) {
         const { indexes, color, alpha, scale, minSize } = dec;
         for (const idx of indexes) {
           if (idx < 0 || idx >= count) continue;
+
           if (color) {
             instanceData[idx * 8 + 3] = color[0];
             instanceData[idx * 8 + 4] = color[1];
@@ -368,12 +406,11 @@ fn fs_main(
             instanceData[idx * 8 + 6] = alpha;
           }
           if (scale !== undefined) {
-            // multiply the existing scale
             instanceData[idx * 8 + 7] *= scale;
           }
           if (minSize !== undefined) {
-            // clamp to minSize if needed
-            if (instanceData[idx * 8 + 7] < minSize) {
+            const currentScale = instanceData[idx * 8 + 7];
+            if (currentScale < minSize) {
               instanceData[idx * 8 + 7] = minSize;
             }
           }
@@ -384,17 +421,16 @@ fn fs_main(
     return instanceData;
   }
 
-  // --------------------------------------
-  // f) Update instance buffer from the FIRST point cloud
-  // --------------------------------------
+  // ----------------------------------------------------
+  // F) Update instance buffer from the FIRST PointCloud
+  // ----------------------------------------------------
   const updatePointCloudBuffers = useCallback((sceneElements: SceneElementConfig[]) => {
     if (!gpuRef.current) return;
     const { device } = gpuRef.current;
 
-    // For simplicity, handle only FIRST pointcloud
+    // For simplicity, handle only the FIRST PointCloud
     const pc = sceneElements.find(e => e.type === 'PointCloud');
     if (!pc || pc.data.positions.length === 0) {
-      // no data
       gpuRef.current.instanceBuffer = null;
       gpuRef.current.instanceCount = 0;
       return;
@@ -402,7 +438,8 @@ fn fs_main(
 
     const { positions, colors, scales } = pc.data;
     const decorations = pc.decorations || [];
-    // Build final array
+
+    // Build final data
     const instanceData = buildInstanceData(positions, colors, scales, decorations);
 
     const instanceBuffer = device.createBuffer({
@@ -422,10 +459,10 @@ fn fs_main(
     gpuRef.current.instanceCount = positions.length / 3;
   }, []);
 
-  // --------------------------------------
-  // g) Effects
-  // --------------------------------------
-  // 1) Init once
+  // ----------------------------------------------------
+  // G) Effects
+  // ----------------------------------------------------
+  // 1) Initialize WebGPU once
   useEffect(() => {
     initWebGPU();
     return () => {
@@ -433,12 +470,12 @@ fn fs_main(
     };
   }, [initWebGPU]);
 
-  // 2) Resize
+  // 2) Resize the canvas
   useEffect(() => {
     if (!canvasRef.current) return;
-    canvasRef.current.width = containerWidth;
+    canvasRef.current.width = canvasWidth;
     canvasRef.current.height = canvasHeight;
-  }, [containerWidth]);
+  }, [canvasWidth, canvasHeight]);
 
   // 3) Start render loop
   useEffect(() => {
@@ -450,72 +487,78 @@ fn fs_main(
     };
   }, [isWebGPUReady, renderFrame]);
 
-  // 4) Whenever the elements change, re-build instance buffer
+  // 4) Rebuild instance buffer when elements change
   useEffect(() => {
     if (isWebGPUReady) {
       updatePointCloudBuffers(elements);
     }
   }, [isWebGPUReady, elements, updatePointCloudBuffers]);
 
-  // --------------------------------------
-  // h) Render
-  // --------------------------------------
+  // ----------------------------------------------------
+  // H) Render
+  // ----------------------------------------------------
   return (
-    <div ref={containerRef} style={{ width: '100%', border: '1px solid #ccc' }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height: canvasHeight }} />
+    <div style={{ width: '100%', border: '1px solid #ccc' }}>
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100%',
+          height: canvasHeight,
+          display: 'block',
+        }}
+      />
     </div>
   );
 }
 
 /******************************************************
- * 4) Example: App Component for Stage 4
+ * Example: App Component
  ******************************************************/
 export function App() {
-  // We'll test:
-  //  - 4 points with some "base" scale in scales[]
-  //  - Then apply decorations to override color/alpha/scale
+  // 4 points in clip space
   const positions = new Float32Array([
-    -0.5, -0.5, 0.0,   // bottom-left
-     0.5, -0.5, 0.0,   // bottom-right
-    -0.5,  0.5, 0.0,   // top-left
-     0.5,  0.5, 0.0,   // top-right
+    -0.5, -0.5, 0.0,
+     0.5, -0.5, 0.0,
+    -0.5,  0.5, 0.0,
+     0.5,  0.5, 0.0,
   ]);
-  // Base color: all white
+
+  // All white by default
   const colors = new Float32Array([
     1, 1, 1,
     1, 1, 1,
     1, 1, 1,
-    1, 1, 1
-  ]);
-  // Base scale: small
-  const scales = new Float32Array([
-    0.05, 0.05, 0.05, 0.05
+    1, 1, 1,
   ]);
 
+  // Base scale
+  const scales = new Float32Array([0.05, 0.05, 0.05, 0.05]);
+
+  // Simple decorations
   const decorations: Decoration[] = [
     {
       indexes: [0],
-      color: [1, 0, 0],  // red
+      color: [1, 0, 0],   // red
       alpha: 1.0,
       scale: 1.0,
-      minSize: 0.05,     // ensures at least 0.05
+      minSize: 0.05,
     },
     {
       indexes: [1],
-      color: [0, 1, 0],  // green
+      color: [0, 1, 0],   // green
       alpha: 0.7,
-      scale: 2.0,        // doubles the base scale
+      scale: 2.0,
     },
     {
       indexes: [2],
-      color: [0, 0, 1],  // blue
+      color: [0, 0, 1],   // blue
       alpha: 1.0,
       scale: 1.5,
-      minSize: 0.08,     // overrides the final scale if < 0.08
+      minSize: 0.08,
     },
     {
       indexes: [3],
-      color: [1, 1, 0],  // yellow
+      color: [1, 1, 0],   // yellow
       alpha: 0.3,
       scale: 0.5,
     },
@@ -532,7 +575,7 @@ export function App() {
   return (
     <div style={{ width: '600px' }}>
       <h2>Stage 4: Scale & Decorations (Billboard Quads)</h2>
-      <Scene elements={testElements} />
+      <SceneWrapper elements={testElements} />
     </div>
   );
 }

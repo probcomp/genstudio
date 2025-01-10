@@ -3,6 +3,7 @@ import { vec3 } from 'gl-matrix';
 export interface PointCloudData {
     position: Float32Array;
     color?: Uint8Array;
+    scale?: Float32Array;
 }
 
 export interface CameraParams {
