@@ -1863,7 +1863,11 @@ const {positions:spherePositions, colors:sphereColors}=generateSpherePointCloud(
 
 export function App() {
   const [highlightIdx, setHighlightIdx] = useState<number|null>(null);
-  const [hoveredEllipsoid, setHoveredEllipsoid] = useState<{type:'Ellipsoid'|'EllipsoidBounds', index:number}|null>(null);
+  const [hovered, setHovered] = useState<{[key: string]: {type: string, index: number} | null}>({
+    PointCloud: null,
+    Ellipsoid: null,
+    EllipsoidBounds: null
+  });
 
   // Define a point cloud
   const pcElement: PointCloudElementConfig={
@@ -1873,12 +1877,14 @@ export function App() {
       {indexes:[highlightIdx], color:[1,0,1], alpha:1, minSize:0.05}
     ],
     onHover:(i)=>{
-      if(i===null){
+      setHovered(prev => ({
+        ...prev,
+        PointCloud: i === null ? null : {type: 'PointCloud', index: i}
+      }));
+      if(i === null){
         setHighlightIdx(null);
-        setHoveredEllipsoid(null);
       } else {
         setHighlightIdx(i);
-        setHoveredEllipsoid(null);
       }
     },
     onClick:(i)=> alert(`Clicked point #${i}`)
@@ -1892,16 +1898,14 @@ export function App() {
   const ellipsoidElement: EllipsoidElementConfig={
     type:'Ellipsoid',
     data:{ centers:eCenters, radii:eRadii, colors:eColors },
-    decorations: hoveredEllipsoid?.type==='Ellipsoid' ? [
-      {indexes:[hoveredEllipsoid.index], color:[1,1,0], alpha:0.8}
+    decorations: hovered.Ellipsoid ? [
+      {indexes:[hovered.Ellipsoid.index], color:[1,1,0], alpha:0.8}
     ]: undefined,
     onHover:(i)=>{
-      if(i===null){
-        setHoveredEllipsoid(null);
-      } else {
-        setHoveredEllipsoid({type:'Ellipsoid', index:i});
-        setHighlightIdx(null);
-      }
+      setHovered(prev => ({
+        ...prev,
+        Ellipsoid: i === null ? null : {type: 'Ellipsoid', index: i}
+      }));
     },
     onClick:(i)=> alert(`Click ellipsoid #${i}`)
   };
@@ -1926,19 +1930,15 @@ export function App() {
   const boundElement: EllipsoidBoundsElementConfig={
     type:'EllipsoidBounds',
     data:{ centers: boundCenters, radii: boundRadii, colors: boundColors },
-    decorations:[
-      {indexes:[0], alpha:1},
-      {indexes:[1], alpha:1},
-      {indexes:[2], alpha:1},
-      ...(hoveredEllipsoid?.type==='EllipsoidBounds'
-        ? [{indexes:[hoveredEllipsoid.index], color:[1,1,0], alpha:0.8}]
-        : [])
-    ],
+    decorations: hovered.EllipsoidBounds ? [
+      {indexes:[hovered.EllipsoidBounds.index], color:[1,1,0], alpha:0.8}
+    ]: undefined,
     onHover:(i)=>{
-      if(i===null){
-        setHoveredEllipsoid(null);
-      } else {
-        setHoveredEllipsoid({type:'EllipsoidBounds', index:i});
+      setHovered(prev => ({
+        ...prev,
+        EllipsoidBounds: i === null ? null : {type: 'EllipsoidBounds', index: i}
+      }));
+      if(i !== null) {
         setHighlightIdx(null);
       }
     },
