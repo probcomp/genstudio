@@ -5,13 +5,22 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useContainerWidth } from '../utils';
 
 /******************************************************
- * 0) Lighting & Material Constants
+ * 0) Rendering Constants
  ******************************************************/
 const LIGHTING = {
-  AMBIENT_INTENSITY: 0.4,    // Was 0.2 - increased for better base visibility
-  DIFFUSE_INTENSITY: 0.6,    // Was 0.8 - reduced to balance with ambient
-  SPECULAR_INTENSITY: 0.2,   // Was 0.3 - reduced for subtler highlights
-  SPECULAR_POWER: 20.0,      // Was 30.0 - reduced for broader highlights
+  AMBIENT_INTENSITY: 0.4,
+  DIFFUSE_INTENSITY: 0.6,
+  SPECULAR_INTENSITY: 0.2,
+  SPECULAR_POWER: 20.0,
+} as const;
+
+const GEOMETRY = {
+  SPHERE: {
+    STACKS: 16,
+    SLICES: 24,
+    MIN_STACKS: 8,
+    MIN_SLICES: 12,
+  }
 } as const;
 
 /******************************************************
@@ -227,17 +236,29 @@ function Scene({ elements, containerWidth }: SceneProps) {
    * B) Generate Sphere Geometry with Normals
    ******************************************************/
   // We'll store (pos.x, pos.y, pos.z, normal.x, normal.y, normal.z).
-  function createSphereGeometry(stacks = 32, slices = 48) {
+  function createSphereGeometry(
+    stacks = GEOMETRY.SPHERE.STACKS,
+    slices = GEOMETRY.SPHERE.SLICES,
+    radius = 1.0
+  ) {
+    // Add adaptive LOD based on radius
+    const actualStacks = radius < 0.1
+      ? GEOMETRY.SPHERE.MIN_STACKS
+      : stacks;
+    const actualSlices = radius < 0.1
+      ? GEOMETRY.SPHERE.MIN_SLICES
+      : slices;
+
     const verts: number[] = [];
     const indices: number[] = [];
 
-    for (let i = 0; i <= stacks; i++) {
-      const phi = (i / stacks) * Math.PI;
+    for (let i = 0; i <= actualStacks; i++) {
+      const phi = (i / actualStacks) * Math.PI;
       const cosPhi = Math.cos(phi);
       const sinPhi = Math.sin(phi);
 
-      for (let j = 0; j <= slices; j++) {
-        const theta = (j / slices) * 2 * Math.PI;
+      for (let j = 0; j <= actualSlices; j++) {
+        const theta = (j / actualSlices) * 2 * Math.PI;
         const cosTheta = Math.cos(theta);
         const sinTheta = Math.sin(theta);
 
@@ -252,10 +273,10 @@ function Scene({ elements, containerWidth }: SceneProps) {
       }
     }
 
-    for (let i = 0; i < stacks; i++) {
-      for (let j = 0; j < slices; j++) {
-        const row1 = i * (slices + 1) + j;
-        const row2 = (i + 1) * (slices + 1) + j;
+    for (let i = 0; i < actualStacks; i++) {
+      for (let j = 0; j < actualSlices; j++) {
+        const row1 = i * (actualSlices + 1) + j;
+        const row2 = (i + 1) * (actualSlices + 1) + j;
 
         indices.push(row1, row2, row1 + 1);
         indices.push(row1 + 1, row2, row2 + 1);
@@ -309,7 +330,10 @@ function Scene({ elements, containerWidth }: SceneProps) {
       device.queue.writeBuffer(billboardQuadIB, 0, QUAD_INDICES);
 
       // 2) Sphere (pos + normal)
-      const sphereGeo = createSphereGeometry(32, 48);
+      const sphereGeo = createSphereGeometry(
+        GEOMETRY.SPHERE.STACKS,
+        GEOMETRY.SPHERE.SLICES
+      );
       const sphereVB = device.createBuffer({
         size: sphereGeo.vertexData.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
