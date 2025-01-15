@@ -1,7 +1,9 @@
 /// <reference path="./webgpu.d.ts" />
 /// <reference types="react" />
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, {
+  useRef, useEffect, useState, useCallback, MouseEvent as ReactMouseEvent
+} from 'react';
 import { useContainerWidth } from '../utils';
 
 /******************************************************
@@ -16,7 +18,7 @@ const LIGHTING = {
   DIRECTION: {
     RIGHT: 0.2,    // How far right of camera
     UP: 0.5,       // How far up from camera
-    FORWARD: 0,  // How far in front (-) or behind (+) camera
+    FORWARD: 0,    // How far in front (-) or behind (+) camera
   }
 } as const;
 
@@ -56,19 +58,31 @@ interface PointCloudElementConfig {
   type: 'PointCloud';
   data: PointCloudData;
   decorations?: Decoration[];
+
+  /** [PICKING ADDED] optional per-item callbacks */
+  onHover?: (index: number) => void;
+  onClick?: (index: number) => void;
 }
 
 interface EllipsoidElementConfig {
   type: 'Ellipsoid';
   data: EllipsoidData;
   decorations?: Decoration[];
+
+  /** [PICKING ADDED] optional per-item callbacks */
+  onHover?: (index: number) => void;
+  onClick?: (index: number) => void;
 }
 
 // [BAND CHANGE #1]: New EllipsoidBounds type
 interface EllipsoidBoundsElementConfig {
   type: 'EllipsoidBounds';
-  data: EllipsoidData;          // reusing the same “centers/radii/colors” style
+  data: EllipsoidData;          // reusing the same "centers/radii/colors" style
   decorations?: Decoration[];
+
+  /** [PICKING ADDED] optional per-item callbacks */
+  onHover?: (index: number) => void;
+  onClick?: (index: number) => void;
 }
 
 interface LineData {
@@ -79,10 +93,14 @@ interface LineData {
 interface LineElement {
   type: "Lines";
   data: LineData;
+
+  /** [PICKING ADDED] optional per-item callbacks */
+  onHover?: (index: number) => void;
+  onClick?: (index: number) => void;
 }
 
 // [BAND CHANGE #2]: Extend SceneElementConfig
-type SceneElementConfig =
+export type SceneElementConfig =
   | PointCloudElementConfig
   | EllipsoidElementConfig
   | EllipsoidBoundsElementConfig
@@ -161,13 +179,11 @@ function Scene({ elements, containerWidth }: SceneProps) {
 
     // Instances
     pcInstanceBuffer: GPUBuffer | null;
-    pcInstanceCount: number;
+    pcInstanceCount: number;         // For picking, we'll read from here
     ellipsoidInstanceBuffer: GPUBuffer | null;
-    ellipsoidInstanceCount: number;
-
-    // [BAND CHANGE #4]: EllipsoidBounds instances
+    ellipsoidInstanceCount: number;  // For picking
     bandInstanceBuffer: GPUBuffer | null;
-    bandInstanceCount: number;
+    bandInstanceCount: number;       // For picking
 
     // Depth
     depthTexture: GPUTexture | null;
@@ -267,6 +283,36 @@ function Scene({ elements, containerWidth }: SceneProps) {
       return [v[0]/len, v[1]/len, v[2]/len];
     }
     return [0, 0, 0];
+  }
+
+  /******************************************************
+   * A.1) [PICKING ADDED]: Project world space -> screen coords
+   ******************************************************/
+  function projectToScreen(
+    worldPos: [number, number, number],
+    mvp: Float32Array,
+    viewportW: number,
+    viewportH: number
+  ): { x: number; y: number; z: number } {
+    // Multiply [x,y,z,1] by MVP
+    const x = worldPos[0], y = worldPos[1], z = worldPos[2];
+    const clip = [
+      x*mvp[0] + y*mvp[4] + z*mvp[8]  + mvp[12],
+      x*mvp[1] + y*mvp[5] + z*mvp[9]  + mvp[13],
+      x*mvp[2] + y*mvp[6] + z*mvp[10] + mvp[14],
+      x*mvp[3] + y*mvp[7] + z*mvp[11] + mvp[15],
+    ];
+    if (clip[3] === 0) {
+      return { x: -9999, y: -9999, z: 9999 }; // behind camera or degenerate
+    }
+    // NDC
+    const ndcX = clip[0] / clip[3];
+    const ndcY = clip[1] / clip[3];
+    const ndcZ = clip[2] / clip[3];
+    // convert to pixel coords
+    const screenX = (ndcX * 0.5 + 0.5) * viewportW;
+    const screenY = (1 - (ndcY * 0.5 + 0.5)) * viewportH;  // invert Y
+    return { x: screenX, y: screenY, z: ndcZ };
   }
 
   /******************************************************
@@ -436,8 +482,6 @@ function Scene({ elements, containerWidth }: SceneProps) {
       device.queue.writeBuffer(sphereIB, 0, sphereGeo.indexData);
 
       // 3) Torus geometry for bounding bands
-      //    Make them fairly large radius=1 + small thickness=0.03
-      //    Then we will scale them differently per ring instance
       const torusGeo = createTorusGeometry(1.0, 0.03, 40, 12);
       const ringVB = device.createBuffer({
         size: torusGeo.vertexData.byteLength,
@@ -490,10 +534,10 @@ struct Camera {
 
 @group(0) @binding(0) var<uniform> camera : Camera;
 
-struct VSOut {
-  @builtin(position) position : vec4<f32>,
-  @location(2) color : vec3<f32>,
-  @location(3) alpha : f32,
+struct VertexOutput {
+  @builtin(position) Position : vec4<f32>,
+  @location(0) color : vec3<f32>,
+  @location(1) alpha : f32,
 };
 
 @vertex
@@ -506,8 +550,7 @@ fn vs_main(
   @location(3) alpha  : f32,
   @location(4) scaleX : f32,
   @location(5) scaleY : f32
-) -> VSOut {
-  var out: VSOut;
+) -> VertexOutput {
   let offset = camera.cameraRight * (corner.x * scaleX)
              + camera.cameraUp    * (corner.y * scaleY);
   let worldPos = vec4<f32>(
@@ -516,18 +559,12 @@ fn vs_main(
     pos.z + offset.z,
     1.0
   );
-  out.position = camera.mvp * worldPos;
-  out.color = col;
-  out.alpha = alpha;
-  return out;
-}
 
-@fragment
-fn fs_main(
-  @location(2) inColor : vec3<f32>,
-  @location(3) inAlpha : f32
-) -> @location(0) vec4<f32> {
-  return vec4<f32>(inColor, inAlpha);
+  var output: VertexOutput;
+  output.Position = camera.mvp * worldPos;
+  output.color = col;
+  output.alpha = alpha;
+  return output;
 }
 `
           }),
@@ -557,8 +594,8 @@ fn fs_main(
             code: `
 @fragment
 fn fs_main(
-  @location(2) inColor: vec3<f32>,
-  @location(3) inAlpha: f32
+  @location(0) inColor: vec3<f32>,
+  @location(1) inAlpha: f32
 ) -> @location(0) vec4<f32> {
   return vec4<f32>(inColor, inAlpha);
 }
@@ -799,7 +836,6 @@ fn vs_main(
   // ringIndex => 0=XY, 1=YZ, 2=XZ
   let ringIndex = i32(instanceIdx % 3u);
 
-  // We'll do a minimal orientation approach:
   var localPos = inPos;
   var localNorm = inNorm;
 
@@ -853,7 +889,6 @@ fn fs_main(
   let ambient = ${LIGHTING.AMBIENT_INTENSITY};
   var color = baseColor * (ambient + lambert * ${LIGHTING.DIFFUSE_INTENSITY});
 
-  // small spec
   let V = normalize(-worldPos);
   let H = normalize(L + V);
   let spec = pow(max(dot(N, H), 0.0), ${LIGHTING.SPECULAR_POWER});
@@ -1066,20 +1101,17 @@ fn fs_main(
     data[22] = cameraUp[2];
     data[23] = 0;
 
-    // Create light direction relative to camera
-    // This will keep light coming from upper-right of camera view
+    // light direction relative to camera
     const viewSpaceLight = normalize([
       cameraRight[0] * LIGHTING.DIRECTION.RIGHT +
-      cameraUp[0] * LIGHTING.DIRECTION.UP +
-      forward[0] * LIGHTING.DIRECTION.FORWARD,
-
+      cameraUp[0]    * LIGHTING.DIRECTION.UP +
+      forward[0]     * LIGHTING.DIRECTION.FORWARD,
       cameraRight[1] * LIGHTING.DIRECTION.RIGHT +
-      cameraUp[1] * LIGHTING.DIRECTION.UP +
-      forward[1] * LIGHTING.DIRECTION.FORWARD,
-
+      cameraUp[1]    * LIGHTING.DIRECTION.UP +
+      forward[1]     * LIGHTING.DIRECTION.FORWARD,
       cameraRight[2] * LIGHTING.DIRECTION.RIGHT +
-      cameraUp[2] * LIGHTING.DIRECTION.UP +
-      forward[2] * LIGHTING.DIRECTION.FORWARD
+      cameraUp[2]    * LIGHTING.DIRECTION.UP +
+      forward[2]     * LIGHTING.DIRECTION.FORWARD
     ]);
 
     data[24] = viewSpaceLight[0];
@@ -1276,7 +1308,6 @@ fn fs_main(
   }
 
   // [BAND CHANGE #11]: Build instance data for EllipsoidBounds
-  // We create three ring instances (XY, YZ, XZ) per ellipsoid.
   function buildEllipsoidBoundsInstanceData(
     centers: Float32Array,
     radii: Float32Array,
@@ -1293,7 +1324,6 @@ fn fs_main(
       const ry = radii[i*3+1] || 0.1;
       const rz = radii[i*3+2] || 0.1;
 
-      // Choose a color if provided
       let cr = 1, cg = 1, cb = 1;
       if (colors && colors.length === count*3) {
         cr = colors[i*3+0];
@@ -1302,7 +1332,6 @@ fn fs_main(
       }
       let alpha = 1.0;
 
-      // Apply decorations if any match this index
       if (decorations) {
         for (const dec of decorations) {
           if (dec.indexes.includes(i)) {
@@ -1332,7 +1361,7 @@ fn fs_main(
         data[idx*10+6] = cr;
         data[idx*10+7] = cg;
         data[idx*10+8] = cb;
-        data[idx*10+9] = alpha;  // Use the decorated alpha value
+        data[idx*10+9] = alpha;
       }
     }
 
@@ -1355,7 +1384,6 @@ fn fs_main(
     let bandInstData: Float32Array | null = null;
     let bandCount = 0;
 
-    // For brevity, handle only one of each shape
     for (const elem of sceneElements) {
       if (elem.type === 'PointCloud') {
         const { positions, colors, scales } = elem.data;
@@ -1375,7 +1403,7 @@ fn fs_main(
         const { centers, radii, colors } = elem.data;
         if (centers.length > 0) {
           bandInstData = buildEllipsoidBoundsInstanceData(centers, radii, colors, elem.decorations);
-          bandCount = (centers.length / 3) * 3; // 3 rings per ellipsoid
+          bandCount = (centers.length / 3) * 3;
         }
       }
     }
@@ -1412,7 +1440,7 @@ fn fs_main(
       gpuRef.current.ellipsoidInstanceCount = 0;
     }
 
-    // 3D ring “bands”
+    // 3D ring "bands"
     if (bandInstData && bandCount>0) {
       const buf = device.createBuffer({
         size: bandInstData.byteLength,
@@ -1432,67 +1460,233 @@ fn fs_main(
   /******************************************************
    * H) Mouse + Zoom
    ******************************************************/
-  const mouseState = useRef<{ x: number; y: number; button: number } | null>(null);
+  interface MouseState {
+    type: 'idle' | 'dragging';
+    button?: number;
+    startX?: number;
+    startY?: number;
+    lastX?: number;
+    lastY?: number;
+    isShiftDown?: boolean;
+    dragDistance?: number;
+  }
 
-  const onMouseDown = useCallback((e: MouseEvent) => {
-    mouseState.current = { x: e.clientX, y: e.clientY, button: e.button };
-  }, []);
+  const mouseState = useRef<MouseState>({ type: 'idle' });
 
-  const onMouseMove = useCallback((e: MouseEvent) => {
-    if (!mouseState.current) return;
-    const dx = e.clientX - mouseState.current.x;
-    const dy = e.clientY - mouseState.current.y;
-    mouseState.current.x = e.clientX;
-    mouseState.current.y = e.clientY;
+  /******************************************************
+   * H.1) [PICKING ADDED]: CPU-based picking
+   ******************************************************/
+  const pickAtScreenXY = useCallback((screenX: number, screenY: number, mode: 'hover' | 'click') => {
+    if (!gpuRef.current) return;
 
-    // Right drag or SHIFT+Left => pan
-    if (mouseState.current.button === 2 || e.shiftKey) {
-      setCamera(cam => ({
-        ...cam,
-        panX: cam.panX - dx * 0.002,
-        panY: cam.panY + dy * 0.002,
-      }));
+    const aspect = canvasWidth / canvasHeight;
+    const proj = mat4Perspective(camera.fov, aspect, camera.near, camera.far);
+
+    const cx = camera.orbitRadius * Math.sin(camera.orbitPhi) * Math.sin(camera.orbitTheta);
+    const cy = camera.orbitRadius * Math.cos(camera.orbitPhi);
+    const cz = camera.orbitRadius * Math.sin(camera.orbitPhi) * Math.cos(camera.orbitTheta);
+    const eye: [number, number, number] = [cx, cy, cz];
+    const target: [number, number, number] = [camera.panX, camera.panY, 0];
+    const up: [number, number, number] = [0, 1, 0];
+    const view = mat4LookAt(eye, target, up);
+    const mvp = mat4Multiply(proj, view);
+
+    // We'll pick the closest item in screen space
+    let bestDist = 999999;
+    let bestElement: SceneElementConfig | null = null;
+    let bestIndex = -1;
+
+    // Check each element that has a relevant callback
+    for (const elem of elements) {
+      const needsHover = (mode === 'hover' && elem.onHover);
+      const needsClick = (mode === 'click' && elem.onClick);
+      if (!needsHover && !needsClick) {
+        continue;
+      }
+
+      // For each item in that element, project it, measure distance
+      if (elem.type === 'PointCloud') {
+        const count = elem.data.positions.length / 3;
+        for (let i = 0; i < count; i++) {
+          const wpos: [number, number, number] = [
+            elem.data.positions[i*3+0],
+            elem.data.positions[i*3+1],
+            elem.data.positions[i*3+2],
+          ];
+          const p = projectToScreen(wpos, mvp, canvasWidth, canvasHeight);
+          const dx = p.x - screenX;
+          const dy = p.y - screenY;
+          const distSq = dx*dx + dy*dy;
+          if (distSq < 100) { // threshold of 10 pixels
+            if (distSq < bestDist) {
+              bestDist = distSq;
+              bestElement = elem;
+              bestIndex = i;
+            }
+          }
+        }
+      }
+      else if (elem.type === 'Ellipsoid') {
+        const count = elem.data.centers.length / 3;
+        for (let i = 0; i < count; i++) {
+          const wpos: [number, number, number] = [
+            elem.data.centers[i*3+0],
+            elem.data.centers[i*3+1],
+            elem.data.centers[i*3+2],
+          ];
+          // naive approach: pick center in screen space
+          const p = projectToScreen(wpos, mvp, canvasWidth, canvasHeight);
+          const dx = p.x - screenX;
+          const dy = p.y - screenY;
+          const distSq = dx*dx + dy*dy;
+          if (distSq < 200) { // threshold ~14 pixels
+            if (distSq < bestDist) {
+              bestDist = distSq;
+              bestElement = elem;
+              bestIndex = i;
+            }
+          }
+        }
+      }
+      else if (elem.type === 'EllipsoidBounds') {
+        // Similarly pick center
+        const count = elem.data.centers.length / 3;
+        for (let i = 0; i < count; i++) {
+          const wpos: [number, number, number] = [
+            elem.data.centers[i*3+0],
+            elem.data.centers[i*3+1],
+            elem.data.centers[i*3+2],
+          ];
+          const p = projectToScreen(wpos, mvp, canvasWidth, canvasHeight);
+          const dx = p.x - screenX;
+          const dy = p.y - screenY;
+          const distSq = dx*dx + dy*dy;
+          if (distSq < 200) {
+            if (distSq < bestDist) {
+              bestDist = distSq;
+              bestElement = elem;
+              bestIndex = i;
+            }
+          }
+        }
+      }
+      else if (elem.type === 'Lines') {
+        // For brevity, not implementing line picking here
+      }
     }
-    // Left => orbit
-    else if (mouseState.current.button === 0) {
-      setCamera(cam => {
-        const newPhi = Math.max(0.1, Math.min(Math.PI - 0.1, cam.orbitPhi - dy * 0.01));
-        return {
+
+    // If we found something, call the appropriate callback
+    if (bestElement && bestIndex >= 0) {
+      if (mode === 'hover' && bestElement.onHover) {
+        bestElement.onHover(bestIndex);
+      } else if (mode === 'click' && bestElement.onClick) {
+        bestElement.onClick(bestIndex);
+      }
+    }
+  }, [
+    elements, camera, canvasWidth, canvasHeight
+  ]);
+
+  /******************************************************
+   * H.2) Mouse Event Handlers
+   ******************************************************/
+  const handleMouseMove = useCallback((e: ReactMouseEvent) => {
+    if (!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const canvasX = e.clientX - rect.left;
+    const canvasY = e.clientY - rect.top;
+
+    const state = mouseState.current;
+
+    if (state.type === 'dragging' && state.lastX !== undefined && state.lastY !== undefined) {
+      const dx = e.clientX - state.lastX;
+      const dy = e.clientY - state.lastY;
+
+      // Update drag distance
+      state.dragDistance = (state.dragDistance || 0) + Math.sqrt(dx * dx + dy * dy);
+
+      // Right drag or SHIFT+Left => pan
+      if (state.button === 2 || state.isShiftDown) {
+        setCamera(cam => ({
           ...cam,
-          orbitTheta: cam.orbitTheta - dx * 0.01,
-          orbitPhi: newPhi,
-        };
-      });
+          panX: cam.panX - dx * 0.002,
+          panY: cam.panY + dy * 0.002,
+        }));
+      }
+      // Left => orbit
+      else if (state.button === 0) {
+        setCamera(cam => {
+          const newPhi = Math.max(0.1, Math.min(Math.PI - 0.1, cam.orbitPhi - dy * 0.01));
+          return {
+            ...cam,
+            orbitTheta: cam.orbitTheta - dx * 0.01,
+            orbitPhi: newPhi,
+          };
+        });
+      }
+
+      // Update last position
+      state.lastX = e.clientX;
+      state.lastY = e.clientY;
+    } else if (state.type === 'idle') {
+      // Only do picking when not dragging
+      pickAtScreenXY(canvasX, canvasY, 'hover');
     }
+  }, [pickAtScreenXY, setCamera]);
+
+  const handleMouseDown = useCallback((e: ReactMouseEvent) => {
+    if (!canvasRef.current) return;
+
+    mouseState.current = {
+      type: 'dragging',
+      button: e.button,
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      isShiftDown: e.shiftKey,
+      dragDistance: 0
+    };
+
+    // Prevent text selection while dragging
+    e.preventDefault();
   }, []);
 
-  const onMouseUp = useCallback(() => {
-    mouseState.current = null;
+  const handleMouseUp = useCallback((e: ReactMouseEvent) => {
+    const state = mouseState.current;
+
+    if (state.type === 'dragging' && state.startX !== undefined && state.startY !== undefined) {
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const canvasX = e.clientX - rect.left;
+      const canvasY = e.clientY - rect.top;
+
+      // Only trigger click if we haven't dragged too far
+      if (state.dragDistance !== undefined && state.dragDistance < 4) {
+        pickAtScreenXY(canvasX, canvasY, 'click');
+      }
+    }
+
+    // Reset to idle state
+    mouseState.current = { type: 'idle' };
+  }, [pickAtScreenXY]);
+
+  const handleMouseLeave = useCallback(() => {
+    mouseState.current = { type: 'idle' };
   }, []);
 
   const onWheel = useCallback((e: WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY * 0.01;
-    setCamera(cam => ({
-      ...cam,
-      orbitRadius: Math.max(0.01, cam.orbitRadius + delta),
-    }));
-  }, []);
-
-  useEffect(() => {
-    const c = canvasRef.current;
-    if (!c) return;
-    c.addEventListener('mousedown', onMouseDown);
-    c.addEventListener('mousemove', onMouseMove);
-    c.addEventListener('mouseup', onMouseUp);
-    c.addEventListener('wheel', onWheel, { passive: false });
-    return () => {
-      c.removeEventListener('mousedown', onMouseDown);
-      c.removeEventListener('mousemove', onMouseMove);
-      c.removeEventListener('mouseup', onMouseUp);
-      c.removeEventListener('wheel', onWheel);
-    };
-  }, [onMouseDown, onMouseMove, onMouseUp, onWheel]);
+    // Only allow zooming when not dragging
+    if (mouseState.current.type === 'idle') {
+      e.preventDefault();
+      const delta = e.deltaY * 0.01;
+      setCamera(cam => ({
+        ...cam,
+        orbitRadius: Math.max(0.01, cam.orbitRadius + delta),
+      }));
+    }
+  }, [setCamera]);
 
   /******************************************************
    * I) Effects
@@ -1562,20 +1756,24 @@ fn fs_main(
 
   return (
     <div style={{ width: '100%', border: '1px solid #ccc' }}>
-      <canvas ref={canvasRef} style={{ width: '100%', height: canvasHeight }} />
+      <canvas
+        ref={canvasRef}
+        style={{ width: '100%', height: canvasHeight }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        onWheel={onWheel}
+      />
     </div>
   );
 }
 
-/******************************************************
- * 6) Example: App
- ******************************************************/
-export function App() {
-  // Function to generate a point cloud in the shape of a sphere
+
+  // Generate a spherical point cloud
   function generateSpherePointCloud(numPoints: number, radius: number): { positions: Float32Array, colors: Float32Array } {
     const positions = new Float32Array(numPoints * 3);
     const colors = new Float32Array(numPoints * 3);
-    const colorStep = 1 / numPoints;
 
     for (let i = 0; i < numPoints; i++) {
       const theta = Math.random() * 2 * Math.PI;
@@ -1588,26 +1786,40 @@ export function App() {
       positions[i * 3 + 1] = y;
       positions[i * 3 + 2] = z;
 
-      // Assign a gradient color from red to blue
-      colors[i * 3] = 1 - i * colorStep; // Red decreases
-      colors[i * 3 + 1] = 0;             // Green stays constant
-      colors[i * 3 + 2] = i * colorStep; // Blue increases
+      // Some random color
+      colors[i * 3] = Math.random();
+      colors[i * 3 + 1] = Math.random();
+      colors[i * 3 + 2] = Math.random();
     }
 
     return { positions, colors };
   }
 
-  // Generate a spherical point cloud
   const numPoints = 500;
   const radius = 0.5;
   const { positions: spherePositions, colors: sphereColors } = generateSpherePointCloud(numPoints, radius);
+/******************************************************
+ * 6) Example: App
+ ******************************************************/
+export function App() {
+  // Use state to highlight items
+  const [highlightIdx, setHighlightIdx] = useState<number | null>(null);
 
+
+  // [PICKING ADDED] onHover / onClick for the point cloud
   const pcElement: PointCloudElementConfig = {
     type: 'PointCloud',
     data: { positions: spherePositions, colors: sphereColors },
-    decorations: [
-      { indexes: Array.from({ length: numPoints }, (_, i) => i), alpha: 1, scale: 1.0 },
-    ],
+    decorations: highlightIdx == null
+      ? undefined
+      : [{ indexes: [highlightIdx], color: [1,0,1], alpha: 1, minSize: 0.05 }],
+    onHover: (i) => {
+      // We'll just highlight the item
+      setHighlightIdx(i);
+    },
+    onClick: (i) => {
+      alert(`Clicked on point index #${i}`);
+    },
   };
 
   // Normal ellipsoid
@@ -1627,23 +1839,25 @@ export function App() {
   const ellipsoidElement: EllipsoidElementConfig = {
     type: 'Ellipsoid',
     data: { centers: eCenters, radii: eRadii, colors: eColors },
+    onHover: (i) => console.log(`Hover ellipsoid #${i}`),
+    onClick: (i) => alert(`Click ellipsoid #${i}`)
   };
 
-  // EllipsoidBounds examples
+  // EllipsoidBounds
   const boundCenters = new Float32Array([
-    -0.4, 0.4, 0.0,   // First bound
-    0.3, -0.4, 0.3,   // Second bound
-    -0.3, -0.3, 0.2   // Third bound
+    -0.4, 0.4, 0.0,
+    0.3, -0.4, 0.3,
+    -0.3, -0.3, 0.2
   ]);
   const boundRadii = new Float32Array([
-    0.25, 0.25, 0.25, // Spherical
-    0.4, 0.2, 0.15,   // Elongated
-    0.15, 0.35, 0.25  // Another shape
+    0.25, 0.25, 0.25,
+    0.4, 0.2, 0.15,
+    0.15, 0.35, 0.25
   ]);
   const boundColors = new Float32Array([
-    1.0, 0.7, 0.2,    // Orange
-    0.2, 0.7, 1.0,    // Blue
-    0.8, 0.3, 1.0     // Purple
+    1.0, 0.7, 0.2,
+    0.2, 0.7, 1.0,
+    0.8, 0.3, 1.0
   ]);
 
   const boundElement: EllipsoidBoundsElementConfig = {
@@ -1654,6 +1868,8 @@ export function App() {
       { indexes: [1], alpha: 0.7 },
       { indexes: [2], alpha: 1 },
     ],
+    onHover: (i) => console.log(`Hover bounds #${i}`),
+    onClick: (i) => alert(`Click bounds #${i}`)
   };
 
   const testElements: SceneElementConfig[] = [
@@ -1665,6 +1881,7 @@ export function App() {
   return <SceneWrapper elements={testElements} />;
 }
 
-export function Torus(props) {
+/** An extra export for convenience */
+export function Torus(props: { elements: SceneElementConfig[] }) {
   return <SceneWrapper {...props} />;
 }
