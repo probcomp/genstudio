@@ -5,6 +5,16 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useContainerWidth } from '../utils';
 
 /******************************************************
+ * 0) Lighting & Material Constants
+ ******************************************************/
+const LIGHTING = {
+  AMBIENT_INTENSITY: 0.4,    // Was 0.2 - increased for better base visibility
+  DIFFUSE_INTENSITY: 0.6,    // Was 0.8 - reduced to balance with ambient
+  SPECULAR_INTENSITY: 0.2,   // Was 0.3 - reduced for subtler highlights
+  SPECULAR_POWER: 20.0,      // Was 30.0 - reduced for broader highlights
+} as const;
+
+/******************************************************
  * 1) Define Data Structures
  ******************************************************/
 
@@ -500,24 +510,24 @@ fn vs_main(
 
 @fragment
 fn fs_main(
-  @location(1) normal   : vec3<f32>,
+  @location(1) normal: vec3<f32>,
   @location(2) baseColor: vec3<f32>,
-  @location(3) alpha    : f32,
-  @location(4) worldPos : vec3<f32>
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>
 ) -> @location(0) vec4<f32> {
   // minimal Lambert + spec
   let N = normalize(normal);
   let L = normalize(camera.lightDir);
   let lambert = max(dot(N, L), 0.0);
 
-  let ambient = 0.2;
-  var color = baseColor * (ambient + lambert * 0.8);
+  let ambient = ${LIGHTING.AMBIENT_INTENSITY};
+  var color = baseColor * (ambient + lambert * ${LIGHTING.DIFFUSE_INTENSITY});
 
   // small spec
   let V = normalize(-worldPos); // approximate camera at (0,0,0)
   let H = normalize(L + V);
-  let spec = pow(max(dot(N, H), 0.0), 30.0);
-  color += vec3<f32>(1.0,1.0,1.0) * spec * 0.3;
+  let spec = pow(max(dot(N, H), 0.0), ${LIGHTING.SPECULAR_POWER});
+  color += vec3<f32>(1.0,1.0,1.0) * spec * ${LIGHTING.SPECULAR_INTENSITY};
 
   return vec4<f32>(color, alpha);
 }
@@ -573,14 +583,14 @@ fn fs_main(
   let L = normalize(camera.lightDir);
   let lambert = max(dot(N, L), 0.0);
 
-  let ambient = 0.2;
-  var color = baseColor * (ambient + lambert * 0.8);
+  let ambient = ${LIGHTING.AMBIENT_INTENSITY};
+  var color = baseColor * (ambient + lambert * ${LIGHTING.DIFFUSE_INTENSITY});
 
   // small spec
   let V = normalize(-worldPos); // approximate camera at (0,0,0)
   let H = normalize(L + V);
-  let spec = pow(max(dot(N, H), 0.0), 30.0);
-  color += vec3<f32>(1.0,1.0,1.0) * spec * 0.3;
+  let spec = pow(max(dot(N, H), 0.0), ${LIGHTING.SPECULAR_POWER});
+  color += vec3<f32>(1.0,1.0,1.0) * spec * ${LIGHTING.SPECULAR_INTENSITY};
 
   return vec4<f32>(color, alpha);
 }
