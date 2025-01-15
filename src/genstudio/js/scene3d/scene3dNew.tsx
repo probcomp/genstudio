@@ -1571,6 +1571,45 @@ fn fs_main(
  * 6) Example: App
  ******************************************************/
 export function App() {
+  // Function to generate a point cloud in the shape of a sphere
+  function generateSpherePointCloud(numPoints: number, radius: number): { positions: Float32Array, colors: Float32Array } {
+    const positions = new Float32Array(numPoints * 3);
+    const colors = new Float32Array(numPoints * 3);
+    const colorStep = 1 / numPoints;
+
+    for (let i = 0; i < numPoints; i++) {
+      const theta = Math.random() * 2 * Math.PI;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const x = radius * Math.sin(phi) * Math.cos(theta);
+      const y = radius * Math.sin(phi) * Math.sin(theta);
+      const z = radius * Math.cos(phi);
+
+      positions[i * 3] = x;
+      positions[i * 3 + 1] = y;
+      positions[i * 3 + 2] = z;
+
+      // Assign a gradient color from red to blue
+      colors[i * 3] = 1 - i * colorStep; // Red decreases
+      colors[i * 3 + 1] = 0;             // Green stays constant
+      colors[i * 3 + 2] = i * colorStep; // Blue increases
+    }
+
+    return { positions, colors };
+  }
+
+  // Generate a spherical point cloud
+  const numPoints = 500;
+  const radius = 0.5;
+  const { positions: spherePositions, colors: sphereColors } = generateSpherePointCloud(numPoints, radius);
+
+  const pcElement: PointCloudElementConfig = {
+    type: 'PointCloud',
+    data: { positions: spherePositions, colors: sphereColors },
+    decorations: [
+      { indexes: Array.from({ length: numPoints }, (_, i) => i), alpha: 1, scale: 1.0 },
+    ],
+  };
+
   // Normal ellipsoid
   const eCenters = new Float32Array([
     0, 0, 0,
@@ -1584,6 +1623,11 @@ export function App() {
     0.8, 0.2, 0.2,
     0.2, 0.8, 0.2,
   ]);
+
+  const ellipsoidElement: EllipsoidElementConfig = {
+    type: 'Ellipsoid',
+    data: { centers: eCenters, radii: eRadii, colors: eColors },
+  };
 
   // EllipsoidBounds examples
   const boundCenters = new Float32Array([
@@ -1601,33 +1645,6 @@ export function App() {
     0.2, 0.7, 1.0,    // Blue
     0.8, 0.3, 1.0     // Purple
   ]);
-
-  // Basic point cloud (unchanged)
-  const pcPositions = new Float32Array([
-    -0.5, -0.5, 0,
-     0.5, -0.5, 0,
-    -0.5,  0.5, 0,
-     0.5,  0.5, 0,
-  ]);
-  const pcColors = new Float32Array([
-    1,0,0,
-    0,1,0,
-    0,0,1,
-    1,1,0,
-  ]);
-
-  const pcElement: PointCloudElementConfig = {
-    type: 'PointCloud',
-    data: { positions: pcPositions, colors: pcColors },
-    decorations: [
-      { indexes: [0,1,2,3], alpha: 1, scale: 2.0 },
-    ],
-  };
-
-  const ellipsoidElement: EllipsoidElementConfig = {
-    type: 'Ellipsoid',
-    data: { centers: eCenters, radii: eRadii, colors: eColors },
-  };
 
   const boundElement: EllipsoidBoundsElementConfig = {
     type: 'EllipsoidBounds',
