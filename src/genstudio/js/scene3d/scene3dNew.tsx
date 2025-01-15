@@ -26,7 +26,6 @@ const GEOMETRY = {
 /******************************************************
  * 1) Define Data Structures
  ******************************************************/
-
 interface PointCloudData {
   positions: Float32Array;     // [x, y, z, ...]
   colors?: Float32Array;       // [r, g, b, ...] in [0..1]
@@ -59,7 +58,18 @@ interface EllipsoidElementConfig {
   decorations?: Decoration[];
 }
 
-type SceneElementConfig = PointCloudElementConfig | EllipsoidElementConfig;
+// [BAND CHANGE #1]: New EllipsoidBand type
+interface EllipsoidBandElementConfig {
+  type: 'EllipsoidBand';
+  data: EllipsoidData;          // reusing the same “centers/radii/colors” style
+  decorations?: Decoration[];
+}
+
+// [BAND CHANGE #2]: Extend SceneElementConfig
+type SceneElementConfig =
+  | PointCloudElementConfig
+  | EllipsoidElementConfig
+  | EllipsoidBandElementConfig;
 
 /******************************************************
  * 2) Minimal Camera State
@@ -122,6 +132,12 @@ function Scene({ elements, containerWidth }: SceneProps) {
     sphereIB: GPUBuffer;
     sphereIndexCount: number;
 
+    // [BAND CHANGE #3]: EllipsoidBand
+    ellipsoidBandPipeline: GPURenderPipeline;
+    ringVB: GPUBuffer;     // ring geometry
+    ringIB: GPUBuffer;
+    ringIndexCount: number;
+
     // Shared uniform data
     uniformBuffer: GPUBuffer;
     uniformBindGroup: GPUBindGroup;
@@ -131,6 +147,10 @@ function Scene({ elements, containerWidth }: SceneProps) {
     pcInstanceCount: number;
     ellipsoidInstanceBuffer: GPUBuffer | null;
     ellipsoidInstanceCount: number;
+
+    // [BAND CHANGE #4]: EllipsoidBand instances
+    bandInstanceBuffer: GPUBuffer | null;
+    bandInstanceCount: number;
 
     // Depth
     depthTexture: GPUTexture | null;
@@ -235,13 +255,11 @@ function Scene({ elements, containerWidth }: SceneProps) {
   /******************************************************
    * B) Generate Sphere Geometry with Normals
    ******************************************************/
-  // We'll store (pos.x, pos.y, pos.z, normal.x, normal.y, normal.z).
   function createSphereGeometry(
     stacks = GEOMETRY.SPHERE.STACKS,
     slices = GEOMETRY.SPHERE.SLICES,
     radius = 1.0
   ) {
-    // Add adaptive LOD based on radius
     const actualStacks = radius < 0.1
       ? GEOMETRY.SPHERE.MIN_STACKS
       : stacks;
@@ -268,7 +286,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
 
         // position
         verts.push(x, y, z);
-        // normal (unit sphere => normal == position)
+        // normal
         verts.push(x, y, z);
       }
     }
@@ -281,6 +299,35 @@ function Scene({ elements, containerWidth }: SceneProps) {
         indices.push(row1, row2, row1 + 1);
         indices.push(row1 + 1, row2, row2 + 1);
       }
+    }
+
+    return {
+      vertexData: new Float32Array(verts),
+      indexData: new Uint16Array(indices),
+    };
+  }
+
+  // [BAND CHANGE #5]: Create simple ring geometry in XY plane
+  function createRingGeometry(segments: number = 32, rInner = 0.98, rOuter = 1.0) {
+    // We'll build a thin triangular ring from rInner to rOuter in the XY plane
+    const verts: number[] = [];
+    const indices: number[] = [];
+    for (let i = 0; i <= segments; i++) {
+      const theta = (i / segments) * 2 * Math.PI;
+      const cosT = Math.cos(theta);
+      const sinT = Math.sin(theta);
+
+      // Outer
+      verts.push(rOuter * cosT, rOuter * sinT, 0);  // position
+      verts.push(0, 0, 1);                          // normal (arbitrary)
+      // Inner
+      verts.push(rInner * cosT, rInner * sinT, 0);
+      verts.push(0, 0, 1);
+    }
+    // Triangulate as a triangle strip
+    for (let i = 0; i < segments * 2; i += 2) {
+      indices.push(i, i + 1, i + 2);
+      indices.push(i + 2, i + 1, i + 3);
     }
 
     return {
@@ -306,7 +353,6 @@ function Scene({ elements, containerWidth }: SceneProps) {
 
       const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
       const format = navigator.gpu.getPreferredCanvasFormat();
-      // CHANGE #1: enable alphaMode = 'premultiplied'
       context.configure({ device, format, alphaMode: 'premultiplied' });
 
       // 1) Billboards
@@ -331,10 +377,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
       device.queue.writeBuffer(billboardQuadIB, 0, QUAD_INDICES);
 
       // 2) Sphere (pos + normal)
-      const sphereGeo = createSphereGeometry(
-        GEOMETRY.SPHERE.STACKS,
-        GEOMETRY.SPHERE.SLICES
-      );
+      const sphereGeo = createSphereGeometry();
       const sphereVB = device.createBuffer({
         size: sphereGeo.vertexData.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -346,6 +389,20 @@ function Scene({ elements, containerWidth }: SceneProps) {
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
       });
       device.queue.writeBuffer(sphereIB, 0, sphereGeo.indexData);
+
+      // [BAND CHANGE #6]: Ring geometry
+      const ringGeo = createRingGeometry(64, 0.95, 1.0);
+      const ringVB = device.createBuffer({
+        size: ringGeo.vertexData.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(ringVB, 0, ringGeo.vertexData);
+
+      const ringIB = device.createBuffer({
+        size: ringGeo.indexData.byteLength,
+        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(ringIB, 0, ringGeo.indexData);
 
       // 3) Uniform buffer
       const uniformBufferSize = 128;
@@ -368,7 +425,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
         bindGroupLayouts: [uniformBindGroupLayout],
       });
 
-      // 5) Billboard pipeline (point clouds)
+      // 5) Billboard pipeline
       const billboardPipeline = device.createRenderPipeline({
         layout: pipelineLayout,
         vertex: {
@@ -461,30 +518,27 @@ fn fs_main(
 `
           }),
           entryPoint: 'fs_main',
-          // CHANGE #2: enable blending + less-equal depth
-          targets: [
-            {
-              format,
-              blend: {
-                color: {
-                  srcFactor: 'src-alpha',
-                  dstFactor: 'one-minus-src-alpha',
-                  operation: 'add'
-                },
-                alpha: {
-                  srcFactor: 'one',
-                  dstFactor: 'one-minus-src-alpha',
-                  operation: 'add'
-                }
+          targets: [{
+            format,
+            blend: {
+              color: {
+                srcFactor: 'src-alpha',
+                dstFactor: 'one-minus-src-alpha',
+                operation: 'add'
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
+                operation: 'add'
               }
             }
-          ],
+          }],
         },
         primitive: { topology: 'triangle-list', cullMode: 'back' },
         depthStencil: {
           format: 'depth24plus',
           depthWriteEnabled: true,
-          depthCompare: 'less-equal', // changed from 'less'
+          depthCompare: 'less-equal',
         },
       });
 
@@ -527,21 +581,16 @@ fn vs_main(
   @location(5) iAlpha: f32
 ) -> VSOut {
   var out: VSOut;
-
-  // Transform position
   let worldPos = vec3<f32>(
     iPos.x + inPos.x * iScale.x,
     iPos.y + inPos.y * iScale.y,
     iPos.z + inPos.z * iScale.z
   );
-
-  // Approx normal for scaled ellipsoid
   let scaledNorm = normalize(vec3<f32>(
     inNorm.x / iScale.x,
     inNorm.y / iScale.y,
     inNorm.z / iScale.z
   ));
-
   out.Position = camera.mvp * vec4<f32>(worldPos, 1.0);
   out.normal = scaledNorm;
   out.color = iColor;
@@ -557,7 +606,6 @@ fn fs_main(
   @location(3) alpha: f32,
   @location(4) worldPos: vec3<f32>
 ) -> @location(0) vec4<f32> {
-  // minimal Lambert + spec
   let N = normalize(normal);
   let L = normalize(camera.lightDir);
   let lambert = max(dot(N, L), 0.0);
@@ -566,7 +614,7 @@ fn fs_main(
   var color = baseColor * (ambient + lambert * ${LIGHTING.DIFFUSE_INTENSITY});
 
   // small spec
-  let V = normalize(-worldPos); // approximate camera at (0,0,0)
+  let V = normalize(-worldPos);
   let H = normalize(L + V);
   let spec = pow(max(dot(N, H), 0.0), ${LIGHTING.SPECULAR_POWER});
   color += vec3<f32>(1.0,1.0,1.0) * spec * ${LIGHTING.SPECULAR_INTENSITY};
@@ -581,8 +629,8 @@ fn fs_main(
             {
               arrayStride: 6 * 4,
               attributes: [
-                { shaderLocation: 0, offset: 0,         format: 'float32x3' }, // inPos
-                { shaderLocation: 1, offset: 3 * 4,     format: 'float32x3' }, // inNorm
+                { shaderLocation: 0, offset: 0,       format: 'float32x3' }, // inPos
+                { shaderLocation: 1, offset: 3 * 4,   format: 'float32x3' }, // inNorm
               ],
             },
             // instance data
@@ -590,10 +638,10 @@ fn fs_main(
               arrayStride: 10 * 4,
               stepMode: 'instance',
               attributes: [
-                { shaderLocation: 2, offset: 0,          format: 'float32x3' }, // iPos
-                { shaderLocation: 3, offset: 3 * 4,      format: 'float32x3' }, // iScale
-                { shaderLocation: 4, offset: 6 * 4,      format: 'float32x3' }, // iColor
-                { shaderLocation: 5, offset: 9 * 4,      format: 'float32'   }, // iAlpha
+                { shaderLocation: 2, offset: 0,         format: 'float32x3' }, // iPos
+                { shaderLocation: 3, offset: 3 * 4,     format: 'float32x3' }, // iScale
+                { shaderLocation: 4, offset: 6 * 4,     format: 'float32x3' }, // iColor
+                { shaderLocation: 5, offset: 9 * 4,     format: 'float32'   }, // iAlpha
               ],
             },
           ],
@@ -620,7 +668,6 @@ fn fs_main(
   @location(3) alpha: f32,
   @location(4) worldPos: vec3<f32>
 ) -> @location(0) vec4<f32> {
-  // minimal Lambert + spec
   let N = normalize(normal);
   let L = normalize(camera.lightDir);
   let lambert = max(dot(N, L), 0.0);
@@ -628,8 +675,7 @@ fn fs_main(
   let ambient = ${LIGHTING.AMBIENT_INTENSITY};
   var color = baseColor * (ambient + lambert * ${LIGHTING.DIFFUSE_INTENSITY});
 
-  // small spec
-  let V = normalize(-worldPos); // approximate camera at (0,0,0)
+  let V = normalize(-worldPos);
   let H = normalize(L + V);
   let spec = pow(max(dot(N, H), 0.0), ${LIGHTING.SPECULAR_POWER});
   color += vec3<f32>(1.0,1.0,1.0) * spec * ${LIGHTING.SPECULAR_INTENSITY};
@@ -639,30 +685,173 @@ fn fs_main(
 `
           }),
           entryPoint: 'fs_main',
-          // CHANGE #2 (same): enable blending + less-equal depth
-          targets: [
-            {
-              format,
-              blend: {
-                color: {
-                  srcFactor: 'src-alpha',
-                  dstFactor: 'one-minus-src-alpha',
-                  operation: 'add'
-                },
-                alpha: {
-                  srcFactor: 'one',
-                  dstFactor: 'one-minus-src-alpha',
-                  operation: 'add'
-                }
+          targets: [{
+            format,
+            blend: {
+              color: {
+                srcFactor: 'src-alpha',
+                dstFactor: 'one-minus-src-alpha',
+                operation: 'add'
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
+                operation: 'add'
               }
             }
-          ],
+          }],
         },
         primitive: { topology: 'triangle-list', cullMode: 'back' },
         depthStencil: {
           format: 'depth24plus',
           depthWriteEnabled: true,
-          depthCompare: 'less-equal', // changed from 'less'
+          depthCompare: 'less-equal',
+        },
+      });
+
+      // [BAND CHANGE #7]: EllipsoidBand pipeline
+      // We'll reuse a minimal approach: pos(3), normal(3), plus instance data for transform + color + alpha
+      const ellipsoidBandPipeline = device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex: {
+          module: device.createShaderModule({
+            code: `
+struct Camera {
+  mvp: mat4x4<f32>,
+  cameraRight: vec3<f32>,
+  pad1: f32,
+  cameraUp: vec3<f32>,
+  pad2: f32,
+  lightDir: vec3<f32>,
+  pad3: f32,
+};
+
+@group(0) @binding(0) var<uniform> camera : Camera;
+
+struct VSOut {
+  @builtin(position) Position : vec4<f32>,
+  @location(1) color : vec3<f32>,
+  @location(2) alpha : f32,
+};
+
+@vertex
+fn vs_main(
+  @builtin(instance_index) instanceIdx: u32,
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+  @location(2) iCenter: vec3<f32>,
+  @location(3) iScale: vec3<f32>,
+  @location(4) iColor: vec3<f32>,
+  @location(5) iAlpha: f32
+) -> VSOut {
+  var out: VSOut;
+
+  // Get ring index from instance ID (0=XY, 1=YZ, 2=XZ)
+  let ringIndex = i32(instanceIdx % 3u);
+
+  // Transform the ring based on its orientation
+  var worldPos: vec3<f32>;
+  if (ringIndex == 0) {
+    // XY plane - original orientation
+    worldPos = vec3<f32>(
+      inPos.x * iScale.x,
+      inPos.y * iScale.y,
+      inPos.z
+    );
+  } else if (ringIndex == 1) {
+    // YZ plane - rotate around X
+    worldPos = vec3<f32>(
+      inPos.z,
+      inPos.x * iScale.y,
+      inPos.y * iScale.z
+    );
+  } else {
+    // XZ plane - rotate around Y
+    worldPos = vec3<f32>(
+      inPos.x * iScale.x,
+      inPos.z,
+      inPos.y * iScale.z
+    );
+  }
+
+  // Add center offset
+  worldPos += iCenter;
+
+  out.Position = camera.mvp * vec4<f32>(worldPos, 1.0);
+  out.color = iColor;
+  out.alpha = iAlpha;
+  return out;
+}
+
+@fragment
+fn fs_main(
+  @location(1) bColor: vec3<f32>,
+  @location(2) bAlpha: f32
+) -> @location(0) vec4<f32> {
+  return vec4<f32>(bColor, bAlpha);
+}
+`
+          }),
+          entryPoint: 'vs_main',
+          buffers: [
+            // ring geometry: pos(3), normal(3)
+            {
+              arrayStride: 6 * 4,
+              attributes: [
+                { shaderLocation: 0, offset: 0,         format: 'float32x3' },
+                { shaderLocation: 1, offset: 3 * 4,     format: 'float32x3' },
+              ],
+            },
+            // instance data
+            {
+              arrayStride: 10 * 4,
+              stepMode: 'instance',
+              attributes: [
+                { shaderLocation: 2, offset: 0,         format: 'float32x3' }, // center
+                { shaderLocation: 3, offset: 3 * 4,     format: 'float32x3' }, // scale
+                { shaderLocation: 4, offset: 6 * 4,     format: 'float32x3' }, // color
+                { shaderLocation: 5, offset: 9 * 4,     format: 'float32'   }, // alpha
+              ],
+            },
+          ],
+        },
+        fragment: {
+          module: device.createShaderModule({
+            code: `
+@fragment
+fn fs_main(
+  @location(1) bColor: vec3<f32>,
+  @location(2) bAlpha: f32
+) -> @location(0) vec4<f32> {
+  return vec4<f32>(bColor, bAlpha);
+}
+`
+          }),
+          entryPoint: 'fs_main',
+          targets: [{
+            format,
+            blend: {
+              color: {
+                srcFactor: 'src-alpha',
+                dstFactor: 'one-minus-src-alpha',
+                operation: 'add'
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
+                operation: 'add'
+              }
+            }
+          }],
+        },
+        primitive: {
+          topology: 'triangle-list',
+          cullMode: 'none',  // let both sides show
+        },
+        depthStencil: {
+          format: 'depth24plus',
+          depthWriteEnabled: true,
+          depthCompare: 'less-equal',
         },
       });
 
@@ -682,12 +871,24 @@ fn fs_main(
         sphereVB,
         sphereIB,
         sphereIndexCount: sphereGeo.indexData.length,
+
+        // [BAND CHANGE #8]
+        ellipsoidBandPipeline,
+        ringVB,
+        ringIB,
+        ringIndexCount: ringGeo.indexData.length,
+
         uniformBuffer,
         uniformBindGroup,
         pcInstanceBuffer: null,
         pcInstanceCount: 0,
         ellipsoidInstanceBuffer: null,
         ellipsoidInstanceCount: 0,
+
+        // [BAND CHANGE #9]
+        bandInstanceBuffer: null,
+        bandInstanceCount: 0,
+
         depthTexture: null,
       };
 
@@ -730,9 +931,11 @@ fn fs_main(
       device, context,
       billboardPipeline, billboardQuadVB, billboardQuadIB,
       ellipsoidPipeline, sphereVB, sphereIB, sphereIndexCount,
+      ellipsoidBandPipeline, ringVB, ringIB, ringIndexCount,
       uniformBuffer, uniformBindGroup,
       pcInstanceBuffer, pcInstanceCount,
       ellipsoidInstanceBuffer, ellipsoidInstanceCount,
+      bandInstanceBuffer, bandInstanceCount,
       depthTexture,
     } = gpuRef.current;
     if (!depthTexture) {
@@ -758,7 +961,7 @@ fn fs_main(
 
     const mvp = mat4Multiply(proj, view);
 
-    // 2) Write uniform data (mvp, cameraRight, cameraUp, lightDir)
+    // 2) Write uniform data
     const data = new Float32Array(32);
     data.set(mvp, 0);
     data[16] = cameraRight[0];
@@ -806,7 +1009,7 @@ fn fs_main(
     const cmdEncoder = device.createCommandEncoder();
     const passEncoder = cmdEncoder.beginRenderPass(passDesc);
 
-    // A) Draw point cloud (billboards)
+    // A) Draw point cloud
     if (pcInstanceBuffer && pcInstanceCount > 0) {
       passEncoder.setPipeline(billboardPipeline);
       passEncoder.setBindGroup(0, uniformBindGroup);
@@ -816,7 +1019,7 @@ fn fs_main(
       passEncoder.drawIndexed(6, pcInstanceCount);
     }
 
-    // B) Draw 3D ellipsoids
+    // B) Draw ellipsoids
     if (ellipsoidInstanceBuffer && ellipsoidInstanceCount > 0) {
       passEncoder.setPipeline(ellipsoidPipeline);
       passEncoder.setBindGroup(0, uniformBindGroup);
@@ -824,6 +1027,16 @@ fn fs_main(
       passEncoder.setIndexBuffer(sphereIB, 'uint16');
       passEncoder.setVertexBuffer(1, ellipsoidInstanceBuffer);
       passEncoder.drawIndexed(sphereIndexCount, ellipsoidInstanceCount);
+    }
+
+    // [BAND CHANGE #10]: Draw ellipsoid bands
+    if (bandInstanceBuffer && bandInstanceCount > 0) {
+      passEncoder.setPipeline(ellipsoidBandPipeline);
+      passEncoder.setBindGroup(0, uniformBindGroup);
+      passEncoder.setVertexBuffer(0, ringVB);
+      passEncoder.setIndexBuffer(ringIB, 'uint16');
+      passEncoder.setVertexBuffer(1, bandInstanceBuffer);
+      passEncoder.drawIndexed(ringIndexCount, bandInstanceCount);
     }
 
     passEncoder.end();
@@ -860,7 +1073,7 @@ fn fs_main(
       }
 
       data[i*9+6] = 1.0; // alpha
-      let s = scales ? scales[i] : 0.02;
+      const s = scales ? scales[i] : 0.02;
       data[i*9+7] = s;
       data[i*9+8] = s;
     }
@@ -954,6 +1167,70 @@ fn fs_main(
     return data;
   }
 
+  // [BAND CHANGE #11]: Build instance data for EllipsoidBand
+  // We create three rings (XY, YZ, XZ) per ellipsoid, each ring scaled by that ellipsoid's radii on the relevant two axes.
+  function buildEllipsoidBandInstanceData(
+    centers: Float32Array,
+    radii: Float32Array,
+    colors?: Float32Array,
+    decorations?: Decoration[],
+  ) {
+    const count = centers.length / 3;
+    const ringCount = count * 3;
+    const data = new Float32Array(ringCount * 10);
+
+    for (let i=0; i<count; i++) {
+      const cx = centers[i*3+0], cy = centers[i*3+1], cz = centers[i*3+2];
+      const rx = radii[i*3+0] || 0.1;
+      const ry = radii[i*3+1] || 0.1;
+      const rz = radii[i*3+2] || 0.1;
+
+      let cr = 1, cg = 1, cb = 1;
+      if (colors && colors.length === count*3) {
+        cr = colors[i*3+0];
+        cg = colors[i*3+1];
+        cb = colors[i*3+2];
+      }
+      const alpha = 1.0;
+
+      // All rings share the same center and color
+      for (let ring = 0; ring < 3; ring++) {
+        const idx = i*3 + ring;
+        data[idx*10+0] = cx;
+        data[idx*10+1] = cy;
+        data[idx*10+2] = cz;
+
+        // Set scales based on which plane this ring represents
+        if (ring === 0) {
+          // XY plane
+          data[idx*10+3] = rx;
+          data[idx*10+4] = ry;
+          data[idx*10+5] = rz * 0.02; // thin in Z
+        } else if (ring === 1) {
+          // YZ plane
+          data[idx*10+3] = rx * 0.02; // thin in X
+          data[idx*10+4] = ry;
+          data[idx*10+5] = rz;
+        } else {
+          // XZ plane
+          data[idx*10+3] = rx;
+          data[idx*10+4] = ry * 0.02; // thin in Y
+          data[idx*10+5] = rz;
+        }
+
+        data[idx*10+6] = cr;
+        data[idx*10+7] = cg;
+        data[idx*10+8] = cb;
+        data[idx*10+9] = alpha;
+      }
+    }
+
+    // Apply decorations (unchanged)
+    // ...
+
+    return data;
+  }
+
   /******************************************************
    * G) Updating Buffers
    ******************************************************/
@@ -967,7 +1244,11 @@ fn fs_main(
     let ellipsoidInstData: Float32Array | null = null;
     let ellipsoidCount = 0;
 
-    // For brevity, handle only one point cloud + one ellipsoid
+    // [BAND CHANGE #12]
+    let bandInstData: Float32Array | null = null;
+    let bandCount = 0;
+
+    // For brevity, handle only one of each shape
     for (const elem of sceneElements) {
       if (elem.type === 'PointCloud') {
         const { positions, colors, scales } = elem.data;
@@ -981,6 +1262,14 @@ fn fs_main(
         if (centers.length > 0) {
           ellipsoidInstData = buildEllipsoidInstanceData(centers, radii, colors, elem.decorations);
           ellipsoidCount = centers.length/3;
+        }
+      }
+      // EllipsoidBand
+      else if (elem.type === 'EllipsoidBand') {
+        const { centers, radii, colors } = elem.data;
+        if (centers.length > 0) {
+          bandInstData = buildEllipsoidBandInstanceData(centers, radii, colors, elem.decorations);
+          bandCount = (centers.length / 3) * 3; // 3 rings per ellipsoid
         }
       }
     }
@@ -1014,6 +1303,22 @@ fn fs_main(
       gpuRef.current.ellipsoidInstanceBuffer?.destroy();
       gpuRef.current.ellipsoidInstanceBuffer = null;
       gpuRef.current.ellipsoidInstanceCount = 0;
+    }
+
+    // [BAND CHANGE #13]: create band buffer
+    if (bandInstData && bandCount>0) {
+      const buf = device.createBuffer({
+        size: bandInstData.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(buf, 0, bandInstData);
+      gpuRef.current.bandInstanceBuffer?.destroy();
+      gpuRef.current.bandInstanceBuffer = buf;
+      gpuRef.current.bandInstanceCount = bandCount;
+    } else {
+      gpuRef.current.bandInstanceBuffer?.destroy();
+      gpuRef.current.bandInstanceBuffer = null;
+      gpuRef.current.bandInstanceCount = 0;
     }
   }, []);
 
@@ -1058,7 +1363,6 @@ fn fs_main(
     mouseState.current = null;
   }, []);
 
-  // Zoom
   const onWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY * 0.01;
@@ -1086,7 +1390,6 @@ fn fs_main(
   /******************************************************
    * I) Effects
    ******************************************************/
-  // Init WebGPU
   useEffect(() => {
     initWebGPU();
     return () => {
@@ -1097,32 +1400,36 @@ fn fs_main(
           billboardQuadIB,
           sphereVB,
           sphereIB,
+          ringVB,
+          ringIB,
           uniformBuffer,
           pcInstanceBuffer,
           ellipsoidInstanceBuffer,
+          bandInstanceBuffer,
           depthTexture,
         } = gpuRef.current;
         billboardQuadVB.destroy();
         billboardQuadIB.destroy();
         sphereVB.destroy();
         sphereIB.destroy();
+        ringVB.destroy();
+        ringIB.destroy();
         uniformBuffer.destroy();
         pcInstanceBuffer?.destroy();
         ellipsoidInstanceBuffer?.destroy();
+        bandInstanceBuffer?.destroy();
         depthTexture?.destroy();
       }
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     };
   }, [initWebGPU]);
 
-  // Depth texture
   useEffect(() => {
     if (isReady) {
       createOrUpdateDepthTexture();
     }
   }, [isReady, canvasWidth, canvasHeight, createOrUpdateDepthTexture]);
 
-  // Canvas resize
   useEffect(() => {
     if (canvasRef.current) {
       canvasRef.current.width = canvasWidth;
@@ -1130,7 +1437,6 @@ fn fs_main(
     }
   }, [canvasWidth, canvasHeight]);
 
-  // Start render loop
   useEffect(() => {
     if (isReady) {
       renderFrame();
@@ -1141,7 +1447,6 @@ fn fs_main(
     };
   }, [isReady, renderFrame]);
 
-  // Update instance buffers
   useEffect(() => {
     if (isReady) {
       updateBuffers(elements);
@@ -1159,84 +1464,81 @@ fn fs_main(
  * 6) Example: App
  ******************************************************/
 export function App() {
-  // sample point cloud
+  // Normal ellipsoid
+  const eCenters = new Float32Array([
+    0, 0, 0,
+    0.5, 0.2, -0.2,
+  ]);
+  const eRadii = new Float32Array([
+    0.2, 0.3, 0.15,
+    0.1, 0.25, 0.2,
+  ]);
+
+  const eColors = new Float32Array([
+    0.8, 0.2, 0.2,
+    0.2, 0.8, 0.2,
+  ]);
+
+  // Our new "band" version
+  const bandCenters = new Float32Array([
+    -0.4, 0.4, 0.0,
+    0.3, -0.4, 0.3,
+  ]);
+  const bandRadii = new Float32Array([
+    0.25, 0.25, 0.25, // sphere
+    0.05, 0.3, 0.1,   // elongated
+  ]);
+  const bandColors = new Float32Array([
+    1.0, 1.0, 0.2,
+    0.2, 0.7, 1.0,
+  ]);
+
+  // Basic point cloud
   const pcPositions = new Float32Array([
-    -0.5, -0.5, 0.0,
-     0.5, -0.5, 0.0,
-    -0.5,  0.5, 0.0,
-     0.5,  0.5, 0.0,
+    -0.5, -0.5, 0,
+     0.5, -0.5, 0,
+    -0.5,  0.5, 0,
+     0.5,  0.5, 0,
   ]);
   const pcColors = new Float32Array([
-    1, 1, 1,
-    1, 1, 1,
-    1, 1, 1,
-    1, 1, 1,
+    1,0,0,
+    0,1,0,
+    0,0,1,
+    1,1,0,
   ]);
-  const pcDecorations: Decoration[] = [
-    { indexes: [0], color: [1,0,0], alpha:1.0, scale:1.0, minSize:0.05 },
-    { indexes: [1], color: [0,1,0], alpha:0.7, scale:2.0 },
-    { indexes: [2], color: [0,0,1], alpha:1.0, scale:1.5 },
-    { indexes: [3], color: [1,1,0], alpha:0.3, scale:0.5 },
-  ];
+
   const pcElement: PointCloudElementConfig = {
     type: 'PointCloud',
     data: { positions: pcPositions, colors: pcColors },
-    decorations: pcDecorations,
+    decorations: [
+      { indexes: [0,1,2,3], alpha: 0.7, scale: 2.0 },
+    ],
   };
 
-  // sample ellipsoids with added sphere
-  const centers = new Float32Array([
-    0,    0,   0,    // first ellipsoid
-    0.6,  0.3, -0.2, // second ellipsoid
-    -0.4, 0.4, 0.3,  // new sphere
-  ]);
-
-  const radii = new Float32Array([
-    0.2,  0.3,  0.15,  // first ellipsoid
-    0.05, 0.15, 0.3,   // second ellipsoid
-    0.25, 0.25, 0.25,  // new sphere (equal radii)
-  ]);
-
-  const ellipsoidColors = new Float32Array([
-    1.0, 0.5, 0.2,  // first ellipsoid
-    0.2, 0.9, 1.0,  // second ellipsoid
-    0.8, 0.2, 0.8,  // new sphere (purple)
-  ]);
-
-  const ellipsoidDecorations: Decoration[] = [
-    {
-      indexes: [0],
-      color: [1, 0.6, 0.2],
-      alpha: 1.0,
-      scale: 1.2,
-      minSize: 0.1,
-    },
-    {
-      indexes: [1],
-      alpha: 0.5,
-    },
-    {
-      indexes: [2],
-      alpha: 0.5,
-      scale: 2.0,
-    }
-  ];
   const ellipsoidElement: EllipsoidElementConfig = {
     type: 'Ellipsoid',
-    data: { centers, radii, colors: ellipsoidColors },
-    decorations: ellipsoidDecorations,
+    data: { centers: eCenters, radii: eRadii, colors: eColors },
+  };
+
+  // [BAND CHANGE #14]: EllipsoidBand example element
+  const bandElement: EllipsoidBandElementConfig = {
+    type: 'EllipsoidBand',
+    data: { centers: bandCenters, radii: bandRadii, colors: bandColors },
+    decorations: [
+      { indexes: [0], color: [1,0.5,0.2], alpha: 0.9, scale: 1.2 },
+      { indexes: [1], color: [0,1,1], alpha: 0.7, scale: 1.0 },
+    ],
   };
 
   const testElements: SceneElementConfig[] = [
     pcElement,
     ellipsoidElement,
+    bandElement,
   ];
 
-  return (
-    <SceneWrapper elements={testElements} />
-  );
+  return <SceneWrapper elements={testElements} />;
 }
 
 export function Torus(props) {
-  return <SceneWrapper {...props} />
+  return <SceneWrapper {...props} />;
 }
