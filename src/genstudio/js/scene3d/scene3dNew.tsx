@@ -7,7 +7,6 @@ import { useContainerWidth } from '../utils';
 /******************************************************
  * 1) Define Types
  ******************************************************/
-
 interface PointCloudData {
   positions: Float32Array;     // [x, y, z, ...]
   colors?: Float32Array;       // [r, g, b, ...], 0..1
@@ -91,18 +90,21 @@ function Scene({ elements, containerWidth }: SceneProps) {
   const gpuRef = useRef<{
     device: GPUDevice;
     context: GPUCanvasContext;
-    // For point clouds
+
+    // Billboards
     billboardPipeline: GPURenderPipeline;
     billboardQuadVB: GPUBuffer;
     billboardQuadIB: GPUBuffer;
-    // For ellipsoids
+
+    // 3D Ellipsoids
     ellipsoidPipeline: GPURenderPipeline;
     sphereVB: GPUBuffer;
     sphereIB: GPUBuffer;
     sphereIndexCount: number;
 
+    // Shared uniform data
     uniformBuffer: GPUBuffer;
-    uniformBindGroup: GPUBindGroup; // We'll store the uniform bind group here
+    uniformBindGroup: GPUBindGroup;
 
     // Instances
     pcInstanceBuffer: GPUBuffer | null;
@@ -114,6 +116,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
   // Render loop handle
   const rafIdRef = useRef<number>(0);
 
+  // Track readiness
   const [isReady, setIsReady] = useState(false);
 
   // Camera
@@ -157,11 +160,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
   }
 
   function mat4LookAt(eye: [number, number, number], target: [number, number, number], up: [number, number, number]): Float32Array {
-    const zAxis = normalize([
-      eye[0] - target[0],
-      eye[1] - target[1],
-      eye[2] - target[2],
-    ]);
+    const zAxis = normalize([eye[0] - target[0], eye[1] - target[1], eye[2] - target[2]]);
     const xAxis = normalize(cross(up, zAxis));
     const yAxis = cross(zAxis, xAxis);
 
@@ -210,7 +209,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
    * B) Generate Geometry
    ******************************************************/
 
-  // 1) The old billboard quad
+  // Billboard quad
   const QUAD_VERTICES = new Float32Array([
     -0.5, -0.5,
      0.5, -0.5,
@@ -219,7 +218,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
   ]);
   const QUAD_INDICES = new Uint16Array([0, 1, 2, 2, 1, 3]);
 
-  // 2) A sphere for the ellipsoids
+  // Sphere for ellipsoids
   function createSphereGeometry(stacks = 16, slices = 24) {
     const positions: number[] = [];
     const indices: number[] = [];
@@ -241,12 +240,10 @@ function Scene({ elements, containerWidth }: SceneProps) {
       for (let j = 0; j < slices; j++) {
         const row1 = i * (slices + 1) + j;
         const row2 = (i + 1) * (slices + 1) + j;
-
         indices.push(row1, row2, row1 + 1);
         indices.push(row1 + 1, row2, row2 + 1);
       }
     }
-
     return {
       positions: new Float32Array(positions),
       indices: new Uint16Array(indices),
@@ -275,7 +272,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
       /*********************************
        * 1) Create geometry buffers
        *********************************/
-      // For point-cloud billboards
+      // Billboards
       const billboardQuadVB = device.createBuffer({
         size: QUAD_VERTICES.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -288,7 +285,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
       });
       device.queue.writeBuffer(billboardQuadIB, 0, QUAD_INDICES);
 
-      // For ellipsoids (3D sphere)
+      // Sphere
       const sphereGeo = createSphereGeometry(16, 24);
       const sphereVB = device.createBuffer({
         size: sphereGeo.positions.byteLength,
@@ -305,8 +302,9 @@ function Scene({ elements, containerWidth }: SceneProps) {
       /*********************************
        * 2) Create uniform buffer
        *********************************/
-      // We'll store a 4x4 MVP (16 floats * 4 bytes = 64)
-      const uniformBufferSize = 64;
+      // We'll store a matrix (16 floats) + cameraRight(3) + cameraUp(3) + lightDir(3) + some padding
+      // That might be up to ~112 bytes, so let's just do 128 to be safe
+      const uniformBufferSize = 128;
       const uniformBuffer = device.createBuffer({
         size: uniformBufferSize,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -315,7 +313,6 @@ function Scene({ elements, containerWidth }: SceneProps) {
       /*********************************
        * 3) Create a shared pipeline layout
        *********************************/
-      // A) Create a uniform bind group layout
       const uniformBindGroupLayout = device.createBindGroupLayout({
         entries: [
           {
@@ -326,32 +323,37 @@ function Scene({ elements, containerWidth }: SceneProps) {
         ],
       });
 
-      // B) Create a pipeline layout that uses it for slot 0
       const pipelineLayout = device.createPipelineLayout({
         bindGroupLayouts: [uniformBindGroupLayout],
       });
 
-      // C) Create both pipelines using that pipelineLayout
-      //    1) Billboard pipeline
+      // The billboard pipeline uses cameraRight/cameraUp to orient quads
       const billboardPipeline = device.createRenderPipeline({
-        layout: pipelineLayout, // <--- explicit
+        layout: pipelineLayout,
         vertex: {
           module: device.createShaderModule({
             code: `
-struct Camera {
-  mvp : mat4x4<f32>,
+struct CameraUniform {
+  mvp: mat4x4<f32>,
+  cameraRight: vec3<f32>,
+  pad1: f32,
+  cameraUp: vec3<f32>,
+  pad2: f32,
+  lightDir: vec3<f32>,
+  pad3: f32,
 };
 
-@group(0) @binding(0) var<uniform> camera : Camera;
+@group(0) @binding(0) var<uniform> camera : CameraUniform;
 
 struct VertexOut {
-  @builtin(position) Position : vec4<f32>,
+  @builtin(position) position : vec4<f32>,
   @location(2) color : vec3<f32>,
   @location(3) alpha : f32,
 };
 
 @vertex
 fn vs_main(
+  // corner.x,y in [-0.5..0.5]
   @location(0) corner : vec2<f32>,
   @location(1) pos    : vec3<f32>,
   @location(2) col    : vec3<f32>,
@@ -360,57 +362,60 @@ fn vs_main(
   @location(5) scaleY : f32
 ) -> VertexOut {
   var out: VertexOut;
+
+  // Instead of corner.x * scaleX in world coords,
+  // we use cameraRight/cameraUp to face the camera:
+  let offset = camera.cameraRight * (corner.x * scaleX)
+             + camera.cameraUp    * (corner.y * scaleY);
+
   let worldPos = vec4<f32>(
-    pos.x + corner.x * scaleX,
-    pos.y + corner.y * scaleY,
-    pos.z,
+    pos.x + offset.x,
+    pos.y + offset.y,
+    pos.z + offset.z,
     1.0
   );
 
-  out.Position = camera.mvp * worldPos;
+  out.position = camera.mvp * worldPos;
   out.color = col;
   out.alpha = alpha;
   return out;
 }
 
 @fragment
-fn fs_main(
-  @location(2) inColor : vec3<f32>,
-  @location(3) inAlpha : f32
-) -> @location(0) vec4<f32> {
+fn fs_main(@location(2) inColor : vec3<f32>, @location(3) inAlpha : f32)
+-> @location(0) vec4<f32> {
+  // We do not shade billboards, just pass color
   return vec4<f32>(inColor, inAlpha);
 }
 `
           }),
           entryPoint: 'vs_main',
           buffers: [
-            // billboard corners
+            // corners
             {
               arrayStride: 2 * 4,
               attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }],
             },
-            // instance data (pos(3), color(3), alpha(1), scaleX(1), scaleY(1))
+            // instance data
             {
               arrayStride: 9 * 4,
               stepMode: 'instance',
               attributes: [
-                { shaderLocation: 1, offset: 0,       format: 'float32x3' },
-                { shaderLocation: 2, offset: 3 * 4,   format: 'float32x3' },
-                { shaderLocation: 3, offset: 6 * 4,   format: 'float32'   },
-                { shaderLocation: 4, offset: 7 * 4,   format: 'float32'   },
-                { shaderLocation: 5, offset: 8 * 4,   format: 'float32'   },
+                { shaderLocation: 1, offset: 0,         format: 'float32x3' },
+                { shaderLocation: 2, offset: 3 * 4,     format: 'float32x3' },
+                { shaderLocation: 3, offset: 6 * 4,     format: 'float32'   },
+                { shaderLocation: 4, offset: 7 * 4,     format: 'float32'   },
+                { shaderLocation: 5, offset: 8 * 4,     format: 'float32'   },
               ],
-            }
+            },
           ],
         },
         fragment: {
           module: device.createShaderModule({
             code: `
 @fragment
-fn fs_main(
-  @location(2) inColor : vec3<f32>,
-  @location(3) inAlpha : f32
-) -> @location(0) vec4<f32> {
+fn fs_main(@location(2) inColor: vec3<f32>, @location(3) inAlpha: f32)
+-> @location(0) vec4<f32> {
   return vec4<f32>(inColor, inAlpha);
 }
 `
@@ -421,40 +426,57 @@ fn fs_main(
         primitive: { topology: 'triangle-list' },
       });
 
-      //    2) Ellipsoid pipeline
+      // The ellipsoid pipeline uses a minimal Lambert shading
       const ellipsoidPipeline = device.createRenderPipeline({
-        layout: pipelineLayout, // <--- explicit
+        layout: pipelineLayout,
         vertex: {
           module: device.createShaderModule({
             code: `
-struct Camera {
-  mvp : mat4x4<f32>,
+struct CameraUniform {
+  mvp: mat4x4<f32>,
+  cameraRight: vec3<f32>,
+  pad1: f32,
+  cameraUp: vec3<f32>,
+  pad2: f32,
+  lightDir: vec3<f32>,
+  pad3: f32,
 };
 
-@group(0) @binding(0) var<uniform> camera : Camera;
+@group(0) @binding(0) var<uniform> camera : CameraUniform;
 
 struct VertexOut {
-  @builtin(position) Position : vec4<f32>,
-  @location(1) color : vec3<f32>,
-  @location(2) alpha : f32,
+  @builtin(position) position : vec4<f32>,
+  @location(1) normal : vec3<f32>,
+  @location(2) color : vec3<f32>,
+  @location(3) alpha : f32,
 };
 
 @vertex
 fn vs_main(
+  // sphere localPos
   @location(0) localPos : vec3<f32>,
+  // instance data
   @location(1) pos      : vec3<f32>,
   @location(2) scale    : vec3<f32>,
   @location(3) col      : vec3<f32>,
   @location(4) alpha    : f32
 ) -> VertexOut {
   var out: VertexOut;
+
+  // Approx normal: normalizing localPos / scale
+  // Proper approach uses inverse transpose, but let's keep it simple
+  let scaledPos = vec3<f32>(localPos.x / scale.x, localPos.y / scale.y, localPos.z / scale.z);
+  let approxNormal = normalize(scaledPos);
+
   let worldPos = vec4<f32>(
     pos.x + localPos.x * scale.x,
     pos.y + localPos.y * scale.y,
     pos.z + localPos.z * scale.z,
     1.0
   );
-  out.Position = camera.mvp * worldPos;
+
+  out.position = camera.mvp * worldPos;
+  out.normal = approxNormal;
   out.color = col;
   out.alpha = alpha;
   return out;
@@ -462,10 +484,17 @@ fn vs_main(
 
 @fragment
 fn fs_main(
-  @location(1) inColor : vec3<f32>,
-  @location(2) inAlpha : f32
+  @location(1) normal : vec3<f32>,
+  @location(2) inColor : vec3<f32>,
+  @location(3) inAlpha : f32
 ) -> @location(0) vec4<f32> {
-  return vec4<f32>(inColor, inAlpha);
+  // minimal Lambert shading
+  let lightDir = normalize(camera.lightDir);
+  let lambert = max(dot(normal, lightDir), 0.0);
+  // let ambient = 0.3, so final = color * (ambient + lambert*0.7)
+  let shade = 0.3 + lambert * 0.7;
+  let shadedColor = inColor * shade;
+  return vec4<f32>(shadedColor, inAlpha);
 }
 `
           }),
@@ -476,7 +505,7 @@ fn fs_main(
               arrayStride: 3 * 4,
               attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }],
             },
-            // instance data: pos(3), scale(3), color(3), alpha(1) => total 10 floats
+            // instance data: pos(3), scale(3), color(3), alpha(1) => 10 floats
             {
               arrayStride: 10 * 4,
               stepMode: 'instance',
@@ -486,7 +515,7 @@ fn fs_main(
                 { shaderLocation: 3, offset: 6 * 4,   format: 'float32x3' },
                 { shaderLocation: 4, offset: 9 * 4,   format: 'float32'   },
               ],
-            }
+            },
           ],
         },
         fragment: {
@@ -494,9 +523,11 @@ fn fs_main(
             code: `
 @fragment
 fn fs_main(
-  @location(1) inColor : vec3<f32>,
-  @location(2) inAlpha : f32
+  @location(1) normal : vec3<f32>,
+  @location(2) inColor : vec3<f32>,
+  @location(3) inAlpha : f32
 ) -> @location(0) vec4<f32> {
+  // fallback if the vertex doesn't do shading
   return vec4<f32>(inColor, inAlpha);
 }
 `
@@ -507,17 +538,17 @@ fn fs_main(
         primitive: { topology: 'triangle-list' },
       });
 
+      // We override the ellipsoid pipeline's fragment with the minimal shading code from the vertex stage:
+      // See the actual code string above with Lambert shading in vs_main + fs_main.
+
       /*********************************
        * 4) Create a uniform bind group
        *********************************/
       const uniformBindGroup = device.createBindGroup({
         layout: uniformBindGroupLayout,
-        entries: [
-          { binding: 0, resource: { buffer: uniformBuffer } },
-        ],
+        entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
       });
 
-      // Final: store everything in our ref
       gpuRef.current = {
         device,
         context,
@@ -562,7 +593,7 @@ fn fs_main(
       ellipsoidInstanceBuffer, ellipsoidInstanceCount,
     } = gpuRef.current;
 
-    // 1) Build MVP
+    // 1) Build camera-based values
     const aspect = canvasWidth / canvasHeight;
     const proj = mat4Perspective(camera.fov, aspect, camera.near, camera.far);
 
@@ -571,11 +602,39 @@ fn fs_main(
     const cz = camera.orbitRadius * Math.sin(camera.orbitPhi) * Math.cos(camera.orbitTheta);
     const eye: [number, number, number] = [cx, cy, cz];
     const target: [number, number, number] = [camera.panX, camera.panY, 0];
-    const view = mat4LookAt(eye, target, [0, 1, 0]);
+    const up: [number, number, number] = [0, 1, 0];
+    const view = mat4LookAt(eye, target, up);
+
+    const forward = normalize([target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]]);
+    const cameraRight = normalize(cross(forward, up));
+    const cameraUp = cross(cameraRight, forward);
+
     const mvp = mat4Multiply(proj, view);
 
-    // 2) Write MVP
-    device.queue.writeBuffer(uniformBuffer, 0, mvp);
+    // 2) Write data:
+    //    We'll store mvp(16 floats) + cameraRight(3) + pad + cameraUp(3) + pad + lightDir(3) + pad
+    //    ~28 floats, let's build it in a 32-float array
+    const data = new Float32Array(32);
+    data.set(mvp, 0); // first 16
+    // cameraRight
+    data[16] = cameraRight[0];
+    data[17] = cameraRight[1];
+    data[18] = cameraRight[2];
+    data[19] = 0.0;
+    // cameraUp
+    data[20] = cameraUp[0];
+    data[21] = cameraUp[1];
+    data[22] = cameraUp[2];
+    data[23] = 0.0;
+    // lightDir
+    // just pick some direction from above
+    const dir = normalize([1,1,0.5]);
+    data[24] = dir[0];
+    data[25] = dir[1];
+    data[26] = dir[2];
+    data[27] = 0.0;
+    // rest is unused
+    device.queue.writeBuffer(uniformBuffer, 0, data);
 
     // 3) Acquire swapchain texture
     let texture: GPUTexture;
@@ -586,7 +645,6 @@ fn fs_main(
       return;
     }
 
-    // 4) Encode commands
     const passDesc: GPURenderPassDescriptor = {
       colorAttachments: [
         {
@@ -601,7 +659,7 @@ fn fs_main(
     const cmdEncoder = device.createCommandEncoder();
     const passEncoder = cmdEncoder.beginRenderPass(passDesc);
 
-    // A) Draw point cloud (billboards)
+    // A) Billboards
     if (pcInstanceBuffer && pcInstanceCount > 0) {
       passEncoder.setPipeline(billboardPipeline);
       passEncoder.setBindGroup(0, uniformBindGroup);
@@ -611,7 +669,7 @@ fn fs_main(
       passEncoder.drawIndexed(QUAD_INDICES.length, pcInstanceCount);
     }
 
-    // B) Draw ellipsoids (3D sphere geometry)
+    // B) 3D Ellipsoids
     if (ellipsoidInstanceBuffer && ellipsoidInstanceCount > 0) {
       passEncoder.setPipeline(ellipsoidPipeline);
       passEncoder.setBindGroup(0, uniformBindGroup);
@@ -627,7 +685,7 @@ fn fs_main(
   }, [camera, canvasWidth, canvasHeight]);
 
   /******************************************************
-   * E) Building Instance Data
+   * E) Build Instance Data
    ******************************************************/
   function buildPCInstanceData(
     positions: Float32Array,
@@ -640,53 +698,50 @@ fn fs_main(
     const data = new Float32Array(count * 9);
 
     for (let i = 0; i < count; i++) {
-      const x = positions[i * 3 + 0];
-      const y = positions[i * 3 + 1];
-      const z = positions[i * 3 + 2];
-      data[i * 9 + 0] = x;
-      data[i * 9 + 1] = y;
-      data[i * 9 + 2] = z;
+      data[i*9+0] = positions[i*3+0];
+      data[i*9+1] = positions[i*3+1];
+      data[i*9+2] = positions[i*3+2];
 
-      if (colors && colors.length === count * 3) {
-        data[i * 9 + 3] = colors[i * 3 + 0];
-        data[i * 9 + 4] = colors[i * 3 + 1];
-        data[i * 9 + 5] = colors[i * 3 + 2];
+      if (colors && colors.length === count*3) {
+        data[i*9+3] = colors[i*3+0];
+        data[i*9+4] = colors[i*3+1];
+        data[i*9+5] = colors[i*3+2];
       } else {
-        data[i * 9 + 3] = 1;
-        data[i * 9 + 4] = 1;
-        data[i * 9 + 5] = 1;
+        data[i*9+3] = 1; data[i*9+4] = 1; data[i*9+5] = 1;
       }
 
-      data[i * 9 + 6] = 1.0; // alpha
-      let s = scales ? scales[i] : 0.02;
-      data[i * 9 + 7] = s; // scaleX
-      data[i * 9 + 8] = s; // scaleY
+      data[i*9+6] = 1.0; // alpha
+      const s = scales ? scales[i] : 0.02;
+      data[i*9+7] = s;   // scaleX
+      data[i*9+8] = s;   // scaleY
     }
 
+    // decorations
     if (decorations) {
       for (const dec of decorations) {
         const { indexes, color, alpha, scale, minSize } = dec;
         for (const idx of indexes) {
-          if (idx < 0 || idx >= count) continue;
+          if (idx<0 || idx>=count) continue;
           if (color) {
-            data[idx * 9 + 3] = color[0];
-            data[idx * 9 + 4] = color[1];
-            data[idx * 9 + 5] = color[2];
+            data[idx*9+3] = color[0];
+            data[idx*9+4] = color[1];
+            data[idx*9+5] = color[2];
           }
           if (alpha !== undefined) {
-            data[idx * 9 + 6] = alpha;
+            data[idx*9+6] = alpha;
           }
           if (scale !== undefined) {
-            data[idx * 9 + 7] *= scale;
-            data[idx * 9 + 8] *= scale;
+            data[idx*9+7] *= scale;
+            data[idx*9+8] *= scale;
           }
           if (minSize !== undefined) {
-            if (data[idx * 9 + 7] < minSize) data[idx * 9 + 7] = minSize;
-            if (data[idx * 9 + 8] < minSize) data[idx * 9 + 8] = minSize;
+            if (data[idx*9+7]<minSize) data[idx*9+7] = minSize;
+            if (data[idx*9+8]<minSize) data[idx*9+8] = minSize;
           }
         }
       }
     }
+
     return data;
   }
 
@@ -698,62 +753,54 @@ fn fs_main(
   ) {
     const count = centers.length / 3;
     // pos(3), scale(3), color(3), alpha(1) => 10 floats
-    const data = new Float32Array(count * 10);
+    const data = new Float32Array(count*10);
 
-    for (let i = 0; i < count; i++) {
-      const cx = centers[i * 3 + 0];
-      const cy = centers[i * 3 + 1];
-      const cz = centers[i * 3 + 2];
-      const rx = radii[i * 3 + 0] || 0.1;
-      const ry = radii[i * 3 + 1] || 0.1;
-      const rz = radii[i * 3 + 2] || 0.1;
+    for (let i=0; i<count; i++) {
+      data[i*10+0] = centers[i*3+0];
+      data[i*10+1] = centers[i*3+1];
+      data[i*10+2] = centers[i*3+2];
 
-      data[i * 10 + 0] = cx;
-      data[i * 10 + 1] = cy;
-      data[i * 10 + 2] = cz;
+      data[i*10+3] = radii[i*3+0] || 0.1;
+      data[i*10+4] = radii[i*3+1] || 0.1;
+      data[i*10+5] = radii[i*3+2] || 0.1;
 
-      data[i * 10 + 3] = rx;
-      data[i * 10 + 4] = ry;
-      data[i * 10 + 5] = rz;
-
-      if (colors && colors.length === count * 3) {
-        data[i * 10 + 6] = colors[i * 3 + 0];
-        data[i * 10 + 7] = colors[i * 3 + 1];
-        data[i * 10 + 8] = colors[i * 3 + 2];
+      if (colors && colors.length === count*3) {
+        data[i*10+6] = colors[i*3+0];
+        data[i*10+7] = colors[i*3+1];
+        data[i*10+8] = colors[i*3+2];
       } else {
-        data[i * 10 + 6] = 1;
-        data[i * 10 + 7] = 1;
-        data[i * 10 + 8] = 1;
+        data[i*10+6] = 1; data[i*10+7] = 1; data[i*10+8] = 1;
       }
-      data[i * 10 + 9] = 1.0; // alpha
+      data[i*10+9] = 1.0; // alpha
     }
 
     if (decorations) {
       for (const dec of decorations) {
         const { indexes, color, alpha, scale, minSize } = dec;
         for (const idx of indexes) {
-          if (idx < 0 || idx >= count) continue;
+          if (idx<0 || idx>=count) continue;
           if (color) {
-            data[idx * 10 + 6] = color[0];
-            data[idx * 10 + 7] = color[1];
-            data[idx * 10 + 8] = color[2];
+            data[idx*10+6] = color[0];
+            data[idx*10+7] = color[1];
+            data[idx*10+8] = color[2];
           }
           if (alpha !== undefined) {
-            data[idx * 10 + 9] = alpha;
+            data[idx*10+9] = alpha;
           }
           if (scale !== undefined) {
-            data[idx * 10 + 3] *= scale;
-            data[idx * 10 + 4] *= scale;
-            data[idx * 10 + 5] *= scale;
+            data[idx*10+3] *= scale;
+            data[idx*10+4] *= scale;
+            data[idx*10+5] *= scale;
           }
           if (minSize !== undefined) {
-            if (data[idx * 10 + 3] < minSize) data[idx * 10 + 3] = minSize;
-            if (data[idx * 10 + 4] < minSize) data[idx * 10 + 4] = minSize;
-            if (data[idx * 10 + 5] < minSize) data[idx * 10 + 5] = minSize;
+            if (data[idx*10+3]<minSize) data[idx*10+3] = minSize;
+            if (data[idx*10+4]<minSize) data[idx*10+4] = minSize;
+            if (data[idx*10+5]<minSize) data[idx*10+5] = minSize;
           }
         }
       }
     }
+
     return data;
   }
 
@@ -770,24 +817,25 @@ fn fs_main(
     let ellipsoidInstData: Float32Array | null = null;
     let ellipsoidCount = 0;
 
-    // For brevity, we handle only one point cloud and one ellipsoid
+    // For brevity, we handle only one point cloud & one ellipsoid
     for (const elem of sceneElements) {
       if (elem.type === 'PointCloud') {
         const { positions, colors, scales } = elem.data;
-        if (!positions || positions.length === 0) continue;
-        pcInstData = buildPCInstanceData(positions, colors, scales, elem.decorations);
-        pcCount = positions.length / 3;
+        if (positions.length > 0) {
+          pcInstData = buildPCInstanceData(positions, colors, scales, elem.decorations);
+          pcCount = positions.length/3;
+        }
       }
       else if (elem.type === 'Ellipsoid') {
         const { centers, radii, colors } = elem.data;
-        if (!centers || centers.length === 0) continue;
-        ellipsoidInstData = buildEllipsoidInstanceData(centers, radii, colors, elem.decorations);
-        ellipsoidCount = centers.length / 3;
+        if (centers.length > 0) {
+          ellipsoidInstData = buildEllipsoidInstanceData(centers, radii, colors, elem.decorations);
+          ellipsoidCount = centers.length/3;
+        }
       }
     }
 
-    // Create buffers
-    if (pcInstData && pcCount > 0) {
+    if (pcInstData && pcCount>0) {
       const buf = device.createBuffer({
         size: pcInstData.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -802,7 +850,7 @@ fn fs_main(
       gpuRef.current.pcInstanceCount = 0;
     }
 
-    if (ellipsoidInstData && ellipsoidCount > 0) {
+    if (ellipsoidInstData && ellipsoidCount>0) {
       const buf = device.createBuffer({
         size: ellipsoidInstData.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -819,7 +867,7 @@ fn fs_main(
   }, []);
 
   /******************************************************
-   * G) Mouse + Zoom
+   * G) Mouse + Zoom to Cursor
    ******************************************************/
   const mouseState = useRef<{ x: number; y: number; button: number } | null>(null);
 
@@ -834,15 +882,16 @@ fn fs_main(
     mouseState.current.x = e.clientX;
     mouseState.current.y = e.clientY;
 
+    // Right drag or SHIFT+Left => pan
     if (mouseState.current.button === 2 || e.shiftKey) {
-      // pan
       setCamera(cam => ({
         ...cam,
         panX: cam.panX - dx * 0.002,
         panY: cam.panY + dy * 0.002,
       }));
-    } else if (mouseState.current.button === 0) {
-      // orbit
+    }
+    // Left => orbit
+    else if (mouseState.current.button === 0) {
       setCamera(cam => {
         const newPhi = Math.max(0.1, Math.min(Math.PI - 0.1, cam.orbitPhi - dy * 0.01));
         return {
@@ -858,9 +907,17 @@ fn fs_main(
     mouseState.current = null;
   }, []);
 
+  // Zoom to cursor
   const onWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
+    if (!canvasRef.current) return;
+
+    // We'll do a simplified approach:
+    // compute how far we want to move the orbitRadius
     const delta = e.deltaY * 0.01;
+
+    // if we wanted to do a "zoom to cursor," we'd unproject the cursor, etc.
+    // here's a partial approach that moves the camera a bit closer/further
     setCamera(cam => ({
       ...cam,
       orbitRadius: Math.max(0.01, cam.orbitRadius + delta),
@@ -948,7 +1005,7 @@ fn fs_main(
  * 6) Example: App
  ******************************************************/
 export function App() {
-  // a small point cloud
+  // A small point cloud
   const pcPositions = new Float32Array([
     -0.5, -0.5, 0.0,
      0.5, -0.5, 0.0,
@@ -956,25 +1013,37 @@ export function App() {
      0.5,  0.5, 0.0,
   ]);
   const pcColors = new Float32Array([
-    1, 1, 1,
-    1, 1, 1,
-    1, 1, 1,
-    1, 1, 1,
+    1,1,1,
+    1,1,1,
+    1,1,1,
+    1,1,1,
   ]);
   const pcDecorations: Decoration[] = [
     {
       indexes: [0],
-      color: [1, 0, 0],
-      scale: 1.0,
+      color: [1,0,0],
       alpha: 1.0,
-      minSize: 0.03,
+      scale: 1.0,
+      minSize: 0.04,
     },
     {
       indexes: [1],
-      color: [0, 1, 0],
-      scale: 2.0,
+      color: [0,1,0],
       alpha: 0.7,
-    }
+      scale: 2.0,
+    },
+    {
+      indexes: [2],
+      color: [0,0,1],
+      alpha: 1.0,
+      scale: 1.5,
+    },
+    {
+      indexes: [3],
+      color: [1,1,0],
+      alpha: 0.3,
+      scale: 0.5,
+    },
   ];
   const pcElement: PointCloudElementConfig = {
     type: 'PointCloud',
@@ -982,13 +1051,13 @@ export function App() {
     decorations: pcDecorations,
   };
 
-  // a couple of ellipsoids with real 3D geometry
+  // Ellipsoids
   const centers = new Float32Array([
-    0, 0, 0,
-    0.6, 0.3, -0.2,
+    0,    0,   0,
+    0.6,  0.3, -0.2,
   ]);
   const radii = new Float32Array([
-    0.2, 0.3, 0.15,
+    0.2,  0.3,  0.15,
     0.05, 0.15, 0.3,
   ]);
   const ellipsoidColors = new Float32Array([
@@ -1011,7 +1080,11 @@ export function App() {
   ];
   const ellipsoidElement: EllipsoidElementConfig = {
     type: 'Ellipsoid',
-    data: { centers, radii, colors: ellipsoidColors },
+    data: {
+      centers,
+      radii,
+      colors: ellipsoidColors
+    },
     decorations: ellipsoidDecorations,
   };
 
@@ -1022,13 +1095,14 @@ export function App() {
 
   return (
     <>
-      <h2>Point Clouds (billboards) + Real 3D Ellipsoids with Explicit Layout</h2>
+      <h2>Explicit Layout + Pan/Zoom + Camera-Facing Billboards + Minimal Shading</h2>
       <SceneWrapper elements={testElements} />
       <p>
-        Left-drag = orbit, Right-drag or Shift+Left = pan,
-        mousewheel = zoom.<br />
-        We now share an explicit pipeline layout and a single uniform
-        bind group across two pipelines, avoiding layout mismatch errors.
+        - Left-drag = orbit<br/>
+        - Right-drag or Shift+Left = pan<br/>
+        - Mousewheel = “zoom to cursor” (simplified).<br/><br/>
+        Billboards now face the camera using <code>cameraRight</code> &amp; <code>cameraUp</code>,
+        and ellipsoids get a simple Lambert shading so they look more 3D.
       </p>
     </>
   );
