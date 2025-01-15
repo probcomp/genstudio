@@ -654,35 +654,36 @@ struct VSOut {
 
 @vertex
 fn vs_main(
-  @builtin(instance_index) instIdx:u32,
+  @builtin(instance_index) instIdx: u32,
   @location(0) inPos: vec3<f32>,
   @location(1) inNorm: vec3<f32>,
-  @location(2) iCenter: vec3<f32>,
-  @location(3) iScale: vec3<f32>,
-  @location(4) iColor: vec3<f32>,
-  @location(5) iAlpha: f32
+  @location(2) center: vec3<f32>,
+  @location(3) scale: vec3<f32>,
+  @location(4) color: vec3<f32>,
+  @location(5) alpha: f32
 )->VSOut {
-  let ringIndex=i32(instIdx%3u);
-  var lp=inPos;
-  var ln=inNorm;
+  let ringIndex = i32(instIdx%3u);
+  var lp = inPos;
 
-  if(ringIndex==1){
-    let px=lp.x; lp.x=lp.y; lp.y=-px;
-    let nx=ln.x; ln.x=ln.y; ln.y=-nx;
-  } else if(ringIndex==2){
-    let pz=lp.z; lp.z=-lp.x; lp.x=pz;
-    let nz=ln.z; ln.z=-ln.x; ln.x=nz;
+  // Fix the ring rotations to create XY, YZ, and XZ rings
+  if(ringIndex == 0) {
+    // XY plane (rotate XZ to XY)
+    let pz = lp.z; lp.z = -lp.y; lp.y = pz;
+  } else if(ringIndex == 1) {
+    // YZ plane (rotate XZ to YZ)
+    let px = lp.x; lp.x = -lp.y; lp.y = px;
+    let pz = lp.z; lp.z = lp.x; lp.x = pz;
   }
-  lp*=iScale;
-  ln=normalize(ln/iScale);
-  let wp=lp+iCenter;
+  // ringIndex == 2: XZ plane (leave as is)
 
-  var outData:VSOut;
-  outData.pos=camera.mvp*vec4<f32>(wp,1.0);
-  outData.normal=ln;
-  outData.color=iColor;
-  outData.alpha=iAlpha;
-  outData.worldPos=wp;
+  lp *= scale;
+  let wp = lp + center;
+  var outData: VSOut;
+  outData.pos = camera.mvp*vec4<f32>(wp, 1.0);
+  outData.normal = inNorm;
+  outData.color = color;
+  outData.alpha = alpha;
+  outData.worldPos = wp;
   return outData;
 }
 
@@ -805,11 +806,18 @@ fn vs_bands(
 )->VSOut {
   let ringIndex = i32(instIdx%3u);
   var lp = inPos;
-  if(ringIndex == 1) {
-    let px = lp.x; lp.x = lp.y; lp.y = -px;
-  } else if(ringIndex == 2) {
-    let pz = lp.z; lp.z = -lp.x; lp.x = pz;
+
+  // Fix the ring rotations to create XY, YZ, and XZ rings
+  if(ringIndex == 0) {
+    // XY plane (rotate XZ to XY)
+    let pz = lp.z; lp.z = -lp.y; lp.y = pz;
+  } else if(ringIndex == 1) {
+    // YZ plane (rotate XZ to YZ)
+    let px = lp.x; lp.x = -lp.y; lp.y = px;
+    let pz = lp.z; lp.z = lp.x; lp.x = pz;
   }
+  // ringIndex == 2: XZ plane (leave as is)
+
   lp *= scale;
   let wp = lp + center;
   var outData: VSOut;
