@@ -306,7 +306,8 @@ function Scene({ elements, containerWidth }: SceneProps) {
 
       const context = canvasRef.current.getContext('webgpu') as GPUCanvasContext;
       const format = navigator.gpu.getPreferredCanvasFormat();
-      context.configure({ device, format, alphaMode: 'opaque' });
+      // CHANGE #1: enable alphaMode = 'premultiplied'
+      context.configure({ device, format, alphaMode: 'premultiplied' });
 
       // 1) Billboards
       const QUAD_VERTICES = new Float32Array([
@@ -460,13 +461,30 @@ fn fs_main(
 `
           }),
           entryPoint: 'fs_main',
-          targets: [{ format }],
+          // CHANGE #2: enable blending + less-equal depth
+          targets: [
+            {
+              format,
+              blend: {
+                color: {
+                  srcFactor: 'src-alpha',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add'
+                },
+                alpha: {
+                  srcFactor: 'one',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add'
+                }
+              }
+            }
+          ],
         },
         primitive: { topology: 'triangle-list', cullMode: 'back' },
         depthStencil: {
           format: 'depth24plus',
           depthWriteEnabled: true,
-          depthCompare: 'less',
+          depthCompare: 'less-equal', // changed from 'less'
         },
       });
 
@@ -621,13 +639,30 @@ fn fs_main(
 `
           }),
           entryPoint: 'fs_main',
-          targets: [{ format }],
+          // CHANGE #2 (same): enable blending + less-equal depth
+          targets: [
+            {
+              format,
+              blend: {
+                color: {
+                  srcFactor: 'src-alpha',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add'
+                },
+                alpha: {
+                  srcFactor: 'one',
+                  dstFactor: 'one-minus-src-alpha',
+                  operation: 'add'
+                }
+              }
+            }
+          ],
         },
         primitive: { topology: 'triangle-list', cullMode: 'back' },
         depthStencil: {
           format: 'depth24plus',
           depthWriteEnabled: true,
-          depthCompare: 'less',
+          depthCompare: 'less-equal', // changed from 'less'
         },
       });
 
@@ -1149,19 +1184,25 @@ export function App() {
     decorations: pcDecorations,
   };
 
-  // sample ellipsoids
+  // sample ellipsoids with added sphere
   const centers = new Float32Array([
-    0,    0,   0,
-    0.6,  0.3, -0.2,
+    0,    0,   0,    // first ellipsoid
+    0.6,  0.3, -0.2, // second ellipsoid
+    -0.4, 0.4, 0.3,  // new sphere
   ]);
+
   const radii = new Float32Array([
-    0.2,  0.3,  0.15,
-    0.05, 0.15, 0.3,
+    0.2,  0.3,  0.15,  // first ellipsoid
+    0.05, 0.15, 0.3,   // second ellipsoid
+    0.25, 0.25, 0.25,  // new sphere (equal radii)
   ]);
+
   const ellipsoidColors = new Float32Array([
-    1.0, 0.5, 0.2,
-    0.2, 0.9, 1.0,
+    1.0, 0.5, 0.2,  // first ellipsoid
+    0.2, 0.9, 1.0,  // second ellipsoid
+    0.8, 0.2, 0.8,  // new sphere (purple)
   ]);
+
   const ellipsoidDecorations: Decoration[] = [
     {
       indexes: [0],
@@ -1172,8 +1213,12 @@ export function App() {
     },
     {
       indexes: [1],
-      color: [0.1, 0.8, 1.0],
-      alpha: 0.7,
+      alpha: 0.5,
+    },
+    {
+      indexes: [2],
+      alpha: 0.5,
+      scale: 2.0,
     }
   ];
   const ellipsoidElement: EllipsoidElementConfig = {
@@ -1188,16 +1233,7 @@ export function App() {
   ];
 
   return (
-    <>
-      <h2>Depth Testing + Per-Vertex Normals + Camera-Facing Billboards</h2>
-      <SceneWrapper elements={testElements} />
-      <p>
-        We store <em>pos+normal</em> for the sphere, do a minimal Lambert+spec lighting,
-        enable depth testing (<code>depth24plus</code>), and ensure our pipeline
-        and WGSL <code>@location</code> match. Now ellipsoids show color + shading properly,
-        and can occlude each other.
-      </p>
-    </>
+    <SceneWrapper elements={testElements} />
   );
 }
 
