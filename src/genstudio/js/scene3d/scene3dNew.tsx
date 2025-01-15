@@ -143,9 +143,9 @@ function Scene({ elements, containerWidth }: SceneProps) {
     sphereIB: GPUBuffer;
     sphereIndexCount: number;
 
-    // [BAND CHANGE #3]: EllipsoidBounds
+    // [BAND CHANGE #3]: EllipsoidBounds -> now 3D torus
     ellipsoidBandPipeline: GPURenderPipeline;
-    ringVB: GPUBuffer;     // ring geometry
+    ringVB: GPUBuffer;     // torus geometry
     ringIB: GPUBuffer;
     ringIndexCount: number;
 
@@ -264,8 +264,10 @@ function Scene({ elements, containerWidth }: SceneProps) {
   }
 
   /******************************************************
-   * B) Generate Sphere Geometry with Normals
+   * B) Create Sphere + Torus Geometry
    ******************************************************/
+
+  // Sphere geometry for ellipsoids
   function createSphereGeometry(
     stacks = GEOMETRY.SPHERE.STACKS,
     slices = GEOMETRY.SPHERE.SLICES,
@@ -318,34 +320,57 @@ function Scene({ elements, containerWidth }: SceneProps) {
     };
   }
 
-  // [BAND CHANGE #5]: Create simple ring geometry in XY plane
-  function createRingGeometry(segments: number = 32) {
-    const verts: number[] = [];
+  // 3D torus geometry for the bounding bands
+  function createTorusGeometry(
+    majorRadius: number,
+    minorRadius: number,
+    majorSegments: number,
+    minorSegments: number
+  ) {
+    const vertices: number[] = [];
     const indices: number[] = [];
 
-    // Create vertices for each line segment
-    for (let i = 0; i < segments; i++) {
-      const theta1 = (i / segments) * 2 * Math.PI;
-      const theta2 = ((i + 1) / segments) * 2 * Math.PI;
+    for (let j = 0; j <= majorSegments; j++) {
+      const theta = (j / majorSegments) * 2.0 * Math.PI;
+      const cosTheta = Math.cos(theta);
+      const sinTheta = Math.sin(theta);
 
-      // Start and end points
-      const x1 = Math.cos(theta1);
-      const y1 = Math.sin(theta1);
-      const x2 = Math.cos(theta2);
-      const y2 = Math.sin(theta2);
+      for (let i = 0; i <= minorSegments; i++) {
+        const phi = (i / minorSegments) * 2.0 * Math.PI;
+        const cosPhi = Math.cos(phi);
+        const sinPhi = Math.sin(phi);
 
-      // Add the line segment vertices
-      verts.push(
-        x1, y1, 0,  // start point
-        x2, y2, 0   // end point
-      );
+        // Position
+        const x = (majorRadius + minorRadius * cosPhi) * cosTheta;
+        const y = (majorRadius + minorRadius * cosPhi) * sinTheta;
+        const z = minorRadius * sinPhi;
 
-      // Add indices for this line segment
-      indices.push(i * 2, i * 2 + 1);
+        // Normal
+        const nx = cosPhi * cosTheta;
+        const ny = cosPhi * sinTheta;
+        const nz = sinPhi;
+
+        vertices.push(x, y, z);
+        vertices.push(nx, ny, nz);
+      }
+    }
+
+    for (let j = 0; j < majorSegments; j++) {
+      const row1 = j * (minorSegments + 1);
+      const row2 = (j + 1) * (minorSegments + 1);
+
+      for (let i = 0; i < minorSegments; i++) {
+        const a = row1 + i;
+        const b = row1 + i + 1;
+        const c = row2 + i;
+        const d = row2 + i + 1;
+        indices.push(a, b, c);
+        indices.push(b, d, c);
+      }
     }
 
     return {
-      vertexData: new Float32Array(verts),
+      vertexData: new Float32Array(vertices),
       indexData: new Uint16Array(indices),
     };
   }
@@ -404,28 +429,30 @@ function Scene({ elements, containerWidth }: SceneProps) {
       });
       device.queue.writeBuffer(sphereIB, 0, sphereGeo.indexData);
 
-      // [BAND CHANGE #6]: Ring geometry
-      const ringGeo = createRingGeometry(64, 0.95, 1.0);
+      // 3) Torus geometry for bounding bands
+      //    Make them fairly large radius=1 + small thickness=0.03
+      //    Then we will scale them differently per ring instance
+      const torusGeo = createTorusGeometry(1.0, 0.03, 40, 12);
       const ringVB = device.createBuffer({
-        size: ringGeo.vertexData.byteLength,
+        size: torusGeo.vertexData.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
       });
-      device.queue.writeBuffer(ringVB, 0, ringGeo.vertexData);
+      device.queue.writeBuffer(ringVB, 0, torusGeo.vertexData);
 
       const ringIB = device.createBuffer({
-        size: ringGeo.indexData.byteLength,
+        size: torusGeo.indexData.byteLength,
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
       });
-      device.queue.writeBuffer(ringIB, 0, ringGeo.indexData);
+      device.queue.writeBuffer(ringIB, 0, torusGeo.indexData);
 
-      // 3) Uniform buffer
+      // 4) Uniform buffer
       const uniformBufferSize = 128;
       const uniformBuffer = device.createBuffer({
         size: uniformBufferSize,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
 
-      // 4) Pipeline layout
+      // 5) Pipeline layout
       const uniformBindGroupLayout = device.createBindGroupLayout({
         entries: [
           {
@@ -439,7 +466,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
         bindGroupLayouts: [uniformBindGroupLayout],
       });
 
-      // 5) Billboard pipeline
+      // 6) Billboard pipeline
       const billboardPipeline = device.createRenderPipeline({
         layout: pipelineLayout,
         vertex: {
@@ -556,7 +583,7 @@ fn fs_main(
         },
       });
 
-      // 6) Ellipsoid pipeline
+      // 7) Ellipsoid pipeline
       const ellipsoidPipeline = device.createRenderPipeline({
         layout: pipelineLayout,
         vertex: {
@@ -627,7 +654,6 @@ fn fs_main(
   let ambient = ${LIGHTING.AMBIENT_INTENSITY};
   var color = baseColor * (ambient + lambert * ${LIGHTING.DIFFUSE_INTENSITY});
 
-  // small spec
   let V = normalize(-worldPos);
   let H = normalize(L + V);
   let spec = pow(max(dot(N, H), 0.0), ${LIGHTING.SPECULAR_POWER});
@@ -723,8 +749,7 @@ fn fs_main(
         },
       });
 
-      // [BAND CHANGE #7]: EllipsoidBounds pipeline
-      // We'll reuse a minimal approach: pos(3), normal(3), plus instance data for transform + color + alpha
+      // 8) EllipsoidBounds pipeline -> 3D torus
       const ellipsoidBandPipeline = device.createRenderPipeline({
         layout: pipelineLayout,
         vertex: {
@@ -744,65 +769,113 @@ struct Camera {
 
 struct VSOut {
   @builtin(position) Position : vec4<f32>,
-  @location(1) color : vec3<f32>,
-  @location(2) alpha : f32,
+  @location(1) normal : vec3<f32>,
+  @location(2) color : vec3<f32>,
+  @location(3) alpha : f32,
+  @location(4) worldPos : vec3<f32>,
 };
 
 @vertex
 fn vs_main(
   @builtin(instance_index) instanceIdx: u32,
-  @location(0) pos: vec3<f32>,      // Line vertex position
-  @location(1) iCenter: vec3<f32>,  // Instance center
-  @location(2) iScale: vec3<f32>,   // Instance scale
-  @location(3) iColor: vec3<f32>,   // Instance color
-  @location(4) iAlpha: f32          // Instance alpha
+  // torus data: pos(3), norm(3)
+  @location(0) inPos : vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+
+  // instance data: center(3), scale(3), color(3), alpha(1)
+  @location(2) iCenter: vec3<f32>,
+  @location(3) iScale : vec3<f32>,
+  @location(4) iColor : vec3<f32>,
+  @location(5) iAlpha : f32
 ) -> VSOut {
   var out: VSOut;
 
-  // Get ring index (0=XY, 1=YZ, 2=XZ)
+  // ringIndex => 0=XY, 1=YZ, 2=XZ
   let ringIndex = i32(instanceIdx % 3u);
 
-  // Transform position based on ring orientation
-  var worldPos: vec3<f32>;
-  if (ringIndex == 0) {
-    // XY plane
-    worldPos = vec3<f32>(pos.x * iScale.x, pos.y * iScale.y, 0.0);
-  } else if (ringIndex == 1) {
-    // YZ plane
-    worldPos = vec3<f32>(0.0, pos.x * iScale.y, pos.z * iScale.z);
-  } else {
-    // XZ plane
-    worldPos = vec3<f32>(pos.x * iScale.x, 0.0, pos.y * iScale.z);
+  // We'll do a minimal orientation approach:
+  var localPos = inPos;
+  var localNorm = inNorm;
+
+  if (ringIndex == 1) {
+    // rotate geometry ~90 deg about Z so torus is in YZ plane
+    let px = localPos.x;
+    localPos.x = localPos.y;
+    localPos.y = -px;
+
+    let nx = localNorm.x;
+    localNorm.x = localNorm.y;
+    localNorm.y = -nx;
+  }
+  else if (ringIndex == 2) {
+    // rotate geometry ~90 deg about Y so torus is in XZ plane
+    let pz = localPos.z;
+    localPos.z = -localPos.x;
+    localPos.x = pz;
+
+    let nz = localNorm.z;
+    localNorm.z = -localNorm.x;
+    localNorm.x = nz;
   }
 
-  // Move to instance center
-  worldPos += iCenter;
+  // scale
+  localPos = localPos * iScale;
+  // normal adjusted
+  localNorm = normalize(localNorm / iScale);
 
-  // Project to screen space
+  let worldPos = localPos + iCenter;
+
   out.Position = camera.mvp * vec4<f32>(worldPos, 1.0);
+  out.normal = localNorm;
   out.color = iColor;
   out.alpha = iAlpha;
+  out.worldPos = worldPos;
   return out;
-}`,
+}
+
+@fragment
+fn fs_main(
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>
+) -> @location(0) vec4<f32> {
+  let N = normalize(normal);
+  let L = normalize(camera.lightDir);
+  let lambert = max(dot(N, L), 0.0);
+
+  let ambient = ${LIGHTING.AMBIENT_INTENSITY};
+  var color = baseColor * (ambient + lambert * ${LIGHTING.DIFFUSE_INTENSITY});
+
+  // small spec
+  let V = normalize(-worldPos);
+  let H = normalize(L + V);
+  let spec = pow(max(dot(N, H), 0.0), ${LIGHTING.SPECULAR_POWER});
+  color += vec3<f32>(1.0,1.0,1.0) * spec * ${LIGHTING.SPECULAR_INTENSITY};
+
+  return vec4<f32>(color, alpha);
+}
+`
           }),
           entryPoint: 'vs_main',
           buffers: [
-            // Line geometry: pos(3)
+            // torus geometry: pos(3), norm(3)
             {
-              arrayStride: 3 * 4,
+              arrayStride: 6 * 4,
               attributes: [
-                { shaderLocation: 0, offset: 0, format: 'float32x3' },  // position
+                { shaderLocation: 0, offset: 0,       format: 'float32x3' }, // inPos
+                { shaderLocation: 1, offset: 3 * 4,   format: 'float32x3' }, // inNorm
               ],
             },
-            // Instance data
+            // instance data
             {
               arrayStride: 10 * 4,
               stepMode: 'instance',
               attributes: [
-                { shaderLocation: 1, offset: 0, format: 'float32x3' },     // center
-                { shaderLocation: 2, offset: 3 * 4, format: 'float32x3' }, // scale
-                { shaderLocation: 3, offset: 6 * 4, format: 'float32x3' }, // color
-                { shaderLocation: 4, offset: 9 * 4, format: 'float32' },   // alpha
+                { shaderLocation: 2, offset: 0,        format: 'float32x3' }, // center
+                { shaderLocation: 3, offset: 3 * 4,    format: 'float32x3' }, // scale
+                { shaderLocation: 4, offset: 6 * 4,    format: 'float32x3' }, // color
+                { shaderLocation: 5, offset: 9 * 4,    format: 'float32'   }, // alpha
               ],
             },
           ],
@@ -812,10 +885,25 @@ fn vs_main(
             code: `
 @fragment
 fn fs_main(
-  @location(1) bColor: vec3<f32>,
-  @location(2) bAlpha: f32
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>
 ) -> @location(0) vec4<f32> {
-  return vec4<f32>(bColor, bAlpha);
+  // identical lighting logic as above
+  let N = normalize(normal);
+  let L = normalize(vec3<f32>(1.0,1.0,0.6));
+  let lambert = max(dot(N, L), 0.0);
+
+  let ambient = ${LIGHTING.AMBIENT_INTENSITY};
+  var color = baseColor * (ambient + lambert * ${LIGHTING.DIFFUSE_INTENSITY});
+
+  let V = normalize(-worldPos);
+  let H = normalize(L + V);
+  let spec = pow(max(dot(N, H), 0.0), ${LIGHTING.SPECULAR_POWER});
+  color += vec3<f32>(1.0,1.0,1.0) * spec * ${LIGHTING.SPECULAR_INTENSITY};
+
+  return vec4<f32>(color, alpha);
 }
 `
           }),
@@ -837,8 +925,8 @@ fn fs_main(
           }],
         },
         primitive: {
-          topology: 'line-list',  // Change to render as lines
-          cullMode: 'none',
+          topology: 'triangle-list',
+          cullMode: 'back',
         },
         depthStencil: {
           format: 'depth24plus',
@@ -847,7 +935,7 @@ fn fs_main(
         },
       });
 
-      // 7) Uniform bind group
+      // 9) Uniform bind group
       const uniformBindGroup = device.createBindGroup({
         layout: uniformBindGroupLayout,
         entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
@@ -864,11 +952,10 @@ fn fs_main(
         sphereIB,
         sphereIndexCount: sphereGeo.indexData.length,
 
-        // [BAND CHANGE #8]
         ellipsoidBandPipeline,
         ringVB,
         ringIB,
-        ringIndexCount: ringGeo.indexData.length,
+        ringIndexCount: torusGeo.indexData.length,
 
         uniformBuffer,
         uniformBindGroup,
@@ -876,11 +963,8 @@ fn fs_main(
         pcInstanceCount: 0,
         ellipsoidInstanceBuffer: null,
         ellipsoidInstanceCount: 0,
-
-        // [BAND CHANGE #9]
         bandInstanceBuffer: null,
         bandInstanceCount: 0,
-
         depthTexture: null,
       };
 
@@ -964,7 +1048,7 @@ fn fs_main(
     data[21] = cameraUp[1];
     data[22] = cameraUp[2];
     data[23] = 0;
-    // Light direction
+    // Light direction (just an example)
     const dir = normalize([1,1,0.6]);
     data[24] = dir[0];
     data[25] = dir[1];
@@ -1021,7 +1105,7 @@ fn fs_main(
       passEncoder.drawIndexed(sphereIndexCount, ellipsoidInstanceCount);
     }
 
-    // [BAND CHANGE #10]: Draw ellipsoid bands
+    // C) Draw ellipsoid bands -> now actual 3D torus
     if (bandInstanceBuffer && bandInstanceCount > 0) {
       passEncoder.setPipeline(ellipsoidBandPipeline);
       passEncoder.setBindGroup(0, uniformBindGroup);
@@ -1160,7 +1244,7 @@ fn fs_main(
   }
 
   // [BAND CHANGE #11]: Build instance data for EllipsoidBounds
-  // We create three rings (XY, YZ, XZ) per ellipsoid, each ring scaled by that ellipsoid's radii on the relevant two axes.
+  // We create three ring instances (XY, YZ, XZ) per ellipsoid.
   function buildEllipsoidBoundsInstanceData(
     centers: Float32Array,
     radii: Float32Array,
@@ -1177,6 +1261,7 @@ fn fs_main(
       const ry = radii[i*3+1] || 0.1;
       const rz = radii[i*3+2] || 0.1;
 
+      // Choose a color if provided
       let cr = 1, cg = 1, cb = 1;
       if (colors && colors.length === count*3) {
         cr = colors[i*3+0];
@@ -1185,30 +1270,20 @@ fn fs_main(
       }
       const alpha = 1.0;
 
-      // All rings share the same center and color
+      // We'll create 3 rings for each ellipsoid
       for (let ring = 0; ring < 3; ring++) {
         const idx = i*3 + ring;
         data[idx*10+0] = cx;
         data[idx*10+1] = cy;
         data[idx*10+2] = cz;
 
-        // Set scales based on which plane this ring represents
-        if (ring === 0) {
-          // XY plane
-          data[idx*10+3] = rx;
-          data[idx*10+4] = ry;
-          data[idx*10+5] = rz * 0.02; // thin in Z
-        } else if (ring === 1) {
-          // YZ plane
-          data[idx*10+3] = rx * 0.02; // thin in X
-          data[idx*10+4] = ry;
-          data[idx*10+5] = rz;
-        } else {
-          // XZ plane
-          data[idx*10+3] = rx;
-          data[idx*10+4] = ry * 0.02; // thin in Y
-          data[idx*10+5] = rz;
-        }
+        // scale.x, scale.y, scale.z
+        // We'll effectively reshape the base torus from (radius=1, thickness=0.03)
+        // We can multiply the appropriate axes by [rx, ry, rz].
+        // The ring orientation is handled in the vertex shader via ringIndex.
+        data[idx*10+3] = rx;
+        data[idx*10+4] = ry;
+        data[idx*10+5] = rz;
 
         data[idx*10+6] = cr;
         data[idx*10+7] = cg;
@@ -1217,8 +1292,7 @@ fn fs_main(
       }
     }
 
-    // Apply decorations (unchanged)
-    // ...
+    // Apply decorations if needed (unchanged)...
 
     return data;
   }
@@ -1236,7 +1310,6 @@ fn fs_main(
     let ellipsoidInstData: Float32Array | null = null;
     let ellipsoidCount = 0;
 
-    // [BAND CHANGE #12]
     let bandInstData: Float32Array | null = null;
     let bandCount = 0;
 
@@ -1256,7 +1329,6 @@ fn fs_main(
           ellipsoidCount = centers.length/3;
         }
       }
-      // EllipsoidBounds
       else if (elem.type === 'EllipsoidBounds') {
         const { centers, radii, colors } = elem.data;
         if (centers.length > 0) {
@@ -1266,7 +1338,7 @@ fn fs_main(
       }
     }
 
-    // create buffers
+    // Point cloud
     if (pcInstData && pcCount>0) {
       const buf = device.createBuffer({
         size: pcInstData.byteLength,
@@ -1282,6 +1354,7 @@ fn fs_main(
       gpuRef.current.pcInstanceCount = 0;
     }
 
+    // Ellipsoids
     if (ellipsoidInstData && ellipsoidCount>0) {
       const buf = device.createBuffer({
         size: ellipsoidInstData.byteLength,
@@ -1297,7 +1370,7 @@ fn fs_main(
       gpuRef.current.ellipsoidInstanceCount = 0;
     }
 
-    // [BAND CHANGE #13]: create band buffer
+    // 3D ring “bands”
     if (bandInstData && bandCount>0) {
       const buf = device.createBuffer({
         size: bandInstData.byteLength,
