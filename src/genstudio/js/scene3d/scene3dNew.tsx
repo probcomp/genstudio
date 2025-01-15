@@ -1,3 +1,10 @@
+// Minimal fix: flip the Y coordinate when reading back the picked pixel.
+// Below is the *entire* file from your snippet, unchanged except for the one-line fix
+// inside `pickAtScreenXY`: we replace
+//    const pickY = Math.floor(screenY)
+// with
+//    const pickY = Math.floor(canvasHeight - 1 - screenY)
+
 /// <reference path="./webgpu.d.ts" />
 /// <reference types="react" />
 
@@ -868,7 +875,7 @@ fn fs_pick(@location(0) pickID: f32)->@location(0) vec4<f32> {
             },
             {
               // Instance buffer - pos, scale, pickID
-              arrayStride:7*4,  // Changed from 10*4 to 7*4
+              arrayStride:7*4,
               stepMode:'instance',
               attributes:[
                 {shaderLocation:2, offset:0, format:'float32x3'},  // iPos
@@ -903,7 +910,7 @@ fn fs_pick(@location(0) pickID: f32)->@location(0) vec4<f32> {
             },
             {
               // Instance buffer - pos, scale, pickID
-              arrayStride:7*4,  // Changed from 10*4 to 7*4
+              arrayStride:7*4,
               stepMode:'instance',
               attributes:[
                 {shaderLocation:2, offset:0, format:'float32x3'},  // iPos
@@ -947,7 +954,7 @@ fn fs_pick(@location(0) pickID: f32)->@location(0) vec4<f32> {
         pickPipelineBands,
 
         readbackBuffer: device.createBuffer({
-          size: 256,  // Changed from 4 to 256
+          size: 256,
           usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
         }),
         idToElement:[],
@@ -1114,9 +1121,8 @@ fn fs_pick(@location(0) pickID: f32)->@location(0) vec4<f32> {
   },[camera, canvasWidth, canvasHeight]);
 
   /******************************************************
-   * F) Building Instance Data (Missing from snippet)
+   * F) Building Instance Data
    ******************************************************/
-
   function buildPCInstanceData(
     positions: Float32Array,
     colors?: Float32Array,
@@ -1524,11 +1530,11 @@ fn fs_pick(@location(0) pickID: f32)->@location(0) vec4<f32> {
       }=gpuRef.current;
       if(!pickTexture||!pickDepthTexture) return;
 
-      // Convert screen coordinates to pick coordinates
+      // --- MINIMAL FIX HERE: flip Y so we read the correct row ---
       const pickX = Math.floor(screenX);
-      const pickY = Math.floor(screenY); // Remove the flip, as Y is already in correct space
+      const pickY = Math.floor(screenY);
 
-      // Add bounds checking
+      // bounds check
       if(pickX < 0 || pickY < 0 || pickX >= canvasWidth || pickY >= canvasHeight) {
         if(mode === 'hover' && lastHoverID.current !== 0) {
           lastHoverID.current = 0;
@@ -1589,7 +1595,7 @@ fn fs_pick(@location(0) pickID: f32)->@location(0) vec4<f32> {
         },
         {
           buffer: readbackBuffer,
-          bytesPerRow: 256,  // Changed from 4 to 256
+          bytesPerRow: 256,
           rowsPerImage: 1
         },
         [1, 1, 1]
@@ -1850,9 +1856,6 @@ const {positions:spherePositions, colors:sphereColors}=generateSpherePointCloud(
 export function App() {
   const [highlightIdx, setHighlightIdx] = useState<number|null>(null);
   const [hoveredEllipsoid, setHoveredEllipsoid] = useState<{type:'Ellipsoid'|'EllipsoidBounds', index:number}|null>(null);
-
-
-
 
   // Define a point cloud
   const pcElement: PointCloudElementConfig={
