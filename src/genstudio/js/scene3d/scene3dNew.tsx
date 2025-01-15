@@ -5,12 +5,19 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useContainerWidth } from '../utils';
 
 /******************************************************
- * 1) Define Types from the Spec
+ * 1) Define Types
  ******************************************************/
+
 interface PointCloudData {
-  positions: Float32Array;     // [x, y, z, x, y, z, ...]
-  colors?: Float32Array;       // [r, g, b, r, g, b, ...]
+  positions: Float32Array;     // [x, y, z, ...]
+  colors?: Float32Array;       // [r, g, b, ...], 0..1
   scales?: Float32Array;       // optional
+}
+
+interface EllipsoidData {
+  centers: Float32Array;       // [cx, cy, cz, ...]
+  radii: Float32Array;         // [rx, ry, rz, ...]
+  colors?: Float32Array;       // [r, g, b, ...], 0..1
 }
 
 interface Decoration {
@@ -27,18 +34,24 @@ interface PointCloudElementConfig {
   decorations?: Decoration[];
 }
 
-type SceneElementConfig = PointCloudElementConfig;
+interface EllipsoidElementConfig {
+  type: 'Ellipsoid';
+  data: EllipsoidData;
+  decorations?: Decoration[];
+}
+
+type SceneElementConfig = PointCloudElementConfig | EllipsoidElementConfig;
 
 /******************************************************
  * 2) Minimal Camera State
  ******************************************************/
 interface CameraState {
-  orbitRadius: number;  // distance from origin
-  orbitTheta: number;   // rotation around Y axis
-  orbitPhi: number;     // rotation around X axis
-  panX: number;         // shifting the target in X
-  panY: number;         // shifting the target in Y
-  fov: number;          // field of view in radians, e.g. ~60 deg
+  orbitRadius: number;
+  orbitTheta: number;
+  orbitPhi: number;
+  panX: number;
+  panY: number;
+  fov: number;
   near: number;
   far: number;
 }
@@ -52,12 +65,10 @@ interface SceneProps {
 }
 
 /******************************************************
- * 4) SceneWrapper - measures container, uses <Scene>
+ * 4) SceneWrapper
  ******************************************************/
 export function SceneWrapper({ elements }: { elements: SceneElementConfig[] }) {
-  console.log("SW", elements)
   const [containerRef, measuredWidth] = useContainerWidth(1);
-
   return (
     <div ref={containerRef} style={{ width: '100%', height: '600px' }}>
       {measuredWidth > 0 && (
@@ -68,8 +79,7 @@ export function SceneWrapper({ elements }: { elements: SceneElementConfig[] }) {
 }
 
 /******************************************************
- * 5) The Scene Component - with "zoom to cursor" +
- *    camera-facing billboards
+ * 5) The Scene Component
  ******************************************************/
 function Scene({ elements, containerWidth }: SceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -81,44 +91,42 @@ function Scene({ elements, containerWidth }: SceneProps) {
   const gpuRef = useRef<{
     device: GPUDevice;
     context: GPUCanvasContext;
-    pipeline: GPURenderPipeline;
-    quadVertexBuffer: GPUBuffer;
-    quadIndexBuffer: GPUBuffer;
-    instanceBuffer: GPUBuffer | null;
+    // For point clouds
+    billboardPipeline: GPURenderPipeline;
+    billboardQuadVB: GPUBuffer;
+    billboardQuadIB: GPUBuffer;
+    // For ellipsoids
+    ellipsoidPipeline: GPURenderPipeline;
+    sphereVB: GPUBuffer;
+    sphereIB: GPUBuffer;
+    sphereIndexCount: number;
+
     uniformBuffer: GPUBuffer;
-    bindGroup: GPUBindGroup;
-    indexCount: number;
-    instanceCount: number;
+    uniformBindGroup: GPUBindGroup; // We'll store the uniform bind group here
+
+    // Instances
+    pcInstanceBuffer: GPUBuffer | null;
+    pcInstanceCount: number;
+    ellipsoidInstanceBuffer: GPUBuffer | null;
+    ellipsoidInstanceCount: number;
   } | null>(null);
 
   // Render loop handle
   const rafIdRef = useRef<number>(0);
 
-  // Track WebGPU readiness
   const [isReady, setIsReady] = useState(false);
 
-  // ----------------------------------------------------
-  // Camera: Adjust angles to ensure a view from the start
-  // ----------------------------------------------------
+  // Camera
   const [camera, setCamera] = useState<CameraState>({
     orbitRadius: 2.0,
-    orbitTheta: 0.2,  // nonzero so we see the quads initially
-    orbitPhi: 1.0,    // tilt downward
+    orbitTheta: 0.2,
+    orbitPhi: 1.0,
     panX: 0.0,
     panY: 0.0,
-    fov: Math.PI / 3, // ~60 deg
+    fov: Math.PI / 3,
     near: 0.01,
     far: 100.0,
   });
-
-  // Basic billboard geometry
-  const QUAD_VERTICES = new Float32Array([
-    -0.5, -0.5,
-     0.5, -0.5,
-    -0.5,  0.5,
-     0.5,  0.5,
-  ]);
-  const QUAD_INDICES = new Uint16Array([0, 1, 2, 2, 1, 3]);
 
   /******************************************************
    * A) Minimal Math
@@ -199,12 +207,59 @@ function Scene({ elements, containerWidth }: SceneProps) {
   }
 
   /******************************************************
-   * B) Initialize WebGPU
+   * B) Generate Geometry
+   ******************************************************/
+
+  // 1) The old billboard quad
+  const QUAD_VERTICES = new Float32Array([
+    -0.5, -0.5,
+     0.5, -0.5,
+    -0.5,  0.5,
+     0.5,  0.5,
+  ]);
+  const QUAD_INDICES = new Uint16Array([0, 1, 2, 2, 1, 3]);
+
+  // 2) A sphere for the ellipsoids
+  function createSphereGeometry(stacks = 16, slices = 24) {
+    const positions: number[] = [];
+    const indices: number[] = [];
+
+    for (let i = 0; i <= stacks; i++) {
+      const phi = (i / stacks) * Math.PI; // 0..π
+      const y = Math.cos(phi);
+      const r = Math.sin(phi);
+
+      for (let j = 0; j <= slices; j++) {
+        const theta = (j / slices) * 2 * Math.PI; // 0..2π
+        const x = r * Math.sin(theta);
+        const z = r * Math.cos(theta);
+        positions.push(x, y, z);
+      }
+    }
+
+    for (let i = 0; i < stacks; i++) {
+      for (let j = 0; j < slices; j++) {
+        const row1 = i * (slices + 1) + j;
+        const row2 = (i + 1) * (slices + 1) + j;
+
+        indices.push(row1, row2, row1 + 1);
+        indices.push(row1 + 1, row2, row2 + 1);
+      }
+    }
+
+    return {
+      positions: new Float32Array(positions),
+      indices: new Uint16Array(indices),
+    };
+  }
+
+  /******************************************************
+   * C) Initialize WebGPU
    ******************************************************/
   const initWebGPU = useCallback(async () => {
     if (!canvasRef.current) return;
     if (!navigator.gpu) {
-      console.error('WebGPU not supported in this environment.');
+      console.error('WebGPU not supported.');
       return;
     }
 
@@ -217,72 +272,104 @@ function Scene({ elements, containerWidth }: SceneProps) {
       const format = navigator.gpu.getPreferredCanvasFormat();
       context.configure({ device, format, alphaMode: 'opaque' });
 
-      // Create buffers
-      const quadVertexBuffer = device.createBuffer({
+      /*********************************
+       * 1) Create geometry buffers
+       *********************************/
+      // For point-cloud billboards
+      const billboardQuadVB = device.createBuffer({
         size: QUAD_VERTICES.byteLength,
         usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
       });
-      device.queue.writeBuffer(quadVertexBuffer, 0, QUAD_VERTICES);
+      device.queue.writeBuffer(billboardQuadVB, 0, QUAD_VERTICES);
 
-      const quadIndexBuffer = device.createBuffer({
+      const billboardQuadIB = device.createBuffer({
         size: QUAD_INDICES.byteLength,
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
       });
-      device.queue.writeBuffer(quadIndexBuffer, 0, QUAD_INDICES);
+      device.queue.writeBuffer(billboardQuadIB, 0, QUAD_INDICES);
 
-      // Uniform buffer (mvp + cameraRight + cameraUp)
-      const uniformBufferSize = 96;
+      // For ellipsoids (3D sphere)
+      const sphereGeo = createSphereGeometry(16, 24);
+      const sphereVB = device.createBuffer({
+        size: sphereGeo.positions.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(sphereVB, 0, sphereGeo.positions);
+
+      const sphereIB = device.createBuffer({
+        size: sphereGeo.indices.byteLength,
+        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(sphereIB, 0, sphereGeo.indices);
+
+      /*********************************
+       * 2) Create uniform buffer
+       *********************************/
+      // We'll store a 4x4 MVP (16 floats * 4 bytes = 64)
+      const uniformBufferSize = 64;
       const uniformBuffer = device.createBuffer({
         size: uniformBufferSize,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
 
-      // Create pipeline that orients each quad to face the camera
-      const pipeline = device.createRenderPipeline({
-        layout: 'auto',
+      /*********************************
+       * 3) Create a shared pipeline layout
+       *********************************/
+      // A) Create a uniform bind group layout
+      const uniformBindGroupLayout = device.createBindGroupLayout({
+        entries: [
+          {
+            binding: 0,
+            visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+            buffer: { type: 'uniform' },
+          },
+        ],
+      });
+
+      // B) Create a pipeline layout that uses it for slot 0
+      const pipelineLayout = device.createPipelineLayout({
+        bindGroupLayouts: [uniformBindGroupLayout],
+      });
+
+      // C) Create both pipelines using that pipelineLayout
+      //    1) Billboard pipeline
+      const billboardPipeline = device.createRenderPipeline({
+        layout: pipelineLayout, // <--- explicit
         vertex: {
           module: device.createShaderModule({
             code: `
-struct CameraUniforms {
-  mvp: mat4x4<f32>,
-  cameraRight: vec3<f32>,
-  cameraPad1: f32,  // pad
-  cameraUp: vec3<f32>,
-  cameraPad2: f32,  // pad
+struct Camera {
+  mvp : mat4x4<f32>,
 };
 
-@group(0) @binding(0) var<uniform> camera : CameraUniforms;
+@group(0) @binding(0) var<uniform> camera : Camera;
 
 struct VertexOut {
-  @builtin(position) position : vec4<f32>,
+  @builtin(position) Position : vec4<f32>,
   @location(2) color : vec3<f32>,
   @location(3) alpha : f32,
 };
 
 @vertex
 fn vs_main(
-  @location(0) corner: vec2<f32>, // e.g. (-0.5..0.5)
-  @location(1) instancePos  : vec3<f32>,
-  @location(2) instanceColor: vec3<f32>,
-  @location(3) instanceAlpha: f32,
-  @location(4) instanceScale: f32
+  @location(0) corner : vec2<f32>,
+  @location(1) pos    : vec3<f32>,
+  @location(2) col    : vec3<f32>,
+  @location(3) alpha  : f32,
+  @location(4) scaleX : f32,
+  @location(5) scaleY : f32
 ) -> VertexOut {
   var out: VertexOut;
-
-  // Build offset in world space using cameraRight & cameraUp
-  let offsetWorld = (camera.cameraRight * corner.x + camera.cameraUp * corner.y)
-                    * instanceScale;
-
   let worldPos = vec4<f32>(
-    instancePos.x + offsetWorld.x,
-    instancePos.y + offsetWorld.y,
-    instancePos.z + offsetWorld.z,
+    pos.x + corner.x * scaleX,
+    pos.y + corner.y * scaleY,
+    pos.z,
     1.0
   );
 
-  out.position = camera.mvp * worldPos;
-  out.color = instanceColor;
-  out.alpha = instanceAlpha;
+  out.Position = camera.mvp * worldPos;
+  out.color = col;
+  out.alpha = alpha;
   return out;
 }
 
@@ -293,24 +380,27 @@ fn fs_main(
 ) -> @location(0) vec4<f32> {
   return vec4<f32>(inColor, inAlpha);
 }
-            `,
+`
           }),
           entryPoint: 'vs_main',
           buffers: [
+            // billboard corners
             {
               arrayStride: 2 * 4,
               attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }],
             },
+            // instance data (pos(3), color(3), alpha(1), scaleX(1), scaleY(1))
             {
-              arrayStride: 8 * 4,
+              arrayStride: 9 * 4,
               stepMode: 'instance',
               attributes: [
-                { shaderLocation: 1, offset: 0, format: 'float32x3' },
-                { shaderLocation: 2, offset: 3 * 4, format: 'float32x3' },
-                { shaderLocation: 3, offset: 6 * 4, format: 'float32' },
-                { shaderLocation: 4, offset: 7 * 4, format: 'float32' },
+                { shaderLocation: 1, offset: 0,       format: 'float32x3' },
+                { shaderLocation: 2, offset: 3 * 4,   format: 'float32x3' },
+                { shaderLocation: 3, offset: 6 * 4,   format: 'float32'   },
+                { shaderLocation: 4, offset: 7 * 4,   format: 'float32'   },
+                { shaderLocation: 5, offset: 8 * 4,   format: 'float32'   },
               ],
-            },
+            }
           ],
         },
         fragment: {
@@ -318,38 +408,132 @@ fn fs_main(
             code: `
 @fragment
 fn fs_main(
-  @location(2) inColor: vec3<f32>,
-  @location(3) inAlpha: f32
+  @location(2) inColor : vec3<f32>,
+  @location(3) inAlpha : f32
 ) -> @location(0) vec4<f32> {
   return vec4<f32>(inColor, inAlpha);
 }
-            `,
+`
           }),
           entryPoint: 'fs_main',
           targets: [{ format }],
         },
-        primitive: {
-          topology: 'triangle-list',
+        primitive: { topology: 'triangle-list' },
+      });
+
+      //    2) Ellipsoid pipeline
+      const ellipsoidPipeline = device.createRenderPipeline({
+        layout: pipelineLayout, // <--- explicit
+        vertex: {
+          module: device.createShaderModule({
+            code: `
+struct Camera {
+  mvp : mat4x4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> camera : Camera;
+
+struct VertexOut {
+  @builtin(position) Position : vec4<f32>,
+  @location(1) color : vec3<f32>,
+  @location(2) alpha : f32,
+};
+
+@vertex
+fn vs_main(
+  @location(0) localPos : vec3<f32>,
+  @location(1) pos      : vec3<f32>,
+  @location(2) scale    : vec3<f32>,
+  @location(3) col      : vec3<f32>,
+  @location(4) alpha    : f32
+) -> VertexOut {
+  var out: VertexOut;
+  let worldPos = vec4<f32>(
+    pos.x + localPos.x * scale.x,
+    pos.y + localPos.y * scale.y,
+    pos.z + localPos.z * scale.z,
+    1.0
+  );
+  out.Position = camera.mvp * worldPos;
+  out.color = col;
+  out.alpha = alpha;
+  return out;
+}
+
+@fragment
+fn fs_main(
+  @location(1) inColor : vec3<f32>,
+  @location(2) inAlpha : f32
+) -> @location(0) vec4<f32> {
+  return vec4<f32>(inColor, inAlpha);
+}
+`
+          }),
+          entryPoint: 'vs_main',
+          buffers: [
+            // sphere geometry
+            {
+              arrayStride: 3 * 4,
+              attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x3' }],
+            },
+            // instance data: pos(3), scale(3), color(3), alpha(1) => total 10 floats
+            {
+              arrayStride: 10 * 4,
+              stepMode: 'instance',
+              attributes: [
+                { shaderLocation: 1, offset: 0,       format: 'float32x3' },
+                { shaderLocation: 2, offset: 3 * 4,   format: 'float32x3' },
+                { shaderLocation: 3, offset: 6 * 4,   format: 'float32x3' },
+                { shaderLocation: 4, offset: 9 * 4,   format: 'float32'   },
+              ],
+            }
+          ],
         },
+        fragment: {
+          module: device.createShaderModule({
+            code: `
+@fragment
+fn fs_main(
+  @location(1) inColor : vec3<f32>,
+  @location(2) inAlpha : f32
+) -> @location(0) vec4<f32> {
+  return vec4<f32>(inColor, inAlpha);
+}
+`
+          }),
+          entryPoint: 'fs_main',
+          targets: [{ format }],
+        },
+        primitive: { topology: 'triangle-list' },
       });
 
-      // Bind group
-      const bindGroup = device.createBindGroup({
-        layout: pipeline.getBindGroupLayout(0),
-        entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+      /*********************************
+       * 4) Create a uniform bind group
+       *********************************/
+      const uniformBindGroup = device.createBindGroup({
+        layout: uniformBindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: uniformBuffer } },
+        ],
       });
 
+      // Final: store everything in our ref
       gpuRef.current = {
         device,
         context,
-        pipeline,
-        quadVertexBuffer,
-        quadIndexBuffer,
-        instanceBuffer: null,
+        billboardPipeline,
+        billboardQuadVB,
+        billboardQuadIB,
+        ellipsoidPipeline,
+        sphereVB,
+        sphereIB,
+        sphereIndexCount: sphereGeo.indices.length,
         uniformBuffer,
-        bindGroup,
-        indexCount: QUAD_INDICES.length,
-        instanceCount: 0,
+        uniformBindGroup,
+        pcInstanceBuffer: null,
+        pcInstanceCount: 0,
+        ellipsoidInstanceBuffer: null,
+        ellipsoidInstanceCount: 0,
       };
 
       setIsReady(true);
@@ -359,27 +543,26 @@ fn fs_main(
   }, []);
 
   /******************************************************
-   * C) Render Loop
+   * D) Render Loop
    ******************************************************/
   const renderFrame = useCallback(() => {
+    if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+
     if (!gpuRef.current) {
       rafIdRef.current = requestAnimationFrame(renderFrame);
       return;
     }
 
     const {
-      device, context, pipeline,
-      quadVertexBuffer, quadIndexBuffer,
-      instanceBuffer,
-      uniformBuffer, bindGroup,
-      indexCount, instanceCount,
+      device, context,
+      billboardPipeline, billboardQuadVB, billboardQuadIB,
+      ellipsoidPipeline, sphereVB, sphereIB, sphereIndexCount,
+      uniformBuffer, uniformBindGroup,
+      pcInstanceBuffer, pcInstanceCount,
+      ellipsoidInstanceBuffer, ellipsoidInstanceCount,
     } = gpuRef.current;
-    if (!device || !context || !pipeline) {
-      rafIdRef.current = requestAnimationFrame(renderFrame);
-      return;
-    }
 
-    // 1) Build camera basis + MVP
+    // 1) Build MVP
     const aspect = canvasWidth / canvasHeight;
     const proj = mat4Perspective(camera.fov, aspect, camera.near, camera.far);
 
@@ -388,164 +571,255 @@ fn fs_main(
     const cz = camera.orbitRadius * Math.sin(camera.orbitPhi) * Math.cos(camera.orbitTheta);
     const eye: [number, number, number] = [cx, cy, cz];
     const target: [number, number, number] = [camera.panX, camera.panY, 0];
-    const up: [number, number, number] = [0, 1, 0];
-    const view = mat4LookAt(eye, target, up);
-
-    const forward = normalize([target[0] - eye[0], target[1] - eye[1], target[2] - eye[2]]);
-    const right = normalize(cross(forward, up));
-    const realUp = cross(right, forward);
-
+    const view = mat4LookAt(eye, target, [0, 1, 0]);
     const mvp = mat4Multiply(proj, view);
 
-    // 2) Write camera data to uniform buffer
-    const data = new Float32Array(24);
-    data.set(mvp, 0);
-    data[16] = right[0];
-    data[17] = right[1];
-    data[18] = right[2];
-    data[19] = 0;
-    data[20] = realUp[0];
-    data[21] = realUp[1];
-    data[22] = realUp[2];
-    data[23] = 0;
-    device.queue.writeBuffer(uniformBuffer, 0, data);
+    // 2) Write MVP
+    device.queue.writeBuffer(uniformBuffer, 0, mvp);
 
     // 3) Acquire swapchain texture
-    let currentTexture: GPUTexture;
+    let texture: GPUTexture;
     try {
-      currentTexture = context.getCurrentTexture();
+      texture = context.getCurrentTexture();
     } catch {
       rafIdRef.current = requestAnimationFrame(renderFrame);
       return;
     }
 
-    // 4) Render
+    // 4) Encode commands
     const passDesc: GPURenderPassDescriptor = {
       colorAttachments: [
         {
-          view: currentTexture.createView(),
-          clearValue: { r: 0.1, g: 0.1, b: 0.1, a: 1 },
+          view: texture.createView(),
+          clearValue: { r: 0.15, g: 0.15, b: 0.15, a: 1 },
           loadOp: 'clear',
           storeOp: 'store',
         },
       ],
     };
+
     const cmdEncoder = device.createCommandEncoder();
     const passEncoder = cmdEncoder.beginRenderPass(passDesc);
 
-    if (instanceBuffer && instanceCount > 0) {
-      passEncoder.setPipeline(pipeline);
-      passEncoder.setBindGroup(0, bindGroup);
-      passEncoder.setVertexBuffer(0, quadVertexBuffer);
-      passEncoder.setVertexBuffer(1, instanceBuffer);
-      passEncoder.setIndexBuffer(quadIndexBuffer, 'uint16');
-      passEncoder.drawIndexed(indexCount, instanceCount);
+    // A) Draw point cloud (billboards)
+    if (pcInstanceBuffer && pcInstanceCount > 0) {
+      passEncoder.setPipeline(billboardPipeline);
+      passEncoder.setBindGroup(0, uniformBindGroup);
+      passEncoder.setVertexBuffer(0, billboardQuadVB);
+      passEncoder.setIndexBuffer(billboardQuadIB, 'uint16');
+      passEncoder.setVertexBuffer(1, pcInstanceBuffer);
+      passEncoder.drawIndexed(QUAD_INDICES.length, pcInstanceCount);
+    }
+
+    // B) Draw ellipsoids (3D sphere geometry)
+    if (ellipsoidInstanceBuffer && ellipsoidInstanceCount > 0) {
+      passEncoder.setPipeline(ellipsoidPipeline);
+      passEncoder.setBindGroup(0, uniformBindGroup);
+      passEncoder.setVertexBuffer(0, sphereVB);
+      passEncoder.setIndexBuffer(sphereIB, 'uint16');
+      passEncoder.setVertexBuffer(1, ellipsoidInstanceBuffer);
+      passEncoder.drawIndexed(sphereIndexCount, ellipsoidInstanceCount);
     }
 
     passEncoder.end();
     device.queue.submit([cmdEncoder.finish()]);
-
     rafIdRef.current = requestAnimationFrame(renderFrame);
   }, [camera, canvasWidth, canvasHeight]);
 
   /******************************************************
-   * D) Build Instance Data
+   * E) Building Instance Data
    ******************************************************/
-  function buildInstanceData(
+  function buildPCInstanceData(
     positions: Float32Array,
-    colors?: Float32Array | Uint8Array,
+    colors?: Float32Array,
     scales?: Float32Array,
-    decorations?: Decoration[],
-  ): Float32Array {
+    decorations?: Decoration[]
+  ) {
     const count = positions.length / 3;
-    const instanceData = new Float32Array(count * 8);
+    // pos(3), color(3), alpha(1), scaleX(1), scaleY(1) => 9
+    const data = new Float32Array(count * 9);
 
     for (let i = 0; i < count; i++) {
-      instanceData[i * 8 + 0] = positions[i * 3 + 0];
-      instanceData[i * 8 + 1] = positions[i * 3 + 1];
-      instanceData[i * 8 + 2] = positions[i * 3 + 2];
+      const x = positions[i * 3 + 0];
+      const y = positions[i * 3 + 1];
+      const z = positions[i * 3 + 2];
+      data[i * 9 + 0] = x;
+      data[i * 9 + 1] = y;
+      data[i * 9 + 2] = z;
 
-      // color or white
       if (colors && colors.length === count * 3) {
-        // Normalize if colors are Uint8Array (0-255) to float (0-1)
-        const normalize = colors instanceof Uint8Array ? (1/255) : 1;
-        instanceData[i * 8 + 3] = colors[i * 3 + 0] * normalize;
-        instanceData[i * 8 + 4] = colors[i * 3 + 1] * normalize;
-        instanceData[i * 8 + 5] = colors[i * 3 + 2] * normalize;
+        data[i * 9 + 3] = colors[i * 3 + 0];
+        data[i * 9 + 4] = colors[i * 3 + 1];
+        data[i * 9 + 5] = colors[i * 3 + 2];
       } else {
-        instanceData[i * 8 + 3] = 1;
-        instanceData[i * 8 + 4] = 1;
-        instanceData[i * 8 + 5] = 1;
+        data[i * 9 + 3] = 1;
+        data[i * 9 + 4] = 1;
+        data[i * 9 + 5] = 1;
       }
 
-      // alpha
-      instanceData[i * 8 + 6] = 1.0;
-      // scale
-      if (scales && scales.length === count) {
-        instanceData[i * 8 + 7] = scales[i];
-      } else {
-        instanceData[i * 8 + 7] = 0.02;
-      }
+      data[i * 9 + 6] = 1.0; // alpha
+      let s = scales ? scales[i] : 0.02;
+      data[i * 9 + 7] = s; // scaleX
+      data[i * 9 + 8] = s; // scaleY
     }
 
-    // decorations
     if (decorations) {
       for (const dec of decorations) {
         const { indexes, color, alpha, scale, minSize } = dec;
         for (const idx of indexes) {
           if (idx < 0 || idx >= count) continue;
           if (color) {
-            instanceData[idx * 8 + 3] = color[0];
-            instanceData[idx * 8 + 4] = color[1];
-            instanceData[idx * 8 + 5] = color[2];
+            data[idx * 9 + 3] = color[0];
+            data[idx * 9 + 4] = color[1];
+            data[idx * 9 + 5] = color[2];
           }
           if (alpha !== undefined) {
-            instanceData[idx * 8 + 6] = alpha;
+            data[idx * 9 + 6] = alpha;
           }
           if (scale !== undefined) {
-            instanceData[idx * 8 + 7] *= scale;
+            data[idx * 9 + 7] *= scale;
+            data[idx * 9 + 8] *= scale;
           }
           if (minSize !== undefined) {
-            if (instanceData[idx * 8 + 7] < minSize) {
-              instanceData[idx * 8 + 7] = minSize;
-            }
+            if (data[idx * 9 + 7] < minSize) data[idx * 9 + 7] = minSize;
+            if (data[idx * 9 + 8] < minSize) data[idx * 9 + 8] = minSize;
           }
         }
       }
     }
+    return data;
+  }
 
-    return instanceData;
+  function buildEllipsoidInstanceData(
+    centers: Float32Array,
+    radii: Float32Array,
+    colors?: Float32Array,
+    decorations?: Decoration[],
+  ) {
+    const count = centers.length / 3;
+    // pos(3), scale(3), color(3), alpha(1) => 10 floats
+    const data = new Float32Array(count * 10);
+
+    for (let i = 0; i < count; i++) {
+      const cx = centers[i * 3 + 0];
+      const cy = centers[i * 3 + 1];
+      const cz = centers[i * 3 + 2];
+      const rx = radii[i * 3 + 0] || 0.1;
+      const ry = radii[i * 3 + 1] || 0.1;
+      const rz = radii[i * 3 + 2] || 0.1;
+
+      data[i * 10 + 0] = cx;
+      data[i * 10 + 1] = cy;
+      data[i * 10 + 2] = cz;
+
+      data[i * 10 + 3] = rx;
+      data[i * 10 + 4] = ry;
+      data[i * 10 + 5] = rz;
+
+      if (colors && colors.length === count * 3) {
+        data[i * 10 + 6] = colors[i * 3 + 0];
+        data[i * 10 + 7] = colors[i * 3 + 1];
+        data[i * 10 + 8] = colors[i * 3 + 2];
+      } else {
+        data[i * 10 + 6] = 1;
+        data[i * 10 + 7] = 1;
+        data[i * 10 + 8] = 1;
+      }
+      data[i * 10 + 9] = 1.0; // alpha
+    }
+
+    if (decorations) {
+      for (const dec of decorations) {
+        const { indexes, color, alpha, scale, minSize } = dec;
+        for (const idx of indexes) {
+          if (idx < 0 || idx >= count) continue;
+          if (color) {
+            data[idx * 10 + 6] = color[0];
+            data[idx * 10 + 7] = color[1];
+            data[idx * 10 + 8] = color[2];
+          }
+          if (alpha !== undefined) {
+            data[idx * 10 + 9] = alpha;
+          }
+          if (scale !== undefined) {
+            data[idx * 10 + 3] *= scale;
+            data[idx * 10 + 4] *= scale;
+            data[idx * 10 + 5] *= scale;
+          }
+          if (minSize !== undefined) {
+            if (data[idx * 10 + 3] < minSize) data[idx * 10 + 3] = minSize;
+            if (data[idx * 10 + 4] < minSize) data[idx * 10 + 4] = minSize;
+            if (data[idx * 10 + 5] < minSize) data[idx * 10 + 5] = minSize;
+          }
+        }
+      }
+    }
+    return data;
   }
 
   /******************************************************
-   * E) Update Buffers
+   * F) Updating Buffers
    ******************************************************/
-  const updatePointCloudBuffers = useCallback((sceneElements: SceneElementConfig[]) => {
+  const updateBuffers = useCallback((sceneElements: SceneElementConfig[]) => {
     if (!gpuRef.current) return;
     const { device } = gpuRef.current;
 
-    // For now, handle only the first cloud
-    const pc = sceneElements.find(e => e.type === 'PointCloud');
-    if (!pc || pc.data.positions.length === 0) {
-      gpuRef.current.instanceBuffer = null;
-      gpuRef.current.instanceCount = 0;
-      return;
-    }
-    const { positions, colors, scales } = pc.data;
-    const decorations = pc.decorations || [];
-    const instanceData = buildInstanceData(positions, colors, scales, decorations);
+    let pcInstData: Float32Array | null = null;
+    let pcCount = 0;
 
-    const instanceBuffer = device.createBuffer({
-      size: instanceData.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-    });
-    device.queue.writeBuffer(instanceBuffer, 0, instanceData);
-    gpuRef.current.instanceBuffer = instanceBuffer;
-    gpuRef.current.instanceCount = positions.length / 3;
+    let ellipsoidInstData: Float32Array | null = null;
+    let ellipsoidCount = 0;
+
+    // For brevity, we handle only one point cloud and one ellipsoid
+    for (const elem of sceneElements) {
+      if (elem.type === 'PointCloud') {
+        const { positions, colors, scales } = elem.data;
+        if (!positions || positions.length === 0) continue;
+        pcInstData = buildPCInstanceData(positions, colors, scales, elem.decorations);
+        pcCount = positions.length / 3;
+      }
+      else if (elem.type === 'Ellipsoid') {
+        const { centers, radii, colors } = elem.data;
+        if (!centers || centers.length === 0) continue;
+        ellipsoidInstData = buildEllipsoidInstanceData(centers, radii, colors, elem.decorations);
+        ellipsoidCount = centers.length / 3;
+      }
+    }
+
+    // Create buffers
+    if (pcInstData && pcCount > 0) {
+      const buf = device.createBuffer({
+        size: pcInstData.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(buf, 0, pcInstData);
+      gpuRef.current.pcInstanceBuffer?.destroy();
+      gpuRef.current.pcInstanceBuffer = buf;
+      gpuRef.current.pcInstanceCount = pcCount;
+    } else {
+      gpuRef.current.pcInstanceBuffer?.destroy();
+      gpuRef.current.pcInstanceBuffer = null;
+      gpuRef.current.pcInstanceCount = 0;
+    }
+
+    if (ellipsoidInstData && ellipsoidCount > 0) {
+      const buf = device.createBuffer({
+        size: ellipsoidInstData.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      });
+      device.queue.writeBuffer(buf, 0, ellipsoidInstData);
+      gpuRef.current.ellipsoidInstanceBuffer?.destroy();
+      gpuRef.current.ellipsoidInstanceBuffer = buf;
+      gpuRef.current.ellipsoidInstanceCount = ellipsoidCount;
+    } else {
+      gpuRef.current.ellipsoidInstanceBuffer?.destroy();
+      gpuRef.current.ellipsoidInstanceBuffer = null;
+      gpuRef.current.ellipsoidInstanceCount = 0;
+    }
   }, []);
 
   /******************************************************
-   * F) Mouse + Zoom to Cursor
+   * G) Mouse + Zoom
    ******************************************************/
   const mouseState = useRef<{ x: number; y: number; button: number } | null>(null);
 
@@ -560,18 +834,16 @@ fn fs_main(
     mouseState.current.x = e.clientX;
     mouseState.current.y = e.clientY;
 
-    // Right drag or SHIFT+Left => pan
     if (mouseState.current.button === 2 || e.shiftKey) {
+      // pan
       setCamera(cam => ({
         ...cam,
         panX: cam.panX - dx * 0.002,
         panY: cam.panY + dy * 0.002,
       }));
-    }
-    // Left => orbit
-    else if (mouseState.current.button === 0) {
+    } else if (mouseState.current.button === 0) {
+      // orbit
       setCamera(cam => {
-        // Clamp phi to avoid flipping
         const newPhi = Math.max(0.1, Math.min(Math.PI - 0.1, cam.orbitPhi - dy * 0.01));
         return {
           ...cam,
@@ -586,15 +858,8 @@ fn fs_main(
     mouseState.current = null;
   }, []);
 
-  // Zoom to cursor
   const onWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
-    // (rest of your zoom logic unchanged)
-    // ...
-    // same code as before, ensuring we do the "zoom toward" approach
-    // with unprojecting near/far, etc.
-
-    // for brevity, we'll do the simpler approach here:
     const delta = e.deltaY * 0.01;
     setCamera(cam => ({
       ...cam,
@@ -618,30 +883,46 @@ fn fs_main(
   }, [onMouseDown, onMouseMove, onMouseUp, onWheel]);
 
   /******************************************************
-   * G) Effects
+   * H) Effects
    ******************************************************/
-  // Init WebGPU once
+  // Init WebGPU
   useEffect(() => {
     initWebGPU();
     return () => {
+      // Cleanup
+      if (gpuRef.current) {
+        const {
+          billboardQuadVB,
+          billboardQuadIB,
+          sphereVB,
+          sphereIB,
+          uniformBuffer,
+          pcInstanceBuffer,
+          ellipsoidInstanceBuffer,
+        } = gpuRef.current;
+        billboardQuadVB.destroy();
+        billboardQuadIB.destroy();
+        sphereVB.destroy();
+        sphereIB.destroy();
+        uniformBuffer.destroy();
+        pcInstanceBuffer?.destroy();
+        ellipsoidInstanceBuffer?.destroy();
+      }
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     };
   }, [initWebGPU]);
 
-  // Resize canvas
+  // Canvas resize
   useEffect(() => {
-    if (canvasRef.current) {
-      canvasRef.current.width = canvasWidth;
-      canvasRef.current.height = canvasHeight;
-    }
+    if (!canvasRef.current) return;
+    canvasRef.current.width = canvasWidth;
+    canvasRef.current.height = canvasHeight;
   }, [canvasWidth, canvasHeight]);
 
   // Start render loop
   useEffect(() => {
     if (isReady) {
-      // Immediately draw once
       renderFrame();
-      // Then schedule loop
       rafIdRef.current = requestAnimationFrame(renderFrame);
     }
     return () => {
@@ -652,17 +933,13 @@ fn fs_main(
   // Update buffers
   useEffect(() => {
     if (isReady) {
-      updatePointCloudBuffers(elements);
+      updateBuffers(elements);
     }
-  }, [isReady, elements, updatePointCloudBuffers]);
+  }, [isReady, elements, updateBuffers]);
 
-  // Render
   return (
     <div style={{ width: '100%', border: '1px solid #ccc' }}>
-      <canvas
-        ref={canvasRef}
-        style={{ width: '100%', height: canvasHeight }}
-      />
+      <canvas ref={canvasRef} style={{ width: '100%', height: canvasHeight }} />
     </div>
   );
 }
@@ -671,68 +948,87 @@ fn fs_main(
  * 6) Example: App
  ******************************************************/
 export function App() {
-  // 4 points in a square around origin
-  const positions = new Float32Array([
+  // a small point cloud
+  const pcPositions = new Float32Array([
     -0.5, -0.5, 0.0,
      0.5, -0.5, 0.0,
     -0.5,  0.5, 0.0,
      0.5,  0.5, 0.0,
   ]);
-
-  // All white
-  const colors = new Float32Array([
+  const pcColors = new Float32Array([
     1, 1, 1,
     1, 1, 1,
     1, 1, 1,
     1, 1, 1,
   ]);
-
-  // Some decorations, making each corner different
-  const decorations: Decoration[] = [
+  const pcDecorations: Decoration[] = [
     {
       indexes: [0],
-      color: [1, 0, 0], // red
-      alpha: 1.0,
+      color: [1, 0, 0],
       scale: 1.0,
-      minSize: 0.05,
+      alpha: 1.0,
+      minSize: 0.03,
     },
     {
       indexes: [1],
-      color: [0, 1, 0], // green
-      alpha: 0.7,
+      color: [0, 1, 0],
       scale: 2.0,
-    },
-    {
-      indexes: [2],
-      color: [0, 0, 1], // blue
-      alpha: 1.0,
-      scale: 1.5,
-    },
-    {
-      indexes: [3],
-      color: [1, 1, 0], // yellow
-      alpha: 0.3,
-      scale: 0.5,
-    },
+      alpha: 0.7,
+    }
   ];
+  const pcElement: PointCloudElementConfig = {
+    type: 'PointCloud',
+    data: { positions: pcPositions, colors: pcColors },
+    decorations: pcDecorations,
+  };
+
+  // a couple of ellipsoids with real 3D geometry
+  const centers = new Float32Array([
+    0, 0, 0,
+    0.6, 0.3, -0.2,
+  ]);
+  const radii = new Float32Array([
+    0.2, 0.3, 0.15,
+    0.05, 0.15, 0.3,
+  ]);
+  const ellipsoidColors = new Float32Array([
+    1.0, 0.5, 0.2,
+    0.2, 0.9, 1.0,
+  ]);
+  const ellipsoidDecorations: Decoration[] = [
+    {
+      indexes: [0],
+      color: [1, 0.5, 0.2],
+      alpha: 1.0,
+      scale: 1.2,
+      minSize: 0.1,
+    },
+    {
+      indexes: [1],
+      color: [0.1, 0.8, 1.0],
+      alpha: 0.7,
+    }
+  ];
+  const ellipsoidElement: EllipsoidElementConfig = {
+    type: 'Ellipsoid',
+    data: { centers, radii, colors: ellipsoidColors },
+    decorations: ellipsoidDecorations,
+  };
 
   const testElements: SceneElementConfig[] = [
-    {
-      type: 'PointCloud',
-      data: { positions, colors },
-      decorations,
-    },
+    pcElement,
+    ellipsoidElement,
   ];
 
   return (
     <>
-      <h2>Stage 5: Camera-Facing Billboards + Immediate Visibility</h2>
+      <h2>Point Clouds (billboards) + Real 3D Ellipsoids with Explicit Layout</h2>
       <SceneWrapper elements={testElements} />
       <p>
         Left-drag = orbit, Right-drag or Shift+Left = pan,
-        mousewheel = zoom (toward cursor).<br />
-        We've set <code>orbitTheta=0.2</code>, <code>orbitPhi=1.0</code>,
-        and we do an immediate <code>renderFrame()</code> call once ready.
+        mousewheel = zoom.<br />
+        We now share an explicit pipeline layout and a single uniform
+        bind group across two pipelines, avoiding layout mismatch errors.
       </p>
     </>
   );

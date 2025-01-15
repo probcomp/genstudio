@@ -137,7 +137,7 @@ xyz, rgb = make_torus_knot(10000)
 #
 Plot.html(
     [
-        Plot.JSRef("scene3dNew.Torus"),
+        Plot.JSRef("scene3dNew.App"),
         {
             "elements": [
                 {"type": "PointCloud", "data": {"positions": xyz, "colors": rgb}}
