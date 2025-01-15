@@ -12,6 +12,12 @@ const LIGHTING = {
   DIFFUSE_INTENSITY: 0.6,
   SPECULAR_INTENSITY: 0.2,
   SPECULAR_POWER: 20.0,
+  // Camera-relative light direction components
+  DIRECTION: {
+    RIGHT: 0.2,    // How far right of camera
+    UP: 0.5,       // How far up from camera
+    FORWARD: 0,  // How far in front (-) or behind (+) camera
+  }
 } as const;
 
 const GEOMETRY = {
@@ -175,7 +181,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
 
   // Camera
   const [camera, setCamera] = useState<CameraState>({
-    orbitRadius: 2.0,
+    orbitRadius: 1.5,
     orbitTheta: 0.2,
     orbitPhi: 1.0,
     panX: 0.0,
@@ -883,6 +889,18 @@ fn fs_main(
         fragment: {
           module: device.createShaderModule({
             code: `
+struct Camera {
+  mvp: mat4x4<f32>,
+  cameraRight: vec3<f32>,
+  pad1: f32,
+  cameraUp: vec3<f32>,
+  pad2: f32,
+  lightDir: vec3<f32>,
+  pad3: f32,
+};
+
+@group(0) @binding(0) var<uniform> camera : Camera;
+
 @fragment
 fn fs_main(
   @location(1) normal: vec3<f32>,
@@ -890,9 +908,8 @@ fn fs_main(
   @location(3) alpha: f32,
   @location(4) worldPos: vec3<f32>
 ) -> @location(0) vec4<f32> {
-  // identical lighting logic as above
   let N = normalize(normal);
-  let L = normalize(vec3<f32>(1.0,1.0,0.6));
+  let L = normalize(camera.lightDir);
   let lambert = max(dot(N, L), 0.0);
 
   let ambient = ${LIGHTING.AMBIENT_INTENSITY};
@@ -1048,11 +1065,26 @@ fn fs_main(
     data[21] = cameraUp[1];
     data[22] = cameraUp[2];
     data[23] = 0;
-    // Light direction (just an example)
-    const dir = normalize([1,1,0.6]);
-    data[24] = dir[0];
-    data[25] = dir[1];
-    data[26] = dir[2];
+
+    // Create light direction relative to camera
+    // This will keep light coming from upper-right of camera view
+    const viewSpaceLight = normalize([
+      cameraRight[0] * LIGHTING.DIRECTION.RIGHT +
+      cameraUp[0] * LIGHTING.DIRECTION.UP +
+      forward[0] * LIGHTING.DIRECTION.FORWARD,
+
+      cameraRight[1] * LIGHTING.DIRECTION.RIGHT +
+      cameraUp[1] * LIGHTING.DIRECTION.UP +
+      forward[1] * LIGHTING.DIRECTION.FORWARD,
+
+      cameraRight[2] * LIGHTING.DIRECTION.RIGHT +
+      cameraUp[2] * LIGHTING.DIRECTION.UP +
+      forward[2] * LIGHTING.DIRECTION.FORWARD
+    ]);
+
+    data[24] = viewSpaceLight[0];
+    data[25] = viewSpaceLight[1];
+    data[26] = viewSpaceLight[2];
     data[27] = 0;
     device.queue.writeBuffer(uniformBuffer, 0, data);
 
@@ -1268,7 +1300,23 @@ fn fs_main(
         cg = colors[i*3+1];
         cb = colors[i*3+2];
       }
-      const alpha = 1.0;
+      let alpha = 1.0;
+
+      // Apply decorations if any match this index
+      if (decorations) {
+        for (const dec of decorations) {
+          if (dec.indexes.includes(i)) {
+            if (dec.color) {
+              cr = dec.color[0];
+              cg = dec.color[1];
+              cb = dec.color[2];
+            }
+            if (dec.alpha !== undefined) {
+              alpha = dec.alpha;
+            }
+          }
+        }
+      }
 
       // We'll create 3 rings for each ellipsoid
       for (let ring = 0; ring < 3; ring++) {
@@ -1277,10 +1325,6 @@ fn fs_main(
         data[idx*10+1] = cy;
         data[idx*10+2] = cz;
 
-        // scale.x, scale.y, scale.z
-        // We'll effectively reshape the base torus from (radius=1, thickness=0.03)
-        // We can multiply the appropriate axes by [rx, ry, rz].
-        // The ring orientation is handled in the vertex shader via ringIndex.
         data[idx*10+3] = rx;
         data[idx*10+4] = ry;
         data[idx*10+5] = rz;
@@ -1288,11 +1332,9 @@ fn fs_main(
         data[idx*10+6] = cr;
         data[idx*10+7] = cg;
         data[idx*10+8] = cb;
-        data[idx*10+9] = alpha;
+        data[idx*10+9] = alpha;  // Use the decorated alpha value
       }
     }
-
-    // Apply decorations if needed (unchanged)...
 
     return data;
   }
@@ -1578,7 +1620,7 @@ export function App() {
     type: 'PointCloud',
     data: { positions: pcPositions, colors: pcColors },
     decorations: [
-      { indexes: [0,1,2,3], alpha: 0.7, scale: 2.0 },
+      { indexes: [0,1,2,3], alpha: 1, scale: 2.0 },
     ],
   };
 
@@ -1591,9 +1633,9 @@ export function App() {
     type: 'EllipsoidBounds',
     data: { centers: boundCenters, radii: boundRadii, colors: boundColors },
     decorations: [
-      { indexes: [0], alpha: 0.9 },
-      { indexes: [1], alpha: 0.8 },
-      { indexes: [2], alpha: 0.7 },
+      { indexes: [0], alpha: 0.3 },
+      { indexes: [1], alpha: 0.7 },
+      { indexes: [2], alpha: 1 },
     ],
   };
 
