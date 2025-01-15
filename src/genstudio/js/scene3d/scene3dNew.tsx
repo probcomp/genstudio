@@ -58,18 +58,29 @@ interface EllipsoidElementConfig {
   decorations?: Decoration[];
 }
 
-// [BAND CHANGE #1]: New EllipsoidBand type
-interface EllipsoidBandElementConfig {
-  type: 'EllipsoidBand';
+// [BAND CHANGE #1]: New EllipsoidBounds type
+interface EllipsoidBoundsElementConfig {
+  type: 'EllipsoidBounds';
   data: EllipsoidData;          // reusing the same “centers/radii/colors” style
   decorations?: Decoration[];
+}
+
+interface LineData {
+  segments: Float32Array;  // Format: [x1,y1,z1, x2,y2,z2, r,g,b, ...]
+  thickness: number;
+}
+
+interface LineElement {
+  type: "Lines";
+  data: LineData;
 }
 
 // [BAND CHANGE #2]: Extend SceneElementConfig
 type SceneElementConfig =
   | PointCloudElementConfig
   | EllipsoidElementConfig
-  | EllipsoidBandElementConfig;
+  | EllipsoidBoundsElementConfig
+  | LineElement;
 
 /******************************************************
  * 2) Minimal Camera State
@@ -132,7 +143,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
     sphereIB: GPUBuffer;
     sphereIndexCount: number;
 
-    // [BAND CHANGE #3]: EllipsoidBand
+    // [BAND CHANGE #3]: EllipsoidBounds
     ellipsoidBandPipeline: GPURenderPipeline;
     ringVB: GPUBuffer;     // ring geometry
     ringIB: GPUBuffer;
@@ -148,7 +159,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
     ellipsoidInstanceBuffer: GPUBuffer | null;
     ellipsoidInstanceCount: number;
 
-    // [BAND CHANGE #4]: EllipsoidBand instances
+    // [BAND CHANGE #4]: EllipsoidBounds instances
     bandInstanceBuffer: GPUBuffer | null;
     bandInstanceCount: number;
 
@@ -308,26 +319,29 @@ function Scene({ elements, containerWidth }: SceneProps) {
   }
 
   // [BAND CHANGE #5]: Create simple ring geometry in XY plane
-  function createRingGeometry(segments: number = 32, rInner = 0.98, rOuter = 1.0) {
-    // We'll build a thin triangular ring from rInner to rOuter in the XY plane
+  function createRingGeometry(segments: number = 32) {
     const verts: number[] = [];
     const indices: number[] = [];
-    for (let i = 0; i <= segments; i++) {
-      const theta = (i / segments) * 2 * Math.PI;
-      const cosT = Math.cos(theta);
-      const sinT = Math.sin(theta);
 
-      // Outer
-      verts.push(rOuter * cosT, rOuter * sinT, 0);  // position
-      verts.push(0, 0, 1);                          // normal (arbitrary)
-      // Inner
-      verts.push(rInner * cosT, rInner * sinT, 0);
-      verts.push(0, 0, 1);
-    }
-    // Triangulate as a triangle strip
-    for (let i = 0; i < segments * 2; i += 2) {
-      indices.push(i, i + 1, i + 2);
-      indices.push(i + 2, i + 1, i + 3);
+    // Create vertices for each line segment
+    for (let i = 0; i < segments; i++) {
+      const theta1 = (i / segments) * 2 * Math.PI;
+      const theta2 = ((i + 1) / segments) * 2 * Math.PI;
+
+      // Start and end points
+      const x1 = Math.cos(theta1);
+      const y1 = Math.sin(theta1);
+      const x2 = Math.cos(theta2);
+      const y2 = Math.sin(theta2);
+
+      // Add the line segment vertices
+      verts.push(
+        x1, y1, 0,  // start point
+        x2, y2, 0   // end point
+      );
+
+      // Add indices for this line segment
+      indices.push(i * 2, i * 2 + 1);
     }
 
     return {
@@ -709,7 +723,7 @@ fn fs_main(
         },
       });
 
-      // [BAND CHANGE #7]: EllipsoidBand pipeline
+      // [BAND CHANGE #7]: EllipsoidBounds pipeline
       // We'll reuse a minimal approach: pos(3), normal(3), plus instance data for transform + color + alpha
       const ellipsoidBandPipeline = device.createRenderPipeline({
         layout: pipelineLayout,
@@ -737,80 +751,58 @@ struct VSOut {
 @vertex
 fn vs_main(
   @builtin(instance_index) instanceIdx: u32,
-  @location(0) inPos: vec3<f32>,
-  @location(1) inNorm: vec3<f32>,
-  @location(2) iCenter: vec3<f32>,
-  @location(3) iScale: vec3<f32>,
-  @location(4) iColor: vec3<f32>,
-  @location(5) iAlpha: f32
+  @location(0) pos: vec3<f32>,      // Line vertex position
+  @location(1) iCenter: vec3<f32>,  // Instance center
+  @location(2) iScale: vec3<f32>,   // Instance scale
+  @location(3) iColor: vec3<f32>,   // Instance color
+  @location(4) iAlpha: f32          // Instance alpha
 ) -> VSOut {
   var out: VSOut;
 
-  // Get ring index from instance ID (0=XY, 1=YZ, 2=XZ)
+  // Get ring index (0=XY, 1=YZ, 2=XZ)
   let ringIndex = i32(instanceIdx % 3u);
 
-  // Transform the ring based on its orientation
+  // Transform position based on ring orientation
   var worldPos: vec3<f32>;
   if (ringIndex == 0) {
-    // XY plane - original orientation
-    worldPos = vec3<f32>(
-      inPos.x * iScale.x,
-      inPos.y * iScale.y,
-      inPos.z
-    );
+    // XY plane
+    worldPos = vec3<f32>(pos.x * iScale.x, pos.y * iScale.y, 0.0);
   } else if (ringIndex == 1) {
-    // YZ plane - rotate around X
-    worldPos = vec3<f32>(
-      inPos.z,
-      inPos.x * iScale.y,
-      inPos.y * iScale.z
-    );
+    // YZ plane
+    worldPos = vec3<f32>(0.0, pos.x * iScale.y, pos.z * iScale.z);
   } else {
-    // XZ plane - rotate around Y
-    worldPos = vec3<f32>(
-      inPos.x * iScale.x,
-      inPos.z,
-      inPos.y * iScale.z
-    );
+    // XZ plane
+    worldPos = vec3<f32>(pos.x * iScale.x, 0.0, pos.y * iScale.z);
   }
 
-  // Add center offset
+  // Move to instance center
   worldPos += iCenter;
 
+  // Project to screen space
   out.Position = camera.mvp * vec4<f32>(worldPos, 1.0);
   out.color = iColor;
   out.alpha = iAlpha;
   return out;
-}
-
-@fragment
-fn fs_main(
-  @location(1) bColor: vec3<f32>,
-  @location(2) bAlpha: f32
-) -> @location(0) vec4<f32> {
-  return vec4<f32>(bColor, bAlpha);
-}
-`
+}`,
           }),
           entryPoint: 'vs_main',
           buffers: [
-            // ring geometry: pos(3), normal(3)
+            // Line geometry: pos(3)
             {
-              arrayStride: 6 * 4,
+              arrayStride: 3 * 4,
               attributes: [
-                { shaderLocation: 0, offset: 0,         format: 'float32x3' },
-                { shaderLocation: 1, offset: 3 * 4,     format: 'float32x3' },
+                { shaderLocation: 0, offset: 0, format: 'float32x3' },  // position
               ],
             },
-            // instance data
+            // Instance data
             {
               arrayStride: 10 * 4,
               stepMode: 'instance',
               attributes: [
-                { shaderLocation: 2, offset: 0,         format: 'float32x3' }, // center
-                { shaderLocation: 3, offset: 3 * 4,     format: 'float32x3' }, // scale
-                { shaderLocation: 4, offset: 6 * 4,     format: 'float32x3' }, // color
-                { shaderLocation: 5, offset: 9 * 4,     format: 'float32'   }, // alpha
+                { shaderLocation: 1, offset: 0, format: 'float32x3' },     // center
+                { shaderLocation: 2, offset: 3 * 4, format: 'float32x3' }, // scale
+                { shaderLocation: 3, offset: 6 * 4, format: 'float32x3' }, // color
+                { shaderLocation: 4, offset: 9 * 4, format: 'float32' },   // alpha
               ],
             },
           ],
@@ -845,8 +837,8 @@ fn fs_main(
           }],
         },
         primitive: {
-          topology: 'triangle-list',
-          cullMode: 'none',  // let both sides show
+          topology: 'line-list',  // Change to render as lines
+          cullMode: 'none',
         },
         depthStencil: {
           format: 'depth24plus',
@@ -1167,9 +1159,9 @@ fn fs_main(
     return data;
   }
 
-  // [BAND CHANGE #11]: Build instance data for EllipsoidBand
+  // [BAND CHANGE #11]: Build instance data for EllipsoidBounds
   // We create three rings (XY, YZ, XZ) per ellipsoid, each ring scaled by that ellipsoid's radii on the relevant two axes.
-  function buildEllipsoidBandInstanceData(
+  function buildEllipsoidBoundsInstanceData(
     centers: Float32Array,
     radii: Float32Array,
     colors?: Float32Array,
@@ -1264,11 +1256,11 @@ fn fs_main(
           ellipsoidCount = centers.length/3;
         }
       }
-      // EllipsoidBand
-      else if (elem.type === 'EllipsoidBand') {
+      // EllipsoidBounds
+      else if (elem.type === 'EllipsoidBounds') {
         const { centers, radii, colors } = elem.data;
         if (centers.length > 0) {
-          bandInstData = buildEllipsoidBandInstanceData(centers, radii, colors, elem.decorations);
+          bandInstData = buildEllipsoidBoundsInstanceData(centers, radii, colors, elem.decorations);
           bandCount = (centers.length / 3) * 3; // 3 rings per ellipsoid
         }
       }
@@ -1473,27 +1465,29 @@ export function App() {
     0.2, 0.3, 0.15,
     0.1, 0.25, 0.2,
   ]);
-
   const eColors = new Float32Array([
     0.8, 0.2, 0.2,
     0.2, 0.8, 0.2,
   ]);
 
-  // Our new "band" version
-  const bandCenters = new Float32Array([
-    -0.4, 0.4, 0.0,
-    0.3, -0.4, 0.3,
+  // EllipsoidBounds examples
+  const boundCenters = new Float32Array([
+    -0.4, 0.4, 0.0,   // First bound
+    0.3, -0.4, 0.3,   // Second bound
+    -0.3, -0.3, 0.2   // Third bound
   ]);
-  const bandRadii = new Float32Array([
-    0.25, 0.25, 0.25, // sphere
-    0.05, 0.3, 0.1,   // elongated
+  const boundRadii = new Float32Array([
+    0.25, 0.25, 0.25, // Spherical
+    0.4, 0.2, 0.15,   // Elongated
+    0.15, 0.35, 0.25  // Another shape
   ]);
-  const bandColors = new Float32Array([
-    1.0, 1.0, 0.2,
-    0.2, 0.7, 1.0,
+  const boundColors = new Float32Array([
+    1.0, 0.7, 0.2,    // Orange
+    0.2, 0.7, 1.0,    // Blue
+    0.8, 0.3, 1.0     // Purple
   ]);
 
-  // Basic point cloud
+  // Basic point cloud (unchanged)
   const pcPositions = new Float32Array([
     -0.5, -0.5, 0,
      0.5, -0.5, 0,
@@ -1520,20 +1514,20 @@ export function App() {
     data: { centers: eCenters, radii: eRadii, colors: eColors },
   };
 
-  // [BAND CHANGE #14]: EllipsoidBand example element
-  const bandElement: EllipsoidBandElementConfig = {
-    type: 'EllipsoidBand',
-    data: { centers: bandCenters, radii: bandRadii, colors: bandColors },
+  const boundElement: EllipsoidBoundsElementConfig = {
+    type: 'EllipsoidBounds',
+    data: { centers: boundCenters, radii: boundRadii, colors: boundColors },
     decorations: [
-      { indexes: [0], color: [1,0.5,0.2], alpha: 0.9, scale: 1.2 },
-      { indexes: [1], color: [0,1,1], alpha: 0.7, scale: 1.0 },
+      { indexes: [0], alpha: 0.9 },
+      { indexes: [1], alpha: 0.8 },
+      { indexes: [2], alpha: 0.7 },
     ],
   };
 
   const testElements: SceneElementConfig[] = [
     pcElement,
     ellipsoidElement,
-    bandElement,
+    boundElement,
   ];
 
   return <SceneWrapper elements={testElements} />;
