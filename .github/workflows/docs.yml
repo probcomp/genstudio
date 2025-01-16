@@ -2,6 +2,8 @@ name: Docs Website
 
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
