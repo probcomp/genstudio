@@ -47,7 +47,8 @@
     "test": "npm-run-all test:js test:py"
   },
   "files": [
-    "dist/widget_build.js"
+    "dist/widget_build.js",
+    "dist/widget.css"
   ],
   "publishConfig": {
     "access": "public"
