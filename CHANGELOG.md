@@ -1,3 +1,7 @@
+### [2025.01.002] - Jan 16, 2025
+
+- pin older esm.sh version
+
 ### [2025.01.001] - Jan 16, 2025
 
 - do not use CDN
