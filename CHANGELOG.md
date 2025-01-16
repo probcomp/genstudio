@@ -1,3 +1,7 @@
+### [2025.01.004] - Jan 16, 2025
+
+- support html display mode
+
 ### [2025.01.003] - Jan 16, 2025
 
 - FIX: breaking changes in esm.sh broke genstudio's js bundle
