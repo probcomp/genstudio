@@ -1,10 +1,6 @@
-### [2025.01.002] - Jan 16, 2025
+### [2025.01.003] - Jan 16, 2025
 
-- pin older esm.sh version
-
-### [2025.01.001] - Jan 16, 2025
-
-- do not use CDN
+- FIX: breaking changes in esm.sh broke genstudio's js bundle
 
 ### [2024.12.004] - Dec 06, 2024
 
