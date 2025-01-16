@@ -40,7 +40,11 @@ jobs:
         run: yarn install --frozen-lockfile --production=false
 
       - name: build the javascript bundle
-        run: yarn build
+        run: |
+          mkdir -p src/genstudio/js
+          yarn build
+          ls -la src/genstudio/js/
+          echo "=== JS build complete ==="
 
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
@@ -88,7 +92,15 @@ jobs:
           python scripts/update_asset_versions.py $VERSION
 
       - name: Deploy to Artifact Registry
-        run: poetry publish --build --repository gcp
+        run: |
+          echo "=== Building package ==="
+          poetry build --verbose
+          echo "=== Checking build artifacts ==="
+          ls -la dist/
+          echo "=== Checking wheel contents ==="
+          unzip -l dist/genstudio-*.whl | grep widget_build.js
+          echo "=== Publishing ==="
+          poetry publish --repository gcp
 
       - name: Create GitHub Release
         if: steps.check_trigger.outputs.DEV_CHANNEL == 'false'
