@@ -66,13 +66,6 @@ jobs:
           poetry self add keyrings.google-artifactregistry-auth
           poetry config repositories.gcp https://us-west1-python.pkg.dev/probcomp-caliban/probcomp/
 
-      - name: Install deps
-        run: |
-          # Install with --no-root first to get dependencies
-          poetry install --no-root
-          # Then install the local package
-          poetry install
-
       - name: Check if triggered by push to main
         id: check_trigger
         run: |
@@ -106,6 +99,13 @@ jobs:
         run: |
           VERSION=$(poetry version -s)
           python scripts/update_asset_versions.py $VERSION
+
+      - name: Install deps
+        run: |
+          # Install with --no-root first to get dependencies
+          poetry install --no-root
+          # Then install the local package
+          poetry install
 
       - name: Deploy to Artifact Registry
         run: |
