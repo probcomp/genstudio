@@ -41,20 +41,9 @@ jobs:
 
       - name: build the javascript bundle
         run: |
-          mkdir -p src/genstudio/js
-          echo "=== Directory before build ==="
-          ls -la src/genstudio/js/
           yarn build
           # Force Git to track the build file temporarily
           git add -f src/genstudio/js/widget_build.js
-          echo "=== Directory after build ==="
-          ls -la src/genstudio/js/
-          echo "=== File contents if exists ==="
-          if [ -f src/genstudio/js/widget_build.js ]; then
-            echo "widget_build.js exists"
-            stat src/genstudio/js/widget_build.js
-          fi
-          echo "=== JS build complete ==="
 
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
@@ -99,36 +88,7 @@ jobs:
           python scripts/update_asset_versions.py $VERSION
 
       - name: Install deps
-        run: |
-          # Install with --no-root first to get dependencies, excluding genjax group
-          poetry install --no-root --without dev
-          # Then install the local package
-          poetry install --without dev
-
-      - name: Verify JS build artifacts
-        run: |
-          echo "=== Current working directory ==="
-          pwd
-          echo "=== JS file status ==="
-          find . -name "widget_build.js"
-          echo "=== JS file contents if found ==="
-          if [ -f src/genstudio/js/widget_build.js ]; then
-            ls -l src/genstudio/js/widget_build.js
-            echo "File size: $(wc -c < src/genstudio/js/widget_build.js) bytes"
-          fi
-
-      - name: Debug directory structure
-        run: |
-          echo "=== Full directory structure ==="
-          find src/genstudio -type f -ls
-          echo "=== Permissions of js directory ==="
-          ls -la src/genstudio/js/
-          echo "=== File hash of widget_build.js ==="
-          if [ -f src/genstudio/js/widget_build.js ]; then
-            md5sum src/genstudio/js/widget_build.js
-          fi
-          echo "=== Current Git status ==="
-          git status --ignored
+        run: poetry install --without dev
 
       - name: Deploy to Artifact Registry
         run: |
@@ -136,8 +96,6 @@ jobs:
           poetry build --verbose
           echo "=== Checking build artifacts ==="
           ls -la dist/
-          echo "=== Checking wheel contents ==="
-          unzip -l dist/genstudio-*.whl
           echo "=== Publishing ==="
           poetry publish --repository gcp
 
