@@ -10,9 +10,10 @@ authors = [ "Matthew Huebert <me@matt.is>",]
 license = "MIT"
 readme = "README.md"
 include = [
-    "**/*_build.js",
+    "src/genstudio/js/*.js",
     "src/genstudio/js/widget_build.js"
 ]
+
 [[tool.poetry.packages]]
 include = "genstudio"
 from = "src"
