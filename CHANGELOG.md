@@ -1,3 +1,7 @@
+### [2025.01.001] - Jan 16, 2025
+
+- do not use CDN
+
 ### [2024.12.004] - Dec 06, 2024
 
 - fix replaceBuffers ndarray handling
