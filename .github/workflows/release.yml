@@ -96,9 +96,7 @@ jobs:
 
           # Convert to npm version format if it's a dev version
           if [[ $VERSION == *.dev ]]; then
-            # Extract date and time parts, removing .dev suffix
             DATE_TIME=$(echo $VERSION | sed 's/\.dev$//')
-            # Format as 0.0.0-dev.YYYYMMDDHHMMSS
             NPM_VERSION="0.0.0-dev.$(echo $DATE_TIME | sed 's/\.//g')"
           else
             NPM_VERSION=$VERSION
@@ -106,18 +104,14 @@ jobs:
 
           JSDELIVR_URL="https://cdn.jsdelivr.net/npm/@probcomp/genstudio@${NPM_VERSION}/dist/widget_build.js"
 
-          # Create a temporary build directory
-          mkdir -p build/genstudio
-          cp -r src/genstudio/* build/genstudio/
+          # Update the widget URL in the source
+          sed -i "s|_esm = WIDGET_URL|_esm = \"${JSDELIVR_URL}\"|" src/genstudio/widget.py
 
-          # Update the widget URL in the build copy
-          sed -i "s|_esm = WIDGET_URL|_esm = \"${JSDELIVR_URL}\"|" build/genstudio/widget.py
+          # Build with modified source
+          poetry build
 
-          # Build from the modified source
-          poetry build --source-directory build
-
-          # Clean up
-          rm -rf build
+          # Restore the file using git
+          git checkout src/genstudio/widget.py
 
       - name: Deploy to Artifact Registry
         run: |
