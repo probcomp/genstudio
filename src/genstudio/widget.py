@@ -8,7 +8,7 @@ import numpy as np
 import traitlets
 import warnings
 
-from genstudio.util import CONFIG, PARENT_PATH
+from genstudio.util import CONFIG, WIDGET_URL, CSS_URL
 
 
 class SubscriptableNamespace(SimpleNamespace):
@@ -392,12 +392,9 @@ class WidgetState:
                 self._state[key] = value
 
 
-WIDGET_URL = PARENT_PATH / "js/widget_build.js"
-
-
 class Widget(anywidget.AnyWidget):
     _esm = WIDGET_URL
-    _css = PARENT_PATH / "widget.css"
+    _css = CSS_URL
     callback_registry: Dict[str, Callable] = {}
     data = traitlets.Any().tag(sync=True, to_json=to_json_with_initialState)
 

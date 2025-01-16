@@ -94,7 +94,6 @@ jobs:
         run: |
           VERSION=$(poetry version -s)
 
-          # Convert to npm version format if it's a dev version
           if [[ $VERSION == *.dev ]]; then
             DATE_TIME=$(echo $VERSION | sed 's/\.dev$//')
             NPM_VERSION="0.0.0-dev.$(echo $DATE_TIME | sed 's/\.//g')"
@@ -102,16 +101,17 @@ jobs:
             NPM_VERSION=$VERSION
           fi
 
-          JSDELIVR_URL="https://cdn.jsdelivr.net/npm/@probcomp/genstudio@${NPM_VERSION}/dist/widget_build.js"
+          NPM_BASE="https://cdn.jsdelivr.net/npm/@probcomp/genstudio@${NPM_VERSION}/dist"
+          JSDELIVR_JS_URL="${NPM_BASE}/widget_build.js"
+          JSDELIVR_CSS_URL="${NPM_BASE}/widget.css"
 
-          # Update the widget URL in the source
-          sed -i "s|_esm = WIDGET_URL|_esm = \"${JSDELIVR_URL}\"|" src/genstudio/widget.py
+          # Update both URLs in the source
+          sed -i "s|CDN_SCRIPT_URL = None|CDN_SCRIPT_URL = \"${JSDELIVR_JS_URL}\"|" src/genstudio/util.py
+          sed -i "s|CDN_CSS_URL = None|CDN_CSS_URL = \"${JSDELIVR_CSS_URL}\"|" src/genstudio/util.py
 
-          # Build with modified source
           poetry build
 
-          # Restore the file using git
-          git checkout src/genstudio/widget.py
+          git checkout src/genstudio/util.py
 
       - name: Deploy to Artifact Registry
         run: |
@@ -138,22 +138,19 @@ jobs:
         run: |
           VERSION=$(poetry version -s)
 
-          # Convert Python version to npm-compatible version
           if [[ $VERSION == *.dev ]]; then
-            # Extract date and time parts, removing .dev suffix
             DATE_TIME=$(echo $VERSION | sed 's/\.dev$//')
-            # Format as 0.0.0-dev.YYYYMMDDHHMMSS
             NPM_VERSION="0.0.0-dev.$(echo $DATE_TIME | sed 's/\.//g')"
           else
             NPM_VERSION=$VERSION
           fi
 
-          # Update package.json version to match npm version
           npm version $NPM_VERSION --no-git-tag-version
 
-          # Copy the bundle to a more standard location for npm
+          # Copy both files to npm dist directory
           mkdir -p dist
           cp src/genstudio/js/widget_build.js dist/
+          cp src/genstudio/widget.css dist/
 
           echo "Publishing npm package version $NPM_VERSION"
           npm publish --access public

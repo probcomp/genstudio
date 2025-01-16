@@ -7,13 +7,31 @@ from typing import Any, List, Optional, Tuple, Union, Self
 from html2image import Html2Image
 from PIL import Image
 
-from genstudio.util import CONFIG, PARENT_PATH
+from genstudio.util import CONFIG, WIDGET_URL, CSS_URL
 from genstudio.widget import Widget, to_json_with_initialState, WidgetState
 
 
 def create_parent_dir(path: str) -> None:
     """Create parent directory if it doesn't exist."""
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+
+
+def get_script_content():
+    """Get the JS content either from CDN or local file"""
+    if isinstance(WIDGET_URL, str):  # It's a CDN URL
+        return f'import {{ renderData }} from "{WIDGET_URL}";'
+    else:  # It's a local Path
+        with open(WIDGET_URL, "r") as js_file:
+            return js_file.read()
+
+
+def get_style_content():
+    """Get the CSS content either from CDN or local file"""
+    if isinstance(CSS_URL, str):  # It's a CDN URL
+        return f'@import "{CSS_URL}";'
+    else:  # It's a local Path
+        with open(CSS_URL, "r") as css_file:
+            return css_file.read()
 
 
 def html_snippet(ast, id=None):
@@ -27,11 +45,9 @@ def html_snippet(ast, id=None):
     ]
     buffers_array = f"[{','.join(encoded_buffers)}]"
 
-    # Read and inline the JS and CSS files
-    with open(PARENT_PATH / "js/widget_build.js", "r") as js_file:
-        js_content = js_file.read()
-    with open(PARENT_PATH / "widget.css", "r") as css_file:
-        css_content = css_file.read()
+    # Get JS and CSS content
+    js_content = get_script_content()
+    css_content = get_style_content()
 
     html_content = f"""
     <style>{css_content}</style>

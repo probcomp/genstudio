@@ -13,6 +13,20 @@ class Config(TypedDict):
     defaults: dict[Any, Any]
 
 
+try:
+    PARENT_PATH = pathlib.Path(importlib.util.find_spec("genstudio.util").origin).parent  # type: ignore
+except AttributeError:
+    raise ImportError("Cannot find the genstudio.util module")
+
+# CDN URLs for published assets - set during package build
+CDN_SCRIPT_URL = None
+CDN_CSS_URL = None
+
+# Local development paths
+WIDGET_URL = CDN_SCRIPT_URL or (PARENT_PATH / "js/widget_build.js")
+CSS_URL = CDN_CSS_URL or (PARENT_PATH / "widget.css")
+
+
 CONFIG: Config = {"display_as": "widget", "dev": False, "defaults": {}}
 
 
@@ -54,10 +68,6 @@ class benchmark(object):
         self.time = t
 
 
-try:
-    PARENT_PATH = pathlib.Path(importlib.util.find_spec("genstudio.util").origin).parent  # type: ignore
-except AttributeError:
-    raise ImportError("Cannot find the genstudio.util module")
 # %%
 
 
