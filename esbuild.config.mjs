@@ -11,6 +11,8 @@ const options = {
   format: 'esm',
   outfile: 'src/genstudio/js/widget_build.js',
   plugins: [cssModulesPlugin()],
+  minify: !watch,
+  sourcemap: watch,
 };
 
 const USE_CDN_IMPORTS = false //!watch

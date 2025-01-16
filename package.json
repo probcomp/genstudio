@@ -1,6 +1,6 @@
 {
-  "name": "genstudio",
-  "version": "1.0.0",
+  "name": "@probcomp/genstudio",
+  "version": "0.1.0",
   "main": "index.js",
   "repository": "git@github.com:probcomp/genstudio.git",
   "author": "Matthew Huebert <mhuebert@gmail.com>",
@@ -45,5 +45,11 @@
     "test:js": "node --experimental-vm-modules node_modules/vitest/vitest.mjs",
     "test:py": "poetry run pytest tests/python/",
     "test": "npm-run-all test:js test:py"
+  },
+  "files": [
+    "dist/widget_build.js"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

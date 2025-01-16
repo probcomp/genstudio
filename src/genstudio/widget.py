@@ -392,8 +392,11 @@ class WidgetState:
                 self._state[key] = value
 
 
+WIDGET_URL = PARENT_PATH / "js/widget_build.js"
+
+
 class Widget(anywidget.AnyWidget):
-    _esm = PARENT_PATH / "js/widget_build.js"
+    _esm = WIDGET_URL
     _css = PARENT_PATH / "widget.css"
     callback_registry: Dict[str, Callable] = {}
     data = traitlets.Any().tag(sync=True, to_json=to_json_with_initialState)

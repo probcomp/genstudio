@@ -90,10 +90,34 @@ jobs:
       - name: Install deps
         run: poetry install --without dev
 
+      - name: Update widget URL and build Python package
+        run: |
+          VERSION=$(poetry version -s)
+
+          # Convert to npm version format if it's a dev version
+          if [[ $VERSION == *.dev ]]; then
+            NPM_VERSION="0.0.0-dev.$(echo $VERSION | sed 's/\.dev$//' | tr '.' '')"
+          else
+            NPM_VERSION=$VERSION
+          fi
+
+          JSDELIVR_URL="https://cdn.jsdelivr.net/npm/@probcomp/genstudio@${NPM_VERSION}/dist/widget_build.js"
+
+          # Create a temporary build directory
+          mkdir -p build/genstudio
+          cp -r src/genstudio/* build/genstudio/
+
+          # Update the widget URL in the build copy
+          sed -i "s|_esm = WIDGET_URL|_esm = \"${JSDELIVR_URL}\"|" build/genstudio/widget.py
+
+          # Build from the modified source
+          poetry build --source-directory build
+
+          # Clean up
+          rm -rf build
+
       - name: Deploy to Artifact Registry
         run: |
-          echo "=== Building package ==="
-          poetry build --verbose
           echo "=== Checking build artifacts ==="
           ls -la dist/
           echo "=== Publishing ==="
@@ -106,3 +130,34 @@ jobs:
           body_path: docs/CHANGELOG.md
           files: |
             dist/*
+
+      - name: Setup Node.js for npm publishing
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Publish to npm
+        run: |
+          VERSION=$(poetry version -s)
+
+          # Convert Python version to npm-compatible version
+          if [[ $VERSION == *.dev ]]; then
+            # For dev versions, use 0.0.0-dev.YYYYMMDD.HHMM
+            NPM_VERSION="0.0.0-dev.$(echo $VERSION | sed 's/\.dev$//' | tr '.' '')"
+          else
+            # For release versions, keep as is (assuming they're already semver)
+            NPM_VERSION=$VERSION
+          fi
+
+          # Update package.json version to match npm version
+          npm version $NPM_VERSION --no-git-tag-version
+
+          # Copy the bundle to a more standard location for npm
+          mkdir -p dist
+          cp src/genstudio/js/widget_build.js dist/
+
+          echo "Publishing npm package version $NPM_VERSION"
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
