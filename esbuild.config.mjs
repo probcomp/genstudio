@@ -13,7 +13,7 @@ const options = {
   plugins: [cssModulesPlugin()],
 };
 
-const USE_CDN_IMPORTS = true //!watch
+const USE_CDN_IMPORTS = false //!watch
 if (USE_CDN_IMPORTS) {
   importMap.load('src/genstudio/js/import-map.cdn.json');
   options.plugins.push(importMap.plugin());
