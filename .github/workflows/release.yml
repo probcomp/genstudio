@@ -96,7 +96,10 @@ jobs:
 
           # Convert to npm version format if it's a dev version
           if [[ $VERSION == *.dev ]]; then
-            NPM_VERSION="0.0.0-dev.$(echo $VERSION | sed 's/\.dev$//' | tr '.' '')"
+            # Extract date and time parts, removing .dev suffix
+            DATE_TIME=$(echo $VERSION | sed 's/\.dev$//')
+            # Format as 0.0.0-dev.YYYYMMDDHHMMSS
+            NPM_VERSION="0.0.0-dev.$(echo $DATE_TIME | sed 's/\.//g')"
           else
             NPM_VERSION=$VERSION
           fi
@@ -143,10 +146,11 @@ jobs:
 
           # Convert Python version to npm-compatible version
           if [[ $VERSION == *.dev ]]; then
-            # For dev versions, use 0.0.0-dev.YYYYMMDD.HHMM
-            NPM_VERSION="0.0.0-dev.$(echo $VERSION | sed 's/\.dev$//' | tr '.' '')"
+            # Extract date and time parts, removing .dev suffix
+            DATE_TIME=$(echo $VERSION | sed 's/\.dev$//')
+            # Format as 0.0.0-dev.YYYYMMDDHHMMSS
+            NPM_VERSION="0.0.0-dev.$(echo $DATE_TIME | sed 's/\.//g')"
           else
-            # For release versions, keep as is (assuming they're already semver)
             NPM_VERSION=$VERSION
           fi
 
