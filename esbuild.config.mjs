@@ -19,6 +19,14 @@ if (USE_CDN_IMPORTS) {
   options.plugins.push(importMap.plugin());
 }
 
-const build = watch ? esbuild.context(options).then((r) => r.watch()) : esbuild.build(options)
+const build = watch
+  ? esbuild.context(options).then((r) => r.watch())
+  : esbuild.build(options).then(() => {
+      console.log('Build completed successfully');
+      console.log('Output file:', options.outfile);
+    });
 
-build.catch(() => process.exit(1))
+build.catch((error) => {
+  console.error('Build failed:', error);
+  process.exit(1);
+})
