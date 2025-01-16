@@ -45,16 +45,14 @@ jobs:
           echo "=== Directory before build ==="
           ls -la src/genstudio/js/
           yarn build
+          # Force Git to track the build file temporarily
+          git add -f src/genstudio/js/widget_build.js
           echo "=== Directory after build ==="
           ls -la src/genstudio/js/
           echo "=== File contents if exists ==="
           if [ -f src/genstudio/js/widget_build.js ]; then
             echo "widget_build.js exists"
             stat src/genstudio/js/widget_build.js
-          else
-            echo "widget_build.js does not exist"
-            echo "Current directory contents:"
-            find src/genstudio -type f
           fi
           echo "=== JS build complete ==="
 
