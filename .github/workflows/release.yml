@@ -119,6 +119,19 @@ jobs:
             echo "File size: $(wc -c < src/genstudio/js/widget_build.js) bytes"
           fi
 
+      - name: Debug directory structure
+        run: |
+          echo "=== Full directory structure ==="
+          find src/genstudio -type f -ls
+          echo "=== Permissions of js directory ==="
+          ls -la src/genstudio/js/
+          echo "=== File hash of widget_build.js ==="
+          if [ -f src/genstudio/js/widget_build.js ]; then
+            md5sum src/genstudio/js/widget_build.js
+          fi
+          echo "=== Current Git status ==="
+          git status --ignored
+
       - name: Deploy to Artifact Registry
         run: |
           echo "=== Building package ==="
