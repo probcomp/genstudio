@@ -107,6 +107,18 @@ jobs:
           # Then install the local package
           poetry install
 
+      - name: Verify JS build artifacts
+        run: |
+          echo "=== Current working directory ==="
+          pwd
+          echo "=== JS file status ==="
+          find . -name "widget_build.js"
+          echo "=== JS file contents if found ==="
+          if [ -f src/genstudio/js/widget_build.js ]; then
+            ls -l src/genstudio/js/widget_build.js
+            echo "File size: $(wc -c < src/genstudio/js/widget_build.js) bytes"
+          fi
+
       - name: Deploy to Artifact Registry
         run: |
           echo "=== Building package ==="
@@ -114,7 +126,7 @@ jobs:
           echo "=== Checking build artifacts ==="
           ls -la dist/
           echo "=== Checking wheel contents ==="
-          unzip -l dist/genstudio-*.whl | grep widget_build.js
+          unzip -l dist/genstudio-*.whl
           echo "=== Publishing ==="
           poetry publish --repository gcp
 
