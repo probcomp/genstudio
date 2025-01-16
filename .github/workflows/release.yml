@@ -42,8 +42,20 @@ jobs:
       - name: build the javascript bundle
         run: |
           mkdir -p src/genstudio/js
-          yarn build
+          echo "=== Directory before build ==="
           ls -la src/genstudio/js/
+          yarn build
+          echo "=== Directory after build ==="
+          ls -la src/genstudio/js/
+          echo "=== File contents if exists ==="
+          if [ -f src/genstudio/js/widget_build.js ]; then
+            echo "widget_build.js exists"
+            stat src/genstudio/js/widget_build.js
+          else
+            echo "widget_build.js does not exist"
+            echo "Current directory contents:"
+            find src/genstudio -type f
+          fi
           echo "=== JS build complete ==="
 
       - name: Install and configure Poetry
@@ -55,7 +67,11 @@ jobs:
           poetry config repositories.gcp https://us-west1-python.pkg.dev/probcomp-caliban/probcomp/
 
       - name: Install deps
-        run: poetry install
+        run: |
+          # Install with --no-root first to get dependencies
+          poetry install --no-root
+          # Then install the local package
+          poetry install
 
       - name: Check if triggered by push to main
         id: check_trigger
