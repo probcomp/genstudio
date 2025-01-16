@@ -103,9 +103,9 @@ jobs:
       - name: Install deps
         run: |
           # Install with --no-root first to get dependencies, excluding genjax group
-          poetry install --no-root --without genjax
+          poetry install --no-root --without dev
           # Then install the local package
-          poetry install --without genjax
+          poetry install --without dev
 
       - name: Verify JS build artifacts
         run: |
