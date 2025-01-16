@@ -1861,6 +1861,78 @@ const numPoints=500;
 const radius=0.5;
 const {positions:spherePositions, colors:sphereColors}=generateSpherePointCloud(numPoints, radius);
 
+// Create a snowman out of ellipsoids
+const numEllipsoids = 3;
+const eCenters = new Float32Array(numEllipsoids * 3);
+const eRadii = new Float32Array(numEllipsoids * 3);
+const eColors = new Float32Array(numEllipsoids * 3);
+
+// Snowman ellipsoids: head, body, base
+const snowmanPositions = [
+  { x: 0, y: 0, z: 0.6 }, // Head
+  { x: 0, y: 0, z: 0.3 }, // Body
+  { x: 0, y: 0, z: 0 }    // Base
+];
+
+const snowmanRadii = [
+  { rx: 0.1, ry: 0.1, rz: 0.1 }, // Head
+  { rx: 0.15, ry: 0.15, rz: 0.15 }, // Body
+  { rx: 0.2, ry: 0.2, rz: 0.2 }  // Base
+];
+
+for (let i = 0; i < numEllipsoids; i++) {
+  eCenters[i * 3] = snowmanPositions[i].x;
+  eCenters[i * 3 + 1] = snowmanPositions[i].y;
+  eCenters[i * 3 + 2] = snowmanPositions[i].z;
+
+  eRadii[i * 3] = snowmanRadii[i].rx;
+  eRadii[i * 3 + 1] = snowmanRadii[i].ry;
+  eRadii[i * 3 + 2] = snowmanRadii[i].rz;
+
+  eColors[i * 3] = 1.0; // White color for snow
+  eColors[i * 3 + 1] = 1.0;
+  eColors[i * 3 + 2] = 1.0;
+}
+
+// Create a complicated robot out of bounds
+const numBounds = 6;
+const boundCenters = new Float32Array(numBounds * 3);
+const boundRadii = new Float32Array(numBounds * 3);
+const boundColors = new Float32Array(numBounds * 3);
+
+// Robot parts: head, body, arms, legs
+const robotPositions = [
+  { x: 0, y: 0, z: 0.8 }, // Head
+  { x: 0, y: 0, z: 0.5 }, // Body
+  { x: -0.2, y: 0, z: 0.5 }, // Left Arm
+  { x: 0.2, y: 0, z: 0.5 }, // Right Arm
+  { x: -0.1, y: 0, z: 0.2 }, // Left Leg
+  { x: 0.1, y: 0, z: 0.2 }  // Right Leg
+];
+
+const robotRadii = [
+  { rx: 0.1, ry: 0.1, rz: 0.1 }, // Head
+  { rx: 0.2, ry: 0.1, rz: 0.3 }, // Body
+  { rx: 0.05, ry: 0.05, rz: 0.2 }, // Left Arm
+  { rx: 0.05, ry: 0.05, rz: 0.2 }, // Right Arm
+  { rx: 0.05, ry: 0.05, rz: 0.2 }, // Left Leg
+  { rx: 0.05, ry: 0.05, rz: 0.2 }  // Right Leg
+];
+
+for (let i = 0; i < numBounds; i++) {
+  boundCenters[i * 3] = robotPositions[i].x;
+  boundCenters[i * 3 + 1] = robotPositions[i].y;
+  boundCenters[i * 3 + 2] = robotPositions[i].z;
+
+  boundRadii[i * 3] = robotRadii[i].rx;
+  boundRadii[i * 3 + 1] = robotRadii[i].ry;
+  boundRadii[i * 3 + 2] = robotRadii[i].rz;
+
+  boundColors[i * 3] = 0.5; // Grey color for robot
+  boundColors[i * 3 + 1] = 0.5;
+  boundColors[i * 3 + 2] = 0.5;
+}
+
 export function App() {
   const [highlightIdx, setHighlightIdx] = useState<number|null>(null);
   const [hovered, setHovered] = useState<{[key: string]: {type: string, index: number} | null}>({
@@ -1890,10 +1962,7 @@ export function App() {
     onClick:(i)=> alert(`Clicked point #${i}`)
   };
 
-  // Some ellipsoids
-  const eCenters=new Float32Array([0,0,0, 0.5,0.2,-0.2]);
-  const eRadii=new Float32Array([0.2,0.3,0.15, 0.1,0.25,0.2]);
-  const eColors=new Float32Array([0.8,0.2,0.2, 0.2,0.8,0.2]);
+
 
   const ellipsoidElement: EllipsoidElementConfig={
     type:'Ellipsoid',
@@ -1910,22 +1979,6 @@ export function App() {
     onClick:(i)=> alert(`Click ellipsoid #${i}`)
   };
 
-  // Some bounds
-  const boundCenters=new Float32Array([
-    -0.4,0.4,0,
-    0.3,-0.4,0.3,
-    -0.3,-0.3,0.2
-  ]);
-  const boundRadii=new Float32Array([
-    0.25,0.25,0.25,
-    0.4,0.2,0.15,
-    0.15,0.35,0.25
-  ]);
-  const boundColors=new Float32Array([
-    1.0,0.7,0.2,
-    0.2,0.7,1.0,
-    0.8,0.3,1.0
-  ]);
 
   const boundElement: EllipsoidBoundsElementConfig={
     type:'EllipsoidBounds',
