@@ -1739,6 +1739,9 @@ const onWheel=useCallback((e:WheelEvent)=>{
         billboardQuadRef.current?.ib.destroy();
         cubeGeoRef.current?.vb.destroy();
         cubeGeoRef.current?.ib.destroy();
+
+        // Just clear the pipeline cache
+        pipelineCache.clear();
       }
       if(rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     };
@@ -1778,6 +1781,28 @@ const onWheel=useCallback((e:WheelEvent)=>{
     };
   },[isReady, renderFrame, camera]);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (mouseState.current.type === 'idle') {
+        e.preventDefault();
+        const d = e.deltaY * 0.01;
+        setCamera(cam => ({
+          ...cam,
+          orbitRadius: Math.max(0.01, cam.orbitRadius + d)
+        }));
+      }
+    };
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
+
   return (
     <div style={{width:'100%', border:'1px solid #ccc'}}>
       <canvas
@@ -1788,7 +1813,6 @@ const onWheel=useCallback((e:WheelEvent)=>{
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onWheel={onWheel}
-        onWheelCapture={(e)=> e.preventDefault()}
       />
     </div>
   );
