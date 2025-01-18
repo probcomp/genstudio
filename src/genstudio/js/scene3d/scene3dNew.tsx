@@ -665,18 +665,18 @@ function Scene({ elements, containerWidth }: SceneProps) {
     // We'll store each face as 4 unique verts (pos+normal) and 2 triangles (6 indices).
     // The cube has 6 faces => total 24 verts, 36 indices.
     const positions: number[] = [
-      // +X face
+      // +X face (right)
       0.5, -0.5, -0.5,   0.5, -0.5, 0.5,    0.5, 0.5, 0.5,   0.5, 0.5, -0.5,
-      // -X face
+      // -X face (left)
       -0.5, -0.5, 0.5,   -0.5, -0.5, -0.5,  -0.5, 0.5, -0.5,  -0.5, 0.5, 0.5,
-      // +Y face
+      // +Y face (top)
       -0.5, 0.5, -0.5,   0.5, 0.5, -0.5,    0.5, 0.5, 0.5,   -0.5, 0.5, 0.5,
-      // -Y face
+      // -Y face (bottom)
       -0.5, -0.5, 0.5,   0.5, -0.5, 0.5,    0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,
-      // +Z face
-      0.5,  -0.5, 0.5,   -0.5, -0.5, 0.5,   -0.5, 0.5, 0.5,    0.5, 0.5, 0.5,
-      // -Z face
-      -0.5, -0.5, -0.5,   0.5, -0.5, -0.5,   0.5, 0.5, -0.5,  -0.5, 0.5, -0.5,
+      // +Z face (front)
+      -0.5, -0.5, 0.5,   0.5, -0.5, 0.5,    0.5, 0.5, 0.5,   -0.5, 0.5, 0.5,
+      // -Z face (back)
+      0.5, -0.5, -0.5,   -0.5, -0.5, -0.5,  -0.5, 0.5, -0.5,   0.5, 0.5, -0.5,
     ];
     const normals: number[] = [
       // +X face => normal = (1,0,0)
@@ -686,17 +686,18 @@ function Scene({ elements, containerWidth }: SceneProps) {
       // +Y face => normal = (0,1,0)
       0,1,0, 0,1,0, 0,1,0, 0,1,0,
       // -Y face => normal = (0,-1,0)
-      0,-1,0,0,-1,0,0,-1,0,0,-1,0,
+      0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0,
       // +Z face => normal = (0,0,1)
-      0,0,1,0,0,1,0,0,1,0,0,1,
+      0,0,1, 0,0,1, 0,0,1, 0,0,1,
       // -Z face => normal = (0,0,-1)
-      0,0,-1,0,0,-1,0,0,-1,0,0,-1,
+      0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1,
     ];
     const indices: number[] = [];
     // For each face, we have 4 verts => 2 triangles => 6 indices
     for(let face=0; face<6; face++){
       const base = face*4;
-      indices.push(base+0, base+1, base+2, base+0, base+2, base+3);
+      // Counter-clockwise winding order when viewed from outside
+      indices.push(base+0, base+2, base+1, base+0, base+3, base+2);
     }
     // Combine interleaved data => pos + norm for each vertex
     const vertexData = new Float32Array(positions.length*2);
@@ -1158,7 +1159,10 @@ function createRenderPipelineFor(type: SceneElementConfig['type'], device: GPUDe
           }
         }]
       },
-      primitive:{ topology:'triangle-list', cullMode:'back'},
+      primitive:{
+        topology:'triangle-list',
+        cullMode:'none'  // Changed from 'back' to 'none'
+      },
       depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
     });
   }
@@ -1309,7 +1313,10 @@ function createPickingPipelineFor(type: SceneElementConfig['type'], device: GPUD
         entryPoint:'fs_pick',
         targets:[{ format }]
       },
-      primitive:{ topology:'triangle-list', cullMode:'back'},
+      primitive:{
+        topology:'triangle-list',
+        cullMode:'none'  // Changed from 'back' to 'none' to match main pipeline
+      },
       depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
     });
   }
