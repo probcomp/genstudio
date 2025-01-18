@@ -831,7 +831,8 @@ function Scene({ elements, containerWidth }: SceneProps) {
       // We'll create a readback buffer for picking
       const readbackBuffer = device.createBuffer({
         size: 256,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        label: 'Picking readback buffer'  // Add label for debugging
       });
 
       gpuRef.current = {
@@ -1506,28 +1507,40 @@ const renderFrame=useCallback((camera:any)=>{
 },[canvasWidth, canvasHeight]);
 
 async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'click'){
-  if(!gpuRef.current||pickingLockRef.current)return;
-  pickingLockRef.current=true;
+  if(!gpuRef.current || pickingLockRef.current) return;
+
+  // Create a unique ID for this picking operation
+  const pickingId = Date.now();
+  const currentPickingId = pickingId;
+  pickingLockRef.current = true;
+
+  const startTime = performance.now();
+  let renderTime = 0;
+  let readbackTime = 0;
 
   try {
     const {
       device, pickTexture, pickDepthTexture, readbackBuffer,
       uniformBindGroup, renderObjects, idToElement
-    }=gpuRef.current;
-    if(!pickTexture||!pickDepthTexture) return;
+    } = gpuRef.current;
+
+    if(!pickTexture || !pickDepthTexture || !readbackBuffer) return;
+
+    // Check if this picking operation is still valid
+    if (currentPickingId !== pickingId) return;
 
     const pickX = Math.floor(screenX);
     const pickY = Math.floor(screenY);
-    if(pickX<0||pickY<0||pickX>=canvasWidth||pickY>=canvasHeight){
-      // out of bounds
-      if(mode==='hover'){
-        handleHoverID(0);
-      }
+    if(pickX<0 || pickY<0 || pickX>=canvasWidth || pickY>=canvasHeight){
+      if(mode==='hover') handleHoverID(0);
       return;
     }
 
-    const cmd = device.createCommandEncoder();
-    const passDesc: GPURenderPassDescriptor={
+    const renderStart = performance.now();
+    const cmd = device.createCommandEncoder({label: 'Picking encoder'});
+
+    // Create the render pass properly
+    const passDesc: GPURenderPassDescriptor = {
       colorAttachments:[{
         view: pickTexture.createView(),
         clearValue:{r:0,g:0,b:0,a:1},
@@ -1566,12 +1579,25 @@ async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'clic
       [1,1,1]
     );
     device.queue.submit([cmd.finish()]);
+    renderTime = performance.now() - renderStart;
+
+    // Check again if this picking operation is still valid
+    if (currentPickingId !== pickingId) return;
 
     try {
+      const readbackStart = performance.now();
       await readbackBuffer.mapAsync(GPUMapMode.READ);
+
+      // Check one more time if this picking operation is still valid
+      if (currentPickingId !== pickingId) {
+        readbackBuffer.unmap();
+        return;
+      }
+
       const arr = new Uint8Array(readbackBuffer.getMappedRange());
       const r=arr[0], g=arr[1], b=arr[2];
       readbackBuffer.unmap();
+      readbackTime = performance.now() - readbackStart;
       const pickedID = (b<<16)|(g<<8)|r;
 
       if(mode==='hover'){
@@ -1583,7 +1609,15 @@ async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'clic
       console.error("pick buffer mapping error:", e);
     }
   } finally {
-    pickingLockRef.current=false;
+    pickingLockRef.current = false;
+    const totalTime = performance.now() - startTime;
+    if (mode === 'click') {
+      console.log(`Picking performance (${mode}):`, {
+        renderTime: renderTime.toFixed(2) + 'ms',
+        readbackTime: readbackTime.toFixed(2) + 'ms',
+        totalTime: totalTime.toFixed(2) + 'ms'
+      });
+    }
   }
 }
 
@@ -1723,25 +1757,33 @@ const onWheel=useCallback((e:WheelEvent)=>{
     initWebGPU();
     return ()=>{
       if(gpuRef.current){
-        // cleanup
-        gpuRef.current.depthTexture?.destroy();
-        gpuRef.current.pickTexture?.destroy();
-        gpuRef.current.pickDepthTexture?.destroy();
-        gpuRef.current.readbackBuffer.destroy();
-        gpuRef.current.uniformBuffer.destroy();
+        // Set a flag to prevent any pending picking operations
+        pickingLockRef.current = true;
 
-        // destroy geometry
-        sphereGeoRef.current?.vb.destroy();
-        sphereGeoRef.current?.ib.destroy();
-        ringGeoRef.current?.vb.destroy();
-        ringGeoRef.current?.ib.destroy();
-        billboardQuadRef.current?.vb.destroy();
-        billboardQuadRef.current?.ib.destroy();
-        cubeGeoRef.current?.vb.destroy();
-        cubeGeoRef.current?.ib.destroy();
+        // Wait a frame before cleanup to ensure no operations are in progress
+        requestAnimationFrame(() => {
+          if(!gpuRef.current) return;
 
-        // Just clear the pipeline cache
-        pipelineCache.clear();
+          // cleanup
+          gpuRef.current.depthTexture?.destroy();
+          gpuRef.current.pickTexture?.destroy();
+          gpuRef.current.pickDepthTexture?.destroy();
+          gpuRef.current.readbackBuffer.destroy();
+          gpuRef.current.uniformBuffer.destroy();
+
+          // destroy geometry
+          sphereGeoRef.current?.vb.destroy();
+          sphereGeoRef.current?.ib.destroy();
+          ringGeoRef.current?.vb.destroy();
+          ringGeoRef.current?.ib.destroy();
+          billboardQuadRef.current?.vb.destroy();
+          billboardQuadRef.current?.ib.destroy();
+          cubeGeoRef.current?.vb.destroy();
+          cubeGeoRef.current?.ib.destroy();
+
+          // Just clear the pipeline cache
+          pipelineCache.clear();
+        });
       }
       if(rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     };
@@ -1911,7 +1953,7 @@ export function App(){
       {indexes: [hoveredIndices.pc1], color: [1, 1, 0], alpha: 1, minSize: 0.05}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, pc1: i})),
-    onClick: (i) => alert("Clicked point in cloud 1 #" + i)
+    onClick: (i) => console.log("Clicked point in cloud 1 #", i)  // Changed from alert
   };
 
   const pcElement2: PointCloudElementConfig = {
@@ -1921,7 +1963,7 @@ export function App(){
       {indexes: [hoveredIndices.pc2], color: [0, 1, 0], alpha: 1, minSize: 0.05}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, pc2: i})),
-    onClick: (i) => alert("Clicked point in cloud 2 #" + i)
+    onClick: (i) => console.log("Clicked point in cloud 2 #", i)  // Changed from alert
   };
 
   // Ellipsoids
@@ -1940,7 +1982,7 @@ export function App(){
       {indexes: [hoveredIndices.ellipsoid1], color: [1, 0, 1], alpha: 0.8}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, ellipsoid1: i})),
-    onClick: (i) => alert("Clicked ellipsoid in group 1 #" + i)
+    onClick: (i) => console.log("Clicked ellipsoid in group 1 #", i)  // Changed from alert
   };
 
   const ellipsoidElement2: EllipsoidElementConfig = {
@@ -1950,7 +1992,7 @@ export function App(){
       {indexes: [hoveredIndices.ellipsoid2], color: [0, 1, 0], alpha: 0.8}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, ellipsoid2: i})),
-    onClick: (i) => alert("Clicked ellipsoid in group 2 #" + i)
+    onClick: (i) => console.log("Clicked ellipsoid in group 2 #", i)  // Changed from alert
   };
 
   // Ellipsoid Bounds
@@ -1961,7 +2003,7 @@ export function App(){
       {indexes: [hoveredIndices.bounds1], color: [0, 1, 1], alpha: 1}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, bounds1: i})),
-    onClick: (i) => alert("Clicked bounds in group 1 #" + i)
+    onClick: (i) => console.log("Clicked bounds in group 1 #", i)  // Changed from alert
   };
 
   const boundsElement2: EllipsoidBoundsElementConfig = {
@@ -1975,7 +2017,7 @@ export function App(){
       {indexes: [hoveredIndices.bounds2], color: [1, 0, 0], alpha: 1}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, bounds2: i})),
-    onClick: (i) => alert("Clicked bounds in group 2 #" + i)
+    onClick: (i) => console.log("Clicked bounds in group 2 #", i)  // Changed from alert
   };
 
   // Cuboid Examples
@@ -1986,7 +2028,7 @@ export function App(){
       {indexes: [hoveredIndices.cuboid1], color: [1,1,0], alpha: 1}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, cuboid1: i})),
-    onClick: (i) => alert("Clicked cuboid in group 1 #" + i)
+    onClick: (i) => console.log("Clicked cuboid in group 1 #", i)  // Changed from alert
   };
 
   const cuboidElement2: CuboidElementConfig = {
@@ -1996,7 +2038,7 @@ export function App(){
       {indexes: [hoveredIndices.cuboid2], color: [1,0,1], alpha: 1}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, cuboid2: i})),
-    onClick: (i) => alert("Clicked cuboid in group 2 #" + i)
+    onClick: (i) => console.log("Clicked cuboid in group 2 #", i)  // Changed from alert
   };
 
   const elements: SceneElementConfig[] = [
