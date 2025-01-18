@@ -309,30 +309,119 @@ const ellipsoidBoundsSpec: PrimitiveSpec<EllipsoidBoundsElementConfig> = {
   }
 };
 
-/** ========== If you add more shapes, define them likewise ========== **/
+/**
+ * -------------- CUBOID ADDITIONS --------------
+ * We'll define a new config interface, a spec,
+ * and later a pipeline + geometry for it.
+ */
+interface CuboidData {
+  centers: Float32Array; // Nx3
+  sizes: Float32Array;   // Nx3  (width, height, depth)
+  colors?: Float32Array; // Nx3
+}
+export interface CuboidElementConfig {
+  type: 'Cuboid';
+  data: CuboidData;
+  decorations?: Decoration[];
+  onHover?: (index: number|null) => void;
+  onClick?: (index: number) => void;
+}
+
+const cuboidSpec: PrimitiveSpec<CuboidElementConfig> = {
+  getCount(elem){
+    return elem.data.centers.length / 3;
+  },
+  buildRenderData(elem){
+    const { centers, sizes, colors } = elem.data;
+    const count = centers.length / 3;
+    if(count===0)return null;
+
+    // (center.x, center.y, center.z, size.x, size.y, size.z, color.r, color.g, color.b, alpha)
+    const arr = new Float32Array(count*10);
+    for(let i=0; i<count; i++){
+      arr[i*10+0] = centers[i*3+0];
+      arr[i*10+1] = centers[i*3+1];
+      arr[i*10+2] = centers[i*3+2];
+      arr[i*10+3] = sizes[i*3+0] || 0.1;
+      arr[i*10+4] = sizes[i*3+1] || 0.1;
+      arr[i*10+5] = sizes[i*3+2] || 0.1;
+      if(colors && colors.length===count*3){
+        arr[i*10+6] = colors[i*3+0];
+        arr[i*10+7] = colors[i*3+1];
+        arr[i*10+8] = colors[i*3+2];
+      } else {
+        arr[i*10+6] = 1; arr[i*10+7] = 1; arr[i*10+8] = 1;
+      }
+      arr[i*10+9] = 1.0;
+    }
+    // decorations
+    if(elem.decorations){
+      for(const dec of elem.decorations){
+        for(const idx of dec.indexes){
+          if(idx<0||idx>=count) continue;
+          if(dec.color){
+            arr[idx*10+6] = dec.color[0];
+            arr[idx*10+7] = dec.color[1];
+            arr[idx*10+8] = dec.color[2];
+          }
+          if(dec.alpha!==undefined){
+            arr[idx*10+9] = dec.alpha;
+          }
+          if(dec.scale!==undefined){
+            arr[idx*10+3]*=dec.scale;
+            arr[idx*10+4]*=dec.scale;
+            arr[idx*10+5]*=dec.scale;
+          }
+          if(dec.minSize!==undefined){
+            if(arr[idx*10+3]<dec.minSize) arr[idx*10+3] = dec.minSize;
+            if(arr[idx*10+4]<dec.minSize) arr[idx*10+4] = dec.minSize;
+            if(arr[idx*10+5]<dec.minSize) arr[idx*10+5] = dec.minSize;
+          }
+        }
+      }
+    }
+    return arr;
+  },
+  buildPickingData(elem, baseID){
+    const { centers, sizes } = elem.data;
+    const count=centers.length/3;
+    if(count===0)return null;
+
+    // (center.x, center.y, center.z, size.x, size.y, size.z, pickID)
+    const arr = new Float32Array(count*7);
+    for(let i=0; i<count; i++){
+      arr[i*7+0] = centers[i*3+0];
+      arr[i*7+1] = centers[i*3+1];
+      arr[i*7+2] = centers[i*3+2];
+      arr[i*7+3] = sizes[i*3+0]||0.1;
+      arr[i*7+4] = sizes[i*3+1]||0.1;
+      arr[i*7+5] = sizes[i*3+2]||0.1;
+      arr[i*7+6] = baseID + i;
+    }
+    return arr;
+  }
+};
+/** -------------- END CUBOID ADDITIONS -------------- */
 
 /** A union of all known element configs: */
 export type SceneElementConfig =
   | PointCloudElementConfig
   | EllipsoidElementConfig
   | EllipsoidBoundsElementConfig
-  // (Add new ones here as you define them.)
+  | CuboidElementConfig;  // <-- new
 
 /** The registry that maps element.type -> its PrimitiveSpec. */
 const primitiveRegistry: Record<SceneElementConfig['type'], PrimitiveSpec<any>> = {
   PointCloud: pointCloudSpec,
   Ellipsoid: ellipsoidSpec,
-  EllipsoidBounds: ellipsoidBoundsSpec
+  EllipsoidBounds: ellipsoidBoundsSpec,
+  Cuboid: cuboidSpec, // new
 };
 
 /******************************************************
  * 2) Pipeline Cache & "RenderObject" interface
  ******************************************************/
 
-/**
- * We'll keep a small pipeline cache so we don't recreate the same pipeline for multiple
- * elements using the same shape or shading.
- */
 const pipelineCache = new Map<string, GPURenderPipeline>();
 
 function getOrCreatePipeline(
@@ -414,7 +503,6 @@ function Scene({ elements, containerWidth }: SceneProps) {
     // We'll hold a list of RenderObjects that we build from the elements
     renderObjects: RenderObject[];
 
-    // For picking IDs:
     /** each element gets a "baseID" so we can map from ID->(element, instance) */
     elementBaseId: number[];
     /** global table from ID -> {elementIdx, instanceIdx} */
@@ -492,10 +580,8 @@ function Scene({ elements, containerWidth }: SceneProps) {
   }
 
   /******************************************************
-   * A) Create base geometry (sphere, ring, billboard)
+   * A) Create base geometry (sphere, ring, billboard, cube)
    ******************************************************/
-  // We'll store these so we can re-use them in pipelines that need them
-  // (the sphere and ring for ellipsoids, the billboard quad for point clouds).
   const sphereGeoRef = useRef<{
     vb: GPUBuffer;
     ib: GPUBuffer;
@@ -509,6 +595,14 @@ function Scene({ elements, containerWidth }: SceneProps) {
   const billboardQuadRef = useRef<{
     vb: GPUBuffer;
     ib: GPUBuffer;
+  }|null>(null);
+
+  // --- CUBOID ADDITIONS ---
+  // We'll store the "unit-cube" geometry in a ref as well.
+  const cubeGeoRef = useRef<{
+    vb: GPUBuffer;
+    ib: GPUBuffer;
+    indexCount: number;
   }|null>(null);
 
   function createSphereGeometry(stacks=16, slices=24) {
@@ -566,6 +660,60 @@ function Scene({ elements, containerWidth }: SceneProps) {
     };
   }
 
+  // Create a cube geometry (centered at (0,0,0), size=1) with normals.
+  function createCubeGeometry() {
+    // We'll store each face as 4 unique verts (pos+normal) and 2 triangles (6 indices).
+    // The cube has 6 faces => total 24 verts, 36 indices.
+    const positions: number[] = [
+      // +X face
+      0.5, -0.5, -0.5,   0.5, -0.5, 0.5,    0.5, 0.5, 0.5,   0.5, 0.5, -0.5,
+      // -X face
+      -0.5, -0.5, 0.5,   -0.5, -0.5, -0.5,  -0.5, 0.5, -0.5,  -0.5, 0.5, 0.5,
+      // +Y face
+      -0.5, 0.5, -0.5,   0.5, 0.5, -0.5,    0.5, 0.5, 0.5,   -0.5, 0.5, 0.5,
+      // -Y face
+      -0.5, -0.5, 0.5,   0.5, -0.5, 0.5,    0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,
+      // +Z face
+      0.5,  -0.5, 0.5,   -0.5, -0.5, 0.5,   -0.5, 0.5, 0.5,    0.5, 0.5, 0.5,
+      // -Z face
+      -0.5, -0.5, -0.5,   0.5, -0.5, -0.5,   0.5, 0.5, -0.5,  -0.5, 0.5, -0.5,
+    ];
+    const normals: number[] = [
+      // +X face => normal = (1,0,0)
+      1,0,0,  1,0,0,  1,0,0,  1,0,0,
+      // -X face => normal = (-1,0,0)
+      -1,0,0, -1,0,0, -1,0,0, -1,0,0,
+      // +Y face => normal = (0,1,0)
+      0,1,0, 0,1,0, 0,1,0, 0,1,0,
+      // -Y face => normal = (0,-1,0)
+      0,-1,0,0,-1,0,0,-1,0,0,-1,0,
+      // +Z face => normal = (0,0,1)
+      0,0,1,0,0,1,0,0,1,0,0,1,
+      // -Z face => normal = (0,0,-1)
+      0,0,-1,0,0,-1,0,0,-1,0,0,-1,
+    ];
+    const indices: number[] = [];
+    // For each face, we have 4 verts => 2 triangles => 6 indices
+    for(let face=0; face<6; face++){
+      const base = face*4;
+      indices.push(base+0, base+1, base+2, base+0, base+2, base+3);
+    }
+    // Combine interleaved data => pos + norm for each vertex
+    const vertexData = new Float32Array(positions.length*2);
+    for(let i=0; i<positions.length/3; i++){
+      vertexData[i*6+0] = positions[i*3+0];
+      vertexData[i*6+1] = positions[i*3+1];
+      vertexData[i*6+2] = positions[i*3+2];
+      vertexData[i*6+3] = normals[i*3+0];
+      vertexData[i*6+4] = normals[i*3+1];
+      vertexData[i*6+5] = normals[i*3+2];
+    }
+    return {
+      vertexData,
+      indexData: new Uint16Array(indices),
+    };
+  }
+
   /******************************************************
    * B) initWebGPU: sets up device, context, uniform
    ******************************************************/
@@ -615,6 +763,12 @@ function Scene({ elements, containerWidth }: SceneProps) {
       });
       device.queue.writeBuffer(sphereIB,0,sphereGeo.indexData);
 
+      sphereGeoRef.current = {
+        vb: sphereVB,
+        ib: sphereIB,
+        indexCount: sphereGeo.indexData.length
+      };
+
       // Build a torus geometry for "bounds"
       const ringGeo = createTorusGeometry(1.0,0.03,40,12);
       const ringVB = device.createBuffer({
@@ -627,6 +781,12 @@ function Scene({ elements, containerWidth }: SceneProps) {
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
       });
       device.queue.writeBuffer(ringIB,0,ringGeo.indexData);
+
+      ringGeoRef.current = {
+        vb: ringVB,
+        ib: ringIB,
+        indexCount: ringGeo.indexData.length
+      };
 
       // billboard quad
       const quadVerts = new Float32Array([-0.5,-0.5,  0.5,-0.5,  -0.5,0.5,  0.5,0.5]);
@@ -642,21 +802,30 @@ function Scene({ elements, containerWidth }: SceneProps) {
       });
       device.queue.writeBuffer(quadIB,0,quadIdx);
 
-      // store in refs
-      sphereGeoRef.current = {
-        vb: sphereVB,
-        ib: sphereIB,
-        indexCount: sphereGeo.indexData.length
-      };
-      ringGeoRef.current = {
-        vb: ringVB,
-        ib: ringIB,
-        indexCount: ringGeo.indexData.length
-      };
       billboardQuadRef.current = {
         vb: quadVB,
         ib: quadIB
       };
+
+      // ---- CUBOID ADDITIONS: create cube geometry
+      const cubeGeo = createCubeGeometry();
+      const cubeVB = device.createBuffer({
+        size: cubeGeo.vertexData.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+      });
+      device.queue.writeBuffer(cubeVB, 0, cubeGeo.vertexData);
+      const cubeIB = device.createBuffer({
+        size: cubeGeo.indexData.byteLength,
+        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
+      });
+      device.queue.writeBuffer(cubeIB, 0, cubeGeo.indexData);
+
+      cubeGeoRef.current = {
+        vb: cubeVB,
+        ib: cubeIB,
+        indexCount: cubeGeo.indexData.length
+      };
+      // ---- END CUBOID ADDITIONS
 
       // We'll create a readback buffer for picking
       const readbackBuffer = device.createBuffer({
@@ -704,7 +873,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
     const colorTex = device.createTexture({
       size:[canvasWidth, canvasHeight],
       format:'rgba8unorm',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC  // Fix: Add COPY_SRC usage
+      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
     });
     const depthTex = device.createTexture({
       size:[canvasWidth, canvasHeight],
@@ -754,7 +923,6 @@ function buildRenderObjects(sceneElements: SceneElementConfig[]): RenderObject[]
     }
     currentID += count;
 
-    // build CPU data
     const renderData = spec.buildRenderData(elem);
     const pickData   = spec.buildPickingData(elem, elementBaseId[eIdx]);
 
@@ -776,12 +944,7 @@ function buildRenderObjects(sceneElements: SceneElementConfig[]): RenderObject[]
       device.queue.writeBuffer(pickVB,0,pickData);
     }
 
-    // pick or create the relevant pipelines
-    // In a real system, we might do a more sophisticated approach:
-    //   e.g. "PointCloud" => "billboard shading" pipeline
-    //   "Ellipsoid" => "sphere shading" pipeline
-    //   ...
-    // For brevity, we'll do a small switch:
+    // We'll pick or create the relevant pipelines based on elem.type
     let pipelineKey = "";
     let pickingPipelineKey = "";
     if(elem.type==='PointCloud'){
@@ -793,10 +956,10 @@ function buildRenderObjects(sceneElements: SceneElementConfig[]): RenderObject[]
     } else if(elem.type==='EllipsoidBounds'){
       pipelineKey = "EllipsoidBoundsShading";
       pickingPipelineKey = "EllipsoidBoundsPicking";
+    } else if(elem.type==='Cuboid'){
+      pipelineKey = "CuboidShading";
+      pickingPipelineKey = "CuboidPicking";
     }
-    // create them if needed
-    // (Pretend we have functions buildPointCloudPipeline, etc.
-    //  or store them all in the snippet to keep it complete.)
     const pipeline = getOrCreatePipeline(pipelineKey, ()=>{
       return createRenderPipelineFor(elem.type, device);
     });
@@ -804,12 +967,7 @@ function buildRenderObjects(sceneElements: SceneElementConfig[]): RenderObject[]
       return createPickingPipelineFor(elem.type, device);
     });
 
-    // how many to draw?
-    // In these examples, we do billboard => 6 indices, instanceCount= count
-    // or sphere => we do an indexed draw with sphere geometry, instanceCount= count
-    // let's store that in a new RenderObject:
-
-    // We'll fill in the details in a separate function:
+    // fill the fields in a new RenderObject
     const ro = createRenderObjectForElement(
       elem.type, pipeline, pickingPipeline, vb, pickVB, count, device
     );
@@ -820,10 +978,6 @@ function buildRenderObjects(sceneElements: SceneElementConfig[]): RenderObject[]
   return result;
 }
 
-/**
- * Create the main shading pipeline for a given type.
- * In a real system, you'd have separate code or a big switch.
- */
 function createRenderPipelineFor(type: SceneElementConfig['type'], device: GPUDevice): GPURenderPipeline {
   const format = navigator.gpu.getPreferredCanvasFormat();
   const pipelineLayout = device.createPipelineLayout({
@@ -964,12 +1118,55 @@ function createRenderPipelineFor(type: SceneElementConfig['type'], device: GPUDe
       primitive:{ topology:'triangle-list', cullMode:'back'},
       depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
     });
+  } else if(type==='Cuboid'){
+    // Very similar to the "Ellipsoid" shading, but using a cube geometry.
+    return device.createRenderPipeline({
+      layout: pipelineLayout,
+      vertex:{
+        module: device.createShaderModule({ code: cuboidVertCode }),
+        entryPoint:'vs_main',
+        buffers:[
+          {
+            // cube geometry => 6 floats (pos+normal)
+            arrayStride: 6*4,
+            attributes:[
+              {shaderLocation:0, offset:0,   format:'float32x3'},
+              {shaderLocation:1, offset:3*4, format:'float32x3'}
+            ]
+          },
+          {
+            // instance => 10 floats
+            arrayStride: 10*4,
+            stepMode:'instance',
+            attributes:[
+              {shaderLocation:2, offset:0,    format:'float32x3'}, // center
+              {shaderLocation:3, offset:3*4,  format:'float32x3'}, // size
+              {shaderLocation:4, offset:6*4,  format:'float32x3'}, // color
+              {shaderLocation:5, offset:9*4,  format:'float32'}     // alpha
+            ]
+          }
+        ]
+      },
+      fragment:{
+        module: device.createShaderModule({ code: cuboidFragCode }),
+        entryPoint:'fs_main',
+        targets:[{
+          format,
+          blend:{
+            color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
+            alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
+          }
+        }]
+      },
+      primitive:{ topology:'triangle-list', cullMode:'back'},
+      depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+    });
   }
-  // fallback
+
   throw new Error("No pipeline for type=" + type);
 }
 
-/** Similarly for picking: minimal "ID color" pipelines. */
+/** Similarly for picking */
 function createPickingPipelineFor(type: SceneElementConfig['type'], device: GPUDevice): GPURenderPipeline {
   const pipelineLayout = device.createPipelineLayout({
     bindGroupLayouts:[
@@ -1080,14 +1277,46 @@ function createPickingPipelineFor(type: SceneElementConfig['type'], device: GPUD
       primitive:{ topology:'triangle-list', cullMode:'back'},
       depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
     });
+  } else if(type==='Cuboid'){
+    return device.createRenderPipeline({
+      layout: pipelineLayout,
+      vertex:{
+        module: device.createShaderModule({ code: pickingVertCode }),
+        entryPoint:'vs_cuboid',
+        buffers:[
+          {
+            // cube geometry => pos+normal
+            arrayStride: 6*4,
+            attributes:[
+              {shaderLocation:0, offset:0,   format:'float32x3'},
+              {shaderLocation:1, offset:3*4, format:'float32x3'}
+            ]
+          },
+          {
+            // instance => 7 floats (center, size, pickID)
+            arrayStride: 7*4,
+            stepMode:'instance',
+            attributes:[
+              {shaderLocation:2, offset:0,   format:'float32x3'}, // center
+              {shaderLocation:3, offset:3*4, format:'float32x3'}, // size
+              {shaderLocation:4, offset:6*4, format:'float32'}     // pickID
+            ]
+          }
+        ]
+      },
+      fragment:{
+        module: device.createShaderModule({ code: pickingVertCode }),
+        entryPoint:'fs_pick',
+        targets:[{ format }]
+      },
+      primitive:{ topology:'triangle-list', cullMode:'back'},
+      depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+    });
   }
+
   throw new Error("No picking pipeline for type=" + type);
 }
 
-/**
- * Helper that sets up the final RenderObject fields
- * (like referencing the sphere geometry or billboard geometry)
- */
 function createRenderObjectForElement(
   type: SceneElementConfig['type'],
   pipeline: GPURenderPipeline,
@@ -1097,12 +1326,6 @@ function createRenderObjectForElement(
   count: number,
   device: GPUDevice
 ): RenderObject {
-  // We'll fill out the fields for normal draw vs picking draw.
-  // e.g. if it's a PointCloud, we do billboard quads =>
-  //   - pipeline is billboard
-  //   - geometry is the "billboardQuadRef"
-  //   - we call pass.drawIndexed(6, instanceCount=count)
-
   if(type==='PointCloud'){
     if(!billboardQuadRef.current) throw new Error("No billboard geometry available");
     return {
@@ -1156,15 +1379,32 @@ function createRenderObjectForElement(
 
       elementIndex:-1
     };
+  } else if(type==='Cuboid'){
+    if(!cubeGeoRef.current) throw new Error("No cube geometry available");
+    const { vb, ib, indexCount } = cubeGeoRef.current;
+    return {
+      pipeline,
+      vertexBuffers: [vb, instanceVB!],
+      indexBuffer: ib,
+      indexCount,
+      instanceCount: count,
+
+      pickingPipeline,
+      pickingVertexBuffers: [vb, pickingInstanceVB!],
+      pickingIndexBuffer: ib,
+      pickingIndexCount: indexCount,
+      pickingInstanceCount: count,
+
+      elementIndex:-1
+    };
   }
-  // fallback
   throw new Error("No render object logic for type=" + type);
 }
 
 /******************************************************
  * E) Render + pick passes
  ******************************************************/
-const renderFrame=useCallback((camera:CameraState)=>{
+const renderFrame=useCallback((camera:any)=>{
   if(!gpuRef.current){
     requestAnimationFrame(()=>renderFrame(camera));
     return;
@@ -1209,8 +1449,6 @@ const renderFrame=useCallback((camera:CameraState)=>{
   ]);
 
   // write uniform data
-  // layout =>
-  //   mat4(16 floats) + cameraRight(3 floats) + pad + cameraUp(3 floats) + pad + lightDir(3 floats) + pad
   const data=new Float32Array(32);
   data.set(mvp,0);
   data[16] = right[0]; data[17] = right[1]; data[18] = right[2];
@@ -1260,7 +1498,6 @@ const renderFrame=useCallback((camera:CameraState)=>{
   requestAnimationFrame(()=>renderFrame(camera));
 },[canvasWidth, canvasHeight]);
 
-/** For picking, we render into the pickTexture, read one pixel, decode ID. */
 async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'click'){
   if(!gpuRef.current||pickingLockRef.current)return;
   pickingLockRef.current=true;
@@ -1273,7 +1510,7 @@ async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'clic
     if(!pickTexture||!pickDepthTexture) return;
 
     const pickX = Math.floor(screenX);
-    const pickY = Math.floor(screenY); // flip Y
+    const pickY = Math.floor(screenY);
     if(pickX<0||pickY<0||pickX>=canvasWidth||pickY>=canvasHeight){
       // out of bounds
       if(mode==='hover'){
@@ -1299,7 +1536,6 @@ async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'clic
     };
     const pass = cmd.beginRenderPass(passDesc);
 
-    // set uniform
     pass.setBindGroup(0, uniformBindGroup);
 
     // draw each object with its picking pipeline
@@ -1317,7 +1553,6 @@ async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'clic
     }
     pass.end();
 
-    // copy that 1 pixel
     cmd.copyTextureToBuffer(
       {texture: pickTexture, origin:{x:pickX,y:pickY}},
       {buffer: readbackBuffer, bytesPerRow:256, rowsPerImage:1},
@@ -1357,7 +1592,6 @@ function handleHoverID(pickedID:number){
   }
   const {elementIdx, instanceIdx} = idToElement[pickedID];
   if(elementIdx<0||elementIdx>=elements.length){
-    // no object
     for(const e of elements){
       e.onHover?.(null);
     }
@@ -1488,6 +1722,7 @@ const onWheel=useCallback((e:WheelEvent)=>{
         gpuRef.current.pickDepthTexture?.destroy();
         gpuRef.current.readbackBuffer.destroy();
         gpuRef.current.uniformBuffer.destroy();
+
         // destroy geometry
         sphereGeoRef.current?.vb.destroy();
         sphereGeoRef.current?.ib.destroy();
@@ -1495,6 +1730,8 @@ const onWheel=useCallback((e:WheelEvent)=>{
         ringGeoRef.current?.ib.destroy();
         billboardQuadRef.current?.vb.destroy();
         billboardQuadRef.current?.ib.destroy();
+        cubeGeoRef.current?.vb.destroy();
+        cubeGeoRef.current?.ib.destroy();
       }
       if(rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     };
@@ -1574,7 +1811,7 @@ function generateSpherePointCloud(numPoints:number, radius:number){
 
 const pcData = generateSpherePointCloud(500, 0.5);
 
-/** We'll build a few ellipsoids, a few bounds, etc. */
+/** We'll build a few ellipsoids, etc. */
 const numEllipsoids=3;
 const eCenters=new Float32Array(numEllipsoids*3);
 const eRadii=new Float32Array(numEllipsoids*3);
@@ -1593,6 +1830,31 @@ boundCenters.set([0.8,0,0.3,  -0.8,0,0.4]);
 boundRadii.set([0.2,0.1,0.1,  0.1,0.2,0.2]);
 boundColors.set([0.7,0.3,0.3, 0.3,0.3,0.9]);
 
+/******************************************************
+ * --------------- CUBOID EXAMPLES -------------------
+ ******************************************************/
+const numCuboids1 = 3;
+const cCenters1 = new Float32Array(numCuboids1*3);
+const cSizes1   = new Float32Array(numCuboids1*3);
+const cColors1  = new Float32Array(numCuboids1*3);
+
+// Just make some cubes stacked up
+cCenters1.set([1.0, 0, 0,   1.0, 0.3, 0,   1.0, 0.6, 0]);
+cSizes1.set(  [0.2, 0.2, 0.2,  0.2, 0.2, 0.2,  0.2, 0.2, 0.2]);
+cColors1.set( [0.9,0.2,0.2,   0.2,0.9,0.2,   0.2,0.2,0.9]);
+
+const numCuboids2 = 2;
+const cCenters2 = new Float32Array(numCuboids2*3);
+const cSizes2   = new Float32Array(numCuboids2*3);
+const cColors2  = new Float32Array(numCuboids2*3);
+
+cCenters2.set([ -1.0,0,0,   -1.0, 0.4, 0.4]);
+cSizes2.set(  [ 0.3,0.1,0.2, 0.2,0.2,0.2]);
+cColors2.set( [ 0.8,0.4,0.6, 0.4,0.6,0.8]);
+
+/******************************************************
+ * Our top-level App
+ ******************************************************/
 export function App(){
   const [hoveredIndices, setHoveredIndices] = useState({
     pc1: null as number | null,
@@ -1601,6 +1863,10 @@ export function App(){
     ellipsoid2: null as number | null,
     bounds1: null as number | null,
     bounds2: null as number | null,
+
+    // For cuboids
+    cuboid1: null as number | null,
+    cuboid2: null as number | null,
   });
 
   // Generate two different point clouds
@@ -1627,7 +1893,7 @@ export function App(){
     onClick: (i) => alert("Clicked point in cloud 2 #" + i)
   };
 
-  // Generate two different ellipsoids
+  // Ellipsoids
   const eCenters1 = new Float32Array([0, 0, 0.6, 0, 0, 0.3, 0, 0, 0]);
   const eRadii1 = new Float32Array([0.1, 0.1, 0.1, 0.15, 0.15, 0.15, 0.2, 0.2, 0.2]);
   const eColors1 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
@@ -1656,18 +1922,10 @@ export function App(){
     onClick: (i) => alert("Clicked ellipsoid in group 2 #" + i)
   };
 
-  // Generate two different ellipsoid bounds
-  const boundCenters1 = new Float32Array([0.8, 0, 0.3, -0.8, 0, 0.4]);
-  const boundRadii1 = new Float32Array([0.2, 0.1, 0.1, 0.1, 0.2, 0.2]);
-  const boundColors1 = new Float32Array([0.7, 0.3, 0.3, 0.3, 0.3, 0.9]);
-
-  const boundCenters2 = new Float32Array([0.2, 0.2, 0.2, -0.2, -0.2, -0.2]);
-  const boundRadii2 = new Float32Array([0.15, 0.15, 0.15, 0.1, 0.1, 0.1]);
-  const boundColors2 = new Float32Array([0.5, 0.5, 0.5, 0.2, 0.2, 0.2]);
-
+  // Ellipsoid Bounds
   const boundsElement1: EllipsoidBoundsElementConfig = {
     type: 'EllipsoidBounds',
-    data: {centers: boundCenters1, radii: boundRadii1, colors: boundColors1},
+    data: {centers: boundCenters, radii: boundRadii, colors: boundColors},
     decorations: hoveredIndices.bounds1 === null ? undefined : [
       {indexes: [hoveredIndices.bounds1], color: [0, 1, 1], alpha: 1}
     ],
@@ -1677,12 +1935,37 @@ export function App(){
 
   const boundsElement2: EllipsoidBoundsElementConfig = {
     type: 'EllipsoidBounds',
-    data: {centers: boundCenters2, radii: boundRadii2, colors: boundColors2},
+    data: {
+      centers: new Float32Array([0.2,0.2,0.2, -0.2,-0.2,-0.2]),
+      radii: new Float32Array([0.15,0.15,0.15, 0.1,0.1,0.1]),
+      colors: new Float32Array([0.5,0.5,0.5, 0.2,0.2,0.2])
+    },
     decorations: hoveredIndices.bounds2 === null ? undefined : [
       {indexes: [hoveredIndices.bounds2], color: [1, 0, 0], alpha: 1}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, bounds2: i})),
     onClick: (i) => alert("Clicked bounds in group 2 #" + i)
+  };
+
+  // Cuboid Examples
+  const cuboidElement1: CuboidElementConfig = {
+    type: 'Cuboid',
+    data: { centers: cCenters1, sizes: cSizes1, colors: cColors1 },
+    decorations: hoveredIndices.cuboid1 === null ? undefined : [
+      {indexes: [hoveredIndices.cuboid1], color: [1,1,0], alpha: 1}
+    ],
+    onHover: (i) => setHoveredIndices(prev => ({...prev, cuboid1: i})),
+    onClick: (i) => alert("Clicked cuboid in group 1 #" + i)
+  };
+
+  const cuboidElement2: CuboidElementConfig = {
+    type: 'Cuboid',
+    data: { centers: cCenters2, sizes: cSizes2, colors: cColors2 },
+    decorations: hoveredIndices.cuboid2 === null ? undefined : [
+      {indexes: [hoveredIndices.cuboid2], color: [1,0,1], alpha: 1}
+    ],
+    onHover: (i) => setHoveredIndices(prev => ({...prev, cuboid2: i})),
+    onClick: (i) => alert("Clicked cuboid in group 2 #" + i)
   };
 
   const elements: SceneElementConfig[] = [
@@ -1691,7 +1974,9 @@ export function App(){
     ellipsoidElement1,
     ellipsoidElement2,
     boundsElement1,
-    boundsElement2
+    boundsElement2,
+    cuboidElement1,
+    cuboidElement2
   ];
 
   return <SceneWrapper elements={elements} />;
@@ -1703,7 +1988,6 @@ export function App(){
 
 /**
  * Billboarding vertex/frag for "PointCloud"
- * These are minimal; real code might do lambert or lighting.
  */
 const billboardVertCode = /*wgsl*/`
 struct Camera {
@@ -1910,6 +2194,88 @@ fn fs_main(
 `;
 
 /**
+ * "Cuboid" shading: basically the same as the Ellipsoid approach,
+ * but for a cube geometry, using "center + inPos*sizes".
+ */
+const cuboidVertCode = /*wgsl*/`
+struct Camera {
+  mvp: mat4x4<f32>,
+  cameraRight: vec3<f32>,
+  _pad1: f32,
+  cameraUp: vec3<f32>,
+  _pad2: f32,
+  lightDir: vec3<f32>,
+  _pad3: f32,
+};
+@group(0) @binding(0) var<uniform> camera: Camera;
+
+struct VSOut {
+  @builtin(position) pos: vec4<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>
+};
+
+@vertex
+fn vs_main(
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+  @location(2) center: vec3<f32>,
+  @location(3) size: vec3<f32>,
+  @location(4) color: vec3<f32>,
+  @location(5) alpha: f32
+)-> VSOut {
+  let worldPos = center + (inPos * size);
+  // We'll also scale the normal by 1/size in case they're not uniform, to keep lighting correct:
+  let scaledNorm = normalize(inNorm / size);
+
+  var out: VSOut;
+  out.pos = camera.mvp * vec4<f32>(worldPos,1.0);
+  out.normal = scaledNorm;
+  out.baseColor = color;
+  out.alpha = alpha;
+  out.worldPos = worldPos;
+  return out;
+}
+`;
+
+const cuboidFragCode = /*wgsl*/`
+struct Camera {
+  mvp: mat4x4<f32>,
+  cameraRight: vec3<f32>,
+  _pad1: f32,
+  cameraUp: vec3<f32>,
+  _pad2: f32,
+  lightDir: vec3<f32>,
+  _pad3: f32,
+};
+@group(0) @binding(0) var<uniform> camera: Camera;
+
+@fragment
+fn fs_main(
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>
+)-> @location(0) vec4<f32> {
+  let N = normalize(normal);
+  let L = normalize(camera.lightDir);
+  let lambert = max(dot(N,L), 0.0);
+
+  let ambient = ${LIGHTING.AMBIENT_INTENSITY};
+  var color = baseColor * (ambient + lambert*${LIGHTING.DIFFUSE_INTENSITY});
+
+  let V = normalize(-worldPos);
+  let H = normalize(L + V);
+  let spec = pow(max(dot(N,H),0.0), ${LIGHTING.SPECULAR_POWER});
+  color += vec3<f32>(1.0,1.0,1.0)*spec*${LIGHTING.SPECULAR_INTENSITY};
+
+  return vec4<f32>(color, alpha);
+}
+`;
+
+/**
  * Minimal picking WGSL
  */
 const pickingVertCode = /*wgsl*/`
@@ -1982,6 +2348,21 @@ fn vs_bands(
   var out:VSOut;
   out.pos=camera.mvp*vec4<f32>(wp,1.0);
   out.pickID=pickID;
+  return out;
+}
+
+@vertex
+fn vs_cuboid(
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+  @location(2) center: vec3<f32>,
+  @location(3) size: vec3<f32>,
+  @location(4) pickID: f32
+)-> VSOut {
+  let wp = center + (inPos * size);
+  var out: VSOut;
+  out.pos = camera.mvp*vec4<f32>(wp,1.0);
+  out.pickID = pickID;
   return out;
 }
 
