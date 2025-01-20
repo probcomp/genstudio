@@ -25,22 +25,12 @@ const LIGHTING = {
  * 1) Data Structures & "Spec" System
  ******************************************************/
 
-/**
- * "PrimitiveSpec" describes how a given element type is turned into
- * GPU-friendly buffers for both rendering and picking.
- */
 interface PrimitiveSpec<E> {
-  /** The total number of "instances" or items in the element (for picking, etc.). */
   getCount(element: E): number;
-
-  /** Build the typed array for normal rendering (positions, colors, etc.). */
   buildRenderData(element: E): Float32Array | null;
-
-  /** Build the typed array for picking (positions, pick IDs, etc.). */
   buildPickingData(element: E, baseID: number): Float32Array | null;
 }
 
-/** A typical "decoration" we can apply to sub-indices. */
 interface Decoration {
   indexes: number[];
   color?: [number, number, number];
@@ -232,7 +222,7 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidElementConfig> = {
 
 export interface EllipsoidBoundsElementConfig {
   type: 'EllipsoidBounds';
-  data: EllipsoidData; // same fields as above
+  data: EllipsoidData;
   decorations?: Decoration[];
   onHover?: (index: number|null) => void;
   onClick?: (index: number) => void;
@@ -259,7 +249,7 @@ const ellipsoidBoundsSpec: PrimitiveSpec<EllipsoidBoundsElementConfig> = {
       if(colors && colors.length===count*3){
         cr=colors[i*3+0]; cg=colors[i*3+1]; cb=colors[i*3+2];
       }
-      // check decorations
+      // decorations
       if(elem.decorations){
         for(const dec of elem.decorations){
           if(dec.indexes.includes(i)){
@@ -290,7 +280,6 @@ const ellipsoidBoundsSpec: PrimitiveSpec<EllipsoidBoundsElementConfig> = {
     const count=centers.length/3;
     if(count===0)return null;
     const ringCount = count*3;
-    // (pos, scale, pickID)
     const arr = new Float32Array(ringCount*7);
     for(let i=0;i<count;i++){
       const cx=centers[i*3+0], cy=centers[i*3+1], cz=centers[i*3+2];
@@ -311,13 +300,11 @@ const ellipsoidBoundsSpec: PrimitiveSpec<EllipsoidBoundsElementConfig> = {
 
 /**
  * -------------- CUBOID ADDITIONS --------------
- * We'll define a new config interface, a spec,
- * and later a pipeline + geometry for it.
  */
 interface CuboidData {
-  centers: Float32Array; // Nx3
-  sizes: Float32Array;   // Nx3  (width, height, depth)
-  colors?: Float32Array; // Nx3
+  centers: Float32Array;
+  sizes: Float32Array;
+  colors?: Float32Array;
 }
 export interface CuboidElementConfig {
   type: 'Cuboid';
@@ -401,29 +388,25 @@ const cuboidSpec: PrimitiveSpec<CuboidElementConfig> = {
     return arr;
   }
 };
-/** -------------- END CUBOID ADDITIONS -------------- */
 
-/** A union of all known element configs: */
+/** All known configs. */
 export type SceneElementConfig =
   | PointCloudElementConfig
   | EllipsoidElementConfig
   | EllipsoidBoundsElementConfig
-  | CuboidElementConfig;  // <-- new
+  | CuboidElementConfig;
 
-/** The registry that maps element.type -> its PrimitiveSpec. */
 const primitiveRegistry: Record<SceneElementConfig['type'], PrimitiveSpec<any>> = {
   PointCloud: pointCloudSpec,
   Ellipsoid: ellipsoidSpec,
   EllipsoidBounds: ellipsoidBoundsSpec,
-  Cuboid: cuboidSpec, // new
+  Cuboid: cuboidSpec,
 };
 
 /******************************************************
  * 2) Pipeline Cache & "RenderObject" interface
  ******************************************************/
-
 const pipelineCache = new Map<string, GPURenderPipeline>();
-
 function getOrCreatePipeline(
   key: string,
   createFn: () => GPURenderPipeline
@@ -437,26 +420,20 @@ function getOrCreatePipeline(
 }
 
 interface RenderObject {
-  /** GPU pipeline for normal rendering */
   pipeline: GPURenderPipeline;
-  /** GPU buffers for normal rendering */
   vertexBuffers: GPUBuffer[];
   indexBuffer?: GPUBuffer;
-  /** how many to draw? */
   vertexCount?: number;
   indexCount?: number;
   instanceCount?: number;
 
-  /** GPU pipeline for picking */
   pickingPipeline: GPURenderPipeline;
-  /** GPU buffers for picking */
   pickingVertexBuffers: GPUBuffer[];
   pickingIndexBuffer?: GPUBuffer;
   pickingVertexCount?: number;
   pickingIndexCount?: number;
   pickingInstanceCount?: number;
 
-  /** For picking callbacks, we remember which SceneElementConfig it belongs to. */
   elementIndex: number;
 }
 
@@ -500,17 +477,12 @@ function Scene({ elements, containerWidth }: SceneProps) {
     pickDepthTexture: GPUTexture | null;
     readbackBuffer: GPUBuffer;
 
-    // We'll hold a list of RenderObjects that we build from the elements
     renderObjects: RenderObject[];
-
-    /** each element gets a "baseID" so we can map from ID->(element, instance) */
     elementBaseId: number[];
-    /** global table from ID -> {elementIdx, instanceIdx} */
     idToElement: {elementIdx: number, instanceIdx: number}[];
   } | null>(null);
 
   const [isReady, setIsReady] = useState(false);
-  const rafIdRef = useRef<number>(0);
 
   // camera
   interface CameraState {
@@ -537,7 +509,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
   // We'll also track a picking lock
   const pickingLockRef = useRef(false);
 
-  /** Minimal math helpers. */
+  // ---------- Minimal math utils ----------
   function mat4Multiply(a: Float32Array, b: Float32Array) {
     const out = new Float32Array(16);
     for (let i=0; i<4; i++) {
@@ -563,7 +535,7 @@ function Scene({ elements, containerWidth }: SceneProps) {
     const out=new Float32Array(16);
     out[0]=xAxis[0]; out[1]=yAxis[0]; out[2]=zAxis[0]; out[3]=0;
     out[4]=xAxis[1]; out[5]=yAxis[1]; out[6]=zAxis[1]; out[7]=0;
-    out[8]=xAxis[2]; out[9]=yAxis[2]; out[10]=zAxis[2];out[11]=0;
+    out[8]=xAxis[2]; out[9]=yAxis[2]; out[10]=zAxis[2]; out[11]=0;
     out[12]=-dot(xAxis,eye); out[13]=-dot(yAxis,eye); out[14]=-dot(zAxis,eye); out[15]=1;
     return out;
   }
@@ -582,28 +554,10 @@ function Scene({ elements, containerWidth }: SceneProps) {
   /******************************************************
    * A) Create base geometry (sphere, ring, billboard, cube)
    ******************************************************/
-  const sphereGeoRef = useRef<{
-    vb: GPUBuffer;
-    ib: GPUBuffer;
-    indexCount: number;
-  }|null>(null);
-  const ringGeoRef = useRef<{
-    vb: GPUBuffer;
-    ib: GPUBuffer;
-    indexCount: number;
-  }|null>(null);
-  const billboardQuadRef = useRef<{
-    vb: GPUBuffer;
-    ib: GPUBuffer;
-  }|null>(null);
-
-  // --- CUBOID ADDITIONS ---
-  // We'll store the "unit-cube" geometry in a ref as well.
-  const cubeGeoRef = useRef<{
-    vb: GPUBuffer;
-    ib: GPUBuffer;
-    indexCount: number;
-  }|null>(null);
+  const sphereGeoRef = useRef<{ vb: GPUBuffer; ib: GPUBuffer; indexCount: number;}|null>(null);
+  const ringGeoRef = useRef<{ vb: GPUBuffer; ib: GPUBuffer; indexCount: number;}|null>(null);
+  const billboardQuadRef = useRef<{ vb: GPUBuffer; ib: GPUBuffer;}|null>(null);
+  const cubeGeoRef = useRef<{ vb: GPUBuffer; ib: GPUBuffer; indexCount: number;}|null>(null);
 
   function createSphereGeometry(stacks=16, slices=24) {
     const verts:number[]=[];
@@ -659,47 +613,42 @@ function Scene({ elements, containerWidth }: SceneProps) {
       indexData: new Uint16Array(idxs)
     };
   }
-
-  // Create a cube geometry (centered at (0,0,0), size=1) with normals.
   function createCubeGeometry() {
-    // We'll store each face as 4 unique verts (pos+normal) and 2 triangles (6 indices).
-    // The cube has 6 faces => total 24 verts, 36 indices.
+    // 6 faces => 24 verts, 36 indices
     const positions: number[] = [
-      // +X face (right)
-      0.5, -0.5, -0.5,   0.5, -0.5, 0.5,    0.5, 0.5, 0.5,   0.5, 0.5, -0.5,
-      // -X face (left)
-      -0.5, -0.5, 0.5,   -0.5, -0.5, -0.5,  -0.5, 0.5, -0.5,  -0.5, 0.5, 0.5,
-      // +Y face (top)
-      -0.5, 0.5, -0.5,   0.5, 0.5, -0.5,    0.5, 0.5, 0.5,   -0.5, 0.5, 0.5,
-      // -Y face (bottom)
-      -0.5, -0.5, 0.5,   0.5, -0.5, 0.5,    0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,
-      // +Z face (front)
-      -0.5, -0.5, 0.5,   0.5, -0.5, 0.5,    0.5, 0.5, 0.5,   -0.5, 0.5, 0.5,
-      // -Z face (back)
-      0.5, -0.5, -0.5,   -0.5, -0.5, -0.5,  -0.5, 0.5, -0.5,   0.5, 0.5, -0.5,
+      // +X face
+      0.5, -0.5, -0.5,   0.5, -0.5,  0.5,   0.5,  0.5,  0.5,   0.5,  0.5, -0.5,
+      // -X face
+      -0.5, -0.5,  0.5,  -0.5, -0.5, -0.5,  -0.5,  0.5, -0.5,  -0.5,  0.5,  0.5,
+      // +Y face
+      -0.5,  0.5, -0.5,   0.5,  0.5, -0.5,   0.5,  0.5,  0.5,  -0.5,  0.5,  0.5,
+      // -Y face
+      -0.5, -0.5,  0.5,   0.5, -0.5,  0.5,   0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,
+      // +Z face
+      -0.5, -0.5,  0.5,   0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5,  0.5,
+      // -Z face
+       0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,  -0.5,  0.5, -0.5,   0.5,  0.5, -0.5,
     ];
     const normals: number[] = [
-      // +X face => normal = (1,0,0)
-      1,0,0,  1,0,0,  1,0,0,  1,0,0,
-      // -X face => normal = (-1,0,0)
+      // +X
+      1,0,0, 1,0,0, 1,0,0, 1,0,0,
+      // -X
       -1,0,0, -1,0,0, -1,0,0, -1,0,0,
-      // +Y face => normal = (0,1,0)
+      // +Y
       0,1,0, 0,1,0, 0,1,0, 0,1,0,
-      // -Y face => normal = (0,-1,0)
+      // -Y
       0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0,
-      // +Z face => normal = (0,0,1)
+      // +Z
       0,0,1, 0,0,1, 0,0,1, 0,0,1,
-      // -Z face => normal = (0,0,-1)
+      // -Z
       0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1,
     ];
     const indices: number[] = [];
-    // For each face, we have 4 verts => 2 triangles => 6 indices
     for(let face=0; face<6; face++){
       const base = face*4;
-      // Counter-clockwise winding order when viewed from outside
       indices.push(base+0, base+2, base+1, base+0, base+3, base+2);
     }
-    // Combine interleaved data => pos + norm for each vertex
+    // Interleave
     const vertexData = new Float32Array(positions.length*2);
     for(let i=0; i<positions.length/3; i++){
       vertexData[i*6+0] = positions[i*3+0];
@@ -716,11 +665,11 @@ function Scene({ elements, containerWidth }: SceneProps) {
   }
 
   /******************************************************
-   * B) initWebGPU: sets up device, context, uniform
+   * B) initWebGPU
    ******************************************************/
-  const initWebGPU=useCallback(async()=>{
-    if(!canvasRef.current)return;
-    if(!navigator.gpu){
+  const initWebGPU = useCallback(async()=>{
+    if(!canvasRef.current) return;
+    if(!navigator.gpu) {
       console.error("WebGPU not supported in this browser.");
       return;
     }
@@ -733,25 +682,21 @@ function Scene({ elements, containerWidth }: SceneProps) {
       const format = navigator.gpu.getPreferredCanvasFormat();
       context.configure({ device, format, alphaMode:'premultiplied' });
 
-      // Create a uniform buffer
+      // Create uniform buffer + bind group
       const uniformBufferSize=128;
       const uniformBuffer=device.createBuffer({
         size: uniformBufferSize,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
       });
       const uniformBindGroupLayout = device.createBindGroupLayout({
-        entries: [{
-          binding: 0,
-          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-          buffer: { type:'uniform' }
-        }]
+        entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT, buffer: {type:'uniform'} }]
       });
       const uniformBindGroup = device.createBindGroup({
         layout: uniformBindGroupLayout,
         entries: [{ binding:0, resource:{ buffer:uniformBuffer } }]
       });
 
-      // Build sphere geometry
+      // Prepare geometry
       const sphereGeo = createSphereGeometry(16,24);
       const sphereVB = device.createBuffer({
         size: sphereGeo.vertexData.byteLength,
@@ -763,14 +708,8 @@ function Scene({ elements, containerWidth }: SceneProps) {
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
       });
       device.queue.writeBuffer(sphereIB,0,sphereGeo.indexData);
+      sphereGeoRef.current = { vb: sphereVB, ib: sphereIB, indexCount: sphereGeo.indexData.length };
 
-      sphereGeoRef.current = {
-        vb: sphereVB,
-        ib: sphereIB,
-        indexCount: sphereGeo.indexData.length
-      };
-
-      // Build a torus geometry for "bounds"
       const ringGeo = createTorusGeometry(1.0,0.03,40,12);
       const ringVB = device.createBuffer({
         size: ringGeo.vertexData.byteLength,
@@ -782,14 +721,8 @@ function Scene({ elements, containerWidth }: SceneProps) {
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
       });
       device.queue.writeBuffer(ringIB,0,ringGeo.indexData);
+      ringGeoRef.current = { vb: ringVB, ib: ringIB, indexCount: ringGeo.indexData.length };
 
-      ringGeoRef.current = {
-        vb: ringVB,
-        ib: ringIB,
-        indexCount: ringGeo.indexData.length
-      };
-
-      // billboard quad
       const quadVerts = new Float32Array([-0.5,-0.5,  0.5,-0.5,  -0.5,0.5,  0.5,0.5]);
       const quadIdx   = new Uint16Array([0,1,2,2,1,3]);
       const quadVB = device.createBuffer({
@@ -802,13 +735,8 @@ function Scene({ elements, containerWidth }: SceneProps) {
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
       });
       device.queue.writeBuffer(quadIB,0,quadIdx);
+      billboardQuadRef.current = { vb: quadVB, ib: quadIB };
 
-      billboardQuadRef.current = {
-        vb: quadVB,
-        ib: quadIB
-      };
-
-      // ---- CUBOID ADDITIONS: create cube geometry
       const cubeGeo = createCubeGeometry();
       const cubeVB = device.createBuffer({
         size: cubeGeo.vertexData.byteLength,
@@ -820,32 +748,29 @@ function Scene({ elements, containerWidth }: SceneProps) {
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
       });
       device.queue.writeBuffer(cubeIB, 0, cubeGeo.indexData);
+      cubeGeoRef.current = { vb: cubeVB, ib: cubeIB, indexCount: cubeGeo.indexData.length };
 
-      cubeGeoRef.current = {
-        vb: cubeVB,
-        ib: cubeIB,
-        indexCount: cubeGeo.indexData.length
-      };
-      // ---- END CUBOID ADDITIONS
-
-      // We'll create a readback buffer for picking
+      // Readback buffer for picking
       const readbackBuffer = device.createBuffer({
         size: 256,
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-        label: 'Picking readback buffer'  // Add label for debugging
+        label: 'Picking readback buffer'
       });
 
       gpuRef.current = {
-        device, context,
-        uniformBuffer, uniformBindGroup,
-        depthTexture:null,
-        pickTexture:null,
-        pickDepthTexture:null,
+        device,
+        context,
+        uniformBuffer,
+        uniformBindGroup,
+        depthTexture: null,
+        pickTexture: null,
+        pickDepthTexture: null,
         readbackBuffer,
         renderObjects: [],
         elementBaseId: [],
         idToElement: []
       };
+
       setIsReady(true);
     } catch(err){
       console.error("initWebGPU error:", err);
@@ -856,20 +781,20 @@ function Scene({ elements, containerWidth }: SceneProps) {
    * C) Depth & Pick textures
    ******************************************************/
   const createOrUpdateDepthTexture=useCallback(()=>{
-    if(!gpuRef.current)return;
-    const {device, depthTexture}=gpuRef.current;
+    if(!gpuRef.current) return;
+    const { device, depthTexture } = gpuRef.current;
     if(depthTexture) depthTexture.destroy();
     const dt = device.createTexture({
-      size:[canvasWidth, canvasHeight],
-      format:'depth24plus',
+      size: [canvasWidth, canvasHeight],
+      format: 'depth24plus',
       usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
     gpuRef.current.depthTexture = dt;
   },[canvasWidth, canvasHeight]);
 
   const createOrUpdatePickTextures=useCallback(()=>{
-    if(!gpuRef.current)return;
-    const {device, pickTexture, pickDepthTexture} = gpuRef.current;
+    if(!gpuRef.current) return;
+    const { device, pickTexture, pickDepthTexture } = gpuRef.current;
     if(pickTexture) pickTexture.destroy();
     if(pickDepthTexture) pickDepthTexture.destroy();
     const colorTex = device.createTexture({
@@ -887,717 +812,640 @@ function Scene({ elements, containerWidth }: SceneProps) {
   },[canvasWidth, canvasHeight]);
 
   /******************************************************
-   * D) Building the RenderObjects from elements
+   * D) Building the RenderObjects
    ******************************************************/
+  function buildRenderObjects(sceneElements: SceneElementConfig[]): RenderObject[] {
+    if(!gpuRef.current) return [];
+    const { device, elementBaseId, idToElement } = gpuRef.current;
 
-/**
- * We'll do a "global ID" approach for picking:
- * We maintain a big table idToElement, and each element gets an ID range.
- */
-function buildRenderObjects(sceneElements: SceneElementConfig[]): RenderObject[] {
-  if(!gpuRef.current) return [];
+    elementBaseId.length = 0;
+    idToElement.length = 1; // index 0 => no object
+    let currentID = 1;
 
-  const { device, elementBaseId, idToElement } = gpuRef.current;
+    const result: RenderObject[] = [];
 
-  // reset
-  elementBaseId.length = 0;
-  idToElement.length = 1; // index0 => no object
-  let currentID = 1;
+    sceneElements.forEach((elem, eIdx)=>{
+      const spec = primitiveRegistry[elem.type];
+      if(!spec){
+        elementBaseId[eIdx] = 0;
+        return;
+      }
+      const count = spec.getCount(elem);
+      elementBaseId[eIdx] = currentID;
 
-  const result: RenderObject[] = [];
+      // Expand global ID table
+      for(let i=0; i<count; i++){
+        idToElement[currentID + i] = { elementIdx: eIdx, instanceIdx: i };
+      }
+      currentID += count;
 
-  sceneElements.forEach((elem, eIdx)=>{
-    const spec = primitiveRegistry[elem.type];
-    if(!spec){
-      // unknown type
-      elementBaseId[eIdx] = 0;
-      return;
+      const renderData = spec.buildRenderData(elem);
+      const pickData   = spec.buildPickingData(elem, elementBaseId[eIdx]);
+
+      let vb: GPUBuffer|null = null;
+      if(renderData && renderData.length>0){
+        vb = device.createBuffer({
+          size: renderData.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+        });
+        device.queue.writeBuffer(vb,0,renderData);
+      }
+      let pickVB: GPUBuffer|null = null;
+      if(pickData && pickData.length>0){
+        pickVB = device.createBuffer({
+          size: pickData.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+        });
+        device.queue.writeBuffer(pickVB,0,pickData);
+      }
+
+      let pipelineKey = "";
+      let pickingPipelineKey = "";
+      if(elem.type==='PointCloud'){
+        pipelineKey = "PointCloudShading";
+        pickingPipelineKey = "PointCloudPicking";
+      } else if(elem.type==='Ellipsoid'){
+        pipelineKey = "EllipsoidShading";
+        pickingPipelineKey = "EllipsoidPicking";
+      } else if(elem.type==='EllipsoidBounds'){
+        pipelineKey = "EllipsoidBoundsShading";
+        pickingPipelineKey = "EllipsoidBoundsPicking";
+      } else if(elem.type==='Cuboid'){
+        pipelineKey = "CuboidShading";
+        pickingPipelineKey = "CuboidPicking";
+      }
+      const pipeline = getOrCreatePipeline(pipelineKey, ()=>{
+        return createRenderPipelineFor(elem.type, device);
+      });
+      const pickingPipeline = getOrCreatePipeline(pickingPipelineKey, ()=>{
+        return createPickingPipelineFor(elem.type, device);
+      });
+
+      const ro = createRenderObjectForElement(elem.type, pipeline, pickingPipeline, vb, pickVB, count, device);
+      ro.elementIndex = eIdx;
+      result.push(ro);
+    });
+
+    return result;
+  }
+
+  function createRenderPipelineFor(type: SceneElementConfig['type'], device: GPUDevice): GPURenderPipeline {
+    const format = navigator.gpu.getPreferredCanvasFormat();
+    const pipelineLayout = device.createPipelineLayout({
+      bindGroupLayouts:[
+        device.createBindGroupLayout({
+          entries:[{
+            binding:0,
+            visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,
+            buffer:{type:'uniform'}
+          }]
+        })
+      ]
+    });
+
+    if(type==='PointCloud'){
+      return device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex:{
+          module: device.createShaderModule({ code: billboardVertCode }),
+          entryPoint:'vs_main',
+          buffers:[
+            {
+              arrayStride: 8,
+              attributes:[{shaderLocation:0, offset:0, format:'float32x2'}]
+            },
+            {
+              arrayStride: 9*4,
+              stepMode:'instance',
+              attributes:[
+                {shaderLocation:1, offset:0,   format:'float32x3'},
+                {shaderLocation:2, offset:3*4, format:'float32x3'},
+                {shaderLocation:3, offset:6*4, format:'float32'},
+                {shaderLocation:4, offset:7*4, format:'float32'},
+                {shaderLocation:5, offset:8*4, format:'float32'}
+              ]
+            }
+          ]
+        },
+        fragment:{
+          module: device.createShaderModule({ code: billboardFragCode }),
+          entryPoint:'fs_main',
+          targets:[{
+            format,
+            blend:{
+              color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
+              alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
+            }
+          }]
+        },
+        primitive:{ topology:'triangle-list', cullMode:'back' },
+        depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+      });
+    } else if(type==='Ellipsoid'){
+      return device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex:{
+          module: device.createShaderModule({ code: ellipsoidVertCode }),
+          entryPoint:'vs_main',
+          buffers:[
+            {
+              arrayStride: 6*4,
+              attributes:[
+                {shaderLocation:0, offset:0,   format:'float32x3'},
+                {shaderLocation:1, offset:3*4, format:'float32x3'}
+              ]
+            },
+            {
+              arrayStride: 10*4,
+              stepMode:'instance',
+              attributes:[
+                {shaderLocation:2, offset:0,    format:'float32x3'},
+                {shaderLocation:3, offset:3*4,  format:'float32x3'},
+                {shaderLocation:4, offset:6*4,  format:'float32x3'},
+                {shaderLocation:5, offset:9*4,  format:'float32'}
+              ]
+            }
+          ]
+        },
+        fragment:{
+          module: device.createShaderModule({ code: ellipsoidFragCode }),
+          entryPoint:'fs_main',
+          targets:[{
+            format,
+            blend:{
+              color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
+              alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
+            }
+          }]
+        },
+        primitive:{ topology:'triangle-list', cullMode:'back'},
+        depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+      });
+    } else if(type==='EllipsoidBounds'){
+      return device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex:{
+          module: device.createShaderModule({ code: ringVertCode }),
+          entryPoint:'vs_main',
+          buffers:[
+            {
+              arrayStride:6*4,
+              attributes:[
+                {shaderLocation:0, offset:0,   format:'float32x3'},
+                {shaderLocation:1, offset:3*4, format:'float32x3'}
+              ]
+            },
+            {
+              arrayStride: 10*4,
+              stepMode:'instance',
+              attributes:[
+                {shaderLocation:2, offset:0,     format:'float32x3'},
+                {shaderLocation:3, offset:3*4,   format:'float32x3'},
+                {shaderLocation:4, offset:6*4,   format:'float32x3'},
+                {shaderLocation:5, offset:9*4,   format:'float32'}
+              ]
+            }
+          ]
+        },
+        fragment:{
+          module: device.createShaderModule({ code: ringFragCode }),
+          entryPoint:'fs_main',
+          targets:[{
+            format,
+            blend:{
+              color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
+              alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
+            }
+          }]
+        },
+        primitive:{ topology:'triangle-list', cullMode:'back'},
+        depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+      });
+    } else if(type==='Cuboid'){
+      return device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex:{
+          module: device.createShaderModule({ code: cuboidVertCode }),
+          entryPoint:'vs_main',
+          buffers:[
+            {
+              arrayStride: 6*4,
+              attributes:[
+                {shaderLocation:0, offset:0,   format:'float32x3'},
+                {shaderLocation:1, offset:3*4, format:'float32x3'}
+              ]
+            },
+            {
+              arrayStride: 10*4,
+              stepMode:'instance',
+              attributes:[
+                {shaderLocation:2, offset:0,    format:'float32x3'},
+                {shaderLocation:3, offset:3*4,  format:'float32x3'},
+                {shaderLocation:4, offset:6*4,  format:'float32x3'},
+                {shaderLocation:5, offset:9*4,  format:'float32'}
+              ]
+            }
+          ]
+        },
+        fragment:{
+          module: device.createShaderModule({ code: cuboidFragCode }),
+          entryPoint:'fs_main',
+          targets:[{
+            format,
+            blend:{
+              color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
+              alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
+            }
+          }]
+        },
+        primitive:{ topology:'triangle-list', cullMode:'none' },
+        depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+      });
     }
-    const count = spec.getCount(elem);
-    elementBaseId[eIdx] = currentID;
+    throw new Error("No pipeline for type=" + type);
+  }
 
-    // expand the id->element array
-    for(let i=0; i<count; i++){
-      idToElement[currentID + i] = {
-        elementIdx: eIdx,
-        instanceIdx: i
+  function createPickingPipelineFor(type: SceneElementConfig['type'], device: GPUDevice): GPURenderPipeline {
+    const pipelineLayout = device.createPipelineLayout({
+      bindGroupLayouts:[
+        device.createBindGroupLayout({
+          entries:[{
+            binding:0,
+            visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,
+            buffer:{type:'uniform'}
+          }]
+        })
+      ]
+    });
+    const format = 'rgba8unorm';
+    if(type==='PointCloud'){
+      return device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex:{
+          module: device.createShaderModule({ code: pickingVertCode }),
+          entryPoint: 'vs_pointcloud',
+          buffers:[
+            {
+              arrayStride: 8,
+              attributes:[{shaderLocation:0, offset:0, format:'float32x2'}]
+            },
+            {
+              arrayStride: 6*4,
+              stepMode:'instance',
+              attributes:[
+                {shaderLocation:1, offset:0,   format:'float32x3'},
+                {shaderLocation:2, offset:3*4, format:'float32'},
+                {shaderLocation:3, offset:4*4, format:'float32'},
+                {shaderLocation:4, offset:5*4, format:'float32'}
+              ]
+            }
+          ]
+        },
+        fragment:{
+          module: device.createShaderModule({ code: pickingVertCode }),
+          entryPoint:'fs_pick',
+          targets:[{ format }]
+        },
+        primitive:{ topology:'triangle-list', cullMode:'back'},
+        depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+      });
+    } else if(type==='Ellipsoid'){
+      return device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex:{
+          module: device.createShaderModule({ code: pickingVertCode }),
+          entryPoint:'vs_ellipsoid',
+          buffers:[
+            {
+              arrayStride:6*4,
+              attributes:[
+                {shaderLocation:0, offset:0,   format:'float32x3'},
+                {shaderLocation:1, offset:3*4, format:'float32x3'}
+              ]
+            },
+            {
+              arrayStride:7*4,
+              stepMode:'instance',
+              attributes:[
+                {shaderLocation:2, offset:0,   format:'float32x3'},
+                {shaderLocation:3, offset:3*4, format:'float32x3'},
+                {shaderLocation:4, offset:6*4, format:'float32'}
+              ]
+            }
+          ]
+        },
+        fragment:{
+          module: device.createShaderModule({ code: pickingVertCode }),
+          entryPoint:'fs_pick',
+          targets:[{ format }]
+        },
+        primitive:{ topology:'triangle-list', cullMode:'back'},
+        depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+      });
+    } else if(type==='EllipsoidBounds'){
+      return device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex:{
+          module: device.createShaderModule({ code: pickingVertCode }),
+          entryPoint:'vs_bands',
+          buffers:[
+            {
+              arrayStride:6*4,
+              attributes:[
+                {shaderLocation:0, offset:0,   format:'float32x3'},
+                {shaderLocation:1, offset:3*4, format:'float32x3'}
+              ]
+            },
+            {
+              arrayStride:7*4,
+              stepMode:'instance',
+              attributes:[
+                {shaderLocation:2, offset:0,   format:'float32x3'},
+                {shaderLocation:3, offset:3*4, format:'float32x3'},
+                {shaderLocation:4, offset:6*4, format:'float32'}
+              ]
+            }
+          ]
+        },
+        fragment:{
+          module: device.createShaderModule({ code: pickingVertCode }),
+          entryPoint:'fs_pick',
+          targets:[{ format }]
+        },
+        primitive:{ topology:'triangle-list', cullMode:'back'},
+        depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+      });
+    } else if(type==='Cuboid'){
+      return device.createRenderPipeline({
+        layout: pipelineLayout,
+        vertex:{
+          module: device.createShaderModule({ code: pickingVertCode }),
+          entryPoint:'vs_cuboid',
+          buffers:[
+            {
+              arrayStride: 6*4,
+              attributes:[
+                {shaderLocation:0, offset:0,   format:'float32x3'},
+                {shaderLocation:1, offset:3*4, format:'float32x3'}
+              ]
+            },
+            {
+              arrayStride: 7*4,
+              stepMode:'instance',
+              attributes:[
+                {shaderLocation:2, offset:0,   format:'float32x3'},
+                {shaderLocation:3, offset:3*4, format:'float32x3'},
+                {shaderLocation:4, offset:6*4, format:'float32'}
+              ]
+            }
+          ]
+        },
+        fragment:{
+          module: device.createShaderModule({ code: pickingVertCode }),
+          entryPoint:'fs_pick',
+          targets:[{ format }]
+        },
+        primitive:{ topology:'triangle-list', cullMode:'none'},
+        depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+      });
+    }
+    throw new Error("No picking pipeline for type=" + type);
+  }
+
+  function createRenderObjectForElement(
+    type: SceneElementConfig['type'],
+    pipeline: GPURenderPipeline,
+    pickingPipeline: GPURenderPipeline,
+    instanceVB: GPUBuffer|null,
+    pickingInstanceVB: GPUBuffer|null,
+    count: number,
+    device: GPUDevice
+  ): RenderObject {
+    if(type==='PointCloud'){
+      if(!billboardQuadRef.current) throw new Error("No billboard geometry available");
+      return {
+        pipeline,
+        vertexBuffers: [billboardQuadRef.current.vb, instanceVB!],
+        indexBuffer: billboardQuadRef.current.ib,
+        indexCount: 6,
+        instanceCount: count,
+
+        pickingPipeline,
+        pickingVertexBuffers: [billboardQuadRef.current.vb, pickingInstanceVB!],
+        pickingIndexBuffer: billboardQuadRef.current.ib,
+        pickingIndexCount: 6,
+        pickingInstanceCount: count,
+
+        elementIndex:-1
+      };
+    } else if(type==='Ellipsoid'){
+      if(!sphereGeoRef.current) throw new Error("No sphere geometry available");
+      const { vb, ib, indexCount } = sphereGeoRef.current;
+      return {
+        pipeline,
+        vertexBuffers: [vb, instanceVB!],
+        indexBuffer: ib,
+        indexCount,
+        instanceCount: count,
+
+        pickingPipeline,
+        pickingVertexBuffers: [vb, pickingInstanceVB!],
+        pickingIndexBuffer: ib,
+        pickingIndexCount: indexCount,
+        pickingInstanceCount: count,
+
+        elementIndex:-1
+      };
+    } else if(type==='EllipsoidBounds'){
+      if(!ringGeoRef.current) throw new Error("No ring geometry available");
+      const { vb, ib, indexCount } = ringGeoRef.current;
+      return {
+        pipeline,
+        vertexBuffers: [vb, instanceVB!],
+        indexBuffer: ib,
+        indexCount,
+        instanceCount: count,
+
+        pickingPipeline,
+        pickingVertexBuffers: [vb, pickingInstanceVB!],
+        pickingIndexBuffer: ib,
+        pickingIndexCount: indexCount,
+        pickingInstanceCount: count,
+
+        elementIndex:-1
+      };
+    } else if(type==='Cuboid'){
+      if(!cubeGeoRef.current) throw new Error("No cube geometry available");
+      const { vb, ib, indexCount } = cubeGeoRef.current;
+      return {
+        pipeline,
+        vertexBuffers: [vb, instanceVB!],
+        indexBuffer: ib,
+        indexCount,
+        instanceCount: count,
+
+        pickingPipeline,
+        pickingVertexBuffers: [vb, pickingInstanceVB!],
+        pickingIndexBuffer: ib,
+        pickingIndexCount: indexCount,
+        pickingInstanceCount: count,
+
+        elementIndex:-1
       };
     }
-    currentID += count;
+    throw new Error("No render object logic for type=" + type);
+  }
 
-    const renderData = spec.buildRenderData(elem);
-    const pickData   = spec.buildPickingData(elem, elementBaseId[eIdx]);
+  /******************************************************
+   * E) Render pass (single call, no loop)
+   ******************************************************/
+  const renderFrame = useCallback((camState:any)=>{
+    if(!gpuRef.current) return;
+    const { device, context, uniformBuffer, uniformBindGroup, depthTexture, renderObjects } = gpuRef.current;
+    if(!depthTexture) return;
 
-    // create GPU buffers
-    let vb: GPUBuffer|null = null;
-    if(renderData && renderData.length>0){
-      vb = device.createBuffer({
-        size: renderData.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(vb,0,renderData);
+    // camera matrix
+    const aspect = canvasWidth/canvasHeight;
+    const proj = mat4Perspective(camState.fov, aspect, camState.near, camState.far);
+    const cx=camState.orbitRadius*Math.sin(camState.orbitPhi)*Math.sin(camState.orbitTheta);
+    const cy=camState.orbitRadius*Math.cos(camState.orbitPhi);
+    const cz=camState.orbitRadius*Math.sin(camState.orbitPhi)*Math.cos(camState.orbitTheta);
+    const eye:[number,number,number]=[cx,cy,cz];
+    const target:[number,number,number]=[camState.panX,camState.panY,0];
+    const up:[number,number,number] = [0,1,0];
+    const view = mat4LookAt(eye,target,up);
+
+    const mvp = mat4Multiply(proj, view);
+
+    // compute "light dir" in camera-ish space
+    const forward = normalize([target[0]-eye[0], target[1]-eye[1], target[2]-eye[2]]);
+    const right = normalize(cross(forward, up));
+    const camUp = cross(right, forward);
+    const lightDir = normalize([
+      right[0]*LIGHTING.DIRECTION.RIGHT + camUp[0]*LIGHTING.DIRECTION.UP + forward[0]*LIGHTING.DIRECTION.FORWARD,
+      right[1]*LIGHTING.DIRECTION.RIGHT + camUp[1]*LIGHTING.DIRECTION.UP + forward[1]*LIGHTING.DIRECTION.FORWARD,
+      right[2]*LIGHTING.DIRECTION.RIGHT + camUp[2]*LIGHTING.DIRECTION.UP + forward[2]*LIGHTING.DIRECTION.FORWARD,
+    ]);
+
+    // write uniform
+    const data=new Float32Array(32);
+    data.set(mvp,0);
+    data[16] = right[0]; data[17] = right[1]; data[18] = right[2];
+    data[20] = camUp[0]; data[21] = camUp[1]; data[22] = camUp[2];
+    data[24] = lightDir[0]; data[25] = lightDir[1]; data[26] = lightDir[2];
+    device.queue.writeBuffer(uniformBuffer,0,data);
+
+    let tex:GPUTexture;
+    try {
+      tex = context.getCurrentTexture();
+    } catch(e){
+      return; // If canvas is resized or lost, bail
     }
-    let pickVB: GPUBuffer|null = null;
-    if(pickData && pickData.length>0){
-      pickVB = device.createBuffer({
-        size: pickData.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(pickVB,0,pickData);
-    }
-
-    // We'll pick or create the relevant pipelines based on elem.type
-    let pipelineKey = "";
-    let pickingPipelineKey = "";
-    if(elem.type==='PointCloud'){
-      pipelineKey = "PointCloudShading";
-      pickingPipelineKey = "PointCloudPicking";
-    } else if(elem.type==='Ellipsoid'){
-      pipelineKey = "EllipsoidShading";
-      pickingPipelineKey = "EllipsoidPicking";
-    } else if(elem.type==='EllipsoidBounds'){
-      pipelineKey = "EllipsoidBoundsShading";
-      pickingPipelineKey = "EllipsoidBoundsPicking";
-    } else if(elem.type==='Cuboid'){
-      pipelineKey = "CuboidShading";
-      pickingPipelineKey = "CuboidPicking";
-    }
-    const pipeline = getOrCreatePipeline(pipelineKey, ()=>{
-      return createRenderPipelineFor(elem.type, device);
-    });
-    const pickingPipeline = getOrCreatePipeline(pickingPipelineKey, ()=>{
-      return createPickingPipelineFor(elem.type, device);
-    });
-
-    // fill the fields in a new RenderObject
-    const ro = createRenderObjectForElement(
-      elem.type, pipeline, pickingPipeline, vb, pickVB, count, device
-    );
-    ro.elementIndex = eIdx;
-    result.push(ro);
-  });
-
-  return result;
-}
-
-function createRenderPipelineFor(type: SceneElementConfig['type'], device: GPUDevice): GPURenderPipeline {
-  const format = navigator.gpu.getPreferredCanvasFormat();
-  const pipelineLayout = device.createPipelineLayout({
-    bindGroupLayouts:[
-      device.createBindGroupLayout({
-        entries:[{
-          binding:0,
-          visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,
-          buffer:{type:'uniform'}
-        }]
-      })
-    ]
-  });
-  if(type==='PointCloud'){
-    // "billboard" pipeline
-    return device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex:{
-        module: device.createShaderModule({ code: billboardVertCode }),
-        entryPoint:'vs_main',
-        buffers:[
-          {
-            // billboard quad
-            arrayStride: 8,
-            attributes:[{shaderLocation:0, offset:0, format:'float32x2'}]
-          },
-          {
-            // instance buffer => 9 floats
-            arrayStride: 9*4,
-            stepMode:'instance',
-            attributes:[
-              {shaderLocation:1, offset:0,    format:'float32x3'}, // pos
-              {shaderLocation:2, offset:3*4,  format:'float32x3'}, // color
-              {shaderLocation:3, offset:6*4,  format:'float32'},    // alpha
-              {shaderLocation:4, offset:7*4,  format:'float32'},    // scaleX
-              {shaderLocation:5, offset:8*4,  format:'float32'}     // scaleY
-            ]
-          }
-        ]
-      },
-      fragment:{
-        module: device.createShaderModule({ code: billboardFragCode }),
-        entryPoint:'fs_main',
-        targets:[{
-          format,
-          blend:{
-            color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-            alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-          }
-        }]
-      },
-      primitive:{ topology:'triangle-list', cullMode:'back' },
-      depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-    });
-  } else if(type==='Ellipsoid'){
-    // "sphere shading" pipeline
-    return device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex:{
-        module: device.createShaderModule({ code: ellipsoidVertCode }),
-        entryPoint:'vs_main',
-        buffers:[
-          {
-            // sphere geometry => 6 floats (pos+normal)
-            arrayStride: 6*4,
-            attributes:[
-              {shaderLocation:0, offset:0,    format:'float32x3'},
-              {shaderLocation:1, offset:3*4,  format:'float32x3'}
-            ]
-          },
-          {
-            // instance => 10 floats
-            arrayStride: 10*4,
-            stepMode:'instance',
-            attributes:[
-              {shaderLocation:2, offset:0,    format:'float32x3'}, // position
-              {shaderLocation:3, offset:3*4,  format:'float32x3'}, // scale
-              {shaderLocation:4, offset:6*4,  format:'float32x3'}, // color
-              {shaderLocation:5, offset:9*4,  format:'float32'}     // alpha
-            ]
-          }
-        ]
-      },
-      fragment:{
-        module: device.createShaderModule({ code: ellipsoidFragCode }),
-        entryPoint:'fs_main',
-        targets:[{
-          format,
-          blend:{
-            color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-            alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-          }
-        }]
-      },
-      primitive:{ topology:'triangle-list', cullMode:'back'},
-      depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-    });
-  } else if(type==='EllipsoidBounds'){
-    // "ring" pipeline
-    return device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex:{
-        module: device.createShaderModule({ code: ringVertCode }),
-        entryPoint:'vs_main',
-        buffers:[
-          {
-            // ring geometry => 6 floats (pos+normal)
-            arrayStride:6*4,
-            attributes:[
-              {shaderLocation:0, offset:0,   format:'float32x3'},
-              {shaderLocation:1, offset:3*4, format:'float32x3'}
-            ]
-          },
-          {
-            // instance => 10 floats
-            arrayStride: 10*4,
-            stepMode:'instance',
-            attributes:[
-              {shaderLocation:2, offset:0,     format:'float32x3'}, // center
-              {shaderLocation:3, offset:3*4,   format:'float32x3'}, // scale
-              {shaderLocation:4, offset:6*4,   format:'float32x3'}, // color
-              {shaderLocation:5, offset:9*4,   format:'float32'}     // alpha
-            ]
-          }
-        ]
-      },
-      fragment:{
-        module: device.createShaderModule({ code: ringFragCode }),
-        entryPoint:'fs_main',
-        targets:[{
-          format,
-          blend:{
-            color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-            alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-          }
-        }]
-      },
-      primitive:{ topology:'triangle-list', cullMode:'back'},
-      depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-    });
-  } else if(type==='Cuboid'){
-    // Very similar to the "Ellipsoid" shading, but using a cube geometry.
-    return device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex:{
-        module: device.createShaderModule({ code: cuboidVertCode }),
-        entryPoint:'vs_main',
-        buffers:[
-          {
-            // cube geometry => 6 floats (pos+normal)
-            arrayStride: 6*4,
-            attributes:[
-              {shaderLocation:0, offset:0,   format:'float32x3'},
-              {shaderLocation:1, offset:3*4, format:'float32x3'}
-            ]
-          },
-          {
-            // instance => 10 floats
-            arrayStride: 10*4,
-            stepMode:'instance',
-            attributes:[
-              {shaderLocation:2, offset:0,    format:'float32x3'}, // center
-              {shaderLocation:3, offset:3*4,  format:'float32x3'}, // size
-              {shaderLocation:4, offset:6*4,  format:'float32x3'}, // color
-              {shaderLocation:5, offset:9*4,  format:'float32'}     // alpha
-            ]
-          }
-        ]
-      },
-      fragment:{
-        module: device.createShaderModule({ code: cuboidFragCode }),
-        entryPoint:'fs_main',
-        targets:[{
-          format,
-          blend:{
-            color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-            alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-          }
-        }]
-      },
-      primitive:{
-        topology:'triangle-list',
-        cullMode:'none'  // Changed from 'back' to 'none'
-      },
-      depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-    });
-  }
-
-  throw new Error("No pipeline for type=" + type);
-}
-
-/** Similarly for picking */
-function createPickingPipelineFor(type: SceneElementConfig['type'], device: GPUDevice): GPURenderPipeline {
-  const pipelineLayout = device.createPipelineLayout({
-    bindGroupLayouts:[
-      device.createBindGroupLayout({
-        entries:[{
-          binding:0,
-          visibility:GPUShaderStage.VERTEX|GPUShaderStage.FRAGMENT,
-          buffer:{type:'uniform'}
-        }]
-      })
-    ]
-  });
-  const format = 'rgba8unorm';
-  if(type==='PointCloud'){
-    return device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex:{
-        module: device.createShaderModule({ code: pickingVertCode }),
-        entryPoint: 'vs_pointcloud',
-        buffers:[
-          {
-            arrayStride: 8,
-            attributes:[{shaderLocation:0, offset:0, format:'float32x2'}]
-          },
-          {
-            arrayStride: 6*4,
-            stepMode:'instance',
-            attributes:[
-              {shaderLocation:1, offset:0,    format:'float32x3'}, // pos
-              {shaderLocation:2, offset:3*4,  format:'float32'},    // pickID
-              {shaderLocation:3, offset:4*4,  format:'float32'},    // scaleX
-              {shaderLocation:4, offset:5*4,  format:'float32'}     // scaleY
-            ]
-          }
-        ]
-      },
-      fragment:{
-        module: device.createShaderModule({ code: pickingVertCode }),
-        entryPoint:'fs_pick',
-        targets:[{ format }]
-      },
-      primitive:{ topology:'triangle-list', cullMode:'back'},
-      depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-    });
-  } else if(type==='Ellipsoid'){
-    return device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex:{
-        module: device.createShaderModule({ code: pickingVertCode }),
-        entryPoint:'vs_ellipsoid',
-        buffers:[
-          {
-            arrayStride:6*4,
-            attributes:[
-              {shaderLocation:0, offset:0, format:'float32x3'},
-              {shaderLocation:1, offset:3*4, format:'float32x3'}
-            ]
-          },
-          {
-            arrayStride:7*4,
-            stepMode:'instance',
-            attributes:[
-              {shaderLocation:2, offset:0,   format:'float32x3'}, // pos
-              {shaderLocation:3, offset:3*4, format:'float32x3'}, // scale
-              {shaderLocation:4, offset:6*4, format:'float32'}     // pickID
-            ]
-          }
-        ]
-      },
-      fragment:{
-        module: device.createShaderModule({ code: pickingVertCode }),
-        entryPoint:'fs_pick',
-        targets:[{ format }]
-      },
-      primitive:{ topology:'triangle-list', cullMode:'back'},
-      depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-    });
-  } else if(type==='EllipsoidBounds'){
-    return device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex:{
-        module: device.createShaderModule({ code: pickingVertCode }),
-        entryPoint:'vs_bands',
-        buffers:[
-          {
-            arrayStride:6*4,
-            attributes:[
-              {shaderLocation:0, offset:0,   format:'float32x3'},
-              {shaderLocation:1, offset:3*4, format:'float32x3'}
-            ]
-          },
-          {
-            arrayStride:7*4,
-            stepMode:'instance',
-            attributes:[
-              {shaderLocation:2, offset:0,   format:'float32x3'}, // center
-              {shaderLocation:3, offset:3*4, format:'float32x3'}, // scale
-              {shaderLocation:4, offset:6*4, format:'float32'}     // pickID
-            ]
-          }
-        ]
-      },
-      fragment:{
-        module: device.createShaderModule({ code: pickingVertCode }),
-        entryPoint:'fs_pick',
-        targets:[{ format }]
-      },
-      primitive:{ topology:'triangle-list', cullMode:'back'},
-      depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-    });
-  } else if(type==='Cuboid'){
-    return device.createRenderPipeline({
-      layout: pipelineLayout,
-      vertex:{
-        module: device.createShaderModule({ code: pickingVertCode }),
-        entryPoint:'vs_cuboid',
-        buffers:[
-          {
-            // cube geometry => pos+normal
-            arrayStride: 6*4,
-            attributes:[
-              {shaderLocation:0, offset:0,   format:'float32x3'},
-              {shaderLocation:1, offset:3*4, format:'float32x3'}
-            ]
-          },
-          {
-            // instance => 7 floats (center, size, pickID)
-            arrayStride: 7*4,
-            stepMode:'instance',
-            attributes:[
-              {shaderLocation:2, offset:0,   format:'float32x3'}, // center
-              {shaderLocation:3, offset:3*4, format:'float32x3'}, // size
-              {shaderLocation:4, offset:6*4, format:'float32'}     // pickID
-            ]
-          }
-        ]
-      },
-      fragment:{
-        module: device.createShaderModule({ code: pickingVertCode }),
-        entryPoint:'fs_pick',
-        targets:[{ format }]
-      },
-      primitive:{
-        topology:'triangle-list',
-        cullMode:'none'  // Changed from 'back' to 'none' to match main pipeline
-      },
-      depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-    });
-  }
-
-  throw new Error("No picking pipeline for type=" + type);
-}
-
-function createRenderObjectForElement(
-  type: SceneElementConfig['type'],
-  pipeline: GPURenderPipeline,
-  pickingPipeline: GPURenderPipeline,
-  instanceVB: GPUBuffer|null,
-  pickingInstanceVB: GPUBuffer|null,
-  count: number,
-  device: GPUDevice
-): RenderObject {
-  if(type==='PointCloud'){
-    if(!billboardQuadRef.current) throw new Error("No billboard geometry available");
-    return {
-      pipeline,
-      vertexBuffers: [billboardQuadRef.current.vb, instanceVB!],
-      indexBuffer: billboardQuadRef.current.ib,
-      indexCount: 6,
-      instanceCount: count,
-
-      pickingPipeline,
-      pickingVertexBuffers: [billboardQuadRef.current.vb, pickingInstanceVB!],
-      pickingIndexBuffer: billboardQuadRef.current.ib,
-      pickingIndexCount: 6,
-      pickingInstanceCount: count,
-
-      elementIndex:-1
-    };
-  } else if(type==='Ellipsoid'){
-    if(!sphereGeoRef.current) throw new Error("No sphere geometry available");
-    const { vb, ib, indexCount } = sphereGeoRef.current;
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceVB!],
-      indexBuffer: ib,
-      indexCount,
-      instanceCount: count,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingInstanceVB!],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: indexCount,
-      pickingInstanceCount: count,
-
-      elementIndex:-1
-    };
-  } else if(type==='EllipsoidBounds'){
-    if(!ringGeoRef.current) throw new Error("No ring geometry available");
-    const { vb, ib, indexCount } = ringGeoRef.current;
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceVB!],
-      indexBuffer: ib,
-      indexCount,
-      instanceCount: count,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingInstanceVB!],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: indexCount,
-      pickingInstanceCount: count,
-
-      elementIndex:-1
-    };
-  } else if(type==='Cuboid'){
-    if(!cubeGeoRef.current) throw new Error("No cube geometry available");
-    const { vb, ib, indexCount } = cubeGeoRef.current;
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceVB!],
-      indexBuffer: ib,
-      indexCount,
-      instanceCount: count,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingInstanceVB!],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: indexCount,
-      pickingInstanceCount: count,
-
-      elementIndex:-1
-    };
-  }
-  throw new Error("No render object logic for type=" + type);
-}
-
-/******************************************************
- * E) Render + pick passes
- ******************************************************/
-const renderFrame=useCallback((camera:any)=>{
-  if(!gpuRef.current){
-    requestAnimationFrame(()=>renderFrame(camera));
-    return;
-  }
-  const { device, context, uniformBuffer, uniformBindGroup, depthTexture, renderObjects } = gpuRef.current;
-  if(!depthTexture){
-    requestAnimationFrame(()=>renderFrame(camera));
-    return;
-  }
-
-  // camera matrix
-  const aspect = canvasWidth/canvasHeight;
-  const proj = mat4Perspective(camera.fov, aspect, camera.near, camera.far);
-  const cx=camera.orbitRadius*Math.sin(camera.orbitPhi)*Math.sin(camera.orbitTheta);
-  const cy=camera.orbitRadius*Math.cos(camera.orbitPhi);
-  const cz=camera.orbitRadius*Math.sin(camera.orbitPhi)*Math.cos(camera.orbitTheta);
-  const eye:[number,number,number]=[cx,cy,cz];
-  const target:[number,number,number]=[camera.panX,camera.panY,0];
-  const up:[number,number,number] = [0,1,0];
-  const view = mat4LookAt(eye,target,up);
-
-  function mat4Multiply(a:Float32Array,b:Float32Array){
-    const out=new Float32Array(16);
-    for(let i=0;i<4;i++){
-      for(let j=0;j<4;j++){
-        out[j*4+i] =
-          a[i+0]*b[j*4+0] + a[i+4]*b[j*4+1] + a[i+8]*b[j*4+2] + a[i+12]*b[j*4+3];
-      }
-    }
-    return out;
-  }
-  const mvp = mat4Multiply(proj, view);
-
-  // compute a "light direction" that rotates with the camera
-  const forward = normalize([target[0]-eye[0], target[1]-eye[1], target[2]-eye[2]]);
-  const right = normalize(cross(forward, up));
-  const camUp = cross(right, forward);
-  const lightDir = normalize([
-    right[0]*LIGHTING.DIRECTION.RIGHT + camUp[0]*LIGHTING.DIRECTION.UP + forward[0]*LIGHTING.DIRECTION.FORWARD,
-    right[1]*LIGHTING.DIRECTION.RIGHT + camUp[1]*LIGHTING.DIRECTION.UP + forward[1]*LIGHTING.DIRECTION.FORWARD,
-    right[2]*LIGHTING.DIRECTION.RIGHT + camUp[2]*LIGHTING.DIRECTION.UP + forward[2]*LIGHTING.DIRECTION.FORWARD,
-  ]);
-
-  // write uniform data
-  const data=new Float32Array(32);
-  data.set(mvp,0);
-  data[16] = right[0]; data[17] = right[1]; data[18] = right[2];
-  data[20] = camUp[0]; data[21] = camUp[1]; data[22] = camUp[2];
-  data[24] = lightDir[0]; data[25] = lightDir[1]; data[26] = lightDir[2];
-  device.queue.writeBuffer(uniformBuffer,0,data);
-
-  let tex:GPUTexture;
-  try {
-    tex = context.getCurrentTexture();
-  } catch(e){
-    requestAnimationFrame(()=>renderFrame(camera));
-    return;
-  }
-  const passDesc: GPURenderPassDescriptor = {
-    colorAttachments:[{
-      view: tex.createView(),
-      loadOp:'clear',
-      storeOp:'store',
-      clearValue:{r:0.15,g:0.15,b:0.15,a:1}
-    }],
-    depthStencilAttachment:{
-      view: depthTexture.createView(),
-      depthLoadOp:'clear',
-      depthStoreOp:'store',
-      depthClearValue:1.0
-    }
-  };
-  const cmd = device.createCommandEncoder();
-  const pass = cmd.beginRenderPass(passDesc);
-
-  // draw each renderObject
-  for(const ro of renderObjects){
-    pass.setPipeline(ro.pipeline);
-    pass.setBindGroup(0, uniformBindGroup);
-    ro.vertexBuffers.forEach((vb,i)=> pass.setVertexBuffer(i,vb));
-    if(ro.indexBuffer){
-      pass.setIndexBuffer(ro.indexBuffer,'uint16');
-      pass.drawIndexed(ro.indexCount ?? 0, ro.instanceCount ?? 1);
-    } else {
-      pass.draw(ro.vertexCount ?? 0, ro.instanceCount ?? 1);
-    }
-  }
-
-  pass.end();
-  device.queue.submit([cmd.finish()]);
-  requestAnimationFrame(()=>renderFrame(camera));
-},[canvasWidth, canvasHeight]);
-
-async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'click'){
-  if(!gpuRef.current || pickingLockRef.current) return;
-
-  // Create a unique ID for this picking operation
-  const pickingId = Date.now();
-  const currentPickingId = pickingId;
-  pickingLockRef.current = true;
-
-  const startTime = performance.now();
-  let renderTime = 0;
-  let readbackTime = 0;
-
-  try {
-    const {
-      device, pickTexture, pickDepthTexture, readbackBuffer,
-      uniformBindGroup, renderObjects, idToElement
-    } = gpuRef.current;
-
-    if(!pickTexture || !pickDepthTexture || !readbackBuffer) return;
-
-    // Check if this picking operation is still valid
-    if (currentPickingId !== pickingId) return;
-
-    const pickX = Math.floor(screenX);
-    const pickY = Math.floor(screenY);
-    if(pickX<0 || pickY<0 || pickX>=canvasWidth || pickY>=canvasHeight){
-      if(mode==='hover') handleHoverID(0);
-      return;
-    }
-
-    const renderStart = performance.now();
-    const cmd = device.createCommandEncoder({label: 'Picking encoder'});
-
-    // Create the render pass properly
     const passDesc: GPURenderPassDescriptor = {
       colorAttachments:[{
-        view: pickTexture.createView(),
-        clearValue:{r:0,g:0,b:0,a:1},
+        view: tex.createView(),
         loadOp:'clear',
-        storeOp:'store'
+        storeOp:'store',
+        clearValue:{r:0.15,g:0.15,b:0.15,a:1}
       }],
       depthStencilAttachment:{
-        view: pickDepthTexture.createView(),
-        depthClearValue:1.0,
+        view: depthTexture.createView(),
         depthLoadOp:'clear',
-        depthStoreOp:'store'
+        depthStoreOp:'store',
+        depthClearValue:1.0
       }
     };
+
+    const cmd = device.createCommandEncoder();
     const pass = cmd.beginRenderPass(passDesc);
 
-    pass.setBindGroup(0, uniformBindGroup);
-
-    // draw each object with its picking pipeline
+    // draw each object
     for(const ro of renderObjects){
-      pass.setPipeline(ro.pickingPipeline);
-      ro.pickingVertexBuffers.forEach((vb,i)=>{
-        pass.setVertexBuffer(i, vb);
-      });
-      if(ro.pickingIndexBuffer){
-        pass.setIndexBuffer(ro.pickingIndexBuffer, 'uint16');
-        pass.drawIndexed(ro.pickingIndexCount ?? 0, ro.pickingInstanceCount ?? 1);
+      pass.setPipeline(ro.pipeline);
+      pass.setBindGroup(0, uniformBindGroup);
+      ro.vertexBuffers.forEach((vb,i)=> pass.setVertexBuffer(i,vb));
+      if(ro.indexBuffer){
+        pass.setIndexBuffer(ro.indexBuffer,'uint16');
+        pass.drawIndexed(ro.indexCount ?? 0, ro.instanceCount ?? 1);
       } else {
-        pass.draw(ro.pickingVertexCount ?? 0, ro.pickingInstanceCount ?? 1);
+        pass.draw(ro.vertexCount ?? 0, ro.instanceCount ?? 1);
       }
     }
     pass.end();
-
-    cmd.copyTextureToBuffer(
-      {texture: pickTexture, origin:{x:pickX,y:pickY}},
-      {buffer: readbackBuffer, bytesPerRow:256, rowsPerImage:1},
-      [1,1,1]
-    );
     device.queue.submit([cmd.finish()]);
-    renderTime = performance.now() - renderStart;
+  },[canvasWidth, canvasHeight]);
 
-    // Check again if this picking operation is still valid
-    if (currentPickingId !== pickingId) return;
+  /******************************************************
+   * E2) Pick pass (on hover/click)
+   ******************************************************/
+  async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'click'){
+    if(!gpuRef.current || pickingLockRef.current) return;
+    const pickingId = Date.now();
+    const currentPickingId = pickingId;
+    pickingLockRef.current = true;
 
     try {
-      const readbackStart = performance.now();
-      await readbackBuffer.mapAsync(GPUMapMode.READ);
+      const {
+        device, pickTexture, pickDepthTexture, readbackBuffer,
+        uniformBindGroup, renderObjects, idToElement
+      } = gpuRef.current;
+      if(!pickTexture || !pickDepthTexture || !readbackBuffer) return;
+      if (currentPickingId !== pickingId) return;
 
-      // Check one more time if this picking operation is still valid
+      const pickX = Math.floor(screenX);
+      const pickY = Math.floor(screenY);
+      if(pickX<0 || pickY<0 || pickX>=canvasWidth || pickY>=canvasHeight){
+        if(mode==='hover') handleHoverID(0);
+        return;
+      }
+
+      const cmd = device.createCommandEncoder({label: 'Picking encoder'});
+      const passDesc: GPURenderPassDescriptor = {
+        colorAttachments:[{
+          view: pickTexture.createView(),
+          clearValue:{r:0,g:0,b:0,a:1},
+          loadOp:'clear',
+          storeOp:'store'
+        }],
+        depthStencilAttachment:{
+          view: pickDepthTexture.createView(),
+          depthClearValue:1.0,
+          depthLoadOp:'clear',
+          depthStoreOp:'store'
+        }
+      };
+      const pass = cmd.beginRenderPass(passDesc);
+      pass.setBindGroup(0, uniformBindGroup);
+      for(const ro of renderObjects){
+        pass.setPipeline(ro.pickingPipeline);
+        ro.pickingVertexBuffers.forEach((vb,i)=>{
+          pass.setVertexBuffer(i, vb);
+        });
+        if(ro.pickingIndexBuffer){
+          pass.setIndexBuffer(ro.pickingIndexBuffer, 'uint16');
+          pass.drawIndexed(ro.pickingIndexCount ?? 0, ro.pickingInstanceCount ?? 1);
+        } else {
+          pass.draw(ro.pickingVertexCount ?? 0, ro.pickingInstanceCount ?? 1);
+        }
+      }
+      pass.end();
+
+      cmd.copyTextureToBuffer(
+        {texture: pickTexture, origin:{x:pickX,y:pickY}},
+        {buffer: readbackBuffer, bytesPerRow:256, rowsPerImage:1},
+        [1,1,1]
+      );
+      device.queue.submit([cmd.finish()]);
+
+      if (currentPickingId !== pickingId) return;
+      await readbackBuffer.mapAsync(GPUMapMode.READ);
       if (currentPickingId !== pickingId) {
         readbackBuffer.unmap();
         return;
       }
-
       const arr = new Uint8Array(readbackBuffer.getMappedRange());
       const r=arr[0], g=arr[1], b=arr[2];
       readbackBuffer.unmap();
-      readbackTime = performance.now() - readbackStart;
       const pickedID = (b<<16)|(g<<8)|r;
 
       if(mode==='hover'){
@@ -1605,173 +1453,154 @@ async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'clic
       } else {
         handleClickID(pickedID);
       }
-    } catch(e){
-      console.error("pick buffer mapping error:", e);
-    }
-  } finally {
-    pickingLockRef.current = false;
-    const totalTime = performance.now() - startTime;
-    if (mode === 'click') {
-      console.log(`Picking performance (${mode}):`, {
-        renderTime: renderTime.toFixed(2) + 'ms',
-        readbackTime: readbackTime.toFixed(2) + 'ms',
-        totalTime: totalTime.toFixed(2) + 'ms'
-      });
+    } finally {
+      pickingLockRef.current = false;
     }
   }
-}
 
-function handleHoverID(pickedID:number){
-  if(!gpuRef.current)return;
-  const {idToElement} = gpuRef.current;
-  if(!idToElement[pickedID]){
-    // no object
-    for(const e of elements){
-      e.onHover?.(null);
+  function handleHoverID(pickedID:number){
+    if(!gpuRef.current) return;
+    const {idToElement} = gpuRef.current;
+    if(!idToElement[pickedID]){
+      // no object => clear hover
+      for(const e of elements) e.onHover?.(null);
+      return;
     }
-    return;
-  }
-  const {elementIdx, instanceIdx} = idToElement[pickedID];
-  if(elementIdx<0||elementIdx>=elements.length){
-    for(const e of elements){
-      e.onHover?.(null);
+    const {elementIdx, instanceIdx} = idToElement[pickedID];
+    if(elementIdx<0||elementIdx>=elements.length){
+      for(const e of elements) e.onHover?.(null);
+      return;
     }
-    return;
-  }
-  // call that one
-  elements[elementIdx].onHover?.(instanceIdx);
-  // null on others
-  for(let i=0;i<elements.length;i++){
-    if(i!==elementIdx){
-      elements[i].onHover?.(null);
+    elements[elementIdx].onHover?.(instanceIdx);
+    // null on others
+    for(let i=0;i<elements.length;i++){
+      if(i!==elementIdx){
+        elements[i].onHover?.(null);
+      }
     }
   }
-}
 
-function handleClickID(pickedID:number){
-  if(!gpuRef.current)return;
-  const {idToElement} = gpuRef.current;
-  const rec = idToElement[pickedID];
-  if(!rec) return;
-  const {elementIdx, instanceIdx} = rec;
-  if(elementIdx<0||elementIdx>=elements.length) return;
-  elements[elementIdx].onClick?.(instanceIdx);
-}
-
-/******************************************************
- * F) Mouse Handling
- ******************************************************/
-interface MouseState {
-  type: 'idle'|'dragging';
-  button?: number;
-  startX?: number;
-  startY?: number;
-  lastX?: number;
-  lastY?: number;
-  isShiftDown?: boolean;
-  dragDistance?: number;
-}
-const mouseState=useRef<MouseState>({type:'idle'});
-const handleMouseMove=useCallback((e:ReactMouseEvent)=>{
-  if(!canvasRef.current)return;
-  const rect = canvasRef.current.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-
-  const st=mouseState.current;
-  if(st.type==='dragging' && st.lastX!==undefined && st.lastY!==undefined){
-    const dx = e.clientX - st.lastX;
-    const dy = e.clientY - st.lastY;
-    st.dragDistance=(st.dragDistance||0)+Math.sqrt(dx*dx+dy*dy);
-    if(st.button===2 || st.isShiftDown){
-      setCamera(cam => ({
-        ...cam,
-        panX:cam.panX - dx*0.002,
-        panY:cam.panY + dy*0.002
-      }));
-    } else if(st.button===0){
-      setCamera(cam=>{
-        const newPhi = Math.max(0.1, Math.min(Math.PI-0.1, cam.orbitPhi - dy*0.01));
-        return {
-          ...cam,
-          orbitTheta: cam.orbitTheta - dx*0.01,
-          orbitPhi: newPhi
-        };
-      });
-    }
-    st.lastX=e.clientX;
-    st.lastY=e.clientY;
-  } else if(st.type==='idle'){
-    // picking => hover
-    pickAtScreenXY(x,y,'hover');
+  function handleClickID(pickedID:number){
+    if(!gpuRef.current) return;
+    const {idToElement} = gpuRef.current;
+    const rec = idToElement[pickedID];
+    if(!rec) return;
+    const {elementIdx, instanceIdx} = rec;
+    if(elementIdx<0||elementIdx>=elements.length) return;
+    elements[elementIdx].onClick?.(instanceIdx);
   }
-},[pickAtScreenXY]);
-
-const handleMouseDown=useCallback((e:ReactMouseEvent)=>{
-  mouseState.current={
-    type:'dragging',
-    button:e.button,
-    startX:e.clientX,
-    startY:e.clientY,
-    lastX:e.clientX,
-    lastY:e.clientY,
-    isShiftDown:e.shiftKey,
-    dragDistance:0
-  };
-  e.preventDefault();
-},[]);
-
-const handleMouseUp=useCallback((e:ReactMouseEvent)=>{
-  const st=mouseState.current;
-  if(st.type==='dragging' && st.startX!==undefined && st.startY!==undefined){
-    if(!canvasRef.current) return;
-    const rect=canvasRef.current.getBoundingClientRect();
-    const x=e.clientX-rect.left, y=e.clientY-rect.top;
-    // if we haven't dragged far => treat as click
-    if((st.dragDistance||0) < 4){
-      pickAtScreenXY(x,y,'click');
-    }
-  }
-  mouseState.current={type:'idle'};
-},[pickAtScreenXY]);
-
-const handleMouseLeave=useCallback(()=>{
-  mouseState.current={type:'idle'};
-},[]);
-
-const onWheel=useCallback((e:WheelEvent)=>{
-  if(mouseState.current.type==='idle'){
-    e.preventDefault();
-    const d=e.deltaY*0.01;
-    setCamera(cam=>({
-      ...cam,
-      orbitRadius:Math.max(0.01, cam.orbitRadius + d)
-    }));
-  }
-},[]);
 
   /******************************************************
-   * G) Lifecycle
+   * F) Mouse Handling
    ******************************************************/
+  interface MouseState {
+    type: 'idle'|'dragging';
+    button?: number;
+    startX?: number;
+    startY?: number;
+    lastX?: number;
+    lastY?: number;
+    isShiftDown?: boolean;
+    dragDistance?: number;
+  }
+  const mouseState=useRef<MouseState>({type:'idle'});
+
+  const handleMouseMove=useCallback((e:ReactMouseEvent)=>{
+    if(!canvasRef.current) return;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const st=mouseState.current;
+    if(st.type==='dragging' && st.lastX!==undefined && st.lastY!==undefined){
+      const dx = e.clientX - st.lastX;
+      const dy = e.clientY - st.lastY;
+      st.dragDistance=(st.dragDistance||0)+Math.sqrt(dx*dx+dy*dy);
+      if(st.button===2 || st.isShiftDown){
+        setCamera(cam => ({
+          ...cam,
+          panX:cam.panX - dx*0.002,
+          panY:cam.panY + dy*0.002
+        }));
+      } else if(st.button===0){
+        setCamera(cam=>{
+          const newPhi = Math.max(0.1, Math.min(Math.PI-0.1, cam.orbitPhi - dy*0.01));
+          return {
+            ...cam,
+            orbitTheta: cam.orbitTheta - dx*0.01,
+            orbitPhi: newPhi
+          };
+        });
+      }
+      st.lastX=e.clientX;
+      st.lastY=e.clientY;
+    } else if(st.type==='idle'){
+      // picking => hover
+      pickAtScreenXY(x,y,'hover');
+    }
+  },[pickAtScreenXY]);
+
+  const handleMouseDown=useCallback((e:ReactMouseEvent)=>{
+    mouseState.current={
+      type:'dragging',
+      button:e.button,
+      startX:e.clientX,
+      startY:e.clientY,
+      lastX:e.clientX,
+      lastY:e.clientY,
+      isShiftDown:e.shiftKey,
+      dragDistance:0
+    };
+    e.preventDefault();
+  },[]);
+
+  const handleMouseUp=useCallback((e:ReactMouseEvent)=>{
+    const st=mouseState.current;
+    if(st.type==='dragging' && st.startX!==undefined && st.startY!==undefined){
+      if(!canvasRef.current) return;
+      const rect=canvasRef.current.getBoundingClientRect();
+      const x=e.clientX-rect.left, y=e.clientY-rect.top;
+      // if we haven't dragged far => treat as click
+      if((st.dragDistance||0) < 4){
+        pickAtScreenXY(x,y,'click');
+      }
+    }
+    mouseState.current={type:'idle'};
+  },[pickAtScreenXY]);
+
+  const handleMouseLeave=useCallback(()=>{
+    mouseState.current={type:'idle'};
+  },[]);
+
+  const onWheel=useCallback((e:WheelEvent)=>{
+    if(mouseState.current.type==='idle'){
+      e.preventDefault();
+      const d=e.deltaY*0.01;
+      setCamera(cam=>({
+        ...cam,
+        orbitRadius:Math.max(0.01, cam.orbitRadius + d)
+      }));
+    }
+  },[]);
+
+  /******************************************************
+   * G) Lifecycle & Render-on-demand
+   ******************************************************/
+  // Init once
   useEffect(()=>{
     initWebGPU();
     return ()=>{
+      // On unmount
       if(gpuRef.current){
-        // Set a flag to prevent any pending picking operations
         pickingLockRef.current = true;
-
-        // Wait a frame before cleanup to ensure no operations are in progress
+        // Let the GPU idle for a frame before destroying
         requestAnimationFrame(() => {
           if(!gpuRef.current) return;
-
-          // cleanup
           gpuRef.current.depthTexture?.destroy();
           gpuRef.current.pickTexture?.destroy();
           gpuRef.current.pickDepthTexture?.destroy();
           gpuRef.current.readbackBuffer.destroy();
           gpuRef.current.uniformBuffer.destroy();
-
-          // destroy geometry
           sphereGeoRef.current?.vb.destroy();
           sphereGeoRef.current?.ib.destroy();
           ringGeoRef.current?.vb.destroy();
@@ -1780,15 +1609,13 @@ const onWheel=useCallback((e:WheelEvent)=>{
           billboardQuadRef.current?.ib.destroy();
           cubeGeoRef.current?.vb.destroy();
           cubeGeoRef.current?.ib.destroy();
-
-          // Just clear the pipeline cache
           pipelineCache.clear();
         });
       }
-      if(rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
     };
   },[initWebGPU]);
 
+  // Create/recreate depth + pick textures
   useEffect(()=>{
     if(isReady){
       createOrUpdateDepthTexture();
@@ -1796,7 +1623,7 @@ const onWheel=useCallback((e:WheelEvent)=>{
     }
   },[isReady, canvasWidth, canvasHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures]);
 
-  // set canvas size
+  // Set actual canvas size
   useEffect(()=>{
     if(canvasRef.current){
       canvasRef.current.width=canvasWidth;
@@ -1804,25 +1631,24 @@ const onWheel=useCallback((e:WheelEvent)=>{
     }
   },[canvasWidth, canvasHeight]);
 
-  // whenever "elements" changes, rebuild the "renderObjects"
+  // Whenever elements change, or we become ready, rebuild GPU buffers
   useEffect(()=>{
     if(isReady && gpuRef.current){
-      // create new renderObjects
       const ros = buildRenderObjects(elements);
       gpuRef.current.renderObjects = ros;
+      // After building new objects, render once
+      renderFrame(camera);
     }
-  },[isReady, elements]);
+  },[isReady, elements, renderFrame, camera]);
 
-  // start the render loop
+  // Also re-render if the camera changes
   useEffect(()=>{
     if(isReady){
-      rafIdRef.current = requestAnimationFrame(()=>renderFrame(camera));
+      renderFrame(camera);
     }
-    return ()=>{
-      if(rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
-    };
-  },[isReady, renderFrame, camera]);
+  },[isReady, camera, renderFrame]);
 
+  // Wheel handling
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -1839,7 +1665,6 @@ const onWheel=useCallback((e:WheelEvent)=>{
     };
 
     canvas.addEventListener('wheel', handleWheel, { passive: false });
-
     return () => {
       canvas.removeEventListener('wheel', handleWheel);
     };
@@ -1884,17 +1709,15 @@ function generateSpherePointCloud(numPoints:number, radius:number){
 
 const pcData = generateSpherePointCloud(500, 0.5);
 
-/** We'll build a few ellipsoids, etc. */
 const numEllipsoids=3;
 const eCenters=new Float32Array(numEllipsoids*3);
 const eRadii=new Float32Array(numEllipsoids*3);
 const eColors=new Float32Array(numEllipsoids*3);
-// e.g. a "snowman"
+// example "snowman"
 eCenters.set([0,0,0.6, 0,0,0.3, 0,0,0]);
 eRadii.set([0.1,0.1,0.1, 0.15,0.15,0.15, 0.2,0.2,0.2]);
 eColors.set([1,1,1, 1,1,1, 1,1,1]);
 
-// some bounds
 const numBounds=2;
 const boundCenters=new Float32Array(numBounds*3);
 const boundRadii=new Float32Array(numBounds*3);
@@ -1910,20 +1733,18 @@ const numCuboids1 = 3;
 const cCenters1 = new Float32Array(numCuboids1*3);
 const cSizes1   = new Float32Array(numCuboids1*3);
 const cColors1  = new Float32Array(numCuboids1*3);
-
-// Just make some cubes stacked up
+// stack some cubes
 cCenters1.set([1.0, 0, 0,   1.0, 0.3, 0,   1.0, 0.6, 0]);
-cSizes1.set(  [0.2, 0.2, 0.2,  0.2, 0.2, 0.2,  0.2, 0.2, 0.2]);
-cColors1.set( [0.9,0.2,0.2,   0.2,0.9,0.2,   0.2,0.2,0.9]);
+cSizes1.set([0.2,0.2,0.2, 0.2,0.2,0.2, 0.2,0.2,0.2]);
+cColors1.set([0.9,0.2,0.2, 0.2,0.9,0.2, 0.2,0.2,0.9]);
 
 const numCuboids2 = 2;
 const cCenters2 = new Float32Array(numCuboids2*3);
 const cSizes2   = new Float32Array(numCuboids2*3);
 const cColors2  = new Float32Array(numCuboids2*3);
-
-cCenters2.set([ -1.0,0,0,   -1.0, 0.4, 0.4]);
-cSizes2.set(  [ 0.3,0.1,0.2, 0.2,0.2,0.2]);
-cColors2.set( [ 0.8,0.4,0.6, 0.4,0.6,0.8]);
+cCenters2.set([-1.0,0,0, -1.0, 0.4, 0.4]);
+cSizes2.set([0.3,0.1,0.2, 0.2,0.2,0.2]);
+cColors2.set([0.8,0.4,0.6, 0.4,0.6,0.8]);
 
 /******************************************************
  * Our top-level App
@@ -1936,13 +1757,10 @@ export function App(){
     ellipsoid2: null as number | null,
     bounds1: null as number | null,
     bounds2: null as number | null,
-
-    // For cuboids
     cuboid1: null as number | null,
     cuboid2: null as number | null,
   });
 
-  // Generate two different point clouds
   const pcData1 = React.useMemo(() => generateSpherePointCloud(500, 0.5), []);
   const pcData2 = generateSpherePointCloud(300, 0.3);
 
@@ -1953,7 +1771,7 @@ export function App(){
       {indexes: [hoveredIndices.pc1], color: [1, 1, 0], alpha: 1, minSize: 0.05}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, pc1: i})),
-    onClick: (i) => console.log("Clicked point in cloud 1 #", i)  // Changed from alert
+    onClick: (i) => console.log("Clicked point in cloud 1 #", i)
   };
 
   const pcElement2: PointCloudElementConfig = {
@@ -1963,17 +1781,17 @@ export function App(){
       {indexes: [hoveredIndices.pc2], color: [0, 1, 0], alpha: 1, minSize: 0.05}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, pc2: i})),
-    onClick: (i) => console.log("Clicked point in cloud 2 #", i)  // Changed from alert
+    onClick: (i) => console.log("Clicked point in cloud 2 #", i)
   };
 
   // Ellipsoids
   const eCenters1 = new Float32Array([0, 0, 0.6, 0, 0, 0.3, 0, 0, 0]);
-  const eRadii1 = new Float32Array([0.1, 0.1, 0.1, 0.15, 0.15, 0.15, 0.2, 0.2, 0.2]);
+  const eRadii1 =  new Float32Array([0.1,0.1,0.1, 0.15,0.15,0.15, 0.2,0.2,0.2]);
   const eColors1 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
 
-  const eCenters2 = new Float32Array([0.5, 0.5, 0.5, -0.5, -0.5, -0.5, 0.5, -0.5, 0.5]);
-  const eRadii2 = new Float32Array([0.2, 0.2, 0.2, 0.1, 0.1, 0.1, 0.15, 0.15, 0.15]);
-  const eColors2 = new Float32Array([0, 1, 1, 1, 0, 1, 1, 1, 0]);
+  const eCenters2 = new Float32Array([0.5,0.5,0.5, -0.5,-0.5,-0.5, 0.5,-0.5,0.5]);
+  const eRadii2  = new Float32Array([0.2,0.2,0.2, 0.1,0.1,0.1, 0.15,0.15,0.15]);
+  const eColors2 = new Float32Array([0,1,1, 1,0,1, 1,1,0]);
 
   const ellipsoidElement1: EllipsoidElementConfig = {
     type: 'Ellipsoid',
@@ -1982,7 +1800,7 @@ export function App(){
       {indexes: [hoveredIndices.ellipsoid1], color: [1, 0, 1], alpha: 0.8}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, ellipsoid1: i})),
-    onClick: (i) => console.log("Clicked ellipsoid in group 1 #", i)  // Changed from alert
+    onClick: (i) => console.log("Clicked ellipsoid in group 1 #", i)
   };
 
   const ellipsoidElement2: EllipsoidElementConfig = {
@@ -1992,7 +1810,7 @@ export function App(){
       {indexes: [hoveredIndices.ellipsoid2], color: [0, 1, 0], alpha: 0.8}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, ellipsoid2: i})),
-    onClick: (i) => console.log("Clicked ellipsoid in group 2 #", i)  // Changed from alert
+    onClick: (i) => console.log("Clicked ellipsoid in group 2 #", i)
   };
 
   // Ellipsoid Bounds
@@ -2003,7 +1821,7 @@ export function App(){
       {indexes: [hoveredIndices.bounds1], color: [0, 1, 1], alpha: 1}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, bounds1: i})),
-    onClick: (i) => console.log("Clicked bounds in group 1 #", i)  // Changed from alert
+    onClick: (i) => console.log("Clicked bounds in group 1 #", i)
   };
 
   const boundsElement2: EllipsoidBoundsElementConfig = {
@@ -2017,7 +1835,7 @@ export function App(){
       {indexes: [hoveredIndices.bounds2], color: [1, 0, 0], alpha: 1}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, bounds2: i})),
-    onClick: (i) => console.log("Clicked bounds in group 2 #", i)  // Changed from alert
+    onClick: (i) => console.log("Clicked bounds in group 2 #", i)
   };
 
   // Cuboid Examples
@@ -2028,7 +1846,7 @@ export function App(){
       {indexes: [hoveredIndices.cuboid1], color: [1,1,0], alpha: 1}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, cuboid1: i})),
-    onClick: (i) => console.log("Clicked cuboid in group 1 #", i)  // Changed from alert
+    onClick: (i) => console.log("Clicked cuboid in group 1 #", i)
   };
 
   const cuboidElement2: CuboidElementConfig = {
@@ -2038,7 +1856,7 @@ export function App(){
       {indexes: [hoveredIndices.cuboid2], color: [1,0,1], alpha: 1}
     ],
     onHover: (i) => setHoveredIndices(prev => ({...prev, cuboid2: i})),
-    onClick: (i) => console.log("Clicked cuboid in group 2 #", i)  // Changed from alert
+    onClick: (i) => console.log("Clicked cuboid in group 2 #", i)
   };
 
   const elements: SceneElementConfig[] = [
@@ -2056,12 +1874,8 @@ export function App(){
 }
 
 /******************************************************
- * 6) Minimal WGSL code for pipelines
+ * 6) Minimal WGSL code
  ******************************************************/
-
-/**
- * Billboarding vertex/frag for "PointCloud"
- */
 const billboardVertCode = /*wgsl*/`
 struct Camera {
   mvp: mat4x4<f32>,
@@ -2106,9 +1920,6 @@ fn fs_main(@location(0) color: vec3<f32>, @location(1) alpha: f32)-> @location(0
 }
 `;
 
-/**
- * "Ellipsoid" sphere shading
- */
 const ellipsoidVertCode = /*wgsl*/`
 struct Camera {
   mvp: mat4x4<f32>,
@@ -2173,7 +1984,6 @@ fn fs_main(
   let N = normalize(normal);
   let L = normalize(camera.lightDir);
   let lambert = max(dot(N,L), 0.0);
-
   let ambient = ${LIGHTING.AMBIENT_INTENSITY};
   var color = baseColor * (ambient + lambert*${LIGHTING.DIFFUSE_INTENSITY});
 
@@ -2186,9 +1996,6 @@ fn fs_main(
 }
 `;
 
-/**
- * "EllipsoidBounds" ring shading
- */
 const ringVertCode = /*wgsl*/`
 struct Camera {
   mvp: mat4x4<f32>,
@@ -2219,18 +2026,13 @@ fn vs_main(
   @location(4) color: vec3<f32>,
   @location(5) alpha: f32
 )-> VSOut {
-  // We create 3 rings per ellipsoid => so the instance ID %3 picks which plane
   let ringIndex = i32(instID % 3u);
   var lp = inPos;
-
-  // transform from XZ plane to XY, YZ, or XZ
   if(ringIndex==0){
-    // rotate XZ->XY
     let tmp = lp.z;
     lp.z = -lp.y;
     lp.y = tmp;
   } else if(ringIndex==1){
-    // rotate XZ->YZ
     let px = lp.x;
     lp.x = -lp.y;
     lp.y = px;
@@ -2238,11 +2040,8 @@ fn vs_main(
     lp.z = lp.x;
     lp.x = pz;
   }
-  // ringIndex==2 => leave as is
-
   lp *= scale;
   let wp = center + lp;
-
   var out: VSOut;
   out.pos = camera.mvp * vec4<f32>(wp,1.0);
   out.normal = inNorm;
@@ -2261,15 +2060,11 @@ fn fs_main(
   @location(3) a: f32,
   @location(4) wp: vec3<f32>
 )-> @location(0) vec4<f32> {
-  // For simplicity, no lighting => just color
+  // simple color
   return vec4<f32>(c, a);
 }
 `;
 
-/**
- * "Cuboid" shading: basically the same as the Ellipsoid approach,
- * but for a cube geometry, using "center + inPos*sizes".
- */
 const cuboidVertCode = /*wgsl*/`
 struct Camera {
   mvp: mat4x4<f32>,
@@ -2300,9 +2095,7 @@ fn vs_main(
   @location(5) alpha: f32
 )-> VSOut {
   let worldPos = center + (inPos * size);
-  // We'll also scale the normal by 1/size in case they're not uniform, to keep lighting correct:
   let scaledNorm = normalize(inNorm / size);
-
   var out: VSOut;
   out.pos = camera.mvp * vec4<f32>(worldPos,1.0);
   out.normal = scaledNorm;
@@ -2335,7 +2128,6 @@ fn fs_main(
   let N = normalize(normal);
   let L = normalize(camera.lightDir);
   let lambert = max(dot(N,L), 0.0);
-
   let ambient = ${LIGHTING.AMBIENT_INTENSITY};
   var color = baseColor * (ambient + lambert*${LIGHTING.DIFFUSE_INTENSITY});
 
@@ -2348,9 +2140,6 @@ fn fs_main(
 }
 `;
 
-/**
- * Minimal picking WGSL
- */
 const pickingVertCode = /*wgsl*/`
 struct Camera {
   mvp: mat4x4<f32>,
@@ -2441,7 +2230,7 @@ fn vs_cuboid(
 
 @fragment
 fn fs_pick(@location(0) pickID: f32)-> @location(0) vec4<f32> {
-  let iID=u32(pickID);
+  let iID = u32(pickID);
   let r = f32(iID & 255u)/255.0;
   let g = f32((iID>>8)&255u)/255.0;
   let b = f32((iID>>16)&255u)/255.0;
