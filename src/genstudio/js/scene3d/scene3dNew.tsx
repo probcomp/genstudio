@@ -1234,6 +1234,9 @@ function Scene({ elements, containerWidth }: SceneProps) {
   // We'll also track a picking lock
   const pickingLockRef = useRef(false);
 
+  // Add hover state tracking
+  const lastHoverState = useRef<{elementIdx: number, instanceIdx: number} | null>(null);
+
   // ---------- Minimal math utils ----------
   function mat4Multiply(a: Float32Array, b: Float32Array) {
     const out = new Float32Array(16);
@@ -1602,26 +1605,37 @@ function Scene({ elements, containerWidth }: SceneProps) {
     }
   }
 
-  function handleHoverID(pickedID:number){
-    if(!gpuRef.current) return;
-    const {idToElement} = gpuRef.current;
-    if(!idToElement[pickedID]){
-      // no object => clear hover
-      for(const e of elements) e.onHover?.(null);
+  function handleHoverID(pickedID: number) {
+    if (!gpuRef.current) return;
+    const { idToElement } = gpuRef.current;
+
+    // Get new hover state
+    const newHoverState = idToElement[pickedID] || null;
+
+    // If hover state hasn't changed, do nothing
+    if ((!lastHoverState.current && !newHoverState) ||
+        (lastHoverState.current && newHoverState &&
+         lastHoverState.current.elementIdx === newHoverState.elementIdx &&
+         lastHoverState.current.instanceIdx === newHoverState.instanceIdx)) {
       return;
     }
-    const {elementIdx, instanceIdx} = idToElement[pickedID];
-    if(elementIdx<0||elementIdx>=elements.length){
-      for(const e of elements) e.onHover?.(null);
-      return;
+
+    // Clear previous hover if it exists
+    if (lastHoverState.current) {
+      const prevElement = elements[lastHoverState.current.elementIdx];
+      prevElement?.onHover?.(null);
     }
-    elements[elementIdx].onHover?.(instanceIdx);
-    // clear hover on others
-    for(let i=0;i<elements.length;i++){
-      if(i!==elementIdx){
-        elements[i].onHover?.(null);
+
+    // Set new hover if it exists
+    if (newHoverState) {
+      const { elementIdx, instanceIdx } = newHoverState;
+      if (elementIdx >= 0 && elementIdx < elements.length) {
+        elements[elementIdx].onHover?.(instanceIdx);
       }
     }
+
+    // Update last hover state
+    lastHoverState.current = newHoverState;
   }
 
   function handleClickID(pickedID:number){
@@ -1648,6 +1662,14 @@ function Scene({ elements, containerWidth }: SceneProps) {
     dragDistance?: number;
   }
   const mouseState=useRef<MouseState>({type:'idle'});
+
+  // Add throttling for hover picking
+  const throttledPickAtScreenXY = useCallback(
+    throttle((x: number, y: number, mode: 'hover'|'click') => {
+      pickAtScreenXY(x, y, mode);
+    }, 32), // ~30fps
+    [pickAtScreenXY]
+  );
 
   const handleMouseMove=useCallback((e:ReactMouseEvent)=>{
     if(!canvasRef.current) return;
@@ -1679,10 +1701,10 @@ function Scene({ elements, containerWidth }: SceneProps) {
       st.lastX=e.clientX;
       st.lastY=e.clientY;
     } else if(st.type==='idle'){
-      // picking => hover
-      pickAtScreenXY(x,y,'hover');
+      // Use throttled version for hover picking
+      throttledPickAtScreenXY(x, y, 'hover');
     }
-  },[pickAtScreenXY]);
+  },[throttledPickAtScreenXY]);
 
   const handleMouseDown=useCallback((e:ReactMouseEvent)=>{
     mouseState.current={
@@ -2390,3 +2412,18 @@ fn fs_pick(@location(0) pickID: f32)-> @location(0) vec4<f32> {
   return vec4<f32>(r,g,b,1.0);
 }
 `;
+
+// Add this at the top with other imports
+function throttle<T extends (...args: any[]) => void>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle = false;
+  return function(this: any, ...args: Parameters<T>) {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
