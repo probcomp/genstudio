@@ -18,12 +18,6 @@ jobs:
     - name: Check out repository
       uses: actions/checkout@v4
 
-    - name: Debug Info
-      run: |
-        echo "Current branch: ${{ github.ref }}"
-        echo "Event name: ${{ github.event_name }}"
-        echo "Commit SHA: ${{ github.sha }}"
-
     - name: Yarn deps
       run: yarn install --frozen-lockfile --production=false
 
