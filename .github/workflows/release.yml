@@ -92,14 +92,6 @@ jobs:
           poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
           poetry publish
 
-      - name: Create GitHub Release
-        if: steps.versions.outputs.IS_DEV == 'false'
-        uses: softprops/action-gh-release@v1
-        with:
-          body_path: docs/CHANGELOG.md
-          files: |
-            dist/*
-
       - name: Setup Node.js for npm publishing
         uses: actions/setup-node@v4
         with:
@@ -119,3 +111,11 @@ jobs:
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # does not work when the trigger is not tag
+      # - name: Create GitHub Release
+      #   if: steps.versions.outputs.IS_DEV == 'false'
+      #   uses: softprops/action-gh-release@v1
+      #   with:
+      #     body_path: docs/CHANGELOG.md
+      #     files: |
+      #       dist/*
