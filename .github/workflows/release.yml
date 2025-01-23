@@ -112,11 +112,14 @@ jobs:
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      # does not work when the trigger is not tag
-      # - name: Create GitHub Release
-      #   if: steps.versions.outputs.IS_DEV == 'false'
-      #   uses: softprops/action-gh-release@v1
-      #   with:
-      #     body_path: docs/CHANGELOG.md
-      #     files: |
-      #       dist/*
+      - name: Parse latest changelog entry
+        id: changelog
+        run: |
+          # Extract everything from start until the second occurrence of a line starting with ###
+          awk '/^###/{count++; if(count==2){exit} if(count==1){p=1}} p{print}' CHANGELOG.md > release_notes.md
+      - name: Create GitHub Release
+        if: steps.versions.outputs.IS_DEV == 'false'
+        uses: ncipollo/release-action@v1
+        with:
+          bodyFile: release_notes.md
+          artifacts: "dist/*"
