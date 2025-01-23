@@ -46,12 +46,13 @@ jobs:
           HAS_TAG=$(git tag --points-at HEAD)
 
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" && -z "$HAS_TAG" ]]; then
-            # For dev versions, use YYYY.M.D.devHHMM format (PEP 440 compliant)
-            BASE_VERSION=$(date +'%Y.%-m.%-d')
-            TIME_VERSION=$(date +'%-H%M')
-            # Use time as dev version number
-            PYTHON_VERSION="${BASE_VERSION}.dev${TIME_VERSION}"
-            NPM_VERSION="${BASE_VERSION}-dev.${TIME_VERSION}"
+            # Get current version from pyproject.toml for the base
+            BASE_VERSION=$(poetry version -s)
+            # Create dev number from full date/time (YYYYMMDDHHMM)
+            DEV_VERSION=$(date +'%Y%m%d%H%M')
+            # Use base version with dev suffix
+            PYTHON_VERSION="${BASE_VERSION}.dev${DEV_VERSION}"
+            NPM_VERSION="${BASE_VERSION}-dev.${DEV_VERSION}"
             echo "IS_DEV=true" >> $GITHUB_OUTPUT
             # Update version in pyproject.toml for dev releases
             poetry version ${PYTHON_VERSION}
