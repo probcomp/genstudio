@@ -36,11 +36,6 @@ jobs:
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
 
-      - name: Update version query params in widget.py
-        run: |
-          VERSION=$(poetry version -s)
-          python scripts/update_asset_versions.py $VERSION
-
       - name: Install deps
         run: poetry install --without dev
 
@@ -65,6 +60,11 @@ jobs:
 
           echo "PYTHON_VERSION=${PYTHON_VERSION}" >> $GITHUB_OUTPUT
           echo "NPM_VERSION=${NPM_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Update version query params in widget.py
+        run: |
+          VERSION=${{ steps.versions.outputs.PYTHON_VERSION }}
+          python scripts/update_asset_versions.py $VERSION
 
       - name: Update widget URL and build Python package
         run: |
