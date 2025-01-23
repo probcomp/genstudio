@@ -5,9 +5,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*.*.*'
-      - 'v*.*.*.alpha*'
   release:
     types: [published]
 
@@ -39,35 +36,6 @@ jobs:
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
 
-      - name: Check if triggered by push to main
-        id: check_trigger
-        run: |
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "DEV_CHANNEL=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.ref }}" =~ ^refs/tags/v.*\.alpha ]]; then
-            echo "ALPHA_CHANNEL=true" >> $GITHUB_OUTPUT
-          else
-            echo "DEV_CHANNEL=false" >> $GITHUB_OUTPUT
-            echo "ALPHA_CHANNEL=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Get current date and time
-        if: steps.check_trigger.outputs.DEV_CHANNEL == 'true'
-        id: datetime
-        run: |
-          echo "NEXT_VERSION=$(date +'%Y.%m.%d.%H%M.dev')" >> $GITHUB_ENV
-
-      - name: Extract version from tag for alpha releases
-        if: steps.check_trigger.outputs.ALPHA_CHANNEL == 'true'
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "NEXT_VERSION=$VERSION" >> $GITHUB_ENV
-
-      - name: Update version in pyproject.toml
-        if: steps.check_trigger.outputs.DEV_CHANNEL == 'true' || steps.check_trigger.outputs.ALPHA_CHANNEL == 'true'
-        run: |
-          poetry version ${{ env.NEXT_VERSION }}
-
       - name: Update version query params in widget.py
         run: |
           VERSION=$(poetry version -s)
@@ -76,18 +44,31 @@ jobs:
       - name: Install deps
         run: poetry install --without dev
 
-      - name: Update widget URL and build Python package
+      - name: Set version components
+        id: versions
         run: |
-          VERSION=$(poetry version -s)
-
-          if [[ $VERSION == *.dev ]]; then
-            DATE_TIME=$(echo $VERSION | sed 's/\.dev$//')
-            NPM_VERSION="0.0.0-dev.$(echo $DATE_TIME | sed 's/\.//g')"
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" && -z "${{ github.ref_type }}" ]]; then
+            # For dev versions, generate from current date/time
+            BASE_VERSION=$(date +'%Y.%-m.%-d')
+            TIME_VERSION=$(date +'%-H%M')
+            PYTHON_VERSION="${BASE_VERSION}.dev${TIME_VERSION}"
+            NPM_VERSION="${BASE_VERSION}-dev${TIME_VERSION}"
+            echo "IS_DEV=true" >> $GITHUB_OUTPUT
+            # Update version in pyproject.toml for dev releases
+            poetry version ${PYTHON_VERSION}
           else
-            NPM_VERSION=$VERSION
+            # For release versions, use the existing version
+            PYTHON_VERSION=$(poetry version -s)
+            NPM_VERSION=$PYTHON_VERSION
+            echo "IS_DEV=false" >> $GITHUB_OUTPUT
           fi
 
-          NPM_BASE="https://cdn.jsdelivr.net/npm/@probcomp/genstudio@${NPM_VERSION}/dist"
+          echo "PYTHON_VERSION=${PYTHON_VERSION}" >> $GITHUB_OUTPUT
+          echo "NPM_VERSION=${NPM_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Update widget URL and build Python package
+        run: |
+          NPM_BASE="https://cdn.jsdelivr.net/npm/@probcomp/genstudio@${{ steps.versions.outputs.NPM_VERSION }}/dist"
           JSDELIVR_JS_URL="${NPM_BASE}/widget_build.js"
           JSDELIVR_CSS_URL="${NPM_BASE}/widget.css"
 
@@ -108,7 +89,7 @@ jobs:
           poetry publish
 
       - name: Create GitHub Release
-        if: steps.check_trigger.outputs.DEV_CHANNEL == 'false'
+        if: steps.versions.outputs.IS_DEV == 'false'
         uses: softprops/action-gh-release@v1
         with:
           body_path: docs/CHANGELOG.md
@@ -123,23 +104,14 @@ jobs:
 
       - name: Publish to npm
         run: |
-          VERSION=$(poetry version -s)
-
-          if [[ $VERSION == *.dev ]]; then
-            DATE_TIME=$(echo $VERSION | sed 's/\.dev$//')
-            NPM_VERSION="0.0.0-dev.$(echo $DATE_TIME | sed 's/\.//g')"
-          else
-            NPM_VERSION=$VERSION
-          fi
-
-          npm version $NPM_VERSION --no-git-tag-version
+          npm version ${{ steps.versions.outputs.NPM_VERSION }} --no-git-tag-version
 
           # Copy both files to npm dist directory
           mkdir -p dist
           cp src/genstudio/js/widget_build.js dist/
           cp src/genstudio/widget.css dist/
 
-          echo "Publishing npm package version $NPM_VERSION"
+          echo "Publishing npm package version ${{ steps.versions.outputs.NPM_VERSION }}"
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,4 +1,3 @@
-import re
 from datetime import datetime
 import subprocess
 import toml
@@ -51,19 +50,6 @@ def update_pyproject_toml(new_version):
         toml.dump(data, f)
 
     print(f"Updated pyproject.toml with new version: {new_version}")
-
-
-def update_readme(new_version):
-    with open("README.md", "r") as f:
-        content = f.read()
-
-    # Update version in README (assuming there's a line like "Current version: X.Y.Z")
-    updated_content = re.sub(
-        r"Current version: `.+`", f"Current version: `{new_version}`", content
-    )
-
-    with open("README.md", "w") as f:
-        f.write(updated_content)
 
 
 def update_changelog(new_version):
@@ -164,16 +150,15 @@ def main():
         return
 
     update_pyproject_toml(new_version)
-    update_readme(new_version)
 
     # Add changes
-    subprocess.run(["git", "add", "pyproject.toml", "README.md", "CHANGELOG.md"])
+    subprocess.run(["git", "add", "pyproject.toml", "CHANGELOG.md"])
 
     # Run pre-commit
     subprocess.run(["pre-commit", "run", "--all-files"])
 
     # Add changes again (in case pre-commit made modifications)
-    subprocess.run(["git", "add", "pyproject.toml", "README.md", "CHANGELOG.md"])
+    subprocess.run(["git", "add", "pyproject.toml", "CHANGELOG.md"])
 
     # Commit changes
     subprocess.run(["git", "commit", "-m", f"Release version {new_version}"])
