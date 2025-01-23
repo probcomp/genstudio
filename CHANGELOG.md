@@ -1,3 +1,7 @@
+### [2025.01.005] - Jan 23, 2025
+
+- release to PyPI instead of artifact registry
+
 ### [2025.01.004] - Jan 16, 2025
 
 - support html display mode
