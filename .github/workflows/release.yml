@@ -1,4 +1,4 @@
-name: Release to Artifact Registry
+name: Release to PyPI
 
 on:
   workflow_dispatch:
@@ -17,7 +17,6 @@ jobs:
 
     permissions:
       contents: 'write'
-      id-token: 'write'
 
     steps:
       - uses: actions/checkout@v4
@@ -27,14 +26,6 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: 3.11.5
-
-      - id: auth
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: "${{ secrets.ARTIFACT_REGISTRY_KEY }}"
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
 
       - name: Install dependencies with Yarn
         run: yarn install --frozen-lockfile --production=false
@@ -47,11 +38,6 @@ jobs:
 
       - name: Install and configure Poetry
         uses: snok/install-poetry@v1
-
-      - name: Configure deploy keys
-        run: |
-          poetry self add keyrings.google-artifactregistry-auth
-          poetry config repositories.gcp https://us-west1-python.pkg.dev/probcomp-caliban/probcomp/
 
       - name: Check if triggered by push to main
         id: check_trigger
@@ -113,12 +99,13 @@ jobs:
 
           git checkout src/genstudio/util.py
 
-      - name: Deploy to Artifact Registry
+      - name: Deploy to PyPI
         run: |
           echo "=== Checking build artifacts ==="
           ls -la dist/
-          echo "=== Publishing ==="
-          poetry publish --repository gcp
+          echo "=== Publishing to PyPI ==="
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+          poetry publish
 
       - name: Create GitHub Release
         if: steps.check_trigger.outputs.DEV_CHANNEL == 'false'
