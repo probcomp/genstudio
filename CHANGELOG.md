@@ -1,4 +1,4 @@
-### [2025.01.005] - Jan 23, 2025
+### [2025.01.006] - Jan 23, 2025
 
 - release to PyPI instead of artifact registry
 
