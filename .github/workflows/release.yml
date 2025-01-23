@@ -42,7 +42,10 @@ jobs:
       - name: Set version components
         id: versions
         run: |
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" && -z "${{ github.ref_type }}" ]]; then
+          # Check if current commit has a tag
+          HAS_TAG=$(git tag --points-at HEAD)
+
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" && -z "$HAS_TAG" ]]; then
             # For dev versions, generate from current date/time
             BASE_VERSION=$(date +'%Y.%-m.%-d')
             TIME_VERSION=$(date +'%-H%M')
