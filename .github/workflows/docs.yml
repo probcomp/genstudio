@@ -2,17 +2,22 @@ name: Docs Website
 
 on:
   push:
-    branches:
-      - main
+    branches: ["main"]
   workflow_dispatch:
 
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
-  id-token: write
-  actions: read
   contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 jobs:
-  prepare:
+  build:
     runs-on: ubuntu-latest
     steps:
     - name: Check out repository
@@ -48,19 +53,20 @@ jobs:
       run: poetry run mkdocs build
     - name: Copy llms.py to site
       run: cp docs/llms.py ./site/
-    - name: Artifact upload
-      uses: actions/upload-artifact@v4
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v3
       with:
-        name: website
-        path: ./site
+        path: './site'
 
-  publish:
-    if: github.ref == 'refs/heads/main'
-    permissions:
-        contents: read
-        id-token: write
-    needs: prepare
-    uses: probcomp/gen-website-private/.github/workflows/publish_private_website.yml@main
-    with:
-      artifact: website
-      subdomain: studio
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
