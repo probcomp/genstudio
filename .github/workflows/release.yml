@@ -133,6 +133,7 @@ jobs:
           awk '/^###/{count++; if(count==2){exit} if(count==1){p=1}} p{print}' CHANGELOG.md > release_notes.md
 
       - name: Create GitHub Release
+        if: github.ref_type == 'tag' && !contains(github.ref, '.alpha')
         uses: ncipollo/release-action@v1
         with:
           bodyFile: release_notes.md
