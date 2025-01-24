@@ -13,8 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       skip: ${{ steps.check.outputs.skip }}
-      python_version: ${{ steps.versions.outputs.PYTHON_VERSION }}
-      npm_version: ${{ steps.versions.outputs.NPM_VERSION }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,8 +27,32 @@ jobs:
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
+  build:
+    needs: check
+    if: needs.check.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11.5
+
+      - name: Install dependencies with Yarn
+        run: yarn install --frozen-lockfile --production=false
+
+      - name: build the javascript bundle
+        run: |
+          yarn build
+          # Force Git to track the build file temporarily
+          git add -f src/genstudio/js/widget_build.js
+
+      - name: Install and configure Poetry
+        uses: snok/install-poetry@v1
+
       - name: Set version components
-        if: steps.check.outputs.skip != 'true'
         id: versions
         run: |
           # Handle different version scenarios
@@ -53,27 +75,6 @@ jobs:
 
           echo "PYTHON_VERSION=${PYTHON_VERSION}" >> $GITHUB_OUTPUT
           echo "NPM_VERSION=${NPM_VERSION}" >> $GITHUB_OUTPUT
-
-  build:
-    needs: check
-    if: needs.check.outputs.skip != 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/setup-python@v4
-        with:
-          python-version: 3.11.5
-
-      - name: Install dependencies with Yarn
-        run: yarn install --frozen-lockfile --production=false
-
-      - name: build the javascript bundle
-        run: |
-          yarn build
-          # Force Git to track the build file temporarily
-          git add -f src/genstudio/js/widget_build.js
-
-      - name: Install and configure Poetry
-        uses: snok/install-poetry@v1
 
       - name: Install deps
         run: poetry install --without dev
