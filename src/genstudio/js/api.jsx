@@ -13,10 +13,10 @@ import { joinClasses, tw } from "./utils";
 const { useState, useEffect, useContext, useRef, useCallback } = React
 import Katex from "katex";
 import markdownItKatex from "./markdown-it-katex";
-import * as scene3d from "./scene3d/scene3d"
-import * as scene3dNew from "./scene3d/scene3dNew"
+import * as scene3d from "./scene3d/scene3dNew"
 
-export { render, scene3d, scene3dNew };
+export { render, scene3d };
+
 export const CONTAINER_PADDING = 10;
 const KATEX_CSS_URL = "https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
 
@@ -325,6 +325,7 @@ function renderArray($state, value) {
     const [element, ...args] = value
     const maybeElement = element && $state.evaluate(element)
     const elementType = typeof maybeElement
+    console.log("Element", maybeElement, typeof maybeElement)
 
     if (elementType === 'string' || elementType === 'function' || (typeof maybeElement === 'object' && maybeElement !== null && "$$typeof" in maybeElement)) {
         return Hiccup(maybeElement, ...args)
@@ -357,6 +358,7 @@ function DOMElementWrapper({ element }) {
 
 export const Node = mobxReact.observer(
     function ({ value }) {
+        console.log("V", value)
         const $state = useContext($StateContext)
 
         // handle pre-evaluated arrays

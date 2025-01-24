@@ -1170,12 +1170,12 @@ interface SceneProps {
   containerWidth: number;
 }
 
-export function SceneWrapper({ elements }: { elements: SceneElementConfig[] }) {
+export function Scene({ elements }: { elements: SceneElementConfig[] }) {
   const [containerRef, measuredWidth] = useContainerWidth(1);
   return (
     <div ref={containerRef} style={{ width: '100%', height: '600px' }}>
       {measuredWidth > 0 && (
-        <Scene containerWidth={measuredWidth} elements={elements} />
+        <SceneInner containerWidth={measuredWidth} elements={elements} />
       )}
     </div>
   );
@@ -1184,7 +1184,7 @@ export function SceneWrapper({ elements }: { elements: SceneElementConfig[] }) {
 /******************************************************
  * 4.1) The Scene Component
  ******************************************************/
-function Scene({ elements, containerWidth }: SceneProps) {
+function SceneInner({ elements, containerWidth }: SceneProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const safeWidth = containerWidth > 0 ? containerWidth : 300;
   const canvasWidth = safeWidth;
@@ -2044,7 +2044,7 @@ export function App(){
     cuboidElement2
   ];
 
-  return <SceneWrapper elements={elements} />;
+  return <Scene elements={elements} />;
 }
 
 /******************************************************
