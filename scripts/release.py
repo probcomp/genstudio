@@ -28,13 +28,21 @@ def get_next_version(alpha_name=None):
     else:
         # Original version logic for regular releases
         today = datetime.now()
-        year_month = today.strftime("%Y.%m")
+        year = today.year
+        month = today.month
+        year_month = f"{year}.{month}"
+
+        # Match both formats by providing both patterns
+        padded_month = f"{month:02d}"
         tags = (
-            subprocess.check_output(["git", "tag", "-l", f"v{year_month}.*"])
+            subprocess.check_output(
+                ["git", "tag", "-l", f"v{year}.{month}.*", f"v{year}.{padded_month}.*"]
+            )
             .decode()
             .strip()
             .split("\n")
         )
+
         release_tags = [tag[1:] for tag in tags if tag and not tag.endswith(".dev")]
 
         if not release_tags:
