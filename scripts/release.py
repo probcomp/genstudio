@@ -15,29 +15,34 @@ def check_working_directory():
         sys.exit(1)
 
 
-def get_next_version():
-    today = datetime.now()
-    year_month = today.strftime("%Y.%m")
+def get_next_version(alpha_name=None):
+    if alpha_name:
+        # Get current version from pyproject.toml
+        with open("pyproject.toml", "r") as f:
+            data = toml.load(f)
+        base_version = data["tool"]["poetry"]["version"]
 
-    # Read all tags, including those with 'v' prefix
-    tags = (
-        subprocess.check_output(["git", "tag", "-l", f"v{year_month}.[0-9][0-9][0-9]"])
-        .decode()
-        .strip()
-        .split("\n")
-    )
+        # Create alpha version with timestamp (YYYYMMDDHHMM)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M")
+        return f"{base_version}.alpha{timestamp}"
+    else:
+        # Original version logic for regular releases
+        today = datetime.now()
+        year_month = today.strftime("%Y.%m")
+        tags = (
+            subprocess.check_output(["git", "tag", "-l", f"v{year_month}.*"])
+            .decode()
+            .strip()
+            .split("\n")
+        )
+        release_tags = [tag[1:] for tag in tags if tag and not tag.endswith(".dev")]
 
-    # Filter out dev versions and empty strings, and remove 'v' prefix
-    release_tags = [tag[1:] for tag in tags if tag and not tag.endswith(".dev")]
+        if not release_tags:
+            return f"{year_month}.1"
 
-    if not release_tags:
-        return f"{year_month}.001"
-
-    # Extract the highest patch number
-    patch_numbers = [int(tag.split(".")[-1]) for tag in release_tags]
-    next_patch = max(patch_numbers) + 1
-
-    return f"{year_month}.{next_patch:03d}"
+        patch_numbers = [int(tag.split(".")[-1]) for tag in release_tags]
+        next_patch = max(patch_numbers) + 1
+        return f"{year_month}.{next_patch}"
 
 
 def update_pyproject_toml(new_version):
@@ -143,22 +148,37 @@ def main():
     # Check for uncommitted changes
     check_working_directory()
 
-    new_version = get_next_version()
+    # Add command line argument parsing
+    alpha_name = None
+    if len(sys.argv) > 2 and sys.argv[1] == "--alpha":
+        alpha_name = sys.argv[2]
+        skip_changelog = True
+    else:
+        skip_changelog = False
 
-    if not update_changelog(new_version):
-        print("Release process cancelled.")
-        return
+    new_version = get_next_version(alpha_name)
+    files_to_add = []
 
-    update_pyproject_toml(new_version)
-
+    # Print version prominently for easy copying
+    if alpha_name:
+        print("\n" + "=" * 50)
+        print(f"Alpha version: {new_version}")
+        print("=" * 50 + "\n")
+        # Skip pyproject.toml and README updates for alpha releases
+    else:
+        if not skip_changelog and not update_changelog(new_version):
+            print("Release process cancelled.")
+            return
+        update_pyproject_toml(new_version)
+        files_to_add.extend(["pyproject.toml", "CHANGELOG.md"])
     # Add changes
-    subprocess.run(["git", "add", "pyproject.toml", "CHANGELOG.md"])
+    subprocess.run(["git", "add"] + files_to_add)
 
     # Run pre-commit
     subprocess.run(["pre-commit", "run", "--all-files"])
 
     # Add changes again (in case pre-commit made modifications)
-    subprocess.run(["git", "add", "pyproject.toml", "CHANGELOG.md"])
+    subprocess.run(["git", "add"] + files_to_add)
 
     # Commit changes
     subprocess.run(["git", "commit", "-m", f"Release version {new_version}"])

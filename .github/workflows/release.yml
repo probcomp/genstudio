@@ -5,8 +5,8 @@ on:
   push:
     branches:
       - main
-  release:
-    types: [published]
+    tags:
+      - 'v*'
 
 jobs:
   release:
@@ -45,33 +45,43 @@ jobs:
           # Check if current commit has a tag
           HAS_TAG=$(git tag --points-at HEAD)
 
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" && -z "$HAS_TAG" ]]; then
-            # Get current version from pyproject.toml for the base
+          # If we're on main and there's a tag, skip the build
+          if [[ "${{ github.ref }}" == "refs/heads/main" && -n "$HAS_TAG" ]]; then
+            echo "CONTINUE=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "CONTINUE=true" >> $GITHUB_OUTPUT
+
+          # Handle different version scenarios
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            # Dev version for main pushes without tag
             BASE_VERSION=$(poetry version -s)
-            # Create dev number from full date/time (YYYYMMDDHHMM)
             DEV_VERSION=$(date +'%Y%m%d%H%M')
-            # Use base version with dev suffix
             PYTHON_VERSION="${BASE_VERSION}.dev${DEV_VERSION}"
             NPM_VERSION="${BASE_VERSION}-dev.${DEV_VERSION}"
-            echo "IS_DEV=true" >> $GITHUB_OUTPUT
-            # Update version in pyproject.toml for dev releases
             poetry version ${PYTHON_VERSION}
+          elif [[ "${{ github.ref }}" =~ ^refs/tags/v.*\.alpha ]]; then
+            # Alpha release from tag
+            PYTHON_VERSION=${GITHUB_REF#refs/tags/v}
+            NPM_VERSION=${PYTHON_VERSION/alpha/-alpha.}
           else
-            # For release versions, use the existing version
+            # Regular release from tag
             PYTHON_VERSION=$(poetry version -s)
             NPM_VERSION=$PYTHON_VERSION
-            echo "IS_DEV=false" >> $GITHUB_OUTPUT
           fi
 
           echo "PYTHON_VERSION=${PYTHON_VERSION}" >> $GITHUB_OUTPUT
           echo "NPM_VERSION=${NPM_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Update version query params in widget.py
+        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           VERSION=${{ steps.versions.outputs.PYTHON_VERSION }}
           python scripts/update_asset_versions.py $VERSION
 
       - name: Update widget URL and build Python package
+        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           NPM_BASE="https://cdn.jsdelivr.net/npm/@probcomp/genstudio@${{ steps.versions.outputs.NPM_VERSION }}/dist"
           JSDELIVR_JS_URL="${NPM_BASE}/widget_build.js"
@@ -86,6 +96,7 @@ jobs:
           git checkout src/genstudio/util.py
 
       - name: Deploy to PyPI
+        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           echo "=== Checking build artifacts ==="
           ls -la dist/
@@ -94,12 +105,14 @@ jobs:
           poetry publish
 
       - name: Setup Node.js for npm publishing
+        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Publish to npm
+        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           npm version ${{ steps.versions.outputs.NPM_VERSION }} --no-git-tag-version
 
@@ -112,13 +125,16 @@ jobs:
           npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Parse latest changelog entry
+        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         id: changelog
         run: |
           # Extract everything from start until the second occurrence of a line starting with ###
           awk '/^###/{count++; if(count==2){exit} if(count==1){p=1}} p{print}' CHANGELOG.md > release_notes.md
+
       - name: Create GitHub Release
-        if: steps.versions.outputs.IS_DEV == 'false'
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '.alpha') && fromJSON(steps.versions.outputs.CONTINUE) }}
         uses: ncipollo/release-action@v1
         with:
           bodyFile: release_notes.md
