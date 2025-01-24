@@ -2,7 +2,7 @@
 /// <reference types="react" />
 
 import React, {
-  useRef, useEffect, useState, useCallback, MouseEvent as ReactMouseEvent
+  useRef, useEffect, useState, useCallback, MouseEvent as ReactMouseEvent, useMemo
 } from 'react';
 import { useContainerWidth } from '../utils';
 
@@ -1167,15 +1167,27 @@ function createCubeGeometry() {
  ******************************************************/
 interface SceneProps {
   elements: SceneElementConfig[];
-  containerWidth: number;
+  width?: number;
+  height?: number;
+  aspectRatio?: number;
 }
 
-export function Scene({ elements }: { elements: SceneElementConfig[] }) {
+export function Scene({ elements, width, height, aspectRatio = 1 }: SceneProps) {
   const [containerRef, measuredWidth] = useContainerWidth(1);
+  const dimensions = useMemo(
+    () => computeCanvasDimensions(measuredWidth, width, height, aspectRatio),
+    [measuredWidth, width, height, aspectRatio]
+  );
+
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '600px' }}>
-      {measuredWidth > 0 && (
-        <SceneInner containerWidth={measuredWidth} elements={elements} />
+    <div ref={containerRef} style={{ width: '100%' }}>
+      {dimensions && (
+        <SceneInner
+          containerWidth={dimensions.width}
+          containerHeight={dimensions.height}
+          style={dimensions.style}
+          elements={elements}
+        />
       )}
     </div>
   );
@@ -1184,11 +1196,8 @@ export function Scene({ elements }: { elements: SceneElementConfig[] }) {
 /******************************************************
  * 4.1) The Scene Component
  ******************************************************/
-function SceneInner({ elements, containerWidth }: SceneProps) {
+function SceneInner({ elements, containerWidth, containerHeight, style }: SceneInnerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const safeWidth = containerWidth > 0 ? containerWidth : 300;
-  const canvasWidth = safeWidth;
-  const canvasHeight = safeWidth;
 
   // We'll store references to the GPU + other stuff in a ref object
   const gpuRef = useRef<{
@@ -1353,36 +1362,47 @@ function SceneInner({ elements, containerWidth }: SceneProps) {
   /******************************************************
    * B) Depth & Pick textures
    ******************************************************/
-  const createOrUpdateDepthTexture=useCallback(()=>{
-    if(!gpuRef.current) return;
+  const createOrUpdateDepthTexture = useCallback(() => {
+    if(!gpuRef.current || !canvasRef.current) return;
     const { device, depthTexture } = gpuRef.current;
+
+    const dpr = window.devicePixelRatio || 1;
+    const displayWidth = Math.floor(containerWidth * dpr);
+    const displayHeight = Math.floor(containerHeight * dpr);
+
     if(depthTexture) depthTexture.destroy();
     const dt = device.createTexture({
-      size: [canvasWidth, canvasHeight],
+      size: [displayWidth, displayHeight],
       format: 'depth24plus',
       usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
     gpuRef.current.depthTexture = dt;
-  },[canvasWidth, canvasHeight]);
+  }, [containerWidth, containerHeight]);
 
-  const createOrUpdatePickTextures=useCallback(()=>{
-    if(!gpuRef.current) return;
+  const createOrUpdatePickTextures = useCallback(() => {
+    if(!gpuRef.current || !canvasRef.current) return;
     const { device, pickTexture, pickDepthTexture } = gpuRef.current;
+
+    const dpr = window.devicePixelRatio || 1;
+    const displayWidth = Math.floor(containerWidth * dpr);
+    const displayHeight = Math.floor(containerHeight * dpr);
+
     if(pickTexture) pickTexture.destroy();
     if(pickDepthTexture) pickDepthTexture.destroy();
+
     const colorTex = device.createTexture({
-      size:[canvasWidth, canvasHeight],
-      format:'rgba8unorm',
+      size: [displayWidth, displayHeight],
+      format: 'rgba8unorm',
       usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
     });
     const depthTex = device.createTexture({
-      size:[canvasWidth, canvasHeight],
-      format:'depth24plus',
+      size: [displayWidth, displayHeight],
+      format: 'depth24plus',
       usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
     gpuRef.current.pickTexture = colorTex;
     gpuRef.current.pickDepthTexture = depthTex;
-  },[canvasWidth, canvasHeight]);
+  }, [containerWidth, containerHeight]);
 
   /******************************************************
    * C) Building the RenderObjects (no if/else)
@@ -1452,7 +1472,7 @@ function SceneInner({ elements, containerWidth }: SceneProps) {
     if(!depthTexture) return;
 
     // camera matrix
-    const aspect = canvasWidth/canvasHeight;
+    const aspect = containerWidth/containerHeight;
     const proj = mat4Perspective(camState.fov, aspect, camState.near, camState.far);
     const cx=camState.orbitRadius*Math.sin(camState.orbitPhi)*Math.sin(camState.orbitTheta);
     const cy=camState.orbitRadius*Math.cos(camState.orbitPhi);
@@ -1520,13 +1540,13 @@ function SceneInner({ elements, containerWidth }: SceneProps) {
     }
     pass.end();
     device.queue.submit([cmd.finish()]);
-  },[canvasWidth, canvasHeight]);
+  },[containerWidth, containerHeight]);
 
   /******************************************************
    * E) Pick pass (on hover/click)
    ******************************************************/
-  async function pickAtScreenXY(screenX:number, screenY:number, mode:'hover'|'click'){
-    if(!gpuRef.current || pickingLockRef.current) return;
+  async function pickAtScreenXY(screenX: number, screenY: number, mode: 'hover'|'click') {
+    if(!gpuRef.current || !canvasRef.current || pickingLockRef.current) return;
     const pickingId = Date.now();
     const currentPickingId = pickingId;
     pickingLockRef.current = true;
@@ -1539,10 +1559,15 @@ function SceneInner({ elements, containerWidth }: SceneProps) {
       if(!pickTexture || !pickDepthTexture || !readbackBuffer) return;
       if (currentPickingId !== pickingId) return;
 
-      const pickX = Math.floor(screenX);
-      const pickY = Math.floor(screenY);
-      if(pickX<0 || pickY<0 || pickX>=canvasWidth || pickY>=canvasHeight){
-        if(mode==='hover') handleHoverID(0);
+      // Convert screen coordinates to device pixels
+      const dpr = window.devicePixelRatio || 1;
+      const pickX = Math.floor(screenX * dpr);
+      const pickY = Math.floor(screenY * dpr);
+      const displayWidth = Math.floor(containerWidth * dpr);
+      const displayHeight = Math.floor(containerHeight * dpr);
+
+      if(pickX < 0 || pickY < 0 || pickX >= displayWidth || pickY >= displayHeight) {
+        if(mode === 'hover') handleHoverID(0);
         return;
       }
 
@@ -1801,15 +1826,25 @@ function SceneInner({ elements, containerWidth }: SceneProps) {
       createOrUpdateDepthTexture();
       createOrUpdatePickTextures();
     }
-  },[isReady, canvasWidth, canvasHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures]);
+  },[isReady, containerWidth, containerHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures]);
 
   // Set actual canvas size
-  useEffect(()=>{
-    if(canvasRef.current){
-      canvasRef.current.width=canvasWidth;
-      canvasRef.current.height=canvasHeight;
+  useEffect(() => {
+    if (!canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const dpr = window.devicePixelRatio || 1;
+    const displayWidth = Math.floor(containerWidth * dpr);
+    const displayHeight = Math.floor(containerHeight * dpr);
+
+    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
+      createOrUpdateDepthTexture();
+      createOrUpdatePickTextures();
+      renderFrame(camera);  // Call renderFrame directly
     }
-  },[canvasWidth, canvasHeight]);
+  }, [containerWidth, containerHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures, renderFrame, camera]);
 
   // Whenever elements change, or we become ready, rebuild GPU buffers
   useEffect(()=>{
@@ -1849,10 +1884,10 @@ function SceneInner({ elements, containerWidth }: SceneProps) {
   }, []);
 
   return (
-    <div style={{width:'100%', border:'1px solid #ccc'}}>
+    <div style={{ width: '100%', border: '1px solid #ccc' }}>
       <canvas
         ref={canvasRef}
-        style={{ width:'100%', height:canvasHeight }}
+        style={style}
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
@@ -2426,4 +2461,24 @@ function throttle<T extends (...args: any[]) => void>(
       setTimeout(() => (inThrottle = false), limit);
     }
   };
+}
+
+// Add this helper function near the top with other utility functions
+function computeCanvasDimensions(containerWidth: number, width?: number, height?: number, aspectRatio = 1) {
+    if (!containerWidth && !width) return;
+
+    // Determine final width from explicit width or container width
+    const finalWidth = width || containerWidth;
+
+    // Determine final height from explicit height or aspect ratio
+    const finalHeight = height || finalWidth / aspectRatio;
+
+    return {
+        width: finalWidth,
+        height: finalHeight,
+        style: {
+            width: width ? `${width}px` : '100%',
+            height: `${finalHeight}px`
+        }
+    };
 }
