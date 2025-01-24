@@ -9,50 +9,30 @@ on:
       - 'v*'
 
 jobs:
-  release:
+  check:
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: 'write'
-
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+      python_version: ${{ steps.versions.outputs.PYTHON_VERSION }}
+      npm_version: ${{ steps.versions.outputs.NPM_VERSION }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v4
-        with:
-          python-version: 3.11.5
-
-      - name: Install dependencies with Yarn
-        run: yarn install --frozen-lockfile --production=false
-
-      - name: build the javascript bundle
+      - name: Check if build should be skipped
+        id: check
         run: |
-          yarn build
-          # Force Git to track the build file temporarily
-          git add -f src/genstudio/js/widget_build.js
-
-      - name: Install and configure Poetry
-        uses: snok/install-poetry@v1
-
-      - name: Install deps
-        run: poetry install --without dev
-
-      - name: Set version components
-        id: versions
-        run: |
-          # Check if current commit has a tag
-          HAS_TAG=$(git tag --points-at HEAD)
-
-          # If we're on main and there's a tag, skip the build
-          if [[ "${{ github.ref }}" == "refs/heads/main" && -n "$HAS_TAG" ]]; then
-            echo "CONTINUE=false" >> $GITHUB_OUTPUT
-            exit 0
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]] && [[ -n "$(git tag --points-at HEAD)" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-          echo "CONTINUE=true" >> $GITHUB_OUTPUT
-
+      - name: Set version components
+        if: steps.check.outputs.skip != 'true'
+        id: versions
+        run: |
           # Handle different version scenarios
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             # Dev version for main pushes without tag
@@ -74,14 +54,36 @@ jobs:
           echo "PYTHON_VERSION=${PYTHON_VERSION}" >> $GITHUB_OUTPUT
           echo "NPM_VERSION=${NPM_VERSION}" >> $GITHUB_OUTPUT
 
+  build:
+    needs: check
+    if: needs.check.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11.5
+
+      - name: Install dependencies with Yarn
+        run: yarn install --frozen-lockfile --production=false
+
+      - name: build the javascript bundle
+        run: |
+          yarn build
+          # Force Git to track the build file temporarily
+          git add -f src/genstudio/js/widget_build.js
+
+      - name: Install and configure Poetry
+        uses: snok/install-poetry@v1
+
+      - name: Install deps
+        run: poetry install --without dev
+
       - name: Update version query params in widget.py
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           VERSION=${{ steps.versions.outputs.PYTHON_VERSION }}
           python scripts/update_asset_versions.py $VERSION
 
       - name: Update widget URL and build Python package
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           NPM_BASE="https://cdn.jsdelivr.net/npm/@probcomp/genstudio@${{ steps.versions.outputs.NPM_VERSION }}/dist"
           JSDELIVR_JS_URL="${NPM_BASE}/widget_build.js"
@@ -96,7 +98,6 @@ jobs:
           git checkout src/genstudio/util.py
 
       - name: Deploy to PyPI
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           echo "=== Checking build artifacts ==="
           ls -la dist/
@@ -105,14 +106,12 @@ jobs:
           poetry publish
 
       - name: Setup Node.js for npm publishing
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Publish to npm
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           npm version ${{ steps.versions.outputs.NPM_VERSION }} --no-git-tag-version
 
@@ -127,14 +126,12 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Parse latest changelog entry
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         id: changelog
         run: |
           # Extract everything from start until the second occurrence of a line starting with ###
           awk '/^###/{count++; if(count==2){exit} if(count==1){p=1}} p{print}' CHANGELOG.md > release_notes.md
 
       - name: Create GitHub Release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '.alpha') && fromJSON(steps.versions.outputs.CONTINUE) }}
         uses: ncipollo/release-action@v1
         with:
           bodyFile: release_notes.md
