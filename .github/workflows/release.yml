@@ -80,13 +80,11 @@ jobs:
         run: poetry install --without dev
 
       - name: Update version query params in widget.py
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           VERSION=${{ steps.versions.outputs.PYTHON_VERSION }}
           python scripts/update_asset_versions.py $VERSION
 
       - name: Update widget URL and build Python package
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           NPM_BASE="https://cdn.jsdelivr.net/npm/@probcomp/genstudio@${{ steps.versions.outputs.NPM_VERSION }}/dist"
           JSDELIVR_JS_URL="${NPM_BASE}/widget_build.js"
@@ -101,7 +99,6 @@ jobs:
           git checkout src/genstudio/util.py
 
       - name: Deploy to PyPI
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           echo "=== Checking build artifacts ==="
           ls -la dist/
@@ -110,14 +107,12 @@ jobs:
           poetry publish
 
       - name: Setup Node.js for npm publishing
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         uses: actions/setup-node@v4
         with:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Publish to npm
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         run: |
           npm version ${{ steps.versions.outputs.NPM_VERSION }} --no-git-tag-version
 
@@ -132,7 +127,6 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Parse latest changelog entry
-        if: ${{ fromJSON(steps.versions.outputs.CONTINUE) }}
         id: changelog
         run: |
           # Extract everything from start until the second occurrence of a line starting with ###
