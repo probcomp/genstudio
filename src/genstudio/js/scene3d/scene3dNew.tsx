@@ -1218,18 +1218,8 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
 
   const [isReady, setIsReady] = useState(false);
 
-  // camera
-  interface CameraState {
-    orbitRadius: number;
-    orbitTheta: number;
-    orbitPhi: number;
-    panX: number;
-    panY: number;
-    fov: number;
-    near: number;
-    far: number;
-  }
-  const [camera, setCamera] = useState<CameraState>({
+  // Initialize camera with proper state structure
+  const [camera, setCamera] = useState({
     orbitRadius: 1.5,
     orbitTheta: 0.2,
     orbitPhi: 1.0,
@@ -1286,6 +1276,23 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
     const len=Math.sqrt(dot(v,v));
     if(len>1e-6) return [v[0]/len, v[1]/len, v[2]/len] as [number,number,number];
     return [0,0,0];
+  }
+
+  // Add these helper functions near the top
+  function vec3Sub(a: [number, number, number], b: [number, number, number]): [number, number, number] {
+    return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  }
+
+  function vec3Normalize(v: [number, number, number]): [number, number, number] {
+    const len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+    return [v[0] / len, v[1] / len, v[2] / len];
+  }
+
+  function vec3ScaleAndAdd(out: [number, number, number], a: [number, number, number], b: [number, number, number], scale: number): [number, number, number] {
+    out[0] = a[0] + b[0] * scale;
+    out[1] = a[1] + b[1] * scale;
+    out[2] = a[2] + b[2] * scale;
+    return out;
   }
 
   /******************************************************
@@ -1466,27 +1473,28 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
   /******************************************************
    * D) Render pass (single call, no loop)
    ******************************************************/
-  const renderFrame = useCallback((camState:any)=>{
+  const renderFrame = useCallback((camState: CameraState) => {
     if(!gpuRef.current) return;
     const { device, context, uniformBuffer, uniformBindGroup, depthTexture, renderObjects } = gpuRef.current;
     if(!depthTexture) return;
 
-    // camera matrix
     const aspect = containerWidth/containerHeight;
     const proj = mat4Perspective(camState.fov, aspect, camState.near, camState.far);
-    const cx=camState.orbitRadius*Math.sin(camState.orbitPhi)*Math.sin(camState.orbitTheta);
-    const cy=camState.orbitRadius*Math.cos(camState.orbitPhi);
-    const cz=camState.orbitRadius*Math.sin(camState.orbitPhi)*Math.cos(camState.orbitTheta);
-    const eye:[number,number,number]=[cx,cy,cz];
-    const target:[number,number,number]=[camState.panX,camState.panY,0];
-    const up:[number,number,number] = [0,1,0];
-    const view = mat4LookAt(eye,target,up);
+
+    // Calculate camera position from orbit coordinates
+    const cx = camState.orbitRadius * Math.sin(camState.orbitPhi) * Math.sin(camState.orbitTheta);
+    const cy = camState.orbitRadius * Math.cos(camState.orbitPhi);
+    const cz = camState.orbitRadius * Math.sin(camState.orbitPhi) * Math.cos(camState.orbitTheta);
+    const eye: [number,number,number] = [cx, cy, cz];
+    const target: [number,number,number] = [camState.panX, camState.panY, 0];
+    const up: [number,number,number] = [0, 1, 0];
+    const view = mat4LookAt(eye, target, up);
 
     const mvp = mat4Multiply(proj, view);
 
     // compute "light dir" in camera-ish space
     const forward = normalize([target[0]-eye[0], target[1]-eye[1], target[2]-eye[2]]);
-    const right = normalize(cross(forward, up));
+    const right = normalize(cross(up, forward));
     const camUp = cross(right, forward);
     const lightDir = normalize([
       right[0]*LIGHTING.DIRECTION.RIGHT + camUp[0]*LIGHTING.DIRECTION.UP + forward[0]*LIGHTING.DIRECTION.FORWARD,
@@ -1540,7 +1548,7 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
     }
     pass.end();
     device.queue.submit([cmd.finish()]);
-  },[containerWidth, containerHeight]);
+  }, [containerWidth, containerHeight]);
 
   /******************************************************
    * E) Pick pass (on hover/click)
@@ -1708,17 +1716,41 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
       const dy = e.clientY - st.lastY;
       st.dragDistance=(st.dragDistance||0)+Math.sqrt(dx*dx+dy*dy);
       if(st.button===2 || st.isShiftDown){
-        setCamera(cam => ({
-          ...cam,
-          panX:cam.panX - dx*0.002,
-          panY:cam.panY + dy*0.002
-        }));
-      } else if(st.button===0){
-        setCamera(cam=>{
-          const newPhi = Math.max(0.1, Math.min(Math.PI-0.1, cam.orbitPhi - dy*0.01));
+        // Pan by keeping the point under the mouse cursor fixed relative to mouse movement
+        setCamera(cam => {
+          // Calculate camera position and vectors
+          const cx = cam.orbitRadius * Math.sin(cam.orbitPhi) * Math.sin(cam.orbitTheta);
+          const cy = cam.orbitRadius * Math.cos(cam.orbitPhi);
+          const cz = cam.orbitRadius * Math.sin(cam.orbitPhi) * Math.cos(cam.orbitTheta);
+          const eye: [number,number,number] = [cx, cy, cz];
+          const target: [number,number,number] = [cam.panX, cam.panY, 0];
+          const up: [number,number,number] = [0, 1, 0];
+
+          // Calculate view-aligned right and up vectors
+          const forward = normalize([target[0]-eye[0], target[1]-eye[1], target[2]-eye[2]]);
+          const right = normalize(cross(up, forward));
+          const actualUp = normalize(cross(forward, right));
+
+          // Scale movement by distance from target
+          const scale = cam.orbitRadius * 0.002;
+
+          // Calculate pan offset in view space
+          const dx_view = dx * scale;
+          const dy_view = dy * scale;  // Removed the negative here
+
           return {
             ...cam,
-            orbitTheta: cam.orbitTheta - dx*0.01,
+            panX: cam.panX + right[0] * dx_view + actualUp[0] * dy_view,
+            panY: cam.panY + right[1] * dx_view + actualUp[1] * dy_view
+          };
+        });
+      } else if(st.button===0){
+        // This should be orbit
+        setCamera(cam => {
+          const newPhi = Math.max(0.1, Math.min(Math.PI-0.1, cam.orbitPhi - dy * 0.01));  // Flip dy for natural up/down
+          return {
+            ...cam,
+            orbitTheta: cam.orbitTheta - dx * 0.01,  // Keep dx flipped for natural left/right
             orbitPhi: newPhi
           };
         });
@@ -1761,17 +1793,6 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
 
   const handleMouseLeave=useCallback(()=>{
     mouseState.current={type:'idle'};
-  },[]);
-
-  const onWheel=useCallback((e:WheelEvent)=>{
-    if(mouseState.current.type==='idle'){
-      e.preventDefault();
-      const d=e.deltaY*0.01;
-      setCamera(cam=>({
-        ...cam,
-        orbitRadius:Math.max(0.01, cam.orbitRadius + d)
-      }));
-    }
   },[]);
 
   /******************************************************
@@ -1867,20 +1888,19 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+
     const handleWheel = (e: WheelEvent) => {
       if (mouseState.current.type === 'idle') {
         e.preventDefault();
-        const d = e.deltaY * 0.01;
         setCamera(cam => ({
           ...cam,
-          orbitRadius: Math.max(0.01, cam.orbitRadius + d)
+          orbitRadius: Math.max(0.1, cam.orbitRadius * Math.exp(e.deltaY * 0.001))
         }));
       }
     };
+
     canvas.addEventListener('wheel', handleWheel, { passive: false });
-    return () => {
-      canvas.removeEventListener('wheel', handleWheel);
-    };
+    return () => canvas.removeEventListener('wheel', handleWheel);
   }, []);
 
   return (
@@ -1892,7 +1912,6 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        onWheel={onWheel}
       />
     </div>
   );

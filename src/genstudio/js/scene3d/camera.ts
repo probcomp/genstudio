@@ -210,3 +210,5 @@ export default {
     pan,
     zoom
 };
+
+export type { CameraState };
