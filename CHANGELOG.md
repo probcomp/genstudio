@@ -1,3 +1,8 @@
+### [2025.01.8] - Jan 24, 2025
+
+- support alpha releases
+- publish docs to github pages
+
 ### [2025.01.007] - Jan 23, 2025
 
 - release to PyPI instead of artifact registry
