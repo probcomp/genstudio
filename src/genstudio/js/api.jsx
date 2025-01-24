@@ -325,8 +325,6 @@ function renderArray($state, value) {
     const [element, ...args] = value
     const maybeElement = element && $state.evaluate(element)
     const elementType = typeof maybeElement
-    console.log("Element", maybeElement, typeof maybeElement)
-
     if (elementType === 'string' || elementType === 'function' || (typeof maybeElement === 'object' && maybeElement !== null && "$$typeof" in maybeElement)) {
         return Hiccup(maybeElement, ...args)
     } else {
@@ -358,7 +356,6 @@ function DOMElementWrapper({ element }) {
 
 export const Node = mobxReact.observer(
     function ({ value }) {
-        console.log("V", value)
         const $state = useContext($StateContext)
 
         // handle pre-evaluated arrays

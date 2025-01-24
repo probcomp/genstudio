@@ -1,5 +1,5 @@
 import genstudio.plot as Plot
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Sequence
 from colorsys import hsv_to_rgb
 
 import numpy as np
@@ -44,6 +44,46 @@ def make_torus_knot(n_points: int):
     xyz = np.column_stack([x, y, z]).astype(np.float32).flatten()
 
     return xyz, rgb
+
+
+def deco(
+    indexes: Union[int, Sequence[int]],
+    *,
+    color: Optional[Sequence[float]] = None,
+    alpha: Optional[float] = None,
+    scale: Optional[float] = None,
+    min_size: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Create a decoration for scene elements.
+
+    Args:
+        indexes: Single index or list of indices to decorate
+        color: Optional RGB color override [r,g,b]
+        alpha: Optional opacity value (0-1)
+        scale: Optional scale factor
+        min_size: Optional minimum size in pixels
+
+    Returns:
+        Dictionary containing decoration settings
+    """
+    # Convert single index to list
+    if isinstance(indexes, (int, np.integer)):
+        indexes = [indexes]
+
+    # Create base decoration dict
+    decoration = {"indexes": list(indexes)}
+
+    # Add optional parameters if provided
+    if color is not None:
+        decoration["color"] = list(color)
+    if alpha is not None:
+        decoration["alpha"] = alpha
+    if scale is not None:
+        decoration["scale"] = scale
+    if min_size is not None:
+        decoration["minSize"] = min_size
+
+    return decoration
 
 
 class SceneElement:
@@ -94,8 +134,23 @@ class Scene(Plot.LayoutItem):
     - Element click selection
     """
 
-    def __init__(self, elements: List[Union[SceneElement, Dict[str, Any]]]):
+    def __init__(
+        self,
+        elements: List[Union[SceneElement, Dict[str, Any]]],
+        *,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+    ):
+        """Initialize the scene.
+
+        Args:
+            elements: List of scene elements
+            width: Optional canvas width (default: container width)
+            height: Optional canvas height (default: container width)
+        """
         self.elements = elements
+        self.width = width
+        self.height = height
         super().__init__()
 
     def __add__(self, other: Union[SceneElement, "Scene"]) -> "Scene":
@@ -112,7 +167,14 @@ class Scene(Plot.LayoutItem):
         elements = [
             e.to_dict() if isinstance(e, SceneElement) else e for e in self.elements
         ]
-        return [Plot.JSRef("scene3d.Scene"), {"elements": elements}]
+
+        props = {"elements": elements}
+        if self.width:
+            props["width"] = self.width
+        if self.height:
+            props["height"] = self.height
+
+        return [Plot.JSRef("scene3d.Scene"), props]
 
 
 def point_cloud(
@@ -281,28 +343,45 @@ def create_demo_scene():
 
     # Create the scene by combining elements
     scene = (
-        # Point cloud
-        point_cloud(positions, colors, scales)
+        point_cloud(
+            positions,
+            colors,
+            scales,
+            onHover=Plot.js("""
+                function(idx) {
+                    $state.hover_points = idx === null ? null : [idx];
+                }
+            """),
+            # Add hover decoration
+            decorations=Plot.js("""
+                $state.hover_points ? [
+                    {indexes: $state.hover_points, color: [1, 1, 0], scale: 1.5}
+                ] : undefined
+            """),
+        )
         +
-        # Ellipsoids
+        # Ellipsoids with one highlighted
         ellipsoid(
-            centers=[[0.5, 0.5, 0.5], [-0.5, -0.5, 0.5], [0.0, 0.0, 0.0]],
-            radii=[[0.1, 0.2, 0.1], [0.2, 0.1, 0.1], [0.15, 0.15, 0.15]],
-            colors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+            centers=np.array([[0.5, 0.5, 0.5], [-0.5, -0.5, 0.5], [0.0, 0.0, 0.0]]),
+            radii=np.array([[0.1, 0.2, 0.1], [0.2, 0.1, 0.1], [0.15, 0.15, 0.15]]),
+            colors=np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
+            decorations=[deco(1, color=[1, 1, 0], alpha=0.8)],
         )
         +
-        # Ellipsoid bounds
+        # Ellipsoid bounds with transparency
         ellipsoid_bounds(
-            centers=[[0.8, 0.0, 0.0], [-0.8, 0.0, 0.0]],
-            radii=[[0.2, 0.1, 0.1], [0.1, 0.2, 0.1]],
-            colors=[[1.0, 0.5, 0.0], [0.0, 0.5, 1.0]],
+            centers=np.array([[0.8, 0.0, 0.0], [-0.8, 0.0, 0.0]]),
+            radii=np.array([[0.2, 0.1, 0.1], [0.1, 0.2, 0.1]]),
+            colors=np.array([[1.0, 0.5, 0.0], [0.0, 0.5, 1.0]]),
+            decorations=[deco([0, 1], alpha=0.5)],
         )
         +
-        # Cuboids
+        # Cuboids with one enlarged
         cuboid(
-            centers=[[0.0, -0.8, 0.0], [0.0, -0.8, 0.3]],
-            sizes=[[0.3, 0.1, 0.2], [0.2, 0.1, 0.2]],
-            colors=[[0.8, 0.2, 0.8], [0.2, 0.8, 0.8]],
+            centers=np.array([[0.0, -0.8, 0.0], [0.0, -0.8, 0.3]]),
+            sizes=np.array([[0.3, 0.1, 0.2], [0.2, 0.1, 0.2]]),
+            colors=np.array([[0.8, 0.2, 0.8], [0.2, 0.8, 0.8]]),
+            decorations=[deco(0, scale=1.2)],
         )
     )
 
