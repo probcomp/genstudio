@@ -99,12 +99,18 @@ def update_changelog(new_version):
             categorized = False
             for category, prefix in categories.items():
                 if prefix and line.lower().startswith(prefix.lower()):
+                    # Remove the prefix and clean up the message
                     cleaned_msg = line[len(prefix) :].strip()
+                    # Remove leading dash or bullet if present
+                    cleaned_msg = cleaned_msg.lstrip("- •")
+                    cleaned_msg = cleaned_msg.strip()
                     categorized_commits[category].append(cleaned_msg)
                     categorized = True
                     break
             if not categorized:
-                categorized_commits["Other Changes"].append(line)
+                # Remove leading dash or bullet if present for uncategorized commits
+                cleaned_line = line.lstrip("- •").strip()
+                categorized_commits["Other Changes"].append(cleaned_line)
         print("---")
 
     # Prepare changelog entry
@@ -115,6 +121,7 @@ def update_changelog(new_version):
     for category, commits in categorized_commits.items():
         if commits:
             changelog_entry += f"#### {category}\n"
+            # Add dash prefix only if not already present
             changelog_entry += "\n".join(f"- {commit}" for commit in commits)
             changelog_entry += "\n\n"
 
