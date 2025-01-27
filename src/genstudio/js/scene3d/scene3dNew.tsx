@@ -430,6 +430,7 @@ interface RenderObject {
   pickingInstanceCount?: number;
 
   elementIndex: number;
+  pickingDataStale: boolean;  // New field
 }
 
 interface ExtendedSpec<E> extends PrimitiveSpec<E> {
@@ -688,7 +689,8 @@ const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
       pickingIndexCount: 6,
       pickingInstanceCount: count,
 
-      elementIndex: -1
+      elementIndex: -1,
+      pickingDataStale: true,
     };
   }
 };
@@ -819,7 +821,8 @@ const ellipsoidExtendedSpec: ExtendedSpec<EllipsoidElementConfig> = {
       pickingIndexCount: indexCount,
       pickingInstanceCount: count,
 
-      elementIndex: -1
+      elementIndex: -1,
+      pickingDataStale: true,
     };
   }
 };
@@ -950,7 +953,8 @@ const ellipsoidBoundsExtendedSpec: ExtendedSpec<EllipsoidBoundsElementConfig> = 
       pickingIndexCount: indexCount,
       pickingInstanceCount: count,
 
-      elementIndex: -1
+      elementIndex: -1,
+      pickingDataStale: true,
     };
   }
 };
@@ -1081,7 +1085,8 @@ const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
       pickingIndexCount: indexCount,
       pickingInstanceCount: count,
 
-      elementIndex: -1
+      elementIndex: -1,
+      pickingDataStale: true,
     };
   }
 };
@@ -1456,19 +1461,50 @@ function SceneInner({
   /******************************************************
    * C) Building the RenderObjects (no if/else)
    ******************************************************/
+  // Move ID mapping logic to a separate function
+  const buildElementIdMapping = useCallback((elements: SceneElementConfig[]) => {
+    if (!gpuRef.current) return;
+
+    // Reset ID mapping
+    gpuRef.current.idToElement = [null];  // First ID (0) is reserved
+    let currentID = 1;
+
+    // Build new mapping
+    elements.forEach((elem, elementIdx) => {
+      const spec = primitiveRegistry[elem.type];
+      if (!spec) {
+        gpuRef.current!.elementBaseId[elementIdx] = 0;
+        return;
+      }
+
+      const count = spec.getCount(elem);
+      gpuRef.current!.elementBaseId[elementIdx] = currentID;
+
+      // Expand global ID table
+      for (let j = 0; j < count; j++) {
+        gpuRef.current!.idToElement[currentID + j] = {
+          elementIdx: elementIdx,
+          instanceIdx: j
+        };
+      }
+      currentID += count;
+    });
+  }, []);
+
+  // Modify buildRenderObjects to use this function
   function buildRenderObjects(elements: SceneElementConfig[]): RenderObject[] {
     if(!gpuRef.current) return [];
     const { device, bindGroupLayout, pipelineCache, resources } = gpuRef.current;
 
-    // Initialize elementBaseId and idToElement arrays
+    // Initialize elementBaseId array
     gpuRef.current.elementBaseId = [];
-    gpuRef.current.idToElement = [null];  // First ID (0) is reserved
-    let currentID = 1;
+
+    // Build ID mapping
+    buildElementIdMapping(elements);
 
     return elements.map((elem, i) => {
       const spec = primitiveRegistry[elem.type];
       if(!spec) {
-        gpuRef.current!.elementBaseId[i] = 0;  // No valid IDs for invalid elements
         return {
           pipeline: null,
           vertexBuffers: [],
@@ -1482,22 +1518,13 @@ function SceneInner({
           pickingVertexCount: 0,
           pickingIndexCount: 0,
           pickingInstanceCount: 0,
+          pickingDataStale: true,
           elementIndex: i
         };
       }
 
       const count = spec.getCount(elem);
-      gpuRef.current!.elementBaseId[i] = currentID;
-
-      // Expand global ID table
-      for(let j=0; j<count; j++){
-        gpuRef.current!.idToElement[currentID + j] = { elementIdx: i, instanceIdx: j };
-      }
-      currentID += count;
-
       const renderData = spec.buildRenderData(elem);
-      const pickData   = spec.buildPickingData(elem, gpuRef.current!.elementBaseId[i]);
-
       let vb: GPUBuffer|null = null;
       if(renderData && renderData.length>0){
         vb = device.createBuffer({
@@ -1506,27 +1533,28 @@ function SceneInner({
         });
         device.queue.writeBuffer(vb,0,renderData);
       }
-      let pickVB: GPUBuffer|null = null;
-      if(pickData && pickData.length>0){
-        pickVB = device.createBuffer({
-          size: pickData.byteLength,
-          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-        });
-        device.queue.writeBuffer(pickVB,0,pickData);
-      }
 
       const pipeline = spec.getRenderPipeline(device, bindGroupLayout, pipelineCache);
-      const pickingPipeline = spec.getPickingPipeline(device, bindGroupLayout, pipelineCache);
 
-      return spec.createRenderObject(
+      // Use spec's createRenderObject to get correct geometry setup
+      const baseRenderObject = spec.createRenderObject(
         device,
         pipeline,
-        pickingPipeline,
+        null!, // We'll set this later in ensurePickingData
         vb,
-        pickVB,
+        null, // No picking buffer yet
         count,
         resources
       );
+
+      // Override picking-related properties for lazy initialization
+      return {
+        ...baseRenderObject,
+        pickingPipeline: null,
+        pickingVertexBuffers: [],
+        pickingDataStale: true,
+        elementIndex: i
+      };
     });
   }
 
@@ -1640,6 +1668,13 @@ function SceneInner({
       } = gpuRef.current;
       if(!pickTexture || !pickDepthTexture || !readbackBuffer) return;
       if (currentPickingId !== pickingId) return;
+
+      // Ensure picking data is ready for all objects
+      renderObjects.forEach((ro, i) => {
+        if (ro.pickingDataStale) {
+          ensurePickingData(ro, elements[i]);
+        }
+      });
 
       // Convert screen coordinates to device pixels
       const dpr = window.devicePixelRatio || 1;
@@ -1920,7 +1955,14 @@ function SceneInner({
       gpuRef.current.renderObjects = ros;
       renderFrame(activeCamera);
     }
-  }, [isReady, elements, renderFrame, activeCamera]);
+  }, [isReady, elements]); // Remove activeCamera dependency
+
+  // Add separate effect just for camera updates
+  useEffect(() => {
+    if (isReady && gpuRef.current) {
+      renderFrame(activeCamera);
+    }
+  }, [isReady, activeCamera, renderFrame]);
 
   // Wheel handling
   useEffect(() => {
@@ -1937,6 +1979,46 @@ function SceneInner({
     canvas.addEventListener('wheel', handleWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', handleWheel);
   }, [handleCameraUpdate]);
+
+  // Move ensurePickingData inside component
+  const ensurePickingData = useCallback((renderObject: RenderObject, element: SceneElementConfig) => {
+    if (!renderObject.pickingDataStale) return;
+    if (!gpuRef.current) return;
+
+    const { device, bindGroupLayout, pipelineCache, resources } = gpuRef.current;
+    const spec = primitiveRegistry[element.type];
+    if (!spec) return;
+
+    // Ensure ID mapping is up to date
+    buildElementIdMapping(elements);
+
+    // Build picking data
+    const pickData = spec.buildPickingData(element, gpuRef.current.elementBaseId[renderObject.elementIndex]);
+    if (pickData && pickData.length > 0) {
+      // Clean up old picking buffer if it exists
+      renderObject.pickingVertexBuffers[1]?.destroy(); // Change index to 1 for instance data
+
+      const pickVB = device.createBuffer({
+        size: pickData.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+      });
+      device.queue.writeBuffer(pickVB, 0, pickData);
+
+      // Set both geometry and instance buffers
+      const geometryVB = renderObject.vertexBuffers[0]; // Get geometry buffer from render object
+      renderObject.pickingVertexBuffers = [geometryVB, pickVB]; // Set both buffers
+    }
+
+    // Get picking pipeline
+    renderObject.pickingPipeline = spec.getPickingPipeline(device, bindGroupLayout, pipelineCache);
+
+    // Copy over index buffer and counts from render object
+    renderObject.pickingIndexBuffer = renderObject.indexBuffer;
+    renderObject.pickingIndexCount = renderObject.indexCount;
+    renderObject.pickingInstanceCount = renderObject.instanceCount;
+
+    renderObject.pickingDataStale = false;
+  }, [elements, buildElementIdMapping]); // No dependencies since it only uses gpuRef.current
 
   return (
     <div style={{ width: '100%', border: '1px solid #ccc' }}>
