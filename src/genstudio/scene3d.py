@@ -421,7 +421,7 @@ def create_demo_scene():
                     ],
                     "target": [0, 0, 0],
                     "up": [0, 1, 0],
-                    "fov": math.pi / 3,
+                    "fov": math.degrees(math.pi / 3),
                     "near": 0.01,
                     "far": 100.0,
                 }
@@ -430,34 +430,6 @@ def create_demo_scene():
     )
 
     return scene
-
-
-# Update the default camera to match CameraParams interface
-DEFAULT_CAMERA = {
-    "position": [
-        1.5 * math.sin(0.2) * math.sin(1.0),  # x
-        1.5 * math.cos(1.0),  # y
-        1.5 * math.sin(0.2) * math.cos(1.0),  # z
-    ],
-    "target": [0, 0, 0],
-    "up": [0, 1, 0],
-    "fov": math.pi / 3,
-    "near": 0.01,
-    "far": 100.0,
-}
-
-
-class Scene3d:
-    def __init__(self, camera=None):
-        self.camera = camera if camera is not None else DEFAULT_CAMERA.copy()
-        # ... rest of init ...
-
-    def update_camera(self, camera_update):
-        """Update camera with new parameters"""
-        self.camera.update(camera_update)
-        # Ensure we maintain the correct format
-        if "position" not in self.camera:
-            self.camera = DEFAULT_CAMERA.copy()
 
 
 create_demo_scene()

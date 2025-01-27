@@ -4,7 +4,7 @@ import genstudio.scene3d as Scene
 import numpy as np
 from genstudio.plot import js
 from colorsys import hsv_to_rgb
-from genstudio.scene3d import deco
+from genstudio.scene3d import deco, point_cloud
 
 
 def make_torus_knot(n_points: int):
@@ -315,4 +315,26 @@ wall_xyz = rotate_points(wall_xyz, n_frames=NUM_FRAMES)
             )
         }
     )
+)
+
+
+xyz, rgb = make_torus_knot(1000)
+rgb = (np.array(rgb, dtype=np.float32) / 255.0).flatten()
+
+(
+    point_cloud(
+        positions=xyz,
+        colors=rgb,
+        scales=np.ones(1000) * 0.1,
+    )
+    + {
+        "defaultCamera": {
+            "position": [7, 4, 4],
+            "target": [0, 0, 0],
+            "up": [0, 0, 1],
+            "fov": 40,  # Back to degrees, more standard
+            "near": 0.1,
+            "far": 100.0,
+        }
+    }
 )
