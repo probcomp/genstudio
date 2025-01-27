@@ -37,10 +37,10 @@ def make_torus_knot(n_points: int):
     # Value/brightness
     value = 0.8 + np.random.uniform(0, 0.2, n_points)
 
-    # Convert HSV to RGB
+    # Convert HSV to RGB - keep as float32 in [0,1] range
     colors = np.array([hsv_to_rgb(h, s, v) for h, s, v in zip(hue, saturation, value)])
-    # Reshape colors to match xyz structure before flattening
-    rgb = (colors.reshape(-1, 3) * 255).astype(np.uint8).flatten()
+    # No need to multiply by 255 or convert to uint8
+    rgb = colors.reshape(-1, 3).astype(np.float32).flatten()
 
     # Prepare point cloud coordinates
     xyz = np.column_stack([x, y, z]).astype(np.float32).flatten()
@@ -69,9 +69,9 @@ def make_cube(n_points: int):
     # Value varies with height
     value = 0.7 + 0.3 * z_norm
 
-    # Convert HSV to RGB
+    # Convert HSV to RGB - keep as float32 in [0,1] range
     colors = np.array([hsv_to_rgb(h, s, v) for h, s, v in zip(hue, saturation, value)])
-    rgb = (colors.reshape(-1, 3) * 255).astype(np.uint8).flatten()
+    rgb = colors.reshape(-1, 3).astype(np.float32).flatten()
 
     # Prepare point cloud coordinates
     xyz = np.column_stack([x, y, z]).astype(np.float32).flatten()
@@ -97,9 +97,9 @@ def make_wall(n_points: int):
     # Value varies with a slight random component
     value = 0.7 + 0.3 * np.random.random(n_points)
 
-    # Convert HSV to RGB
+    # Convert HSV to RGB - keep as float32 in [0,1] range
     colors = np.array([hsv_to_rgb(h, s, v) for h, s, v in zip(hue, saturation, value)])
-    rgb = (colors.reshape(-1, 3) * 255).astype(np.uint8).flatten()
+    rgb = colors.reshape(-1, 3).astype(np.float32).flatten()
 
     # Prepare point cloud coordinates
     xyz = np.column_stack([x, y, z]).astype(np.float32).flatten()
@@ -206,10 +206,20 @@ def scene(controlled, point_size, xyz, rgb, scale, select_region=False):
                 }"""
         ),
         decorations=[
-            deco(js("$state.highlights"), color=[1, 1, 0], scale=2, min_size=10),
-            deco(js("[$state.hovered]"), color=[0, 1, 0], scale=1.2, min_size=10),
             deco(
-                js("$state.selected_region_indexes") if select_region else [],
+                js("$state.highlights || []"),
+                color=[1.0, 1.0, 0.0],
+                scale=2,
+                min_size=10,
+            ),
+            deco(
+                js("$state.hovered ? [$state.hovered] : []"),
+                color=[0.0, 1.0, 0.0],
+                scale=1.2,
+                min_size=10,
+            ),
+            deco(
+                js("$state.selected_region_indexes || []") if select_region else [],
                 alpha=0.2,
                 scale=0.5,
             ),
@@ -223,7 +233,7 @@ def find_similar_colors(rgb, point_idx, threshold=0.1):
     """Find points with similar colors to the selected point.
 
     Args:
-        rgb: Uint8Array or list of RGB values (flattened, so [r,g,b,r,g,b,...])
+        rgb: Float32Array of RGB values in [0,1] range (flattened, so [r,g,b,r,g,b,...])
         point_idx: Index of the point to match (not the raw RGB array index)
         threshold: How close colors need to be to match (0-1 range)
 
@@ -237,8 +247,8 @@ def find_similar_colors(rgb, point_idx, threshold=0.1):
     ref_color = rgb_arr[point_idx]
 
     # Calculate color differences using broadcasting
-    # Normalize to 0-1 range since input is 0-255
-    color_diffs = np.abs(rgb_arr.astype(float) - ref_color.astype(float)) / 255.0
+    # Values already in 0-1 range
+    color_diffs = np.abs(rgb_arr - ref_color)
 
     # Find points where all RGB channels are within threshold
     matches = np.all(color_diffs <= threshold, axis=1)
@@ -317,15 +327,15 @@ wall_xyz = rotate_points(wall_xyz, n_frames=NUM_FRAMES)
     )
 )
 
-
-xyz, rgb = make_torus_knot(1000)
-rgb = (np.array(rgb, dtype=np.float32) / 255.0).flatten()
+# %%
+scene(False, 0.1, cube_xyz, cube_rgb, np.ones(NUM_POINTS) * 0.1)
+# %%
 
 (
     point_cloud(
-        positions=xyz,
-        colors=rgb,
-        scales=np.ones(1000) * 0.1,
+        positions=cube_xyz,
+        colors=cube_rgb,
+        scales=np.ones(NUM_POINTS) * 0.005,
     )
     + {
         "defaultCamera": {

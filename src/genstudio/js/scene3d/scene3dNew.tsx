@@ -1413,43 +1413,45 @@ function SceneInner({
     if(!gpuRef.current || !canvasRef.current) return;
     const { device, depthTexture } = gpuRef.current;
 
-    const dpr = window.devicePixelRatio || 1;
-    const displayWidth = Math.floor(containerWidth * dpr);
-    const displayHeight = Math.floor(containerHeight * dpr);
+    // Get the actual canvas size
+    const canvas = canvasRef.current;
+    const displayWidth = canvas.width;
+    const displayHeight = canvas.height;
 
     if(depthTexture) depthTexture.destroy();
     const dt = device.createTexture({
-      size: [displayWidth, displayHeight],
-      format: 'depth24plus',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT
+        size: [displayWidth, displayHeight],
+        format: 'depth24plus',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
     gpuRef.current.depthTexture = dt;
-  }, [containerWidth, containerHeight]);
+}, []);
 
   const createOrUpdatePickTextures = useCallback(() => {
     if(!gpuRef.current || !canvasRef.current) return;
     const { device, pickTexture, pickDepthTexture } = gpuRef.current;
 
-    const dpr = window.devicePixelRatio || 1;
-    const displayWidth = Math.floor(containerWidth * dpr);
-    const displayHeight = Math.floor(containerHeight * dpr);
+    // Get the actual canvas size
+    const canvas = canvasRef.current;
+    const displayWidth = canvas.width;
+    const displayHeight = canvas.height;
 
     if(pickTexture) pickTexture.destroy();
     if(pickDepthTexture) pickDepthTexture.destroy();
 
     const colorTex = device.createTexture({
-      size: [displayWidth, displayHeight],
-      format: 'rgba8unorm',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
+        size: [displayWidth, displayHeight],
+        format: 'rgba8unorm',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC
     });
     const depthTex = device.createTexture({
-      size: [displayWidth, displayHeight],
-      format: 'depth24plus',
-      usage: GPUTextureUsage.RENDER_ATTACHMENT
+        size: [displayWidth, displayHeight],
+        format: 'depth24plus',
+        usage: GPUTextureUsage.RENDER_ATTACHMENT
     });
     gpuRef.current.pickTexture = colorTex;
     gpuRef.current.pickDepthTexture = depthTex;
-  }, [containerWidth, containerHeight]);
+}, []);
 
   /******************************************************
    * C) Building the RenderObjects (no if/else)
@@ -1899,14 +1901,17 @@ function SceneInner({
     const displayWidth = Math.floor(containerWidth * dpr);
     const displayHeight = Math.floor(containerHeight * dpr);
 
+    // Only update if size actually changed
     if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
-      canvas.width = displayWidth;
-      canvas.height = displayHeight;
-      createOrUpdateDepthTexture();
-      createOrUpdatePickTextures();
-      renderFrame(activeCamera);
+        canvas.width = displayWidth;
+        canvas.height = displayHeight;
+
+        // Update textures after canvas size change
+        createOrUpdateDepthTexture();
+        createOrUpdatePickTextures();
+        renderFrame(activeCamera);
     }
-  }, [containerWidth, containerHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures, renderFrame, activeCamera]);
+}, [containerWidth, containerHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures, renderFrame, activeCamera]);
 
   // Update elements effect
   useEffect(() => {
