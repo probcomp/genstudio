@@ -1,3 +1,9 @@
+### [2025.1.11] - Jan 27, 2025
+
+- deps: React 19
+- Slider sets initial state if undefined
+- Slider disposes interval correctly
+
 ### [2025.1.10] - Jan 27, 2025
 
 - add maxWidth option to plots
