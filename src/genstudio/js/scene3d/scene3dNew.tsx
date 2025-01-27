@@ -68,7 +68,6 @@ const DEFAULT_CAMERA: CameraParams = {
 };
 
 function createCameraState(params: CameraParams): CameraState {
-    console.log('createCameraState input:', params); // Debug
     const position = glMatrix.vec3.fromValues(...params.position);
     const target = glMatrix.vec3.fromValues(...params.target);
     const up = glMatrix.vec3.fromValues(...params.up);
@@ -1428,31 +1427,28 @@ function SceneInner({
   // Update the camera initialization
   const [internalCamera, setInternalCamera] = useState<CameraState>(() => {
       const initial = defaultCamera || DEFAULT_CAMERA;
-      console.log('initializing camera with:', initial); // Debug
       return createCameraState(initial);
   });
 
-  // Update the controlled camera memo
-  const camera = useMemo(() => {
-      console.log('camera memo input:', controlledCamera); // Debug
-      if (!controlledCamera) return internalCamera;
-      return createCameraState(controlledCamera);
+  // Use the appropriate camera state based on whether we're controlled or not
+  const activeCamera = useMemo(() => {
+      if (controlledCamera) {
+          return createCameraState(controlledCamera);
+      }
+      return internalCamera;
   }, [controlledCamera, internalCamera]);
 
-  // Update the handleCameraUpdate function to include validation
+  // Update handleCameraUpdate to use activeCamera
   const handleCameraUpdate = useCallback((updateFn: (camera: CameraState) => CameraState) => {
-    const newCameraState = updateFn(camera);
+    const newCameraState = updateFn(activeCamera);
 
     if (controlledCamera) {
-        // In controlled mode, convert state to params and notify parent
         onCameraChange?.(createCameraParams(newCameraState));
     } else {
-        // In uncontrolled mode, update internal state
         setInternalCamera(newCameraState);
-        // Optionally notify parent
         onCameraChange?.(createCameraParams(newCameraState));
     }
-}, [camera, controlledCamera, onCameraChange]);
+}, [activeCamera, controlledCamera, onCameraChange]);
 
   // We'll also track a picking lock
   const pickingLockRef = useRef(false);
@@ -2019,9 +2015,9 @@ function SceneInner({
   // Update the render-triggering effects
   useEffect(() => {
     if (isReady) {
-      renderFrame(camera);  // Always render with current camera (controlled or internal)
+      renderFrame(activeCamera);  // Always render with current camera (controlled or internal)
     }
-  }, [isReady, camera, renderFrame]); // Watch the camera value
+  }, [isReady, activeCamera, renderFrame]); // Watch the camera value
 
   // Update canvas size effect
   useEffect(() => {
@@ -2037,18 +2033,18 @@ function SceneInner({
       canvas.height = displayHeight;
       createOrUpdateDepthTexture();
       createOrUpdatePickTextures();
-      renderFrame(camera);
+      renderFrame(activeCamera);
     }
-  }, [containerWidth, containerHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures, renderFrame, camera]);
+  }, [containerWidth, containerHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures, renderFrame, activeCamera]);
 
   // Update elements effect
   useEffect(() => {
     if (isReady && gpuRef.current) {
       const ros = buildRenderObjects(elements);
       gpuRef.current.renderObjects = ros;
-      renderFrame(camera);
+      renderFrame(activeCamera);
     }
-  }, [isReady, elements, renderFrame, camera]);
+  }, [isReady, elements, renderFrame, activeCamera]);
 
   // Wheel handling
   useEffect(() => {
@@ -2068,14 +2064,10 @@ function SceneInner({
 
   return (
     <div style={{ width: '100%', border: '1px solid #ccc' }}>
-      <canvas
-        ref={canvasRef}
-        style={style}
-        onMouseMove={handleScene3dMouseMove}
-        onMouseDown={handleScene3dMouseDown}
-        onMouseUp={handleScene3dMouseUp}
-        onMouseLeave={handleScene3dMouseLeave}
-      />
+        <canvas
+            ref={canvasRef}
+            style={style}
+        />
     </div>
   );
 }

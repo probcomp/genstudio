@@ -401,29 +401,32 @@ def create_demo_scene():
             colors=np.array([[0.8, 0.2, 0.8], [0.2, 0.8, 0.8]]),
             decorations=[deco([0], scale=1.2)],
         )
-    ) + {
-        "width": 400,
-        "height": 400,
+    )
+    controlled_camera = {
         "camera": Plot.js("$state.camera"),
         "onCameraChange": Plot.js("(camera) => $state.update({camera})"),
     }
 
     # Create a layout with two scenes side by side
-    scene = (base_scene & base_scene) | Plot.initialState(
-        {
-            "camera": {
-                "position": [
-                    1.5 * math.sin(0.2) * math.sin(1.0),  # x
-                    1.5 * math.cos(1.0),  # y
-                    1.5 * math.sin(0.2) * math.cos(1.0),  # z
-                ],
-                "target": [0, 0, 0],
-                "up": [0, 1, 0],
-                "fov": math.pi / 3,
-                "near": 0.01,
-                "far": 100.0,
+    scene = (
+        (base_scene + controlled_camera & base_scene + controlled_camera)
+        | base_scene
+        | Plot.initialState(
+            {
+                "camera": {
+                    "position": [
+                        1.5 * math.sin(0.2) * math.sin(1.0),  # x
+                        1.5 * math.cos(1.0),  # y
+                        1.5 * math.sin(0.2) * math.cos(1.0),  # z
+                    ],
+                    "target": [0, 0, 0],
+                    "up": [0, 1, 0],
+                    "fov": math.pi / 3,
+                    "near": 0.01,
+                    "far": 100.0,
+                }
             }
-        }
+        )
     )
 
     return scene
