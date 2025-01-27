@@ -82,10 +82,6 @@ export const Slider = mobxReact.observer(
             className,
             style } = options;
 
-        if (init === undefined && rangeFrom === undefined && range === undefined) {
-            throw new Error("Slider: 'init', 'rangeFrom', or 'range' must be defined");
-        }
-
         // Set default controls based on fps
         if (controls === undefined) {
             controls = fps ? ["slider", "play"] : ["slider"];
@@ -111,6 +107,7 @@ export const Slider = mobxReact.observer(
         } else if (range) {
             [rangeMin, rangeMax] = range;
         }
+
         step = step || 1;
 
         const $state = useContext($StateContext);
@@ -120,6 +117,19 @@ export const Slider = mobxReact.observer(
         const frameCountRef = useRef(0);
         const lastLogTimeRef = useRef(performance.now());
         const [currentFps, setCurrentFps] = useState(0);
+
+        useEffect(() => {
+            if ($state[state_key] === undefined) {
+                if (init === undefined) {
+                    if (rangeMin === undefined) {
+                        throw new Error("Slider: 'init', 'rangeFrom', or 'range' must be defined");
+                    }
+                    $state[state_key] = rangeMin;
+                } else {
+                    $state[state_key] = init;
+                }
+            }
+        }, [init, rangeMin, rangeMax, state_key]);
 
         const sliderValue = clamp($state[state_key] ?? rangeMin, rangeMin, rangeMax);
 
@@ -154,21 +164,26 @@ export const Slider = mobxReact.observer(
         }, [step, rangeMax, tail, loop, $state, state_key]);
 
         useEffect(() => {
+            let animationFrameId;
+            let intervalId;
+
             if (isAnimated && isPlaying) {
                 if (fps === 'raf') {
-                    let animationFrameId;
                     const animate = () => {
                         updateFrameAndState();
                         animationFrameId = requestAnimationFrame(animate);
                     };
 
                     animationFrameId = requestAnimationFrame(animate);
-                    return () => cancelAnimationFrame(animationFrameId);
                 } else {
-                    const intervalId = setInterval(updateFrameAndState, 1000 / fps);
-                    return () => clearInterval(intervalId);
+                    intervalId = setInterval(updateFrameAndState, 1000 / fps);
                 }
             }
+
+            return () => {
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                if (intervalId) clearInterval(intervalId);
+            };
         }, [isPlaying, fps, updateFrameAndState]);
 
         const handleSliderChange = useCallback((value) => {
@@ -266,7 +281,7 @@ export const Frames = mobxReact.observer(
             return <div className={tw("text-red-500")}>Error: 'frames' must be an array.</div>;
         }
 
-        const index = $state[state_key];
+        const index = $state[state_key] ?? 0;
         if (!Number.isInteger(index) || index < 0 || index >= frames.length) {
             return <div className={tw("text-red-500")}>Error: Invalid index. $state[{state_key}] ({index}) must be a valid index of the frames array (length: {frames.length}).</div>;
         }

@@ -957,29 +957,6 @@ def Slider(
     Example:
         >>> Plot.Slider("frame", init=0, range=100, fps=30, label="Frame")
     """
-    """
-    Creates a slider with reactive functionality, allowing for dynamic interaction and animation.
-
-    Args:
-        key (str): The key for the reactive variable in the state.
-        init (Any, optional): Initial value for the variable.
-        range (Union[int, List[int]], optional): Either a single 'until' value or [from, until] list.
-        rangeFrom (Any, optional): Derive the range from the length of this (ref) argument.
-        fps (int, optional): Frames per second for animation through the range. If > 0, enables animation.
-        step (int, optional): Step size for the range. Defaults to 1.
-        tail (bool, optional): If True, animation stops at the end of the range. Defaults to False.
-        loop (bool, optional): If True, animation loops back to start when reaching the end. Defaults to True.
-        label (str, optional): Label for the slider.
-        showValue (bool, optional): If True, shows the current value immediately after the label.
-        controls (list, optional): List of controls to display, such as ["slider", "play", "fps"]. Defaults to ["slider"] if fps is not set, otherwise ["slider", "play"].
-        **kwargs: Additional keyword arguments.
-
-    Returns:
-        Slider: A Slider component with the specified options.
-
-    Example:
-        >>> Plot.Slider("frame", init=0, range=100, fps=30, label="Frame")
-    """
     init = kwargs.get("init")
     rangeFrom = kwargs.get("rangeFrom")
     tail = kwargs.get("tail")
