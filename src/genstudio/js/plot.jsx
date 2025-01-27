@@ -168,7 +168,12 @@ export function readMark(mark, width) {
 }
 
 function prepareSpec(spec, containerWidth) {
-    const width = spec.width ?? containerWidth
+    // Calculate width considering maxWidth constraint
+    let width = spec.width ?? containerWidth
+    if (spec.maxWidth) {
+        width = Math.min(width, spec.maxWidth)
+    }
+
     const marks = spec.marks.flatMap((m) => readMark(m, width))
     spec = {...spec,
             width: width,

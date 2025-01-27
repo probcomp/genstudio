@@ -39,7 +39,7 @@
   "scripts": {
     "release": "poetry run python scripts/release.py",
     "build": "node esbuild.config.mjs",
-    "watch": "node esbuild.config.mjs --watch",
+    "dev": "node esbuild.config.mjs --watch",
     "watch:docs": "poetry run mkdocs serve",
     "build:docs": "poetry run mkdocs build",
     "test:js": "node --experimental-vm-modules node_modules/vitest/vitest.mjs",
