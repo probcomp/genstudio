@@ -1,5 +1,5 @@
 import genstudio.plot as Plot
-from typing import Any, Dict, List, Optional, Union, Sequence
+from typing import Any, Dict, Union
 from colorsys import hsv_to_rgb
 
 import numpy as np
@@ -47,12 +47,12 @@ def make_torus_knot(n_points: int):
 
 
 def deco(
-    indexes: Union[int, Sequence[int]],
+    indexes: Any,
     *,
-    color: Optional[Sequence[float]] = None,
-    alpha: Optional[float] = None,
-    scale: Optional[float] = None,
-    min_size: Optional[float] = None,
+    color: Any = None,
+    alpha: Any = None,
+    scale: Any = None,
+    min_size: Any = None,
 ) -> Dict[str, Any]:
     """Create a decoration for scene elements.
 
@@ -68,14 +68,14 @@ def deco(
     """
     # Convert single index to list
     if isinstance(indexes, (int, np.integer)):
-        indexes = [indexes]
+        indexes = np.array([indexes])
 
     # Create base decoration dict
-    decoration = {"indexes": list(indexes)}
+    decoration = {"indexes": indexes}
 
     # Add optional parameters if provided
     if color is not None:
-        decoration["color"] = list(color)
+        decoration["color"] = color
     if alpha is not None:
         decoration["alpha"] = alpha
     if scale is not None:
@@ -86,10 +86,11 @@ def deco(
     return decoration
 
 
-class SceneElement:
+class SceneElement(Plot.LayoutItem):
     """Base class for all 3D scene elements."""
 
     def __init__(self, type_name: str, data: Dict[str, Any], **kwargs):
+        super().__init__()
         self.type = type_name
         self.data = data
         self.decorations = kwargs.get("decorations")
@@ -107,14 +108,24 @@ class SceneElement:
             element["onClick"] = self.on_click
         return element
 
-    def __add__(self, other: Union["SceneElement", "Scene"]) -> "Scene":
+    def for_json(self) -> Dict[str, Any]:
+        """Convert the element to a JSON-compatible dictionary."""
+        return Scene(self).for_json()
+
+    def __add__(self, other: Union["SceneElement", "Scene", Dict[str, Any]]) -> "Scene":
         """Allow combining elements with + operator."""
         if isinstance(other, Scene):
-            return Scene([self] + other.elements)
+            return other + self
         elif isinstance(other, SceneElement):
-            return Scene([self, other])
+            return Scene(self, other)
+        elif isinstance(other, dict):
+            return Scene(self, other)
         else:
             raise TypeError(f"Cannot add SceneElement with {type(other)}")
+
+    def __radd__(self, other: Dict[str, Any]) -> "Scene":
+        """Allow combining elements with + operator when dict is on the left."""
+        return Scene(self, other)
 
 
 class Scene(Plot.LayoutItem):
@@ -136,31 +147,41 @@ class Scene(Plot.LayoutItem):
 
     def __init__(
         self,
-        elements: List[Union[SceneElement, Dict[str, Any]]],
-        *,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
+        *elements_and_props: Union[SceneElement, Dict[str, Any]],
     ):
         """Initialize the scene.
 
         Args:
-            elements: List of scene elements
-            width: Optional canvas width (default: container width)
-            height: Optional canvas height (default: container width)
+            *elements_and_props: Scene elements and optional properties.
         """
+        elements = []
+        scene_props = {}
+        for item in elements_and_props:
+            if isinstance(item, SceneElement):
+                elements.append(item)
+            elif isinstance(item, dict):
+                scene_props.update(item)
+            else:
+                raise TypeError(f"Invalid type in elements_and_props: {type(item)}")
+
         self.elements = elements
-        self.width = width
-        self.height = height
+        self.scene_props = scene_props
         super().__init__()
 
-    def __add__(self, other: Union[SceneElement, "Scene"]) -> "Scene":
+    def __add__(self, other: Union[SceneElement, "Scene", Dict[str, Any]]) -> "Scene":
         """Allow combining scenes with + operator."""
         if isinstance(other, Scene):
-            return Scene(self.elements + other.elements)
+            return Scene(*self.elements, *other.elements, self.scene_props)
         elif isinstance(other, SceneElement):
-            return Scene(self.elements + [other])
+            return Scene(*self.elements, other, self.scene_props)
+        elif isinstance(other, dict):
+            return Scene(*self.elements, {**self.scene_props, **other})
         else:
             raise TypeError(f"Cannot add Scene with {type(other)}")
+
+    def __radd__(self, other: Dict[str, Any]) -> "Scene":
+        """Allow combining scenes with + operator when dict is on the left."""
+        return Scene(*self.elements, {**other, **self.scene_props})
 
     def for_json(self) -> Any:
         """Convert to JSON representation for JavaScript."""
@@ -168,19 +189,15 @@ class Scene(Plot.LayoutItem):
             e.to_dict() if isinstance(e, SceneElement) else e for e in self.elements
         ]
 
-        props = {"elements": elements}
-        if self.width:
-            props["width"] = self.width
-        if self.height:
-            props["height"] = self.height
+        props = {"elements": elements, **self.scene_props}
 
         return [Plot.JSRef("scene3d.Scene"), props]
 
 
 def point_cloud(
-    positions: np.ndarray,
-    colors: Optional[np.ndarray] = None,
-    scales: Optional[np.ndarray] = None,
+    positions: Any,
+    colors: Any = None,
+    scales: Any = None,
     **kwargs,
 ) -> SceneElement:
     """Create a point cloud element.
@@ -192,19 +209,20 @@ def point_cloud(
         **kwargs: Additional arguments like decorations, onHover, onClick
     """
     # Ensure arrays are flattened float32/uint8
-    positions = np.asarray(positions, dtype=np.float32)
-    if positions.ndim == 2:
-        positions = positions.flatten()
+    if isinstance(positions, (np.ndarray, list)):
+        positions = np.asarray(positions, dtype=np.float32)
+        if positions.ndim == 2:
+            positions = positions.flatten()
 
     data: Dict[str, Any] = {"positions": positions}
 
-    if colors is not None:
+    if isinstance(colors, (np.ndarray, list)):
         colors = np.asarray(colors, dtype=np.float32)
         if colors.ndim == 2:
             colors = colors.flatten()
         data["colors"] = colors
 
-    if scales is not None:
+    if isinstance(scales, (np.ndarray, list)):
         scales = np.asarray(scales, dtype=np.float32)
         if scales.ndim > 1:
             scales = scales.flatten()
@@ -214,9 +232,9 @@ def point_cloud(
 
 
 def ellipsoid(
-    centers: np.ndarray,
-    radii: np.ndarray,
-    colors: Optional[np.ndarray] = None,
+    centers: Any,
+    radii: Any,
+    colors: Any = None,
     **kwargs,
 ) -> SceneElement:
     """Create an ellipsoid element.
@@ -248,9 +266,9 @@ def ellipsoid(
 
 
 def ellipsoid_bounds(
-    centers: np.ndarray,
-    radii: np.ndarray,
-    colors: Optional[np.ndarray] = None,
+    centers: Any,
+    radii: Any,
+    colors: Any = None,
     **kwargs,
 ) -> SceneElement:
     """Create an ellipsoid bounds (wireframe) element.
@@ -282,9 +300,9 @@ def ellipsoid_bounds(
 
 
 def cuboid(
-    centers: np.ndarray,
-    sizes: np.ndarray,
-    colors: Optional[np.ndarray] = None,
+    centers: Any,
+    sizes: Any,
+    colors: Any = None,
     **kwargs,
 ) -> SceneElement:
     """Create a cuboid element.
@@ -341,23 +359,24 @@ def create_demo_scene():
     # Create varying scales for points
     scales = 0.01 + 0.02 * np.sin(t)
 
-    # Create the scene by combining elements
-    scene = (
+    # Create the base scene with shared elements
+    base_scene = (
         point_cloud(
             positions,
             colors,
             scales,
-            onHover=Plot.js("""
-                function(idx) {
-                    $state.hover_points = idx === null ? null : [idx];
+            onHover=Plot.js(
+                "(i) => console.log('hover') || $state.update({hover_point: i})"
+            ),
+            decorations=[
+                {
+                    "indexes": Plot.js(
+                        "$state.hover_point ? [$state.hover_point] : []"
+                    ),
+                    "color": [1, 1, 0],
+                    "scale": 1.5,
                 }
-            """),
-            # Add hover decoration
-            decorations=Plot.js("""
-                $state.hover_points ? [
-                    {indexes: $state.hover_points, color: [1, 1, 0], scale: 1.5}
-                ] : undefined
-            """),
+            ],
         )
         +
         # Ellipsoids with one highlighted
@@ -365,7 +384,7 @@ def create_demo_scene():
             centers=np.array([[0.5, 0.5, 0.5], [-0.5, -0.5, 0.5], [0.0, 0.0, 0.0]]),
             radii=np.array([[0.1, 0.2, 0.1], [0.2, 0.1, 0.1], [0.15, 0.15, 0.15]]),
             colors=np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
-            decorations=[deco(1, color=[1, 1, 0], alpha=0.8)],
+            decorations=[deco([1], color=[1, 1, 0], alpha=0.8)],
         )
         +
         # Ellipsoid bounds with transparency
@@ -381,13 +400,32 @@ def create_demo_scene():
             centers=np.array([[0.0, -0.8, 0.0], [0.0, -0.8, 0.3]]),
             sizes=np.array([[0.3, 0.1, 0.2], [0.2, 0.1, 0.2]]),
             colors=np.array([[0.8, 0.2, 0.8], [0.2, 0.8, 0.8]]),
-            decorations=[deco(0, scale=1.2)],
+            decorations=[deco([0], scale=1.2)],
         )
+    ) + {
+        "width": 400,
+        "height": 400,
+        "camera": Plot.js("$state.camera"),
+        "onCameraChange": Plot.js("(camera) => $state.update({camera})"),
+    }
+
+    # Create a layout with two scenes side by side
+    scene = (base_scene & base_scene) | Plot.initialState(
+        {
+            "camera": {
+                "orbitRadius": 1.5,
+                "orbitTheta": 0.2,
+                "orbitPhi": 1.0,
+                "panX": 0,
+                "panY": 0,
+                "fov": 1.0472,  # Math.PI/3
+                "near": 0.01,
+                "far": 100.0,
+            }
+        }
     )
 
     return scene
 
 
-# Create and display the scene
-scene = create_demo_scene()
-scene
+create_demo_scene()

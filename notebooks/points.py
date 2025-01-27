@@ -1,9 +1,10 @@
 # %%
 import genstudio.plot as Plot
+import genstudio.scene3d as Scene
 import numpy as np
-from genstudio.alpha.scene3d import Points
 from genstudio.plot import js
 from colorsys import hsv_to_rgb
+from genstudio.scene3d import deco
 
 
 def make_torus_knot(n_points: int):
@@ -107,7 +108,10 @@ def make_wall(n_points: int):
 
 
 def rotate_points(
-    xyz: np.ndarray, n_frames: int = 10, origin: np.ndarray = None, axis: str = "z"
+    xyz: np.ndarray,
+    n_frames: int = 10,
+    origin: np.ndarray = np.array([0, 0, 0], dtype=np.float32),
+    axis: str = "z",
 ) -> np.ndarray:
     """Rotate points around an axis over n_frames.
 
@@ -125,8 +129,8 @@ def rotate_points(
     input_dtype = xyz.dtype
 
     # Set default origin to [0,0,0]
-    if origin is None:
-        origin = np.zeros(3, dtype=input_dtype)
+    # if origin is None:
+    #     origin = np.zeros(3, dtype=input_dtype)
 
     # Initialize output array with same dtype as input
     moved = np.zeros((n_frames, xyz.shape[0] * 3), dtype=input_dtype)
@@ -187,45 +191,31 @@ def scene(controlled, point_size, xyz, rgb, scale, select_region=False):
             "camera": js("$state.camera"),
         }
     )
-    return Points(
-        {"position": xyz, "color": rgb, "scale": scale},
-        {
-            "backgroundColor": [0.1, 0.1, 0.1, 1],
-            "pointSize": point_size,
-            "onPointHover": js("""(i) => {
+    return Scene.point_cloud(
+        positions=xyz,
+        colors=rgb,
+        scales=scale,
+        onHover=js("""(i) => {
                  $state.update({hovered: i})
                 }"""),
-            "onPointClick": js(
-                """(i) => $state.update({"selected_region_i": i})"""
-                if select_region
-                else """(i) => {
-                    $state.update({highlights: $state.highlights.includes(i) ? $state.highlights.filter(h => h !== i) : [...$state.highlights, i]});
-                    }"""
+        onClick=js(
+            """(i) => $state.update({"selected_region_i": i})"""
+            if select_region
+            else """(i) => {
+                $state.update({highlights: $state.highlights.includes(i) ? $state.highlights.filter(h => h !== i) : [...$state.highlights, i]});
+                }"""
+        ),
+        decorations=[
+            deco(js("$state.highlights"), color=[1, 1, 0], scale=2, min_size=10),
+            deco(js("[$state.hovered]"), color=[0, 1, 0], scale=1.2, min_size=10),
+            deco(
+                js("$state.selected_region_indexes") if select_region else [],
+                alpha=0.2,
+                scale=0.5,
             ),
-            "decorations": {
-                "clicked": {
-                    "indexes": js("$state.highlights"),
-                    "scale": 2,
-                    "minSize": 10,
-                    "color": [1, 1, 0],
-                },
-                "hovered": {
-                    "indexes": js("[$state.hovered]"),
-                    "scale": 1.2,
-                    "minSize": 10,
-                    "color": [0, 1, 0],
-                },
-                "selected_region": {
-                    "indexes": js("$state.selected_region_indexes")
-                    if select_region
-                    else [],
-                    "alpha": 0.2,
-                    "scale": 0.5,
-                },
-            },
-            "highlightColor": [1.0, 1.0, 0.0],
-            **cameraProps,
-        },
+        ],
+        highlightColor=[1.0, 1.0, 0.0],
+        **cameraProps,
     )
 
 

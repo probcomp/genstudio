@@ -21,6 +21,18 @@ const LIGHTING = {
   }
 } as const;
 
+// Add the default camera configuration
+const DEFAULT_CAMERA = {
+  orbitRadius: 1.5,
+  orbitTheta: 0.2,
+  orbitPhi: 1.0,
+  panX: 0,
+  panY: 0,
+  fov: Math.PI/3,
+  near: 0.01,
+  far: 100.0
+} as const;
+
 /******************************************************
  * 1) Data Structures & "Spec" System
  ******************************************************/
@@ -410,14 +422,14 @@ interface ExtendedSpec<E> extends PrimitiveSpec<E> {
   getRenderPipeline(
     device: GPUDevice,
     bindGroupLayout: GPUBindGroupLayout,
-    cache: Map<string, GPURenderPipeline>
+    cache: Map<string, PipelineCacheEntry>
   ): GPURenderPipeline;
 
   /** Return (or lazily create) the GPU picking pipeline for this type. */
   getPickingPipeline(
     device: GPUDevice,
     bindGroupLayout: GPUBindGroupLayout,
-    cache: Map<string, GPURenderPipeline>
+    cache: Map<string, PipelineCacheEntry>
   ): GPURenderPipeline;
 
   /** Create a RenderObject that references geometry + the two pipelines. */
@@ -427,134 +439,116 @@ interface ExtendedSpec<E> extends PrimitiveSpec<E> {
     pickingPipeline: GPURenderPipeline,
     instanceVB: GPUBuffer|null,
     pickingVB: GPUBuffer|null,
-    instanceCount: number
+    instanceCount: number,
+    resources: {  // Add this parameter
+      sphereGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+      ringGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+      billboardQuad: { vb: GPUBuffer; ib: GPUBuffer; } | null;
+      cubeGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+    }
   ): RenderObject;
 }
 
 /******************************************************
  * 1.6) Pipeline Cache Helper
  ******************************************************/
-const pipelineCache = new Map<string, GPURenderPipeline>();
+// Update the pipeline cache to include device reference
+interface PipelineCacheEntry {
+  pipeline: GPURenderPipeline;
+  device: GPUDevice;
+}
+
+// Update the cache type
+const pipelineCache = new Map<string, PipelineCacheEntry>();
+
+// Update the getOrCreatePipeline helper
 function getOrCreatePipeline(
+  device: GPUDevice,
   key: string,
   createFn: () => GPURenderPipeline,
-  cache: Map<string, GPURenderPipeline>
+  cache: Map<string, PipelineCacheEntry>  // This will be the instance cache
 ): GPURenderPipeline {
-  if (cache.has(key)) {
-    return cache.get(key)!;
+  const entry = cache.get(key);
+  if (entry && entry.device === device) {
+    return entry.pipeline;
   }
+
+  // Create new pipeline and cache it with device reference
   const pipeline = createFn();
-  cache.set(key, pipeline);
+  cache.set(key, { pipeline, device });
   return pipeline;
 }
 
 /******************************************************
  * 2) Common Resources: geometry, layout, etc.
  ******************************************************/
-const CommonResources = {
-  /** Track which device created our resources */
-  currentDevice: null as GPUDevice | null,
-
-  /** Sphere geometry for ellipsoids */
-  sphereGeo: null as { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null,
-
-  /** Torus geometry for ellipsoid bounds */
-  ringGeo: null as { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null,
-
-  /** Quad geometry for point clouds (billboard) */
-  billboardQuad: null as { vb: GPUBuffer; ib: GPUBuffer; } | null,
-
-  /** Cube geometry for cuboids */
-  cubeGeo: null as { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null,
-
-  init(device: GPUDevice) {
-    // If device changed, destroy old resources
-    if (this.currentDevice && this.currentDevice !== device) {
-      this.sphereGeo?.vb.destroy();
-      this.sphereGeo?.ib.destroy();
-      this.sphereGeo = null;
-
-      this.ringGeo?.vb.destroy();
-      this.ringGeo?.ib.destroy();
-      this.ringGeo = null;
-
-      this.billboardQuad?.vb.destroy();
-      this.billboardQuad?.ib.destroy();
-      this.billboardQuad = null;
-
-      this.cubeGeo?.vb.destroy();
-      this.cubeGeo?.ib.destroy();
-      this.cubeGeo = null;
-    }
-
-    this.currentDevice = device;
-
-    // Create geometry resources for this device
-    if(!this.sphereGeo) {
-      const { vertexData, indexData } = createSphereGeometry(16,24);
-      const vb = device.createBuffer({
-        size: vertexData.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(vb,0,vertexData);
-      const ib = device.createBuffer({
-        size: indexData.byteLength,
-        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(ib,0,indexData);
-      this.sphereGeo = { vb, ib, indexCount: indexData.length };
-    }
-
-    // create ring geometry
-    if(!this.ringGeo){
-      const { vertexData, indexData } = createTorusGeometry(1.0,0.03,40,12);
-      const vb = device.createBuffer({
-        size: vertexData.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(vb,0,vertexData);
-      const ib = device.createBuffer({
-        size: indexData.byteLength,
-        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(ib,0,indexData);
-      this.ringGeo = { vb, ib, indexCount: indexData.length };
-    }
-
-    // create billboard quad geometry
-    if(!this.billboardQuad){
-      const quadVerts = new Float32Array([-0.5,-0.5,  0.5,-0.5,  -0.5,0.5,  0.5,0.5]);
-      const quadIdx   = new Uint16Array([0,1,2,2,1,3]);
-      const vb = device.createBuffer({
-        size: quadVerts.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(vb,0,quadVerts);
-      const ib = device.createBuffer({
-        size: quadIdx.byteLength,
-        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(ib,0,quadIdx);
-      this.billboardQuad = { vb, ib };
-    }
-
-    // create cube geometry
-    if(!this.cubeGeo){
-      const cube = createCubeGeometry();
-      const vb = device.createBuffer({
-        size: cube.vertexData.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(vb, 0, cube.vertexData);
-      const ib = device.createBuffer({
-        size: cube.indexData.byteLength,
-        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(ib, 0, cube.indexData);
-      this.cubeGeo = { vb, ib, indexCount: cube.indexData.length };
-    }
+// Replace CommonResources.init with a function that initializes for a specific instance
+function initGeometryResources(device: GPUDevice, resources: typeof gpuRef.current.resources) {
+  // Create sphere geometry
+  if(!resources.sphereGeo) {
+    const { vertexData, indexData } = createSphereGeometry(16,24);
+    const vb = device.createBuffer({
+      size: vertexData.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(vb,0,vertexData);
+    const ib = device.createBuffer({
+      size: indexData.byteLength,
+      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(ib,0,indexData);
+    resources.sphereGeo = { vb, ib, indexCount: indexData.length };
   }
-};
+
+  // Create ring geometry
+  if(!resources.ringGeo) {
+    const { vertexData, indexData } = createTorusGeometry(1.0,0.03,40,12);
+    const vb = device.createBuffer({
+      size: vertexData.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(vb,0,vertexData);
+    const ib = device.createBuffer({
+      size: indexData.byteLength,
+      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(ib,0,indexData);
+    resources.ringGeo = { vb, ib, indexCount: indexData.length };
+  }
+
+  // Create billboard quad geometry
+  if(!resources.billboardQuad) {
+    const quadVerts = new Float32Array([-0.5,-0.5, 0.5,-0.5, -0.5,0.5, 0.5,0.5]);
+    const quadIdx = new Uint16Array([0,1,2, 2,1,3]);
+    const vb = device.createBuffer({
+      size: quadVerts.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(vb,0,quadVerts);
+    const ib = device.createBuffer({
+      size: quadIdx.byteLength,
+      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(ib,0,quadIdx);
+    resources.billboardQuad = { vb, ib };
+  }
+
+  // Create cube geometry
+  if(!resources.cubeGeo) {
+    const cube = createCubeGeometry();
+    const vb = device.createBuffer({
+      size: cube.vertexData.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(vb, 0, cube.vertexData);
+    const ib = device.createBuffer({
+      size: cube.indexData.byteLength,
+      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(ib, 0, cube.indexData);
+    resources.cubeGeo = { vb, ib, indexCount: cube.indexData.length };
+  }
+}
 
 /******************************************************
  * 2.1) PointCloud ExtendedSpec
@@ -568,103 +562,114 @@ const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
       bindGroupLayouts: [bindGroupLayout]
     });
 
-    return getOrCreatePipeline("PointCloudShading", () => {
-      return device.createRenderPipeline({
-        layout: pipelineLayout,
-        vertex:{
-          module: device.createShaderModule({ code: billboardVertCode }),
-          entryPoint:'vs_main',
-          buffers:[
-            // billboard corners
-            {
-              arrayStride: 8,
-              attributes:[{shaderLocation:0, offset:0, format:'float32x2'}]
-            },
-            // instance data
-            {
-              arrayStride: 9*4,
-              stepMode:'instance',
-              attributes:[
-                {shaderLocation:1, offset:0,    format:'float32x3'},
-                {shaderLocation:2, offset:3*4,  format:'float32x3'},
-                {shaderLocation:3, offset:6*4,  format:'float32'},
-                {shaderLocation:4, offset:7*4,  format:'float32'},
-                {shaderLocation:5, offset:8*4,  format:'float32'}
-              ]
-            }
-          ]
-        },
-        fragment:{
-          module: device.createShaderModule({ code: billboardFragCode }),
-          entryPoint:'fs_main',
-          targets:[{
-            format,
-            blend:{
-              color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-              alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-            }
-          }]
-        },
-        primitive:{ topology:'triangle-list', cullMode:'back' },
-        depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-      });
-    }, cache);
+    return getOrCreatePipeline(
+      device,
+      "PointCloudShading",
+      () => {
+        return device.createRenderPipeline({
+          layout: pipelineLayout,
+          vertex:{
+            module: device.createShaderModule({ code: billboardVertCode }),
+            entryPoint:'vs_main',
+            buffers:[
+              // billboard corners
+              {
+                arrayStride: 8,
+                attributes:[{shaderLocation:0, offset:0, format:'float32x2'}]
+              },
+              // instance data
+              {
+                arrayStride: 9*4,
+                stepMode:'instance',
+                attributes:[
+                  {shaderLocation:1, offset:0,    format:'float32x3'},
+                  {shaderLocation:2, offset:3*4,  format:'float32x3'},
+                  {shaderLocation:3, offset:6*4,  format:'float32'},
+                  {shaderLocation:4, offset:7*4,  format:'float32'},
+                  {shaderLocation:5, offset:8*4,  format:'float32'}
+                ]
+              }
+            ]
+          },
+          fragment:{
+            module: device.createShaderModule({ code: billboardFragCode }),
+            entryPoint:'fs_main',
+            targets:[{
+              format,
+              blend:{
+                color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
+                alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
+              }
+            }]
+          },
+          primitive:{ topology:'triangle-list', cullMode:'back' },
+          depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+        });
+      },
+      cache
+    );
   },
 
   getPickingPipeline(device, bindGroupLayout, cache) {
     const pipelineLayout = device.createPipelineLayout({
       bindGroupLayouts: [bindGroupLayout]
     });
-    return getOrCreatePipeline("PointCloudPicking", () => {
-      return device.createRenderPipeline({
-        layout: pipelineLayout,
-        vertex:{
-          module: device.createShaderModule({ code: pickingVertCode }),
-          entryPoint: 'vs_pointcloud',
-          buffers:[
-            // corners
-            {
-              arrayStride: 8,
-              attributes:[{shaderLocation:0, offset:0, format:'float32x2'}]
-            },
-            // instance data
-            {
-              arrayStride: 6*4,
-              stepMode:'instance',
-              attributes:[
-                {shaderLocation:1, offset:0,   format:'float32x3'},
-                {shaderLocation:2, offset:3*4, format:'float32'},  // pickID
-                {shaderLocation:3, offset:4*4, format:'float32'},  // scaleX
-                {shaderLocation:4, offset:5*4, format:'float32'}   // scaleY
-              ]
-            }
-          ]
-        },
-        fragment:{
-          module: device.createShaderModule({ code: pickingVertCode }),
-          entryPoint:'fs_pick',
-          targets:[{ format:'rgba8unorm' }]
-        },
-        primitive:{ topology:'triangle-list', cullMode:'back'},
-        depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-      });
-    }, cache);
+    return getOrCreatePipeline(
+      device,
+      "PointCloudPicking",
+      () => {
+        return device.createRenderPipeline({
+          layout: pipelineLayout,
+          vertex:{
+            module: device.createShaderModule({ code: pickingVertCode }),
+            entryPoint: 'vs_pointcloud',
+            buffers:[
+              // corners
+              {
+                arrayStride: 8,
+                attributes:[{shaderLocation:0, offset:0, format:'float32x2'}]
+              },
+              // instance data
+              {
+                arrayStride: 6*4,
+                stepMode:'instance',
+                attributes:[
+                  {shaderLocation:1, offset:0,   format:'float32x3'},
+                  {shaderLocation:2, offset:3*4, format:'float32'},  // pickID
+                  {shaderLocation:3, offset:4*4, format:'float32'},  // scaleX
+                  {shaderLocation:4, offset:5*4, format:'float32'}   // scaleY
+                ]
+              }
+            ]
+          },
+          fragment:{
+            module: device.createShaderModule({ code: pickingVertCode }),
+            entryPoint:'fs_pick',
+            targets:[{ format:'rgba8unorm' }]
+          },
+          primitive:{ topology:'triangle-list', cullMode:'back'},
+          depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+        });
+      },
+      cache
+    );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count){
-    if(!CommonResources.billboardQuad){
+  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count, resources){
+    if(!resources.billboardQuad){
       throw new Error("No billboard geometry available (not yet initialized).");
     }
+    const { vb, ib } = resources.billboardQuad;
     return {
       pipeline,
-      vertexBuffers: [CommonResources.billboardQuad.vb, instanceVB!],
-      indexBuffer: CommonResources.billboardQuad.ib,
+      vertexBuffers: [vb, instanceVB!],
+      indexBuffer: ib,
       indexCount: 6,
       instanceCount: count,
 
       pickingPipeline,
-      pickingVertexBuffers: [CommonResources.billboardQuad.vb, pickingInstanceVB!],
-      pickingIndexBuffer: CommonResources.billboardQuad.ib,
+      pickingVertexBuffers: [vb, pickingInstanceVB!],
+      pickingIndexBuffer: ib,
       pickingIndexCount: 6,
       pickingInstanceCount: count,
 
@@ -684,98 +689,108 @@ const ellipsoidExtendedSpec: ExtendedSpec<EllipsoidElementConfig> = {
     const pipelineLayout = device.createPipelineLayout({
       bindGroupLayouts: [bindGroupLayout]
     });
-    return getOrCreatePipeline("EllipsoidShading", () => {
-      return device.createRenderPipeline({
-        layout: pipelineLayout,
-        vertex:{
-          module: device.createShaderModule({ code: ellipsoidVertCode }),
-          entryPoint:'vs_main',
-          buffers:[
-            // sphere geometry
-            {
-              arrayStride: 6*4,
-              attributes:[
-                {shaderLocation:0, offset:0,   format:'float32x3'},
-                {shaderLocation:1, offset:3*4, format:'float32x3'}
-              ]
-            },
-            // instance data
-            {
-              arrayStride: 10*4,
-              stepMode:'instance',
-              attributes:[
-                {shaderLocation:2, offset:0,     format:'float32x3'},
-                {shaderLocation:3, offset:3*4,   format:'float32x3'},
-                {shaderLocation:4, offset:6*4,   format:'float32x3'},
-                {shaderLocation:5, offset:9*4,   format:'float32'}
-              ]
-            }
-          ]
-        },
-        fragment:{
-          module: device.createShaderModule({ code: ellipsoidFragCode }),
-          entryPoint:'fs_main',
-          targets:[{
-            format,
-            blend:{
-              color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-              alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-            }
-          }]
-        },
-        primitive:{ topology:'triangle-list', cullMode:'back'},
-        depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-      });
-    }, cache);
+    return getOrCreatePipeline(
+      device,
+      "EllipsoidShading",
+      () => {
+        return device.createRenderPipeline({
+          layout: pipelineLayout,
+          vertex:{
+            module: device.createShaderModule({ code: ellipsoidVertCode }),
+            entryPoint:'vs_main',
+            buffers:[
+              // sphere geometry
+              {
+                arrayStride: 6*4,
+                attributes:[
+                  {shaderLocation:0, offset:0,   format:'float32x3'},
+                  {shaderLocation:1, offset:3*4, format:'float32x3'}
+                ]
+              },
+              // instance data
+              {
+                arrayStride: 10*4,
+                stepMode:'instance',
+                attributes:[
+                  {shaderLocation:2, offset:0,     format:'float32x3'},
+                  {shaderLocation:3, offset:3*4,   format:'float32x3'},
+                  {shaderLocation:4, offset:6*4,   format:'float32x3'},
+                  {shaderLocation:5, offset:9*4,   format:'float32'}
+                ]
+              }
+            ]
+          },
+          fragment:{
+            module: device.createShaderModule({ code: ellipsoidFragCode }),
+            entryPoint:'fs_main',
+            targets:[{
+              format,
+              blend:{
+                color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
+                alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
+              }
+            }]
+          },
+          primitive:{ topology:'triangle-list', cullMode:'back'},
+          depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+        });
+      },
+      cache
+    );
   },
 
   getPickingPipeline(device, bindGroupLayout, cache) {
     const pipelineLayout = device.createPipelineLayout({
       bindGroupLayouts: [bindGroupLayout]
     });
-    return getOrCreatePipeline("EllipsoidPicking", () => {
-      return device.createRenderPipeline({
-        layout: pipelineLayout,
-        vertex:{
-          module: device.createShaderModule({ code: pickingVertCode }),
-          entryPoint:'vs_ellipsoid',
-          buffers:[
-            // sphere geometry
-            {
-              arrayStride:6*4,
-              attributes:[
-                {shaderLocation:0, offset:0,   format:'float32x3'},
-                {shaderLocation:1, offset:3*4, format:'float32x3'}
-              ]
-            },
-            // instance data
-            {
-              arrayStride:7*4,
-              stepMode:'instance',
-              attributes:[
-                {shaderLocation:2, offset:0,   format:'float32x3'},
-                {shaderLocation:3, offset:3*4, format:'float32x3'},
-                {shaderLocation:4, offset:6*4, format:'float32'}
-              ]
-            }
-          ]
-        },
-        fragment:{
-          module: device.createShaderModule({ code: pickingVertCode }),
-          entryPoint:'fs_pick',
-          targets:[{ format:'rgba8unorm' }]
-        },
-        primitive:{ topology:'triangle-list', cullMode:'back'},
-        depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-      });
-    }, cache);
+    return getOrCreatePipeline(
+      device,
+      "EllipsoidPicking",
+      () => {
+        return device.createRenderPipeline({
+          layout: pipelineLayout,
+          vertex:{
+            module: device.createShaderModule({ code: pickingVertCode }),
+            entryPoint:'vs_ellipsoid',
+            buffers:[
+              // sphere geometry
+              {
+                arrayStride:6*4,
+                attributes:[
+                  {shaderLocation:0, offset:0,   format:'float32x3'},
+                  {shaderLocation:1, offset:3*4, format:'float32x3'}
+                ]
+              },
+              // instance data
+              {
+                arrayStride:7*4,
+                stepMode:'instance',
+                attributes:[
+                  {shaderLocation:2, offset:0,   format:'float32x3'},
+                  {shaderLocation:3, offset:3*4, format:'float32x3'},
+                  {shaderLocation:4, offset:6*4, format:'float32'}
+                ]
+              }
+            ]
+          },
+          fragment:{
+            module: device.createShaderModule({ code: pickingVertCode }),
+            entryPoint:'fs_pick',
+            targets:[{ format:'rgba8unorm' }]
+          },
+          primitive:{ topology:'triangle-list', cullMode:'back'},
+          depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+        });
+      },
+      cache
+    );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count){
-    if(!CommonResources.sphereGeo) {
+  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count, resources){
+    if(!resources.sphereGeo) {
       throw new Error("No sphere geometry available (not yet initialized).");
     }
-    const { vb, ib, indexCount } = CommonResources.sphereGeo;
+    const { vb, ib, indexCount } = resources.sphereGeo;
     return {
       pipeline,
       vertexBuffers: [vb, instanceVB!],
@@ -805,98 +820,108 @@ const ellipsoidBoundsExtendedSpec: ExtendedSpec<EllipsoidBoundsElementConfig> = 
     const pipelineLayout = device.createPipelineLayout({
       bindGroupLayouts: [bindGroupLayout]
     });
-    return getOrCreatePipeline("EllipsoidBoundsShading", () => {
-      return device.createRenderPipeline({
-        layout: pipelineLayout,
-        vertex:{
-          module: device.createShaderModule({ code: ringVertCode }),
-          entryPoint:'vs_main',
-          buffers:[
-            // ring geometry
-            {
-              arrayStride:6*4,
-              attributes:[
-                {shaderLocation:0, offset:0,   format:'float32x3'},
-                {shaderLocation:1, offset:3*4, format:'float32x3'}
-              ]
-            },
-            // instance data
-            {
-              arrayStride: 10*4,
-              stepMode:'instance',
-              attributes:[
-                {shaderLocation:2, offset:0,     format:'float32x3'},
-                {shaderLocation:3, offset:3*4,   format:'float32x3'},
-                {shaderLocation:4, offset:6*4,   format:'float32x3'},
-                {shaderLocation:5, offset:9*4,   format:'float32'}
-              ]
-            }
-          ]
-        },
-        fragment:{
-          module: device.createShaderModule({ code: ringFragCode }),
-          entryPoint:'fs_main',
-          targets:[{
-            format,
-            blend:{
-              color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-              alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-            }
-          }]
-        },
-        primitive:{ topology:'triangle-list', cullMode:'back'},
-        depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-      });
-    }, cache);
+    return getOrCreatePipeline(
+      device,
+      "EllipsoidBoundsShading",
+      () => {
+        return device.createRenderPipeline({
+          layout: pipelineLayout,
+          vertex:{
+            module: device.createShaderModule({ code: ringVertCode }),
+            entryPoint:'vs_main',
+            buffers:[
+              // ring geometry
+              {
+                arrayStride:6*4,
+                attributes:[
+                  {shaderLocation:0, offset:0,   format:'float32x3'},
+                  {shaderLocation:1, offset:3*4, format:'float32x3'}
+                ]
+              },
+              // instance data
+              {
+                arrayStride: 10*4,
+                stepMode:'instance',
+                attributes:[
+                  {shaderLocation:2, offset:0,     format:'float32x3'},
+                  {shaderLocation:3, offset:3*4,   format:'float32x3'},
+                  {shaderLocation:4, offset:6*4,   format:'float32x3'},
+                  {shaderLocation:5, offset:9*4,   format:'float32'}
+                ]
+              }
+            ]
+          },
+          fragment:{
+            module: device.createShaderModule({ code: ringFragCode }),
+            entryPoint:'fs_main',
+            targets:[{
+              format,
+              blend:{
+                color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
+                alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
+              }
+            }]
+          },
+          primitive:{ topology:'triangle-list', cullMode:'back'},
+          depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+        });
+      },
+      cache
+    );
   },
 
   getPickingPipeline(device, bindGroupLayout, cache) {
     const pipelineLayout = device.createPipelineLayout({
       bindGroupLayouts: [bindGroupLayout]
     });
-    return getOrCreatePipeline("EllipsoidBoundsPicking", () => {
-      return device.createRenderPipeline({
-        layout: pipelineLayout,
-        vertex:{
-          module: device.createShaderModule({ code: pickingVertCode }),
-          entryPoint:'vs_bands',
-          buffers:[
-            // ring geometry
-            {
-              arrayStride:6*4,
-              attributes:[
-                {shaderLocation:0, offset:0,   format:'float32x3'},
-                {shaderLocation:1, offset:3*4, format:'float32x3'}
-              ]
-            },
-            // instance data
-            {
-              arrayStride:7*4,
-              stepMode:'instance',
-              attributes:[
-                {shaderLocation:2, offset:0,   format:'float32x3'},
-                {shaderLocation:3, offset:3*4, format:'float32x3'},
-                {shaderLocation:4, offset:6*4, format:'float32'}
-              ]
-            }
-          ]
-        },
-        fragment:{
-          module: device.createShaderModule({ code: pickingVertCode }),
-          entryPoint:'fs_pick',
-          targets:[{ format:'rgba8unorm' }]
-        },
-        primitive:{ topology:'triangle-list', cullMode:'back'},
-        depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-      });
-    }, cache);
+    return getOrCreatePipeline(
+      device,
+      "EllipsoidBoundsPicking",
+      () => {
+        return device.createRenderPipeline({
+          layout: pipelineLayout,
+          vertex:{
+            module: device.createShaderModule({ code: pickingVertCode }),
+            entryPoint:'vs_bands',
+            buffers:[
+              // ring geometry
+              {
+                arrayStride:6*4,
+                attributes:[
+                  {shaderLocation:0, offset:0,   format:'float32x3'},
+                  {shaderLocation:1, offset:3*4, format:'float32x3'}
+                ]
+              },
+              // instance data
+              {
+                arrayStride:7*4,
+                stepMode:'instance',
+                attributes:[
+                  {shaderLocation:2, offset:0,   format:'float32x3'},
+                  {shaderLocation:3, offset:3*4, format:'float32x3'},
+                  {shaderLocation:4, offset:6*4, format:'float32'}
+                ]
+              }
+            ]
+          },
+          fragment:{
+            module: device.createShaderModule({ code: pickingVertCode }),
+            entryPoint:'fs_pick',
+            targets:[{ format:'rgba8unorm' }]
+          },
+          primitive:{ topology:'triangle-list', cullMode:'back'},
+          depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+        });
+      },
+      cache
+    );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count){
-    if(!CommonResources.ringGeo){
+  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count, resources){
+    if(!resources.ringGeo){
       throw new Error("No ring geometry available (not yet initialized).");
     }
-    const { vb, ib, indexCount } = CommonResources.ringGeo;
+    const { vb, ib, indexCount } = resources.ringGeo;
     return {
       pipeline,
       vertexBuffers: [vb, instanceVB!],
@@ -926,98 +951,108 @@ const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
     const pipelineLayout = device.createPipelineLayout({
       bindGroupLayouts: [bindGroupLayout]
     });
-    return getOrCreatePipeline("CuboidShading", () => {
-      return device.createRenderPipeline({
-        layout: pipelineLayout,
-        vertex:{
-          module: device.createShaderModule({ code: cuboidVertCode }),
-          entryPoint:'vs_main',
-          buffers:[
-            // cube geometry
-            {
-              arrayStride: 6*4,
-              attributes:[
-                {shaderLocation:0, offset:0,   format:'float32x3'},
-                {shaderLocation:1, offset:3*4, format:'float32x3'}
-              ]
-            },
-            // instance data
-            {
-              arrayStride: 10*4,
-              stepMode:'instance',
-              attributes:[
-                {shaderLocation:2, offset:0,    format:'float32x3'},
-                {shaderLocation:3, offset:3*4,  format:'float32x3'},
-                {shaderLocation:4, offset:6*4,  format:'float32x3'},
-                {shaderLocation:5, offset:9*4,  format:'float32'}
-              ]
-            }
-          ]
-        },
-        fragment:{
-          module: device.createShaderModule({ code: cuboidFragCode }),
-          entryPoint:'fs_main',
-          targets:[{
-            format,
-            blend:{
-              color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-              alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-            }
-          }]
-        },
-        primitive:{ topology:'triangle-list', cullMode:'none' },
-        depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-      });
-    }, cache);
+    return getOrCreatePipeline(
+      device,
+      "CuboidShading",
+      () => {
+        return device.createRenderPipeline({
+          layout: pipelineLayout,
+          vertex:{
+            module: device.createShaderModule({ code: cuboidVertCode }),
+            entryPoint:'vs_main',
+            buffers:[
+              // cube geometry
+              {
+                arrayStride: 6*4,
+                attributes:[
+                  {shaderLocation:0, offset:0,   format:'float32x3'},
+                  {shaderLocation:1, offset:3*4, format:'float32x3'}
+                ]
+              },
+              // instance data
+              {
+                arrayStride: 10*4,
+                stepMode:'instance',
+                attributes:[
+                  {shaderLocation:2, offset:0,    format:'float32x3'},
+                  {shaderLocation:3, offset:3*4,  format:'float32x3'},
+                  {shaderLocation:4, offset:6*4,  format:'float32x3'},
+                  {shaderLocation:5, offset:9*4,  format:'float32'}
+                ]
+              }
+            ]
+          },
+          fragment:{
+            module: device.createShaderModule({ code: cuboidFragCode }),
+            entryPoint:'fs_main',
+            targets:[{
+              format,
+              blend:{
+                color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
+                alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
+              }
+            }]
+          },
+          primitive:{ topology:'triangle-list', cullMode:'none' },
+          depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+        });
+      },
+      cache
+    );
   },
 
   getPickingPipeline(device, bindGroupLayout, cache) {
     const pipelineLayout = device.createPipelineLayout({
       bindGroupLayouts: [bindGroupLayout]
     });
-    return getOrCreatePipeline("CuboidPicking", () => {
-      return device.createRenderPipeline({
-        layout: pipelineLayout,
-        vertex:{
-          module: device.createShaderModule({ code: pickingVertCode }),
-          entryPoint:'vs_cuboid',
-          buffers:[
-            // cube geometry
-            {
-              arrayStride: 6*4,
-              attributes:[
-                {shaderLocation:0, offset:0,   format:'float32x3'},
-                {shaderLocation:1, offset:3*4, format:'float32x3'}
-              ]
-            },
-            // instance data
-            {
-              arrayStride: 7*4,
-              stepMode:'instance',
-              attributes:[
-                {shaderLocation:2, offset:0,   format:'float32x3'},
-                {shaderLocation:3, offset:3*4, format:'float32x3'},
-                {shaderLocation:4, offset:6*4, format:'float32'}
-              ]
-            }
-          ]
-        },
-        fragment:{
-          module: device.createShaderModule({ code: pickingVertCode }),
-          entryPoint:'fs_pick',
-          targets:[{ format:'rgba8unorm' }]
-        },
-        primitive:{ topology:'triangle-list', cullMode:'none'},
-        depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-      });
-    }, cache);
+    return getOrCreatePipeline(
+      device,
+      "CuboidPicking",
+      () => {
+        return device.createRenderPipeline({
+          layout: pipelineLayout,
+          vertex:{
+            module: device.createShaderModule({ code: pickingVertCode }),
+            entryPoint:'vs_cuboid',
+            buffers:[
+              // cube geometry
+              {
+                arrayStride: 6*4,
+                attributes:[
+                  {shaderLocation:0, offset:0,   format:'float32x3'},
+                  {shaderLocation:1, offset:3*4, format:'float32x3'}
+                ]
+              },
+              // instance data
+              {
+                arrayStride: 7*4,
+                stepMode:'instance',
+                attributes:[
+                  {shaderLocation:2, offset:0,   format:'float32x3'},
+                  {shaderLocation:3, offset:3*4, format:'float32x3'},
+                  {shaderLocation:4, offset:6*4, format:'float32'}
+                ]
+              }
+            ]
+          },
+          fragment:{
+            module: device.createShaderModule({ code: pickingVertCode }),
+            entryPoint:'fs_pick',
+            targets:[{ format:'rgba8unorm' }]
+          },
+          primitive:{ topology:'triangle-list', cullMode:'none'},
+          depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
+        });
+      },
+      cache
+    );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count){
-    if(!CommonResources.cubeGeo){
+  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count, resources){
+    if(!resources.cubeGeo){
       throw new Error("No cube geometry available (not yet initialized).");
     }
-    const { vb, ib, indexCount } = CommonResources.cubeGeo;
+    const { vb, ib, indexCount } = resources.cubeGeo;
     return {
       pipeline,
       vertexBuffers: [vb, instanceVB!],
@@ -1170,9 +1205,12 @@ interface SceneProps {
   width?: number;
   height?: number;
   aspectRatio?: number;
+  camera?: CameraState;  // Controlled mode
+  defaultCamera?: CameraState;  // Uncontrolled mode
+  onCameraChange?: (camera: CameraState) => void;
 }
 
-export function Scene({ elements, width, height, aspectRatio = 1 }: SceneProps) {
+export function Scene({ elements, width, height, aspectRatio = 1, camera, defaultCamera, onCameraChange }: SceneProps) {
   const [containerRef, measuredWidth] = useContainerWidth(1);
   const dimensions = useMemo(
     () => computeCanvasDimensions(measuredWidth, width, height, aspectRatio),
@@ -1187,6 +1225,9 @@ export function Scene({ elements, width, height, aspectRatio = 1 }: SceneProps) 
           containerHeight={dimensions.height}
           style={dimensions.style}
           elements={elements}
+          camera={camera}
+          defaultCamera={defaultCamera}
+          onCameraChange={onCameraChange}
         />
       )}
     </div>
@@ -1196,7 +1237,15 @@ export function Scene({ elements, width, height, aspectRatio = 1 }: SceneProps) 
 /******************************************************
  * 4.1) The Scene Component
  ******************************************************/
-function SceneInner({ elements, containerWidth, containerHeight, style }: SceneInnerProps) {
+function SceneInner({
+  elements,
+  containerWidth,
+  containerHeight,
+  style,
+  camera: controlledCamera,
+  defaultCamera,
+  onCameraChange
+}: SceneInnerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // We'll store references to the GPU + other stuff in a ref object
@@ -1214,21 +1263,39 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
     renderObjects: RenderObject[];
     elementBaseId: number[];
     idToElement: {elementIdx: number, instanceIdx: number}[];
+    pipelineCache: Map<string, PipelineCacheEntry>;  // Add this
+    resources: {  // Add this
+      sphereGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+      ringGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+      billboardQuad: { vb: GPUBuffer; ib: GPUBuffer; } | null;
+      cubeGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+    };
   } | null>(null);
 
   const [isReady, setIsReady] = useState(false);
 
   // Initialize camera with proper state structure
-  const [camera, setCamera] = useState({
-    orbitRadius: 1.5,
-    orbitTheta: 0.2,
-    orbitPhi: 1.0,
-    panX: 0,
-    panY: 0,
-    fov: Math.PI/3,
-    near: 0.01,
-    far: 100.0
-  });
+  const [internalCamera, setInternalCamera] = useState(() =>
+    defaultCamera ?? DEFAULT_CAMERA
+  );
+
+  // Use controlled camera if provided, otherwise use internal state
+  const camera = controlledCamera ?? internalCamera;
+
+  // Unified camera update handler
+  const handleCameraUpdate = useCallback((updateFn: (camera: CameraState) => CameraState) => {
+    const newCamera = updateFn(camera);
+
+    if (controlledCamera) {
+      // In controlled mode, only notify parent
+      onCameraChange?.(newCamera);
+    } else {
+      // In uncontrolled mode, update internal state
+      setInternalCamera(newCamera);
+      // Optionally notify parent
+      onCameraChange?.(newCamera);
+    }
+  }, [camera, controlledCamera, onCameraChange]);
 
   // We'll also track a picking lock
   const pickingLockRef = useRef(false);
@@ -1278,23 +1345,6 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
     return [0,0,0];
   }
 
-  // Add these helper functions near the top
-  function vec3Sub(a: [number, number, number], b: [number, number, number]): [number, number, number] {
-    return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-  }
-
-  function vec3Normalize(v: [number, number, number]): [number, number, number] {
-    const len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
-    return [v[0] / len, v[1] / len, v[2] / len];
-  }
-
-  function vec3ScaleAndAdd(out: [number, number, number], a: [number, number, number], b: [number, number, number], scale: number): [number, number, number] {
-    out[0] = a[0] + b[0] * scale;
-    out[1] = a[1] + b[1] * scale;
-    out[2] = a[2] + b[2] * scale;
-    return out;
-  }
-
   /******************************************************
    * A) initWebGPU
    ******************************************************/
@@ -1322,9 +1372,6 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
         }]
       });
 
-      // Initialize common geometry resources
-      CommonResources.init(device);
-
       // Create uniform buffer
       const uniformBufferSize=128;
       const uniformBuffer=device.createBuffer({
@@ -1345,6 +1392,7 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
         label: 'Picking readback buffer'
       });
 
+      // First create gpuRef.current with empty resources
       gpuRef.current = {
         device,
         context,
@@ -1357,8 +1405,18 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
         readbackBuffer,
         renderObjects: [],
         elementBaseId: [],
-        idToElement: []
+        idToElement: [],
+        pipelineCache: new Map(),
+        resources: {
+          sphereGeo: null,
+          ringGeo: null,
+          billboardQuad: null,
+          cubeGeo: null
+        }
       };
+
+      // Now initialize geometry resources
+      initGeometryResources(device, gpuRef.current.resources);
 
       setIsReady(true);
     } catch(err){
@@ -1414,33 +1472,47 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
   /******************************************************
    * C) Building the RenderObjects (no if/else)
    ******************************************************/
-  function buildRenderObjects(sceneElements: SceneElementConfig[]): RenderObject[] {
+  function buildRenderObjects(elements: SceneElementConfig[]): RenderObject[] {
     if(!gpuRef.current) return [];
-    const { device, bindGroupLayout, elementBaseId, idToElement } = gpuRef.current;
+    const { device, bindGroupLayout, pipelineCache, resources } = gpuRef.current;
 
-    elementBaseId.length = 0;
-    idToElement.length = 1;
+    // Initialize elementBaseId and idToElement arrays
+    gpuRef.current.elementBaseId = [];
+    gpuRef.current.idToElement = [null];  // First ID (0) is reserved
     let currentID = 1;
 
-    const result: RenderObject[] = [];
-
-    sceneElements.forEach((elem, eIdx) => {
+    return elements.map((elem, i) => {
       const spec = primitiveRegistry[elem.type];
       if(!spec) {
-        elementBaseId[eIdx] = 0;
-        return;
+        gpuRef.current!.elementBaseId[i] = 0;  // No valid IDs for invalid elements
+        return {
+          pipeline: null,
+          vertexBuffers: [],
+          indexBuffer: null,
+          vertexCount: 0,
+          indexCount: 0,
+          instanceCount: 0,
+          pickingPipeline: null,
+          pickingVertexBuffers: [],
+          pickingIndexBuffer: null,
+          pickingVertexCount: 0,
+          pickingIndexCount: 0,
+          pickingInstanceCount: 0,
+          elementIndex: i
+        };
       }
+
       const count = spec.getCount(elem);
-      elementBaseId[eIdx] = currentID;
+      gpuRef.current!.elementBaseId[i] = currentID;
 
       // Expand global ID table
-      for(let i=0; i<count; i++){
-        idToElement[currentID + i] = { elementIdx: eIdx, instanceIdx: i };
+      for(let j=0; j<count; j++){
+        gpuRef.current!.idToElement[currentID + j] = { elementIdx: i, instanceIdx: j };
       }
       currentID += count;
 
       const renderData = spec.buildRenderData(elem);
-      const pickData   = spec.buildPickingData(elem, elementBaseId[eIdx]);
+      const pickData   = spec.buildPickingData(elem, gpuRef.current!.elementBaseId[i]);
 
       let vb: GPUBuffer|null = null;
       if(renderData && renderData.length>0){
@@ -1462,12 +1534,16 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
       const pipeline = spec.getRenderPipeline(device, bindGroupLayout, pipelineCache);
       const pickingPipeline = spec.getPickingPipeline(device, bindGroupLayout, pipelineCache);
 
-      const ro = spec.createRenderObject(device, pipeline, pickingPipeline, vb, pickVB, count);
-      ro.elementIndex = eIdx;
-      result.push(ro);
+      return spec.createRenderObject(
+        device,
+        pipeline,
+        pickingPipeline,
+        vb,
+        pickVB,
+        count,
+        resources
+      );
     });
-
-    return result;
   }
 
   /******************************************************
@@ -1704,20 +1780,21 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
     [pickAtScreenXY]
   );
 
-  const handleMouseMove=useCallback((e:ReactMouseEvent)=>{
+  // Rename to be more specific to scene3d
+  const handleScene3dMouseMove = useCallback((e: ReactMouseEvent) => {
     if(!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const st=mouseState.current;
-    if(st.type==='dragging' && st.lastX!==undefined && st.lastY!==undefined){
+    const st = mouseState.current;
+    if(st.type === 'dragging' && st.lastX !== undefined && st.lastY !== undefined) {
       const dx = e.clientX - st.lastX;
       const dy = e.clientY - st.lastY;
       st.dragDistance=(st.dragDistance||0)+Math.sqrt(dx*dx+dy*dy);
       if(st.button===2 || st.isShiftDown){
         // Pan by keeping the point under the mouse cursor fixed relative to mouse movement
-        setCamera(cam => {
+        handleCameraUpdate(cam => {
           // Calculate camera position and vectors
           const cx = cam.orbitRadius * Math.sin(cam.orbitPhi) * Math.sin(cam.orbitTheta);
           const cy = cam.orbitRadius * Math.cos(cam.orbitPhi);
@@ -1736,7 +1813,7 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
 
           // Calculate pan offset in view space
           const dx_view = dx * scale;
-          const dy_view = dy * scale;  // Removed the negative here
+          const dy_view = dy * scale;
 
           return {
             ...cam,
@@ -1745,55 +1822,72 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
           };
         });
       } else if(st.button===0){
-        // This should be orbit
-        setCamera(cam => {
-          const newPhi = Math.max(0.1, Math.min(Math.PI-0.1, cam.orbitPhi - dy * 0.01));  // Flip dy for natural up/down
+        // Orbit
+        handleCameraUpdate(cam => {
+          const newPhi = Math.max(0.1, Math.min(Math.PI-0.1, cam.orbitPhi - dy * 0.01));
           return {
             ...cam,
-            orbitTheta: cam.orbitTheta - dx * 0.01,  // Keep dx flipped for natural left/right
+            orbitTheta: cam.orbitTheta - dx * 0.01,
             orbitPhi: newPhi
           };
         });
       }
       st.lastX=e.clientX;
       st.lastY=e.clientY;
-    } else if(st.type==='idle'){
-      // Use throttled version for hover picking
+    } else if(st.type === 'idle') {
       throttledPickAtScreenXY(x, y, 'hover');
     }
-  },[throttledPickAtScreenXY]);
+  }, [handleCameraUpdate, throttledPickAtScreenXY]);
 
-  const handleMouseDown=useCallback((e:ReactMouseEvent)=>{
-    mouseState.current={
-      type:'dragging',
-      button:e.button,
-      startX:e.clientX,
-      startY:e.clientY,
-      lastX:e.clientX,
-      lastY:e.clientY,
-      isShiftDown:e.shiftKey,
-      dragDistance:0
+  const handleScene3dMouseDown = useCallback((e: ReactMouseEvent) => {
+    mouseState.current = {
+      type: 'dragging',
+      button: e.button,
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      isShiftDown: e.shiftKey,
+      dragDistance: 0
     };
     e.preventDefault();
-  },[]);
+  }, []);
 
-  const handleMouseUp=useCallback((e:ReactMouseEvent)=>{
-    const st=mouseState.current;
-    if(st.type==='dragging' && st.startX!==undefined && st.startY!==undefined){
+  const handleScene3dMouseUp = useCallback((e: ReactMouseEvent) => {
+    const st = mouseState.current;
+    if(st.type === 'dragging' && st.startX !== undefined && st.startY !== undefined) {
       if(!canvasRef.current) return;
-      const rect=canvasRef.current.getBoundingClientRect();
-      const x=e.clientX-rect.left, y=e.clientY-rect.top;
-      // if we haven't dragged far => treat as click
-      if((st.dragDistance||0) < 4){
-        pickAtScreenXY(x,y,'click');
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      if((st.dragDistance || 0) < 4) {
+        pickAtScreenXY(x, y, 'click');
       }
     }
-    mouseState.current={type:'idle'};
-  },[pickAtScreenXY]);
+    mouseState.current = {type: 'idle'};
+  }, [pickAtScreenXY]);
 
-  const handleMouseLeave=useCallback(()=>{
-    mouseState.current={type:'idle'};
-  },[]);
+  const handleScene3dMouseLeave = useCallback(() => {
+    mouseState.current = {type: 'idle'};
+  }, []);
+
+  // Update event listener references
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.addEventListener('mousemove', handleScene3dMouseMove);
+    canvas.addEventListener('mousedown', handleScene3dMouseDown);
+    canvas.addEventListener('mouseup', handleScene3dMouseUp);
+    canvas.addEventListener('mouseleave', handleScene3dMouseLeave);
+
+    return () => {
+      canvas.removeEventListener('mousemove', handleScene3dMouseMove);
+      canvas.removeEventListener('mousedown', handleScene3dMouseDown);
+      canvas.removeEventListener('mouseup', handleScene3dMouseUp);
+      canvas.removeEventListener('mouseleave', handleScene3dMouseLeave);
+    };
+  }, [handleScene3dMouseMove, handleScene3dMouseDown, handleScene3dMouseUp, handleScene3dMouseLeave]);
 
   /******************************************************
    * G) Lifecycle & Render-on-demand
@@ -1802,40 +1896,17 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
   useEffect(()=>{
     initWebGPU();
     return () => {
-      // On unmount, wait for GPU to be idle before cleanup
       if (gpuRef.current) {
-        const { device } = gpuRef.current;
+        const { device, resources, pipelineCache } = gpuRef.current;
 
-        // Wait for GPU to complete all work
         device.queue.onSubmittedWorkDone().then(() => {
-          // Now safe to cleanup resources
-          if (gpuRef.current) {
-            gpuRef.current.depthTexture?.destroy();
-            gpuRef.current.pickTexture?.destroy();
-            gpuRef.current.pickDepthTexture?.destroy();
-            gpuRef.current.readbackBuffer.destroy();
-            gpuRef.current.uniformBuffer.destroy();
+          // Cleanup instance resources
+          resources.sphereGeo?.vb.destroy();
+          resources.sphereGeo?.ib.destroy();
+          // ... cleanup other geometries ...
 
-            // Clear the cache
-            pipelineCache.clear();
-
-            // Destroy geometry resources
-            CommonResources.sphereGeo?.vb.destroy();
-            CommonResources.sphereGeo?.ib.destroy();
-            CommonResources.ringGeo?.vb.destroy();
-            CommonResources.ringGeo?.ib.destroy();
-            CommonResources.billboardQuad?.vb.destroy();
-            CommonResources.billboardQuad?.ib.destroy();
-            CommonResources.cubeGeo?.vb.destroy();
-            CommonResources.cubeGeo?.ib.destroy();
-
-            // Reset all references
-            CommonResources.currentDevice = null;
-            CommonResources.sphereGeo = null;
-            CommonResources.ringGeo = null;
-            CommonResources.billboardQuad = null;
-            CommonResources.cubeGeo = null;
-          }
+          // Clear instance pipeline cache
+          pipelineCache.clear();
         });
       }
     };
@@ -1849,7 +1920,14 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
     }
   },[isReady, containerWidth, containerHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures]);
 
-  // Set actual canvas size
+  // Update the render-triggering effects
+  useEffect(() => {
+    if (isReady) {
+      renderFrame(camera);  // Always render with current camera (controlled or internal)
+    }
+  }, [isReady, camera, renderFrame]); // Watch the camera value
+
+  // Update canvas size effect
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -1863,26 +1941,18 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
       canvas.height = displayHeight;
       createOrUpdateDepthTexture();
       createOrUpdatePickTextures();
-      renderFrame(camera);  // Call renderFrame directly
+      renderFrame(camera);
     }
   }, [containerWidth, containerHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures, renderFrame, camera]);
 
-  // Whenever elements change, or we become ready, rebuild GPU buffers
-  useEffect(()=>{
-    if(isReady && gpuRef.current){
+  // Update elements effect
+  useEffect(() => {
+    if (isReady && gpuRef.current) {
       const ros = buildRenderObjects(elements);
       gpuRef.current.renderObjects = ros;
-      // After building new objects, render once
       renderFrame(camera);
     }
-  },[isReady, elements, renderFrame, camera]);
-
-  // Also re-render if the camera changes
-  useEffect(()=>{
-    if(isReady){
-      renderFrame(camera);
-    }
-  },[isReady, camera, renderFrame]);
+  }, [isReady, elements, renderFrame, camera]);
 
   // Wheel handling
   useEffect(() => {
@@ -1892,7 +1962,7 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
     const handleWheel = (e: WheelEvent) => {
       if (mouseState.current.type === 'idle') {
         e.preventDefault();
-        setCamera(cam => ({
+        handleCameraUpdate(cam => ({
           ...cam,
           orbitRadius: Math.max(0.1, cam.orbitRadius * Math.exp(e.deltaY * 0.001))
         }));
@@ -1901,205 +1971,22 @@ function SceneInner({ elements, containerWidth, containerHeight, style }: SceneI
 
     canvas.addEventListener('wheel', handleWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', handleWheel);
-  }, []);
+  }, [handleCameraUpdate]);
 
   return (
     <div style={{ width: '100%', border: '1px solid #ccc' }}>
       <canvas
         ref={canvasRef}
         style={style}
-        onMouseMove={handleMouseMove}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
+        onMouseMove={handleScene3dMouseMove}
+        onMouseDown={handleScene3dMouseDown}
+        onMouseUp={handleScene3dMouseUp}
+        onMouseLeave={handleScene3dMouseLeave}
       />
     </div>
   );
 }
 
-/******************************************************
- * 5) Example: App
- ******************************************************/
-function generateSpherePointCloud(numPoints:number, radius:number){
-  const positions=new Float32Array(numPoints*3);
-  const colors=new Float32Array(numPoints*3);
-  for(let i=0;i<numPoints;i++){
-    const theta=Math.random()*2*Math.PI;
-    const phi=Math.acos(2*Math.random()-1);
-    const x=radius*Math.sin(phi)*Math.cos(theta);
-    const y=radius*Math.sin(phi)*Math.sin(theta);
-    const z=radius*Math.cos(phi);
-    positions[i*3+0] = x;
-    positions[i*3+1] = y;
-    positions[i*3+2] = z;
-    colors[i*3+0] = Math.random();
-    colors[i*3+1] = Math.random();
-    colors[i*3+2] = Math.random();
-  }
-  return {positions, colors};
-}
-
-const pcData = generateSpherePointCloud(500, 0.5);
-
-// Example ellipsoid data
-const numEllipsoids=3;
-const eCenters=new Float32Array(numEllipsoids*3);
-const eRadii=new Float32Array(numEllipsoids*3);
-const eColors=new Float32Array(numEllipsoids*3);
-// example "snowman"
-eCenters.set([0,0,0.6, 0,0,0.3, 0,0,0]);
-eRadii.set([0.1,0.1,0.1, 0.15,0.15,0.15, 0.2,0.2,0.2]);
-eColors.set([1,1,1, 1,1,1, 1,1,1]);
-
-const numBounds=2;
-const boundCenters=new Float32Array(numBounds*3);
-const boundRadii=new Float32Array(numBounds*3);
-const boundColors=new Float32Array(numBounds*3);
-boundCenters.set([0.8,0,0.3,  -0.8,0,0.4]);
-boundRadii.set([0.2,0.1,0.1,  0.1,0.2,0.2]);
-boundColors.set([0.7,0.3,0.3, 0.3,0.3,0.9]);
-
-// Cuboid examples
-const numCuboids1 = 3;
-const cCenters1 = new Float32Array(numCuboids1*3);
-const cSizes1   = new Float32Array(numCuboids1*3);
-const cColors1  = new Float32Array(numCuboids1*3);
-// stack some cubes
-cCenters1.set([1.0, 0, 0,   1.0, 0.3, 0,   1.0, 0.6, 0]);
-cSizes1.set([0.2,0.2,0.2, 0.2,0.2,0.2, 0.2,0.2,0.2]);
-cColors1.set([0.9,0.2,0.2, 0.2,0.9,0.2, 0.2,0.2,0.9]);
-
-const numCuboids2 = 2;
-const cCenters2 = new Float32Array(numCuboids2*3);
-const cSizes2   = new Float32Array(numCuboids2*3);
-const cColors2  = new Float32Array(numCuboids2*3);
-cCenters2.set([-1.0,0,0, -1.0, 0.4, 0.4]);
-cSizes2.set([0.3,0.1,0.2, 0.2,0.2,0.2]);
-cColors2.set([0.8,0.4,0.6, 0.4,0.6,0.8]);
-
-export function App(){
-  const [hoveredIndices, setHoveredIndices] = useState({
-    pc1: null as number | null,
-    pc2: null as number | null,
-    ellipsoid1: null as number | null,
-    ellipsoid2: null as number | null,
-    bounds1: null as number | null,
-    bounds2: null as number | null,
-    cuboid1: null as number | null,
-    cuboid2: null as number | null,
-  });
-
-  const pcData1 = React.useMemo(() => generateSpherePointCloud(500, 0.5), []);
-  const pcData2 = generateSpherePointCloud(300, 0.3);
-
-  const pcElement1: PointCloudElementConfig = {
-    type: 'PointCloud',
-    data: pcData1,
-    decorations: hoveredIndices.pc1 === null ? undefined : [
-      {indexes: [hoveredIndices.pc1], color: [1, 1, 0], alpha: 1, minSize: 0.05}
-    ],
-    onHover: (i) => setHoveredIndices(prev => ({...prev, pc1: i})),
-    onClick: (i) => console.log("Clicked point in cloud 1 #", i)
-  };
-
-  const pcElement2: PointCloudElementConfig = {
-    type: 'PointCloud',
-    data: pcData2,
-    decorations: hoveredIndices.pc2 === null ? undefined : [
-      {indexes: [hoveredIndices.pc2], color: [0, 1, 0], alpha: 1, minSize: 0.05}
-    ],
-    onHover: (i) => setHoveredIndices(prev => ({...prev, pc2: i})),
-    onClick: (i) => console.log("Clicked point in cloud 2 #", i)
-  };
-
-  // Example Ellipsoids
-  const eCenters1 = new Float32Array([0, 0, 0.6, 0, 0, 0.3, 0, 0, 0]);
-  const eRadii1 =  new Float32Array([0.1,0.1,0.1, 0.15,0.15,0.15, 0.2,0.2,0.2]);
-  const eColors1 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
-
-  const eCenters2 = new Float32Array([0.5,0.5,0.5, -0.5,-0.5,-0.5, 0.5,-0.5,0.5]);
-  const eRadii2  = new Float32Array([0.2,0.2,0.2, 0.1,0.1,0.1, 0.15,0.15,0.15]);
-  const eColors2 = new Float32Array([0,1,1, 1,0,1, 1,1,0]);
-
-  const ellipsoidElement1: EllipsoidElementConfig = {
-    type: 'Ellipsoid',
-    data: {centers: eCenters1, radii: eRadii1, colors: eColors1},
-    decorations: hoveredIndices.ellipsoid1 === null ? undefined : [
-      {indexes: [hoveredIndices.ellipsoid1], color: [1, 0, 1], alpha: 0.8}
-    ],
-    onHover: (i) => setHoveredIndices(prev => ({...prev, ellipsoid1: i})),
-    onClick: (i) => console.log("Clicked ellipsoid in group 1 #", i)
-  };
-
-  const ellipsoidElement2: EllipsoidElementConfig = {
-    type: 'Ellipsoid',
-    data: {centers: eCenters2, radii: eRadii2, colors: eColors2},
-    decorations: hoveredIndices.ellipsoid2 === null ? undefined : [
-      {indexes: [hoveredIndices.ellipsoid2], color: [0, 1, 0], alpha: 0.8}
-    ],
-    onHover: (i) => setHoveredIndices(prev => ({...prev, ellipsoid2: i})),
-    onClick: (i) => console.log("Clicked ellipsoid in group 2 #", i)
-  };
-
-  // Ellipsoid Bounds
-  const boundsElement1: EllipsoidBoundsElementConfig = {
-    type: 'EllipsoidBounds',
-    data: {centers: boundCenters, radii: boundRadii, colors: boundColors},
-    decorations: hoveredIndices.bounds1 === null ? undefined : [
-      {indexes: [hoveredIndices.bounds1], color: [0, 1, 1], alpha: 1}
-    ],
-    onHover: (i) => setHoveredIndices(prev => ({...prev, bounds1: i})),
-    onClick: (i) => console.log("Clicked bounds in group 1 #", i)
-  };
-
-  const boundsElement2: EllipsoidBoundsElementConfig = {
-    type: 'EllipsoidBounds',
-    data: {
-      centers: new Float32Array([0.2,0.2,0.2, -0.2,-0.2,-0.2]),
-      radii: new Float32Array([0.15,0.15,0.15, 0.1,0.1,0.1]),
-      colors: new Float32Array([0.5,0.5,0.5, 0.2,0.2,0.2])
-    },
-    decorations: hoveredIndices.bounds2 === null ? undefined : [
-      {indexes: [hoveredIndices.bounds2], color: [1, 0, 0], alpha: 1}
-    ],
-    onHover: (i) => setHoveredIndices(prev => ({...prev, bounds2: i})),
-    onClick: (i) => console.log("Clicked bounds in group 2 #", i)
-  };
-
-  // Cuboid Examples
-  const cuboidElement1: CuboidElementConfig = {
-    type: 'Cuboid',
-    data: { centers: cCenters1, sizes: cSizes1, colors: cColors1 },
-    decorations: hoveredIndices.cuboid1 === null ? undefined : [
-      {indexes: [hoveredIndices.cuboid1], color: [1,1,0], alpha: 1}
-    ],
-    onHover: (i) => setHoveredIndices(prev => ({...prev, cuboid1: i})),
-    onClick: (i) => console.log("Clicked cuboid in group 1 #", i)
-  };
-
-  const cuboidElement2: CuboidElementConfig = {
-    type: 'Cuboid',
-    data: { centers: cCenters2, sizes: cSizes2, colors: cColors2 },
-    decorations: hoveredIndices.cuboid2 === null ? undefined : [
-      {indexes: [hoveredIndices.cuboid2], color: [1,0,1], alpha: 1}
-    ],
-    onHover: (i) => setHoveredIndices(prev => ({...prev, cuboid2: i})),
-    onClick: (i) => console.log("Clicked cuboid in group 2 #", i)
-  };
-
-  const elements: SceneElementConfig[] = [
-    pcElement1,
-    pcElement2,
-    ellipsoidElement1,
-    ellipsoidElement2,
-    boundsElement1,
-    boundsElement2,
-    cuboidElement1,
-    cuboidElement2
-  ];
-
-  return <Scene elements={elements} />;
-}
 
 /******************************************************
  * 6) Minimal WGSL code
