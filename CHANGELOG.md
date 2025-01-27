@@ -1,6 +1,5 @@
-### [2025.1.11] - Jan 27, 2025
+### [2025.1.12] - Jan 27, 2025
 
-- deps: React 19
 - Slider sets initial state if undefined
 - Slider disposes interval correctly
 
