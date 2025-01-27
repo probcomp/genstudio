@@ -1,6 +1,7 @@
 import genstudio.plot as Plot
 from typing import Any, Dict, Union
 from colorsys import hsv_to_rgb
+import math
 
 import numpy as np
 
@@ -365,9 +366,7 @@ def create_demo_scene():
             positions,
             colors,
             scales,
-            onHover=Plot.js(
-                "(i) => console.log('hover') || $state.update({hover_point: i})"
-            ),
+            onHover=Plot.js("(i) => $state.update({hover_point: i})"),
             decorations=[
                 {
                     "indexes": Plot.js(
@@ -413,12 +412,14 @@ def create_demo_scene():
     scene = (base_scene & base_scene) | Plot.initialState(
         {
             "camera": {
-                "orbitRadius": 1.5,
-                "orbitTheta": 0.2,
-                "orbitPhi": 1.0,
-                "panX": 0,
-                "panY": 0,
-                "fov": 1.0472,  # Math.PI/3
+                "position": [
+                    1.5 * math.sin(0.2) * math.sin(1.0),  # x
+                    1.5 * math.cos(1.0),  # y
+                    1.5 * math.sin(0.2) * math.cos(1.0),  # z
+                ],
+                "target": [0, 0, 0],
+                "up": [0, 1, 0],
+                "fov": math.pi / 3,
                 "near": 0.01,
                 "far": 100.0,
             }
@@ -426,6 +427,34 @@ def create_demo_scene():
     )
 
     return scene
+
+
+# Update the default camera to match CameraParams interface
+DEFAULT_CAMERA = {
+    "position": [
+        1.5 * math.sin(0.2) * math.sin(1.0),  # x
+        1.5 * math.cos(1.0),  # y
+        1.5 * math.sin(0.2) * math.cos(1.0),  # z
+    ],
+    "target": [0, 0, 0],
+    "up": [0, 1, 0],
+    "fov": math.pi / 3,
+    "near": 0.01,
+    "far": 100.0,
+}
+
+
+class Scene3d:
+    def __init__(self, camera=None):
+        self.camera = camera if camera is not None else DEFAULT_CAMERA.copy()
+        # ... rest of init ...
+
+    def update_camera(self, camera_update):
+        """Update camera with new parameters"""
+        self.camera.update(camera_update)
+        # Ensure we maintain the correct format
+        if "position" not in self.camera:
+            self.camera = DEFAULT_CAMERA.copy()
 
 
 create_demo_scene()

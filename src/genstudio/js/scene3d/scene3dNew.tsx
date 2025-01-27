@@ -5,33 +5,178 @@ import React, {
   useRef, useEffect, useState, useCallback, MouseEvent as ReactMouseEvent, useMemo
 } from 'react';
 import { useContainerWidth } from '../utils';
+import * as glMatrix from 'gl-matrix';
 
 /******************************************************
- * 0) Rendering + Lighting Constants
+ * 0) Types and Interfaces
+ ******************************************************/
+interface CameraParams {
+    position: [number, number, number];
+    target: [number, number, number];
+    up: [number, number, number];
+    fov: number;
+    near: number;
+    far: number;
+}
+
+interface CameraState {
+    position: glMatrix.vec3;
+    target: glMatrix.vec3;
+    up: glMatrix.vec3;
+    radius: number;
+    phi: number;
+    theta: number;
+    fov: number;
+    near: number;
+    far: number;
+}
+
+interface SceneInnerProps {
+    elements: any[];
+    containerWidth: number;
+    containerHeight: number;
+    style?: React.CSSProperties;
+    camera?: CameraParams;
+    defaultCamera?: CameraParams;
+    onCameraChange?: (camera: CameraParams) => void;
+}
+
+/******************************************************
+ * 1) Constants and Camera Functions
  ******************************************************/
 const LIGHTING = {
-  AMBIENT_INTENSITY: 0.4,
-  DIFFUSE_INTENSITY: 0.6,
-  SPECULAR_INTENSITY: 0.2,
-  SPECULAR_POWER: 20.0,
-  DIRECTION: {
-    RIGHT: 0.2,
-    UP: 0.5,
-    FORWARD: 0,
-  }
+    AMBIENT_INTENSITY: 0.4,
+    DIFFUSE_INTENSITY: 0.6,
+    SPECULAR_INTENSITY: 0.2,
+    SPECULAR_POWER: 20.0,
+    DIRECTION: {
+        RIGHT: 0.2,
+        UP: 0.5,
+        FORWARD: 0,
+    }
 } as const;
 
-// Add the default camera configuration
-const DEFAULT_CAMERA = {
-  orbitRadius: 1.5,
-  orbitTheta: 0.2,
-  orbitPhi: 1.0,
-  panX: 0,
-  panY: 0,
-  fov: Math.PI/3,
-  near: 0.01,
-  far: 100.0
-} as const;
+const DEFAULT_CAMERA: CameraParams = {
+    position: [1.5 * Math.sin(0.2) * Math.sin(1.0),
+              1.5 * Math.cos(1.0),
+              1.5 * Math.sin(0.2) * Math.cos(1.0)],
+    target: [0, 0, 0],
+    up: [0, 1, 0],
+    fov: Math.PI/3,
+    near: 0.01,
+    far: 100.0
+};
+
+function createCameraState(params: CameraParams): CameraState {
+    console.log('createCameraState input:', params); // Debug
+    const position = glMatrix.vec3.fromValues(...params.position);
+    const target = glMatrix.vec3.fromValues(...params.target);
+    const up = glMatrix.vec3.fromValues(...params.up);
+
+    const radius = glMatrix.vec3.distance(position, target);
+    const dir = glMatrix.vec3.sub(glMatrix.vec3.create(), position, target);
+    const phi = Math.acos(dir[1] / radius);
+    const theta = Math.atan2(dir[0], dir[2]);
+
+    return { position, target, up, radius, phi, theta, fov: params.fov, near: params.near, far: params.far };
+}
+
+function createCameraParams(state: CameraState): CameraParams {
+    return {
+        position: Array.from(state.position) as [number, number, number],
+        target: Array.from(state.target) as [number, number, number],
+        up: Array.from(state.up) as [number, number, number],
+        fov: state.fov,
+        near: state.near,
+        far: state.far
+    };
+}
+
+function orbit(camera: CameraState, deltaX: number, deltaY: number): CameraState {
+    const newTheta = camera.theta - deltaX * 0.01;
+    const newPhi = Math.max(0.01, Math.min(Math.PI - 0.01, camera.phi - deltaY * 0.01));
+
+    const sinPhi = Math.sin(newPhi);
+    const cosPhi = Math.cos(newPhi);
+    const sinTheta = Math.sin(newTheta);
+    const cosTheta = Math.cos(newTheta);
+
+    const newPosition = glMatrix.vec3.fromValues(
+        camera.target[0] + camera.radius * sinPhi * sinTheta,
+        camera.target[1] + camera.radius * cosPhi,
+        camera.target[2] + camera.radius * sinPhi * cosTheta
+    );
+
+    return {
+        ...camera,
+        position: newPosition,
+        phi: newPhi,
+        theta: newTheta
+    };
+}
+
+function pan(camera: CameraState, deltaX: number, deltaY: number): CameraState {
+    const forward = glMatrix.vec3.sub(glMatrix.vec3.create(), camera.target, camera.position);
+    const right = glMatrix.vec3.cross(glMatrix.vec3.create(), forward, camera.up);
+    glMatrix.vec3.normalize(right, right);
+
+    const actualUp = glMatrix.vec3.cross(glMatrix.vec3.create(), right, forward);
+    glMatrix.vec3.normalize(actualUp, actualUp);
+
+    // Scale movement by distance from target
+    const scale = camera.radius * 0.002;
+    const movement = glMatrix.vec3.create();
+    glMatrix.vec3.scaleAndAdd(movement, movement, right, -deltaX * scale);
+    glMatrix.vec3.scaleAndAdd(movement, movement, actualUp, deltaY * scale);
+
+    // Update position and target
+    const newPosition = glMatrix.vec3.add(glMatrix.vec3.create(), camera.position, movement);
+    const newTarget = glMatrix.vec3.add(glMatrix.vec3.create(), camera.target, movement);
+
+    return {
+        ...camera,
+        position: newPosition,
+        target: newTarget
+    };
+}
+
+function zoom(camera: CameraState, deltaY: number): CameraState {
+    const newRadius = Math.max(0.1, camera.radius * Math.exp(deltaY * 0.001));
+    const direction = glMatrix.vec3.sub(glMatrix.vec3.create(), camera.position, camera.target);
+    glMatrix.vec3.normalize(direction, direction);
+
+    const newPosition = glMatrix.vec3.scaleAndAdd(
+        glMatrix.vec3.create(),
+        camera.target,
+        direction,
+        newRadius
+    );
+
+    return {
+        ...camera,
+        position: newPosition,
+        radius: newRadius
+    };
+}
+
+function getViewMatrix(camera: CameraState): Float32Array {
+    return glMatrix.mat4.lookAt(
+        glMatrix.mat4.create(),
+        camera.position,
+        camera.target,
+        camera.up
+    ) as Float32Array;
+}
+
+function getProjectionMatrix(camera: CameraState, aspect: number): Float32Array {
+    return glMatrix.mat4.perspective(
+        glMatrix.mat4.create(),
+        camera.fov,
+        aspect,
+        camera.near,
+        camera.far
+    ) as Float32Array;
+}
 
 /******************************************************
  * 1) Data Structures & "Spec" System
@@ -1274,76 +1419,46 @@ function SceneInner({
 
   const [isReady, setIsReady] = useState(false);
 
-  // Initialize camera with proper state structure
-  const [internalCamera, setInternalCamera] = useState(() =>
-    defaultCamera ?? DEFAULT_CAMERA
-  );
+  // Helper function to safely convert to array
+  function toArray(value: [number, number, number] | Float32Array | undefined): [number, number, number] {
+      if (!value) return [0, 0, 0];
+      return Array.from(value) as [number, number, number];
+  }
 
-  // Use controlled camera if provided, otherwise use internal state
-  const camera = controlledCamera ?? internalCamera;
+  // Update the camera initialization
+  const [internalCamera, setInternalCamera] = useState<CameraState>(() => {
+      const initial = defaultCamera || DEFAULT_CAMERA;
+      console.log('initializing camera with:', initial); // Debug
+      return createCameraState(initial);
+  });
 
-  // Unified camera update handler
+  // Update the controlled camera memo
+  const camera = useMemo(() => {
+      console.log('camera memo input:', controlledCamera); // Debug
+      if (!controlledCamera) return internalCamera;
+      return createCameraState(controlledCamera);
+  }, [controlledCamera, internalCamera]);
+
+  // Update the handleCameraUpdate function to include validation
   const handleCameraUpdate = useCallback((updateFn: (camera: CameraState) => CameraState) => {
-    const newCamera = updateFn(camera);
+    const newCameraState = updateFn(camera);
 
     if (controlledCamera) {
-      // In controlled mode, only notify parent
-      onCameraChange?.(newCamera);
+        // In controlled mode, convert state to params and notify parent
+        onCameraChange?.(createCameraParams(newCameraState));
     } else {
-      // In uncontrolled mode, update internal state
-      setInternalCamera(newCamera);
-      // Optionally notify parent
-      onCameraChange?.(newCamera);
+        // In uncontrolled mode, update internal state
+        setInternalCamera(newCameraState);
+        // Optionally notify parent
+        onCameraChange?.(createCameraParams(newCameraState));
     }
-  }, [camera, controlledCamera, onCameraChange]);
+}, [camera, controlledCamera, onCameraChange]);
 
   // We'll also track a picking lock
   const pickingLockRef = useRef(false);
 
   // Add hover state tracking
   const lastHoverState = useRef<{elementIdx: number, instanceIdx: number} | null>(null);
-
-  // ---------- Minimal math utils ----------
-  function mat4Multiply(a: Float32Array, b: Float32Array) {
-    const out = new Float32Array(16);
-    for (let i=0; i<4; i++) {
-      for (let j=0; j<4; j++) {
-        out[j*4+i] =
-          a[i+0]*b[j*4+0] + a[i+4]*b[j*4+1] + a[i+8]*b[j*4+2] + a[i+12]*b[j*4+3];
-      }
-    }
-    return out;
-  }
-  function mat4Perspective(fov: number, aspect: number, near: number, far: number) {
-    const out = new Float32Array(16);
-    const f = 1.0 / Math.tan(fov/2);
-    out[0]=f/aspect; out[5]=f;
-    out[10]=(far+near)/(near-far); out[11] = -1;
-    out[14]=(2*far*near)/(near-far);
-    return out;
-  }
-  function mat4LookAt(eye:[number,number,number], target:[number,number,number], up:[number,number,number]) {
-    const zAxis = normalize([eye[0]-target[0],eye[1]-target[1],eye[2]-target[2]]);
-    const xAxis = normalize(cross(up,zAxis));
-    const yAxis = cross(zAxis,xAxis);
-    const out=new Float32Array(16);
-    out[0]=xAxis[0]; out[1]=yAxis[0]; out[2]=zAxis[0]; out[3]=0;
-    out[4]=xAxis[1]; out[5]=yAxis[1]; out[6]=zAxis[1]; out[7]=0;
-    out[8]=xAxis[2]; out[9]=yAxis[2]; out[10]=zAxis[2]; out[11]=0;
-    out[12]=-dot(xAxis,eye); out[13]=-dot(yAxis,eye); out[14]=-dot(zAxis,eye); out[15]=1;
-    return out;
-  }
-  function cross(a:[number,number,number], b:[number,number,number]){
-    return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]] as [number,number,number];
-  }
-  function dot(a:[number,number,number], b:[number,number,number]){
-    return a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
-  }
-  function normalize(v:[number,number,number]){
-    const len=Math.sqrt(dot(v,v));
-    if(len>1e-6) return [v[0]/len, v[1]/len, v[2]/len] as [number,number,number];
-    return [0,0,0];
-  }
 
   /******************************************************
    * A) initWebGPU
@@ -1555,72 +1670,86 @@ function SceneInner({
     if(!depthTexture) return;
 
     const aspect = containerWidth/containerHeight;
-    const proj = mat4Perspective(camState.fov, aspect, camState.near, camState.far);
 
-    // Calculate camera position from orbit coordinates
-    const cx = camState.orbitRadius * Math.sin(camState.orbitPhi) * Math.sin(camState.orbitTheta);
-    const cy = camState.orbitRadius * Math.cos(camState.orbitPhi);
-    const cz = camState.orbitRadius * Math.sin(camState.orbitPhi) * Math.cos(camState.orbitTheta);
-    const eye: [number,number,number] = [cx, cy, cz];
-    const target: [number,number,number] = [camState.panX, camState.panY, 0];
-    const up: [number,number,number] = [0, 1, 0];
-    const view = mat4LookAt(eye, target, up);
+    // Use camera vectors directly
+    const view = glMatrix.mat4.lookAt(
+        glMatrix.mat4.create(),
+        camState.position,
+        camState.target,
+        camState.up
+    );
 
-    const mvp = mat4Multiply(proj, view);
+    const proj = glMatrix.mat4.perspective(
+        glMatrix.mat4.create(),
+        camState.fov,
+        aspect,
+        camState.near,
+        camState.far
+    );
 
-    // compute "light dir" in camera-ish space
-    const forward = normalize([target[0]-eye[0], target[1]-eye[1], target[2]-eye[2]]);
-    const right = normalize(cross(up, forward));
-    const camUp = cross(right, forward);
-    const lightDir = normalize([
-      right[0]*LIGHTING.DIRECTION.RIGHT + camUp[0]*LIGHTING.DIRECTION.UP + forward[0]*LIGHTING.DIRECTION.FORWARD,
-      right[1]*LIGHTING.DIRECTION.RIGHT + camUp[1]*LIGHTING.DIRECTION.UP + forward[1]*LIGHTING.DIRECTION.FORWARD,
-      right[2]*LIGHTING.DIRECTION.RIGHT + camUp[2]*LIGHTING.DIRECTION.UP + forward[2]*LIGHTING.DIRECTION.FORWARD,
-    ]);
+    // Compute MVP matrix
+    const mvp = glMatrix.mat4.multiply(glMatrix.mat4.create(), proj, view);
 
-    // write uniform
-    const data=new Float32Array(32);
-    data.set(mvp,0);
+    // Compute camera vectors for lighting
+    const forward = glMatrix.vec3.sub(glMatrix.vec3.create(), camState.target, camState.position);
+    const right = glMatrix.vec3.cross(glMatrix.vec3.create(), forward, camState.up);
+    glMatrix.vec3.normalize(right, right);
+
+    const camUp = glMatrix.vec3.cross(glMatrix.vec3.create(), right, forward);
+    glMatrix.vec3.normalize(camUp, camUp);
+    glMatrix.vec3.normalize(forward, forward);
+
+    // Compute light direction in camera space
+    const lightDir = glMatrix.vec3.create();
+    glMatrix.vec3.scaleAndAdd(lightDir, lightDir, right, LIGHTING.DIRECTION.RIGHT);
+    glMatrix.vec3.scaleAndAdd(lightDir, lightDir, camUp, LIGHTING.DIRECTION.UP);
+    glMatrix.vec3.scaleAndAdd(lightDir, lightDir, forward, LIGHTING.DIRECTION.FORWARD);
+    glMatrix.vec3.normalize(lightDir, lightDir);
+
+    // Write uniforms
+    const data = new Float32Array(32);
+    data.set(mvp, 0);
     data[16] = right[0]; data[17] = right[1]; data[18] = right[2];
     data[20] = camUp[0]; data[21] = camUp[1]; data[22] = camUp[2];
     data[24] = lightDir[0]; data[25] = lightDir[1]; data[26] = lightDir[2];
-    device.queue.writeBuffer(uniformBuffer,0,data);
+    device.queue.writeBuffer(uniformBuffer, 0, data);
 
-    let tex:GPUTexture;
+    let tex: GPUTexture;
     try {
-      tex = context.getCurrentTexture();
-    } catch(e){
-      return; // If canvas is resized or lost, bail
+        tex = context.getCurrentTexture();
+    } catch(e) {
+        return; // If canvas is resized or lost, bail
     }
+
     const passDesc: GPURenderPassDescriptor = {
-      colorAttachments:[{
-        view: tex.createView(),
-        loadOp:'clear',
-        storeOp:'store',
-        clearValue:{r:0.15,g:0.15,b:0.15,a:1}
-      }],
-      depthStencilAttachment:{
-        view: depthTexture.createView(),
-        depthLoadOp:'clear',
-        depthStoreOp:'store',
-        depthClearValue:1.0
-      }
+        colorAttachments: [{
+            view: tex.createView(),
+            loadOp: 'clear',
+            storeOp: 'store',
+            clearValue: { r: 0.15, g: 0.15, b: 0.15, a: 1 }
+        }],
+        depthStencilAttachment: {
+            view: depthTexture.createView(),
+            depthLoadOp: 'clear',
+            depthStoreOp: 'store',
+            depthClearValue: 1.0
+        }
     };
 
     const cmd = device.createCommandEncoder();
     const pass = cmd.beginRenderPass(passDesc);
 
-    // draw each object
+    // Draw each object
     for(const ro of renderObjects){
-      pass.setPipeline(ro.pipeline);
-      pass.setBindGroup(0, uniformBindGroup);
-      ro.vertexBuffers.forEach((vb,i)=> pass.setVertexBuffer(i,vb));
-      if(ro.indexBuffer){
-        pass.setIndexBuffer(ro.indexBuffer,'uint16');
-        pass.drawIndexed(ro.indexCount ?? 0, ro.instanceCount ?? 1);
-      } else {
-        pass.draw(ro.vertexCount ?? 0, ro.instanceCount ?? 1);
-      }
+        pass.setPipeline(ro.pipeline);
+        pass.setBindGroup(0, uniformBindGroup);
+        ro.vertexBuffers.forEach((vb,i)=> pass.setVertexBuffer(i,vb));
+        if(ro.indexBuffer){
+            pass.setIndexBuffer(ro.indexBuffer,'uint16');
+            pass.drawIndexed(ro.indexCount ?? 0, ro.instanceCount ?? 1);
+        } else {
+            pass.draw(ro.vertexCount ?? 0, ro.instanceCount ?? 1);
+        }
     }
     pass.end();
     device.queue.submit([cmd.finish()]);
@@ -1789,55 +1918,22 @@ function SceneInner({
 
     const st = mouseState.current;
     if(st.type === 'dragging' && st.lastX !== undefined && st.lastY !== undefined) {
-      const dx = e.clientX - st.lastX;
-      const dy = e.clientY - st.lastY;
-      st.dragDistance=(st.dragDistance||0)+Math.sqrt(dx*dx+dy*dy);
-      if(st.button===2 || st.isShiftDown){
-        // Pan by keeping the point under the mouse cursor fixed relative to mouse movement
-        handleCameraUpdate(cam => {
-          // Calculate camera position and vectors
-          const cx = cam.orbitRadius * Math.sin(cam.orbitPhi) * Math.sin(cam.orbitTheta);
-          const cy = cam.orbitRadius * Math.cos(cam.orbitPhi);
-          const cz = cam.orbitRadius * Math.sin(cam.orbitPhi) * Math.cos(cam.orbitTheta);
-          const eye: [number,number,number] = [cx, cy, cz];
-          const target: [number,number,number] = [cam.panX, cam.panY, 0];
-          const up: [number,number,number] = [0, 1, 0];
+        const dx = e.clientX - st.lastX;
+        const dy = e.clientY - st.lastY;
+        st.dragDistance = (st.dragDistance||0) + Math.sqrt(dx*dx + dy*dy);
 
-          // Calculate view-aligned right and up vectors
-          const forward = normalize([target[0]-eye[0], target[1]-eye[1], target[2]-eye[2]]);
-          const right = normalize(cross(up, forward));
-          const actualUp = normalize(cross(forward, right));
+        if(st.button === 2 || st.isShiftDown) {
+            handleCameraUpdate(cam => pan(cam, dx, dy));
+        } else if(st.button === 0) {
+            handleCameraUpdate(cam => orbit(cam, dx, dy));
+        }
 
-          // Scale movement by distance from target
-          const scale = cam.orbitRadius * 0.002;
-
-          // Calculate pan offset in view space
-          const dx_view = dx * scale;
-          const dy_view = dy * scale;
-
-          return {
-            ...cam,
-            panX: cam.panX + right[0] * dx_view + actualUp[0] * dy_view,
-            panY: cam.panY + right[1] * dx_view + actualUp[1] * dy_view
-          };
-        });
-      } else if(st.button===0){
-        // Orbit
-        handleCameraUpdate(cam => {
-          const newPhi = Math.max(0.1, Math.min(Math.PI-0.1, cam.orbitPhi - dy * 0.01));
-          return {
-            ...cam,
-            orbitTheta: cam.orbitTheta - dx * 0.01,
-            orbitPhi: newPhi
-          };
-        });
-      }
-      st.lastX=e.clientX;
-      st.lastY=e.clientY;
+        st.lastX = e.clientX;
+        st.lastY = e.clientY;
     } else if(st.type === 'idle') {
-      throttledPickAtScreenXY(x, y, 'hover');
+        throttledPickAtScreenXY(x, y, 'hover');
     }
-  }, [handleCameraUpdate, throttledPickAtScreenXY]);
+}, [handleCameraUpdate, throttledPickAtScreenXY]);
 
   const handleScene3dMouseDown = useCallback((e: ReactMouseEvent) => {
     mouseState.current = {
@@ -1960,13 +2056,10 @@ function SceneInner({
     if (!canvas) return;
 
     const handleWheel = (e: WheelEvent) => {
-      if (mouseState.current.type === 'idle') {
-        e.preventDefault();
-        handleCameraUpdate(cam => ({
-          ...cam,
-          orbitRadius: Math.max(0.1, cam.orbitRadius * Math.exp(e.deltaY * 0.001))
-        }));
-      }
+        if (mouseState.current.type === 'idle') {
+            e.preventDefault();
+            handleCameraUpdate(cam => zoom(cam, e.deltaY));
+        }
     };
 
     canvas.addEventListener('wheel', handleWheel, { passive: false });
