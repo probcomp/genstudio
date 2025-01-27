@@ -1,3 +1,8 @@
+### [2025.1.10] - Jan 27, 2025
+
+- add maxWidth option to plots
+- rename `yarn watch` to `yarn dev`
+
 ### [2025.1.9] - Jan 24, 2025
 
 - release.py: remove padding from version numbers
