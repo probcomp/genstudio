@@ -164,6 +164,25 @@ class Scene(Plot.LayoutItem):
         return [Plot.JSRef("scene3d.Scene"), props]
 
 
+def flatten_array(
+    arr: ArrayLike, dtype: Any = np.float32
+) -> Union[np.ndarray, Plot.JSExpr]:
+    """Flatten an array if it is a 2D array, otherwise return as is.
+
+    Args:
+        arr: The array to flatten.
+        dtype: The desired data type of the array.
+
+    Returns:
+        A flattened array if input is 2D, otherwise the original array.
+    """
+    if isinstance(arr, (np.ndarray, list)):
+        arr = np.asarray(arr, dtype=dtype)
+        if arr.ndim == 2:
+            return arr.flatten()
+    return arr
+
+
 def PointCloud(
     positions: ArrayLike,
     colors: Optional[ArrayLike] = None,
@@ -178,25 +197,14 @@ def PointCloud(
         scales: N array of point scales or flattened array (optional)
         **kwargs: Additional arguments like decorations, onHover, onClick
     """
-    # Ensure arrays are flattened float32/uint8
-    if isinstance(positions, (np.ndarray, list)):
-        positions = np.asarray(positions, dtype=np.float32)
-        if positions.ndim == 2:
-            positions = positions.flatten()
-
+    positions = flatten_array(positions, dtype=np.float32)
     data: Dict[str, Any] = {"positions": positions}
 
-    if isinstance(colors, (np.ndarray, list)):
-        colors = np.asarray(colors, dtype=np.float32)
-        if colors.ndim == 2:
-            colors = colors.flatten()
-    data["colors"] = colors
+    if colors is not None:
+        data["colors"] = flatten_array(colors, dtype=np.float32)
 
-    if isinstance(scales, (np.ndarray, list)):
-        scales = np.asarray(scales, dtype=np.float32)
-        if scales.ndim > 1:
-            scales = scales.flatten()
-    data["scales"] = scales
+    if scales is not None:
+        data["scales"] = flatten_array(scales, dtype=np.float32)
 
     return SceneElement("PointCloud", data, **kwargs)
 
@@ -215,22 +223,12 @@ def Ellipsoid(
         colors: Nx3 array of RGB colors or flattened array (optional)
         **kwargs: Additional arguments like decorations, onHover, onClick
     """
-    # Ensure arrays are flattened float32
-    centers = np.asarray(centers, dtype=np.float32)
-    if centers.ndim == 2:
-        centers = centers.flatten()
-
-    radii = np.asarray(radii, dtype=np.float32)
-    if radii.ndim == 2:
-        radii = radii.flatten()
-
+    centers = flatten_array(centers, dtype=np.float32)
+    radii = flatten_array(radii, dtype=np.float32)
     data = {"centers": centers, "radii": radii}
 
     if colors is not None:
-        colors = np.asarray(colors, dtype=np.float32)
-        if colors.ndim == 2:
-            colors = colors.flatten()
-        data["colors"] = colors
+        data["colors"] = flatten_array(colors, dtype=np.float32)
 
     return SceneElement("Ellipsoid", data, **kwargs)
 
@@ -249,22 +247,12 @@ def EllipsoidAxes(
         colors: Nx3 array of RGB colors or flattened array (optional)
         **kwargs: Additional arguments like decorations, onHover, onClick
     """
-    # Ensure arrays are flattened float32
-    centers = np.asarray(centers, dtype=np.float32)
-    if centers.ndim == 2:
-        centers = centers.flatten()
-
-    radii = np.asarray(radii, dtype=np.float32)
-    if radii.ndim == 2:
-        radii = radii.flatten()
-
+    centers = flatten_array(centers, dtype=np.float32)
+    radii = flatten_array(radii, dtype=np.float32)
     data = {"centers": centers, "radii": radii}
 
     if colors is not None:
-        colors = np.asarray(colors, dtype=np.float32)
-        if colors.ndim == 2:
-            colors = colors.flatten()
-        data["colors"] = colors
+        data["colors"] = flatten_array(colors, dtype=np.float32)
 
     return SceneElement("EllipsoidAxes", data, **kwargs)
 
@@ -283,21 +271,11 @@ def Cuboid(
         colors: Nx3 array of RGB colors or flattened array (optional)
         **kwargs: Additional arguments like decorations, onHover, onClick
     """
-    # Ensure arrays are flattened float32
-    centers = np.asarray(centers, dtype=np.float32)
-    if centers.ndim == 2:
-        centers = centers.flatten()
-
-    sizes = np.asarray(sizes, dtype=np.float32)
-    if sizes.ndim == 2:
-        sizes = sizes.flatten()
-
+    centers = flatten_array(centers, dtype=np.float32)
+    sizes = flatten_array(sizes, dtype=np.float32)
     data = {"centers": centers, "sizes": sizes}
 
     if colors is not None:
-        colors = np.asarray(colors, dtype=np.float32)
-        if colors.ndim == 2:
-            colors = colors.flatten()
-        data["colors"] = colors
+        data["colors"] = flatten_array(colors, dtype=np.float32)
 
     return SceneElement("Cuboid", data, **kwargs)

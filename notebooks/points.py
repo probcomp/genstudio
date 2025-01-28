@@ -1,10 +1,9 @@
 # %%
 import genstudio.plot as Plot
-import genstudio.scene3d as Scene
 import numpy as np
 from genstudio.plot import js
 from colorsys import hsv_to_rgb
-from genstudio.scene3d import deco, point_cloud
+from genstudio.scene3d import deco, PointCloud
 
 
 def make_torus_knot(n_points: int):
@@ -192,7 +191,7 @@ def scene(controlled, point_size, xyz, rgb, scale, select_region=False):
         }
     )
     return (
-        Scene.point_cloud(
+        PointCloud(
             positions=xyz,
             colors=rgb,
             scales=scale,
@@ -327,7 +326,7 @@ scene(False, 0.1, torus_xyz, torus_rgb, np.ones(NUM_POINTS) * 0.1)
 # %%
 
 (
-    point_cloud(
+    PointCloud(
         positions=torus_xyz,
         colors=torus_rgb,
         scales=np.ones(NUM_POINTS) * 0.005,
