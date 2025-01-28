@@ -456,7 +456,6 @@ interface ExtendedSpec<E> extends PrimitiveSpec<E> {
 
   /** Create a RenderObject that references geometry + the two pipelines. */
   createRenderObject(
-    device: GPUDevice,
     pipeline: GPURenderPipeline,
     pickingPipeline: GPURenderPipeline,
     instanceBufferInfo: BufferInfo | null,
@@ -792,7 +791,6 @@ const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
   },
 
   createRenderObject(
-    device: GPUDevice,
     pipeline: GPURenderPipeline,
     pickingPipeline: GPURenderPipeline,
     instanceBufferInfo: BufferInfo | null,
@@ -862,7 +860,7 @@ const ellipsoidExtendedSpec: ExtendedSpec<EllipsoidElementConfig> = {
     );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
     if(!resources.sphereGeo) throw new Error("No sphere geometry available");
     const { vb, ib, indexCount } = resources.sphereGeo;
     return {
@@ -922,7 +920,7 @@ const ellipsoidAxesExtendedSpec: ExtendedSpec<EllipsoidAxesElementConfig> = {
     );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
     if(!resources.ringGeo) throw new Error("No ring geometry available");
     const { vb, ib, indexCount } = resources.ringGeo;
     return {
@@ -982,7 +980,7 @@ const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
     );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
     if(!resources.cubeGeo) throw new Error("No cube geometry available");
     const { vb, ib, indexCount } = resources.cubeGeo;
     return {
@@ -1554,7 +1552,6 @@ function SceneInner({
 
         // Create render object with dynamic buffer reference
         const baseRenderObject = spec.createRenderObject(
-          device,
           pipeline,
           null!, // We'll set this later in ensurePickingData
           {  // Pass buffer info instead of buffer
