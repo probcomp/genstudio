@@ -1634,7 +1634,8 @@ function SceneInner({
       ...Array.from(mvp),
       right[0], right[1], right[2], 0,  // pad to vec4
       camUp[0], camUp[1], camUp[2], 0,  // pad to vec4
-      lightDir[0], lightDir[1], lightDir[2], 0  // pad to vec4
+      lightDir[0], lightDir[1], lightDir[2], 0,  // pad to vec4
+      camState.position[0], camState.position[1], camState.position[2], 0  // Add camera position
     ]);
     device.queue.writeBuffer(uniformBuffer, 0, uniformData);
 
@@ -2204,6 +2205,8 @@ struct Camera {
   _pad2: f32,
   lightDir: vec3<f32>,
   _pad3: f32,
+  cameraPos: vec3<f32>,  // Add camera position
+  _pad4: f32,
 };
 @group(0) @binding(0) var<uniform> camera : Camera;
 
@@ -2221,7 +2224,7 @@ fn fs_main(
   let N = normalize(mix(geometricN, analyticalN, 0.5));  // 50-50 blend
 
   let L = normalize(camera.lightDir);
-  let V = normalize(-worldPos);
+  let V = normalize(camera.cameraPos - worldPos);
 
   let lambert = max(dot(N, L), 0.0);
   let ambient = ${LIGHTING.AMBIENT_INTENSITY};
