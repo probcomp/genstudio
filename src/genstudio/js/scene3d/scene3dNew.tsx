@@ -54,7 +54,7 @@ const LIGHTING = {
 /******************************************************
  * 1) Data Structures & "Spec" System
  ******************************************************/
-interface PrimitiveSpec<E> {
+interface PrimitiveDataSpec<E> {
   getCount(element: E): number;
   buildRenderData(element: E): Float32Array | null;
   buildPickingData(element: E, baseID: number): Float32Array | null;
@@ -66,6 +66,14 @@ interface Decoration {
   alpha?: number;
   scale?: number;
   minSize?: number;
+}
+
+/** Configuration for how a primitive type should be rendered */
+interface RenderConfig {
+  /** How faces should be culled */
+  cullMode: GPUCullMode;
+  /** How vertices should be interpreted */
+  topology: GPUPrimitiveTopology;
 }
 
 /** ===================== POINT CLOUD ===================== **/
@@ -82,7 +90,7 @@ export interface PointCloudElementConfig {
   onClick?: (index: number) => void;
 }
 
-const pointCloudSpec: PrimitiveSpec<PointCloudElementConfig> = {
+const pointCloudSpec: PrimitiveDataSpec<PointCloudElementConfig> = {
   getCount(elem){
     return elem.data.positions.length / 3;
   },
@@ -167,7 +175,7 @@ export interface EllipsoidElementConfig {
   onClick?: (index: number) => void;
 }
 
-const ellipsoidSpec: PrimitiveSpec<EllipsoidElementConfig> = {
+const ellipsoidSpec: PrimitiveDataSpec<EllipsoidElementConfig> = {
   getCount(elem){
     return elem.data.centers.length / 3;
   },
@@ -251,7 +259,7 @@ export interface EllipsoidAxesElementConfig {
   onClick?: (index: number) => void;
 }
 
-const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesElementConfig> = {
+const ellipsoidAxesSpec: PrimitiveDataSpec<EllipsoidAxesElementConfig> = {
   getCount(elem) {
     // each ellipsoid => 3 rings
     const c = elem.data.centers.length/3;
@@ -335,7 +343,7 @@ export interface CuboidElementConfig {
   onClick?: (index: number) => void;
 }
 
-const cuboidSpec: PrimitiveSpec<CuboidElementConfig> = {
+const cuboidSpec: PrimitiveDataSpec<CuboidElementConfig> = {
   getCount(elem){
     return elem.data.centers.length / 3;
   },
@@ -439,7 +447,10 @@ interface DynamicBuffers {
   pickingOffset: number; // Current offset into picking buffer
 }
 
-interface ExtendedSpec<E> extends PrimitiveSpec<E> {
+interface PrimitiveSpec<E> extends PrimitiveDataSpec<E> {
+  /** The default rendering configuration for this primitive type */
+  renderConfig: RenderConfig;
+
   /** Return (or lazily create) the GPU render pipeline for this type. */
   getRenderPipeline(
     device: GPUDevice,
@@ -461,12 +472,7 @@ interface ExtendedSpec<E> extends PrimitiveSpec<E> {
     instanceBufferInfo: BufferInfo | null,
     pickingBufferInfo: BufferInfo | null,
     instanceCount: number,
-    resources: {  // Add this parameter
-      sphereGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
-      ringGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
-      billboardQuad: { vb: GPUBuffer; ib: GPUBuffer; } | null;
-      cubeGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
-    }
+    resources: GeometryResources
   ): RenderObject;
 }
 
@@ -626,6 +632,12 @@ function createRenderPipeline(
     bindGroupLayouts: [bindGroupLayout]
   });
 
+  // Get primitive configuration with defaults
+  const primitiveConfig = {
+    topology: config.primitive?.topology || 'triangle-list',
+    cullMode: config.primitive?.cullMode || 'back'
+  };
+
   return device.createRenderPipeline({
     layout: pipelineLayout,
     vertex: {
@@ -653,11 +665,8 @@ function createRenderPipeline(
         })
       }]
     },
-    primitive: {
-      topology: config.primitive?.topology || 'triangle-list',
-      cullMode: config.primitive?.cullMode || 'back'
-    },
-    depthStencil: {
+    primitive: primitiveConfig,
+    depthStencil: config.depthStencil || {
       format: 'depth24plus',
       depthWriteEnabled: true,
       depthCompare: 'less'
@@ -735,9 +744,12 @@ const MESH_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
 /******************************************************
  * 2.1) PointCloud ExtendedSpec
  ******************************************************/
-const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
+const pointCloudExtendedSpec: PrimitiveSpec<PointCloudElementConfig> = {
   ...pointCloudSpec,
-
+  renderConfig: {
+    cullMode: 'none',
+    topology: 'triangle-list'
+  },
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
     return getOrCreatePipeline(
@@ -749,6 +761,7 @@ const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
         vertexEntryPoint: 'vs_main',
         fragmentEntryPoint: 'fs_main',
         bufferLayouts: [POINT_CLOUD_GEOMETRY_LAYOUT, POINT_CLOUD_INSTANCE_LAYOUT],
+        primitive: this.renderConfig,  // Use the spec's render config
         blend: {
           color: {
             srcFactor: 'src-alpha',
@@ -760,10 +773,6 @@ const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
             dstFactor: 'one-minus-src-alpha',
             operation: 'add'
           }
-        },
-        primitive: {
-          cullMode: 'none',  // Don't cull any faces
-          topology: 'triangle-list'
         },
         depthStencil: {
           format: 'depth24plus',
@@ -826,9 +835,12 @@ const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
 /******************************************************
  * 2.2) Ellipsoid ExtendedSpec
  ******************************************************/
-const ellipsoidExtendedSpec: ExtendedSpec<EllipsoidElementConfig> = {
+const ellipsoidExtendedSpec: PrimitiveSpec<EllipsoidElementConfig> = {
   ...ellipsoidSpec,
-
+  renderConfig: {
+    cullMode: 'back',
+    topology: 'triangle-list'
+  },
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
     return getOrCreatePipeline(
@@ -840,7 +852,7 @@ const ellipsoidExtendedSpec: ExtendedSpec<EllipsoidElementConfig> = {
         vertexEntryPoint: 'vs_main',
         fragmentEntryPoint: 'fs_main',
         bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT]
-      }, format),
+      }, format, ellipsoidExtendedSpec),
       cache
     );
   },
@@ -885,22 +897,25 @@ const ellipsoidExtendedSpec: ExtendedSpec<EllipsoidElementConfig> = {
 /******************************************************
  * 2.3) EllipsoidAxes ExtendedSpec
  ******************************************************/
-const ellipsoidAxesExtendedSpec: ExtendedSpec<EllipsoidAxesElementConfig> = {
+const ellipsoidAxesExtendedSpec: PrimitiveSpec<EllipsoidAxesElementConfig> = {
   ...ellipsoidAxesSpec,
-
+  renderConfig: {
+    cullMode: 'back',
+    topology: 'triangle-list'
+  },
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
     return getOrCreatePipeline(
       device,
       "EllipsoidAxesShading",
-      () => createRenderPipeline(device, bindGroupLayout, {
+      () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
         vertexShader: ringVertCode,
         fragmentShader: ringFragCode,
         vertexEntryPoint: 'vs_main',
         fragmentEntryPoint: 'fs_main',
         bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT],
         blend: {} // Use defaults
-      }, format),
+      }, format, ellipsoidAxesExtendedSpec),
       cache
     );
   },
@@ -945,9 +960,12 @@ const ellipsoidAxesExtendedSpec: ExtendedSpec<EllipsoidAxesElementConfig> = {
 /******************************************************
  * 2.4) Cuboid ExtendedSpec
  ******************************************************/
-const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
+const cuboidExtendedSpec: PrimitiveSpec<CuboidElementConfig> = {
   ...cuboidSpec,
-
+  renderConfig: {
+    cullMode: 'none',  // Cuboids need to be visible from both sides
+    topology: 'triangle-list'
+  },
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
     return getOrCreatePipeline(
@@ -959,7 +977,7 @@ const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
         vertexEntryPoint: 'vs_main',
         fragmentEntryPoint: 'fs_main',
         bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT]
-      }, format, 'none'),  // Use 'none' for cuboids
+      }, format, cuboidExtendedSpec),
       cache
     );
   },
@@ -974,7 +992,7 @@ const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
         vertexEntryPoint: 'vs_cuboid',
         fragmentEntryPoint: 'fs_pick',
         bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT],
-        primitive: { cullMode: 'none' }
+        primitive: this.renderConfig
       }, 'rgba8unorm'),
       cache
     );
@@ -1011,7 +1029,7 @@ export type SceneElementConfig =
   | EllipsoidAxesElementConfig
   | CuboidElementConfig;
 
-const primitiveRegistry: Record<SceneElementConfig['type'], ExtendedSpec<any>> = {
+const primitiveRegistry: Record<SceneElementConfig['type'], PrimitiveSpec<any>> = {
   PointCloud: pointCloudExtendedSpec,
   Ellipsoid: ellipsoidExtendedSpec,
   EllipsoidAxes: ellipsoidAxesExtendedSpec,
@@ -2558,16 +2576,13 @@ function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject
 function createTranslucentGeometryPipeline(
   device: GPUDevice,
   bindGroupLayout: GPUBindGroupLayout,
-  config: Omit<PipelineConfig, 'primitive' | 'blend' | 'depthStencil'>,
+  config: PipelineConfig,
   format: GPUTextureFormat,
-  cullMode: GPUCullMode = 'back'  // Default to back-face culling
+  primitiveSpec: PrimitiveSpec<any>  // Take the primitive spec instead of just type
 ): GPURenderPipeline {
   return createRenderPipeline(device, bindGroupLayout, {
     ...config,
-    primitive: {
-      cullMode,
-      topology: 'triangle-list'
-    },
+    primitive: primitiveSpec.renderConfig,
     blend: {
       color: {
         srcFactor: 'src-alpha',
