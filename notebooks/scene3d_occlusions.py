@@ -6,9 +6,9 @@ import math
 
 def create_demo_scene():
     """Create a demo scene to demonstrate occlusions with point cloud intersecting other primitives."""
-    # 1. Create a point cloud in a straight line pattern
+    # 1. Create a point cloud that passes through all shapes
     n_points = 1000
-    x = np.linspace(-1, 1, n_points)
+    x = np.linspace(-1.5, 1.5, n_points)  # Reduced range to match tighter spacing
     y = np.zeros(n_points)
     z = np.zeros(n_points)
 
@@ -39,28 +39,73 @@ def create_demo_scene():
             ],
         )
         +
-        # Ellipsoids with one highlighted
+        # Ellipsoids - one pair
         Ellipsoid(
-            centers=np.array([[0.5, 0.0, 0.0], [-0.5, 0.0, 0.0], [0.0, 0.0, 0.0]]),
-            radii=np.array([[0.1, 0.2, 0.1], [0.2, 0.1, 0.1], [0.15, 0.15, 0.15]]),
-            colors=np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
-            decorations=[deco([1], color=[1, 1, 0], alpha=0.8)],
+            centers=np.array(
+                [
+                    [-1.2, 0.0, 0.0],  # First (solid)
+                    [-0.8, 0.0, 0.0],  # Second (semi-transparent)
+                ]
+            ),
+            radii=np.array(
+                [
+                    [0.3, 0.15, 0.2],  # Elongated in x, compressed in y
+                    [0.15, 0.3, 0.2],  # Elongated in y, compressed in x
+                ]
+            ),
+            colors=np.array(
+                [
+                    [1.0, 0.0, 0.0],
+                    [1.0, 0.0, 0.0],
+                ]
+            ),
+            decorations=[deco([1], alpha=0.5)],  # Make second one semi-transparent
         )
         +
-        # Ellipsoid bounds with transparency
+        # Ellipsoid axes - one pair
         EllipsoidAxes(
-            centers=np.array([[0.8, 0.0, 0.0], [-0.8, 0.0, 0.0]]),
-            radii=np.array([[0.2, 0.1, 0.1], [0.1, 0.2, 0.1]]),
-            colors=np.array([[1.0, 0.5, 0.0], [0.0, 0.5, 1.0]]),
-            decorations=[deco([0, 1], alpha=0.5)],
+            centers=np.array(
+                [
+                    [-0.2, 0.0, 0.0],  # First (solid)
+                    [0.2, 0.0, 0.0],  # Second (semi-transparent)
+                ]
+            ),
+            radii=np.array(
+                [
+                    [0.2, 0.3, 0.15],  # Non-uniform axes
+                    [0.3, 0.15, 0.2],  # Different non-uniform axes
+                ]
+            ),
+            colors=np.array(
+                [
+                    [0.0, 1.0, 0.0],
+                    [0.0, 1.0, 0.0],
+                ]
+            ),
+            decorations=[deco([1], alpha=0.5)],  # Make second one semi-transparent
         )
         +
-        # Cuboids with one enlarged
+        # Cuboids - one pair
         Cuboid(
-            centers=np.array([[0.0, -0.8, 0.0], [0.0, -0.8, 0.3]]),
-            sizes=np.array([[0.3, 0.1, 0.2], [0.2, 0.1, 0.2]]),
-            colors=np.array([[0.8, 0.2, 0.8], [0.2, 0.8, 0.8]]),
-            decorations=[deco([0], scale=1.2)],
+            centers=np.array(
+                [
+                    [0.8, 0.0, 0.0],  # First (solid)
+                    [1.2, 0.0, 0.0],  # Second (semi-transparent)
+                ]
+            ),
+            sizes=np.array(
+                [
+                    [0.3, 0.4, 0.2],  # Non-uniform sizes
+                    [0.4, 0.2, 0.3],  # Different non-uniform sizes
+                ]
+            ),
+            colors=np.array(
+                [
+                    [0.0, 0.0, 1.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            ),
+            decorations=[deco([1], alpha=0.5)],  # Make second one semi-transparent
         )
     )
     controlled_camera = {
@@ -76,9 +121,9 @@ def create_demo_scene():
             {
                 "camera": {
                     "position": [
-                        1.5 * math.sin(0.2) * math.sin(1.0),  # x
-                        1.5 * math.cos(1.0),  # y
-                        1.5 * math.sin(0.2) * math.cos(1.0),  # z
+                        2.5 * math.sin(0.2) * math.sin(1.0),  # x - adjusted distance
+                        2.5 * math.cos(1.0),  # y - adjusted distance
+                        2.5 * math.sin(0.2) * math.cos(1.0),  # z - adjusted distance
                     ],
                     "target": [0, 0, 0],
                     "up": [0, 1, 0],

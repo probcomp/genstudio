@@ -961,7 +961,7 @@ const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
         vertexEntryPoint: 'vs_main',
         fragmentEntryPoint: 'fs_main',
         bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT]
-      }, format),
+      }, format, 'none'),  // Use 'none' for cuboids
       cache
     );
   },
@@ -1040,7 +1040,8 @@ function createSphereGeometry(stacks=16, slices=24) {
     for(let j=0;j<slices;j++){
       const row1=i*(slices+1)+j;
       const row2=(i+1)*(slices+1)+j;
-      idxs.push(row1,row2,row1+1, row1+1,row2,row2+1);
+      // Reverse winding order by swapping vertices
+      idxs.push(row1,row1+1,row2, row1+1,row2+1,row2);  // Changed from (row1,row2,row1+1, row1+1,row2,row2+1)
     }
   }
   return {
@@ -1082,19 +1083,21 @@ function createTorusGeometry(majorRadius:number, minorRadius:number, majorSegmen
 function createCubeGeometry() {
   // 6 faces => 24 verts, 36 indices
   const positions: number[] = [
-    // +X face
-    0.5, -0.5, -0.5,   0.5, -0.5,  0.5,   0.5,  0.5,  0.5,   0.5,  0.5, -0.5,
-    // -X face
-    -0.5, -0.5,  0.5,  -0.5, -0.5, -0.5,  -0.5,  0.5, -0.5,  -0.5,  0.5,  0.5,
-    // +Y face
-    -0.5,  0.5, -0.5,   0.5,  0.5, -0.5,   0.5,  0.5,  0.5,  -0.5,  0.5,  0.5,
-    // -Y face
-    -0.5, -0.5,  0.5,   0.5, -0.5,  0.5,   0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,
-    // +Z face
-    -0.5, -0.5,  0.5,   0.5, -0.5,  0.5,   0.5,  0.5,  0.5,  -0.5,  0.5,  0.5,
-    // -Z face
-     0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,  -0.5,  0.5, -0.5,   0.5,  0.5, -0.5,
+    // +X face (right) - when looking at it from right side
+    0.5, -0.5, -0.5,   0.5, -0.5,  0.5,   0.5,  0.5, -0.5,   0.5,  0.5,  0.5,  // reordered: BL,BR,TL,TR
+    // -X face (left) - when looking at it from left side
+    -0.5, -0.5,  0.5,  -0.5, -0.5, -0.5,  -0.5,  0.5,  0.5,  -0.5,  0.5, -0.5,  // reordered: BL,BR,TL,TR
+    // +Y face (top) - when looking down at it
+    -0.5,  0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5,  0.5,   0.5,  0.5,  0.5,  // reordered: BL,BR,TL,TR
+    // -Y face (bottom) - when looking up at it
+    -0.5, -0.5,  0.5,   0.5, -0.5,  0.5,  -0.5, -0.5, -0.5,   0.5, -0.5, -0.5,  // reordered: BL,BR,TL,TR
+    // +Z face (front) - when looking at front
+    -0.5, -0.5,  0.5,   0.5, -0.5,  0.5,  -0.5,  0.5,  0.5,   0.5,  0.5,  0.5,  // reordered: BL,BR,TL,TR
+    // -Z face (back) - when looking at it from behind
+     0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5, -0.5,  // reordered: BL,BR,TL,TR
   ];
+
+  // Normals stay the same as they define face orientation
   const normals: number[] = [
     // +X
     1,0,0, 1,0,0, 1,0,0, 1,0,0,
@@ -1109,12 +1112,19 @@ function createCubeGeometry() {
     // -Z
     0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1,
   ];
+
+  // For each face, define triangles in CCW order when viewed from outside
   const indices: number[] = [];
   for(let face=0; face<6; face++){
     const base = face*4;
-    indices.push(base+0, base+2, base+1, base+0, base+3, base+2);
+    // All faces use same pattern: BL->BR->TL, BR->TR->TL
+    indices.push(
+      base+0, base+1, base+2,  // first triangle: BL->BR->TL
+      base+1, base+3, base+2   // second triangle: BR->TR->TL
+    );
   }
-  // Interleave
+
+  // Interleave positions and normals
   const vertexData = new Float32Array(positions.length*2);
   for(let i=0; i<positions.length/3; i++){
     vertexData[i*6+0] = positions[i*3+0];
@@ -2218,23 +2228,30 @@ fn fs_main(
   @location(4) worldPos: vec3<f32>,
   @location(5) instancePos: vec3<f32>
 )-> @location(0) vec4<f32> {
-  // Blend between geometric and analytical normals
-  let geometricN = normalize(normal);
-  let analyticalN = normalize(worldPos - instancePos);
-  let N = normalize(mix(geometricN, analyticalN, 0.5));  // 50-50 blend
+  // Debug flag to toggle normal visualization
+  let debugNormals = false;
 
-  let L = normalize(camera.lightDir);
-  let V = normalize(camera.cameraPos - worldPos);
+  if (debugNormals) {
+    // For debugging: show the normal as color while supporting translucency
+    let N = normalize(normal);
+    return vec4<f32>(N, alpha);  // Display the normal vector as RGB color with original alpha
+  } else {
+    // Original shading code
+    let N = normal;
 
-  let lambert = max(dot(N, L), 0.0);
-  let ambient = ${LIGHTING.AMBIENT_INTENSITY};
-  var color = baseColor * (ambient + lambert*${LIGHTING.DIFFUSE_INTENSITY});
+    let L = normalize(camera.lightDir);
+    let V = normalize(camera.cameraPos - worldPos);
 
-  let H = normalize(L + V);
-  let spec = pow(max(dot(N, H),0.0), ${LIGHTING.SPECULAR_POWER});
-  color += vec3<f32>(1.0,1.0,1.0)*spec*${LIGHTING.SPECULAR_INTENSITY};
+    let lambert = max(dot(N, L), 0.0);
+    let ambient = ${LIGHTING.AMBIENT_INTENSITY};
+    var color = baseColor * (ambient + lambert*${LIGHTING.DIFFUSE_INTENSITY});
 
-  return vec4<f32>(color, alpha);
+    let H = normalize(L + V);
+    let spec = pow(max(dot(N, H),0.0), ${LIGHTING.SPECULAR_POWER});
+    color += vec3<f32>(1.0,1.0,1.0)*spec*${LIGHTING.SPECULAR_INTENSITY};
+
+    return vec4<f32>(color, alpha);
+  }
 }
 `;
 
@@ -2545,12 +2562,13 @@ function createTranslucentGeometryPipeline(
   device: GPUDevice,
   bindGroupLayout: GPUBindGroupLayout,
   config: Omit<PipelineConfig, 'primitive' | 'blend' | 'depthStencil'>,
-  format: GPUTextureFormat
+  format: GPUTextureFormat,
+  cullMode: GPUCullMode = 'back'  // Default to back-face culling
 ): GPURenderPipeline {
   return createRenderPipeline(device, bindGroupLayout, {
     ...config,
     primitive: {
-      cullMode: 'none',     // Render both faces
+      cullMode,
       topology: 'triangle-list'
     },
     blend: {
