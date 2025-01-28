@@ -418,15 +418,15 @@ const cuboidSpec: PrimitiveSpec<CuboidElementConfig> = {
  * 1.5) Extended Spec: also handle pipeline & render objects
  ******************************************************/
 interface RenderObject {
-  pipeline: GPURenderPipeline;
-  vertexBuffers: [GPUBuffer, BufferInfo];  // First is geometry, second is instance data
+  pipeline?: GPURenderPipeline;
+  vertexBuffers: Partial<[GPUBuffer, BufferInfo]>;  // Allow empty or partial arrays
   indexBuffer?: GPUBuffer;
   vertexCount?: number;
   indexCount?: number;
   instanceCount?: number;
 
-  pickingPipeline: GPURenderPipeline;
-  pickingVertexBuffers: [GPUBuffer, BufferInfo];  // First is geometry, second is instance data
+  pickingPipeline?: GPURenderPipeline;
+  pickingVertexBuffers: Partial<[GPUBuffer, BufferInfo]>;  // Allow empty or partial arrays
   pickingIndexBuffer?: GPUBuffer;
   pickingVertexCount?: number;
   pickingIndexCount?: number;
@@ -1241,9 +1241,9 @@ interface SceneProps {
   width?: number;
   height?: number;
   aspectRatio?: number;
-  camera?: CameraState;
-  defaultCamera?: CameraState;
-  onCameraChange?: (camera: CameraState) => void;
+  camera?: CameraParams;
+  defaultCamera?: CameraParams;
+  onCameraChange?: (camera: CameraParams) => void;
 }
 
 export function Scene({ elements, width, height, aspectRatio = 1, camera, defaultCamera, onCameraChange }: SceneProps) {
@@ -1298,7 +1298,7 @@ function SceneInner({
 
     renderObjects: RenderObject[];
     elementBaseId: number[];
-    idToElement: {elementIdx: number, instanceIdx: number}[];
+    idToElement: ({elementIdx: number, instanceIdx: number} | null)[];
     pipelineCache: Map<string, PipelineCacheEntry>;  // Add this
     dynamicBuffers: DynamicBuffers | null;
     resources: GeometryResources;  // Add this
@@ -1404,7 +1404,7 @@ function SceneInner({
         readbackBuffer,
         renderObjects: [],
         elementBaseId: [],
-        idToElement: [],
+        idToElement: [null],  // First ID (0) is reserved
         pipelineCache: new Map(),
         dynamicBuffers: null,
         resources: {
@@ -1603,15 +1603,15 @@ function SceneInner({
       const spec = primitiveRegistry[elem.type];
       if(!spec) {
         return {
-          pipeline: null,
+          pipeline: undefined,
           vertexBuffers: [],
-          indexBuffer: null,
+          indexBuffer: undefined,
           vertexCount: 0,
           indexCount: 0,
           instanceCount: 0,
-          pickingPipeline: null,
+          pickingPipeline: undefined,
           pickingVertexBuffers: [],
-          pickingIndexBuffer: null,
+          pickingIndexBuffer: undefined,
           pickingVertexCount: 0,
           pickingIndexCount: 0,
           pickingInstanceCount: 0,
@@ -1660,7 +1660,7 @@ function SceneInner({
 
       return {
         ...baseRenderObject,
-        pickingPipeline: null,
+        pickingPipeline: undefined,
         pickingVertexBuffers: [],
         pickingDataStale: true,
         elementIndex: i
@@ -1760,7 +1760,9 @@ function SceneInner({
 
       // Set instance buffer (always second)
       const instanceInfo = ro.vertexBuffers[1];
-      pass.setVertexBuffer(1, instanceInfo.buffer, instanceInfo.offset);
+      if (instanceInfo) {
+        pass.setVertexBuffer(1, instanceInfo.buffer, instanceInfo.offset);
+      }
 
       if(ro.indexBuffer) {
         pass.setIndexBuffer(ro.indexBuffer, 'uint16');
@@ -1841,7 +1843,9 @@ function SceneInner({
 
         // Set instance buffer (always second)
         const instanceInfo = ro.pickingVertexBuffers[1];
-        pass.setVertexBuffer(1, instanceInfo.buffer, instanceInfo.offset);
+        if (instanceInfo) {
+          pass.setVertexBuffer(1, instanceInfo.buffer, instanceInfo.offset);
+        }
 
         if(ro.pickingIndexBuffer) {
           pass.setIndexBuffer(ro.pickingIndexBuffer, 'uint16');
@@ -1948,7 +1952,7 @@ function SceneInner({
   );
 
   // Rename to be more specific to scene3d
-  const handleScene3dMouseMove = useCallback((e: ReactMouseEvent) => {
+  const handleScene3dMouseMove = useCallback((e: MouseEvent) => {
     if(!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -1973,7 +1977,7 @@ function SceneInner({
     }
 }, [handleCameraUpdate, throttledPickAtScreenXY]);
 
-  const handleScene3dMouseDown = useCallback((e: ReactMouseEvent) => {
+  const handleScene3dMouseDown = useCallback((e: MouseEvent) => {
     mouseState.current = {
       type: 'dragging',
       button: e.button,
@@ -1987,7 +1991,7 @@ function SceneInner({
     e.preventDefault();
   }, []);
 
-  const handleScene3dMouseUp = useCallback((e: ReactMouseEvent) => {
+  const handleScene3dMouseUp = useCallback((e: MouseEvent) => {
     const st = mouseState.current;
     if(st.type === 'dragging' && st.startX !== undefined && st.startY !== undefined) {
       if(!canvasRef.current) return;

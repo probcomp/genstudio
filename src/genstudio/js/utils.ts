@@ -164,16 +164,16 @@ function debounce(func, wait, leading = true) {
   };
 }
 
-export function useContainerWidth(threshold=10) {
-  const containerRef = React.useRef(null);
-  const [containerWidth, setContainerWidth] = React.useState(0);
-  const lastWidthRef = React.useRef(0);
-  const DEBOUNCE = false;
+export function useContainerWidth(threshold: number = 10): [React.RefObject<HTMLDivElement | null>, number] {
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = React.useState<number>(0);
+  const lastWidthRef = React.useRef<number>(0);
+  const DEBOUNCE: boolean = false;
 
   React.useEffect(() => {
     if (!containerRef.current) return;
 
-    const handleWidth = width => {
+    const handleWidth = (width: number) => {
       const diff = Math.abs(width - lastWidthRef.current);
       if (diff >= threshold) {
         lastWidthRef.current = width;
