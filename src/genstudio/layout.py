@@ -280,6 +280,8 @@ def js_ref(path: str) -> "JSRef":
 
 
 class JSCode(LayoutItem):
+    """Represents raw JavaScript code to be evaluated."""
+
     def __init__(self, code: str, *params: Any, expression: bool):
         super().__init__()
         self.code = code
@@ -293,6 +295,9 @@ class JSCode(LayoutItem):
             "params": self.params,
             "expression": self.expression,
         }
+
+
+JSExpr = Union[JSCall, JSRef, JSCode]
 
 
 def js(txt: str, *params: Any, expression=True) -> JSCode:

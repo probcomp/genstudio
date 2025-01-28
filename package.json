@@ -8,6 +8,7 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.5.0",
     "@testing-library/react": "^16.0.1",
+    "@webgpu/types": "^0.1.53",
     "esbuild": "^0.21.5",
     "esbuild-css-modules-plugin": "^3.1.2",
     "jsdom": "^25.0.0",

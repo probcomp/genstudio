@@ -14,6 +14,7 @@ from genstudio.layout import (
     Hiccup,
     JSCall,
     JSCode,
+    JSExpr,
     JSRef,
     Row,
     ref,
@@ -1220,6 +1221,7 @@ __all__ = [
     "case",
     "html",
     "md",
+    "JSExpr",
     # ## JavaScript Interop
     "js",
     "ref",

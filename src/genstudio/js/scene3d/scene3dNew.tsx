@@ -1,4 +1,3 @@
-/// <reference path="./webgpu.d.ts" />
 /// <reference types="react" />
 
 import React, {
@@ -15,14 +14,18 @@ import {
     createCameraParams,
     orbit,
     pan,
-    zoom,
-    getViewMatrix,
-    getProjectionMatrix
+    zoom
 } from './camera3d';
 
 /******************************************************
  * 0) Types and Interfaces
  ******************************************************/
+interface BufferInfo {
+  buffer: GPUBuffer;
+  offset: number;
+  stride: number;
+}
+
 interface SceneInnerProps {
     elements: any[];
     containerWidth: number;
@@ -244,15 +247,15 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidElementConfig> = {
 };
 
 /** ===================== ELLIPSOID BOUNDS ===================== **/
-export interface EllipsoidBoundsElementConfig {
-  type: 'EllipsoidBounds';
+export interface EllipsoidAxesElementConfig {
+  type: 'EllipsoidAxes';
   data: EllipsoidData;
   decorations?: Decoration[];
   onHover?: (index: number|null) => void;
   onClick?: (index: number) => void;
 }
 
-const ellipsoidBoundsSpec: PrimitiveSpec<EllipsoidBoundsElementConfig> = {
+const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesElementConfig> = {
   getCount(elem) {
     // each ellipsoid => 3 rings
     const c = elem.data.centers.length/3;
@@ -481,10 +484,6 @@ interface PipelineCacheEntry {
   device: GPUDevice;
 }
 
-// Update the cache type
-const pipelineCache = new Map<string, PipelineCacheEntry>();
-
-// Update the getOrCreatePipeline helper
 function getOrCreatePipeline(
   device: GPUDevice,
   key: string,
@@ -505,8 +504,14 @@ function getOrCreatePipeline(
 /******************************************************
  * 2) Common Resources: geometry, layout, etc.
  ******************************************************/
-// Replace CommonResources.init with a function that initializes for a specific instance
-function initGeometryResources(device: GPUDevice, resources: typeof gpuRef.current.resources) {
+interface GeometryResources {
+  sphereGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+  ringGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+  billboardQuad: { vb: GPUBuffer; ib: GPUBuffer } | null;
+  cubeGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+}
+
+function initGeometryResources(device: GPUDevice, resources: GeometryResources) {
   // Create sphere geometry
   if(!resources.sphereGeo) {
     const { vertexData, indexData } = createSphereGeometry(16,24);
@@ -685,7 +690,7 @@ const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
     instanceBufferInfo: BufferInfo | null,
     pickingBufferInfo: BufferInfo | null,
     instanceCount: number,
-    resources: typeof gpuRef.current.resources
+    resources: GeometryResources
   ): RenderObject {
     if(!resources.billboardQuad){
       throw new Error("No billboard geometry available (not yet initialized).");
@@ -843,10 +848,10 @@ const ellipsoidExtendedSpec: ExtendedSpec<EllipsoidElementConfig> = {
 };
 
 /******************************************************
- * 2.3) EllipsoidBounds ExtendedSpec
+ * 2.3) EllipsoidAxes ExtendedSpec
  ******************************************************/
-const ellipsoidBoundsExtendedSpec: ExtendedSpec<EllipsoidBoundsElementConfig> = {
-  ...ellipsoidBoundsSpec,
+const ellipsoidAxesExtendedSpec: ExtendedSpec<EllipsoidAxesElementConfig> = {
+  ...ellipsoidAxesSpec,
 
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
@@ -855,7 +860,7 @@ const ellipsoidBoundsExtendedSpec: ExtendedSpec<EllipsoidBoundsElementConfig> = 
     });
     return getOrCreatePipeline(
       device,
-      "EllipsoidBoundsShading",
+      "EllipsoidAxesShading",
       () => {
         return device.createRenderPipeline({
           layout: pipelineLayout,
@@ -909,7 +914,7 @@ const ellipsoidBoundsExtendedSpec: ExtendedSpec<EllipsoidBoundsElementConfig> = 
     });
     return getOrCreatePipeline(
       device,
-      "EllipsoidBoundsPicking",
+      "EllipsoidAxesPicking",
       () => {
         return device.createRenderPipeline({
           layout: pipelineLayout,
@@ -1108,13 +1113,13 @@ const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
 export type SceneElementConfig =
   | PointCloudElementConfig
   | EllipsoidElementConfig
-  | EllipsoidBoundsElementConfig
+  | EllipsoidAxesElementConfig
   | CuboidElementConfig;
 
 const primitiveRegistry: Record<SceneElementConfig['type'], ExtendedSpec<any>> = {
   PointCloud: pointCloudExtendedSpec,
   Ellipsoid: ellipsoidExtendedSpec,
-  EllipsoidBounds: ellipsoidBoundsExtendedSpec,
+  EllipsoidAxes: ellipsoidAxesExtendedSpec,
   Cuboid: cuboidExtendedSpec,
 };
 
@@ -1296,12 +1301,7 @@ function SceneInner({
     idToElement: {elementIdx: number, instanceIdx: number}[];
     pipelineCache: Map<string, PipelineCacheEntry>;  // Add this
     dynamicBuffers: DynamicBuffers | null;
-    resources: {  // Add this
-      sphereGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
-      ringGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
-      billboardQuad: { vb: GPUBuffer; ib: GPUBuffer; } | null;
-      cubeGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
-    };
+    resources: GeometryResources;  // Add this
   } | null>(null);
 
   const [isReady, setIsReady] = useState(false);
