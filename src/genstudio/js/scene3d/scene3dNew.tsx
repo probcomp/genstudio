@@ -91,25 +91,24 @@ const pointCloudSpec: PrimitiveSpec<PointCloudElementConfig> = {
     const count = positions.length / 3;
     if(count === 0) return null;
 
-    // (pos.x, pos.y, pos.z, color.r, color.g, color.b, alpha, scaleX, scaleY)
-    const arr = new Float32Array(count * 9);
+    // (pos.x, pos.y, pos.z, color.r, color.g, color.b, alpha, scale)
+    const arr = new Float32Array(count * 8);  // Changed from 9 to 8 floats per instance
     for(let i=0; i<count; i++){
-      arr[i*9+0] = positions[i*3+0];
-      arr[i*9+1] = positions[i*3+1];
-      arr[i*9+2] = positions[i*3+2];
+      arr[i*8+0] = positions[i*3+0];
+      arr[i*8+1] = positions[i*3+1];
+      arr[i*8+2] = positions[i*3+2];
       if(colors && colors.length === count*3){
-        arr[i*9+3] = colors[i*3+0];
-        arr[i*9+4] = colors[i*3+1];
-        arr[i*9+5] = colors[i*3+2];
+        arr[i*8+3] = colors[i*3+0];
+        arr[i*8+4] = colors[i*3+1];
+        arr[i*8+5] = colors[i*3+2];
       } else {
-        arr[i*9+3] = 1;
-        arr[i*9+4] = 1;
-        arr[i*9+5] = 1;
+        arr[i*8+3] = 1;
+        arr[i*8+4] = 1;
+        arr[i*8+5] = 1;
       }
-      arr[i*9+6] = 1.0; // alpha
+      arr[i*8+6] = 1.0; // alpha
       const s = scales ? scales[i] : 0.02;
-      arr[i*9+7] = s;
-      arr[i*9+8] = s;
+      arr[i*8+7] = s;   // single scale value
     }
     // decorations
     if(elem.decorations){
@@ -117,20 +116,18 @@ const pointCloudSpec: PrimitiveSpec<PointCloudElementConfig> = {
         for(const idx of dec.indexes){
           if(idx<0||idx>=count) continue;
           if(dec.color){
-            arr[idx*9+3] = dec.color[0];
-            arr[idx*9+4] = dec.color[1];
-            arr[idx*9+5] = dec.color[2];
+            arr[idx*8+3] = dec.color[0];
+            arr[idx*8+4] = dec.color[1];
+            arr[idx*8+5] = dec.color[2];
           }
           if(dec.alpha !== undefined){
-            arr[idx*9+6] = dec.alpha;
+            arr[idx*8+6] = dec.alpha;
           }
           if(dec.scale !== undefined){
-            arr[idx*9+7] *= dec.scale;
-            arr[idx*9+8] *= dec.scale;
+            arr[idx*8+7] *= dec.scale;
           }
           if(dec.minSize !== undefined){
-            if(arr[idx*9+7] < dec.minSize) arr[idx*9+7] = dec.minSize;
-            if(arr[idx*9+8] < dec.minSize) arr[idx*9+8] = dec.minSize;
+            if(arr[idx*8+7] < dec.minSize) arr[idx*8+7] = dec.minSize;
           }
         }
       }
@@ -142,16 +139,15 @@ const pointCloudSpec: PrimitiveSpec<PointCloudElementConfig> = {
     const count = positions.length / 3;
     if(count===0) return null;
 
-    // (pos.x, pos.y, pos.z, pickID, scaleX, scaleY)
-    const arr = new Float32Array(count*6);
+    // (pos.x, pos.y, pos.z, pickID, scale)
+    const arr = new Float32Array(count*5);
     for(let i=0; i<count; i++){
-      arr[i*6+0] = positions[i*3+0];
-      arr[i*6+1] = positions[i*3+1];
-      arr[i*6+2] = positions[i*3+2];
-      arr[i*6+3] = baseID + i;
+      arr[i*5+0] = positions[i*3+0];
+      arr[i*5+1] = positions[i*3+1];
+      arr[i*5+2] = positions[i*3+2];
+      arr[i*5+3] = baseID + i;
       const s = scales ? scales[i] : 0.02;
-      arr[i*6+4] = s;
-      arr[i*6+5] = s;
+      arr[i*5+4] = s;
     }
     return arr;
   }
@@ -514,7 +510,7 @@ interface GeometryResources {
 function initGeometryResources(device: GPUDevice, resources: GeometryResources) {
   // Create sphere geometry
   if(!resources.sphereGeo) {
-    const { vertexData, indexData } = createSphereGeometry(16,24);
+    const { vertexData, indexData } = createSphereGeometry(32,48);  // Doubled from 16,24
     const vb = device.createBuffer({
       size: vertexData.byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
@@ -546,7 +542,15 @@ function initGeometryResources(device: GPUDevice, resources: GeometryResources) 
 
   // Create billboard quad geometry
   if(!resources.billboardQuad) {
-    const quadVerts = new Float32Array([-0.5,-0.5, 0.5,-0.5, -0.5,0.5, 0.5,0.5]);
+    // Create a unit quad centered at origin, in the XY plane
+    // Each vertex has position (xyz) and normal (xyz)
+    const quadVerts = new Float32Array([
+      // Position (xyz)     Normal (xyz)
+      -0.5, -0.5, 0.0,     0.0, 0.0, 1.0,  // bottom-left
+       0.5, -0.5, 0.0,     0.0, 0.0, 1.0,  // bottom-right
+      -0.5,  0.5, 0.0,     0.0, 0.0, 1.0,  // top-left
+       0.5,  0.5, 0.0,     0.0, 0.0, 1.0   // top-right
+    ]);
     const quadIdx = new Uint16Array([0,1,2, 2,1,3]);
     const vb = device.createBuffer({
       size: quadVerts.byteLength,
@@ -605,6 +609,12 @@ interface PipelineConfig {
     color?: GPUBlendComponent;
     alpha?: GPUBlendComponent;
   };
+  depthStencil?: {
+    format: GPUTextureFormat;
+    depthWriteEnabled: boolean;
+    depthCompare: GPUCompareFunction;
+  };
+  colorWriteMask?: GPUColorWriteFlags;  // Add this to control color writes
 }
 
 function createRenderPipeline(
@@ -629,6 +639,7 @@ function createRenderPipeline(
       entryPoint: config.fragmentEntryPoint,
       targets: [{
         format,
+        writeMask: config.colorWriteMask ?? GPUColorWrite.ALL,
         ...(config.blend && {
           blend: {
             color: config.blend.color || {
@@ -650,41 +661,46 @@ function createRenderPipeline(
     depthStencil: {
       format: 'depth24plus',
       depthWriteEnabled: true,
-      depthCompare: 'less-equal'
+      depthCompare: 'less'
     }
   });
 }
 
 // Common vertex buffer layouts
 const POINT_CLOUD_GEOMETRY_LAYOUT: VertexBufferLayout = {
-  arrayStride: 8,
-  attributes: [{
-    shaderLocation: 0,
-    offset: 0,
-    format: 'float32x2'
-  }]
+  arrayStride: 24,  // 6 floats * 4 bytes
+  attributes: [
+    {  // position xyz
+      shaderLocation: 0,
+      offset: 0,
+      format: 'float32x3'
+    },
+    {  // normal xyz
+      shaderLocation: 1,
+      offset: 12,
+      format: 'float32x3'
+    }
+  ]
 };
 
 const POINT_CLOUD_INSTANCE_LAYOUT: VertexBufferLayout = {
-  arrayStride: 9*4,
+  arrayStride: 32,  // 8 floats * 4 bytes
   stepMode: 'instance',
   attributes: [
-    {shaderLocation: 1, offset: 0,    format: 'float32x3'},
-    {shaderLocation: 2, offset: 3*4,  format: 'float32x3'},
-    {shaderLocation: 3, offset: 6*4,  format: 'float32'},
-    {shaderLocation: 4, offset: 7*4,  format: 'float32'},
-    {shaderLocation: 5, offset: 8*4,  format: 'float32'}
+    {shaderLocation: 2, offset: 0,  format: 'float32x3'},  // instancePos
+    {shaderLocation: 3, offset: 12, format: 'float32x3'},  // color
+    {shaderLocation: 4, offset: 24, format: 'float32'},    // alpha
+    {shaderLocation: 5, offset: 28, format: 'float32'}     // scale
   ]
 };
 
 const POINT_CLOUD_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
-  arrayStride: 6*4,
+  arrayStride: 20,  // 5 floats * 4 bytes
   stepMode: 'instance',
   attributes: [
-    {shaderLocation: 1, offset: 0,   format: 'float32x3'},
-    {shaderLocation: 2, offset: 3*4, format: 'float32'},
-    {shaderLocation: 3, offset: 4*4, format: 'float32'},
-    {shaderLocation: 4, offset: 5*4, format: 'float32'}
+    {shaderLocation: 2, offset: 0,   format: 'float32x3'},  // instancePos
+    {shaderLocation: 3, offset: 12,  format: 'float32'},    // pickID
+    {shaderLocation: 4, offset: 16,  format: 'float32'}     // scale
   ]
 };
 
@@ -734,7 +750,27 @@ const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
         vertexEntryPoint: 'vs_main',
         fragmentEntryPoint: 'fs_main',
         bufferLayouts: [POINT_CLOUD_GEOMETRY_LAYOUT, POINT_CLOUD_INSTANCE_LAYOUT],
-        blend: {} // Use defaults
+        blend: {
+          color: {
+            srcFactor: 'src-alpha',
+            dstFactor: 'one-minus-src-alpha',
+            operation: 'add'
+          },
+          alpha: {
+            srcFactor: 'one',
+            dstFactor: 'one-minus-src-alpha',
+            operation: 'add'
+          }
+        },
+        primitive: {
+          cullMode: 'none',  // Don't cull any faces
+          topology: 'triangle-list'
+        },
+        depthStencil: {
+          format: 'depth24plus',
+          depthWriteEnabled: true,
+          depthCompare: 'less'
+        }
       }, format),
       cache
     );
@@ -800,13 +836,12 @@ const ellipsoidExtendedSpec: ExtendedSpec<EllipsoidElementConfig> = {
     return getOrCreatePipeline(
       device,
       "EllipsoidShading",
-      () => createRenderPipeline(device, bindGroupLayout, {
+      () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
         vertexShader: ellipsoidVertCode,
         fragmentShader: ellipsoidFragCode,
         vertexEntryPoint: 'vs_main',
         fragmentEntryPoint: 'fs_main',
-        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT],
-        blend: {} // Use defaults
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT]
       }, format),
       cache
     );
@@ -920,14 +955,12 @@ const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
     return getOrCreatePipeline(
       device,
       "CuboidShading",
-      () => createRenderPipeline(device, bindGroupLayout, {
+      () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
         vertexShader: cuboidVertCode,
         fragmentShader: cuboidFragCode,
         vertexEntryPoint: 'vs_main',
         fragmentEntryPoint: 'fs_main',
-        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT],
-        primitive: { cullMode: 'none' },
-        blend: {} // Use defaults
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT]
       }, format),
       cache
     );
@@ -2087,17 +2120,24 @@ struct VSOut {
 
 @vertex
 fn vs_main(
-  @location(0) corner: vec2<f32>,
-  @location(1) pos: vec3<f32>,
-  @location(2) col: vec3<f32>,
-  @location(3) alpha: f32,
-  @location(4) scaleX: f32,
-  @location(5) scaleY: f32
+  @location(0) localPos: vec3<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) instancePos: vec3<f32>,
+  @location(3) col: vec3<f32>,
+  @location(4) alpha: f32,
+  @location(5) scale: f32
 )-> VSOut {
-  let offset = camera.cameraRight*(corner.x*scaleX) + camera.cameraUp*(corner.y*scaleY);
-  let worldPos = vec4<f32>(pos + offset, 1.0);
+  // Create camera-facing orientation
+  let right = camera.cameraRight;
+  let up = camera.cameraUp;
+
+  // Transform quad vertices to world space
+  let scaledRight = right * (localPos.x * scale);
+  let scaledUp = up * (localPos.y * scale);
+  let worldPos = instancePos + scaledRight + scaledUp;
+
   var out: VSOut;
-  out.Position = camera.mvp * worldPos;
+  out.Position = camera.mvp * vec4<f32>(worldPos, 1.0);
   out.color = col;
   out.alpha = alpha;
   return out;
@@ -2128,7 +2168,8 @@ struct VSOut {
   @location(1) normal: vec3<f32>,
   @location(2) baseColor: vec3<f32>,
   @location(3) alpha: f32,
-  @location(4) worldPos: vec3<f32>
+  @location(4) worldPos: vec3<f32>,
+  @location(5) instancePos: vec3<f32>  // Added instance position
 };
 
 @vertex
@@ -2148,7 +2189,8 @@ fn vs_main(
   out.normal = scaledNorm;
   out.baseColor = iColor;
   out.alpha = iAlpha;
-  out.worldPos = worldPos.xyz;
+  out.worldPos = worldPos;
+  out.instancePos = iPos;  // Pass through instance position
   return out;
 }
 `;
@@ -2170,17 +2212,23 @@ fn fs_main(
   @location(1) normal: vec3<f32>,
   @location(2) baseColor: vec3<f32>,
   @location(3) alpha: f32,
-  @location(4) worldPos: vec3<f32>
+  @location(4) worldPos: vec3<f32>,
+  @location(5) instancePos: vec3<f32>
 )-> @location(0) vec4<f32> {
-  let N = normalize(normal);
+  // Blend between geometric and analytical normals
+  let geometricN = normalize(normal);
+  let analyticalN = normalize(worldPos - instancePos);
+  let N = normalize(mix(geometricN, analyticalN, 0.5));  // 50-50 blend
+
   let L = normalize(camera.lightDir);
-  let lambert = max(dot(N,L), 0.0);
+  let V = normalize(-worldPos);
+
+  let lambert = max(dot(N, L), 0.0);
   let ambient = ${LIGHTING.AMBIENT_INTENSITY};
   var color = baseColor * (ambient + lambert*${LIGHTING.DIFFUSE_INTENSITY});
 
-  let V = normalize(-worldPos);
   let H = normalize(L + V);
-  let spec = pow(max(dot(N,H),0.0), ${LIGHTING.SPECULAR_POWER});
+  let spec = pow(max(dot(N, H),0.0), ${LIGHTING.SPECULAR_POWER});
   color += vec3<f32>(1.0,1.0,1.0)*spec*${LIGHTING.SPECULAR_INTENSITY};
 
   return vec4<f32>(color, alpha);
@@ -2351,16 +2399,23 @@ struct VSOut {
 
 @vertex
 fn vs_pointcloud(
-  @location(0) corner: vec2<f32>,
-  @location(1) pos: vec3<f32>,
-  @location(2) pickID: f32,
-  @location(3) scaleX: f32,
-  @location(4) scaleY: f32
+  @location(0) localPos: vec3<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) instancePos: vec3<f32>,
+  @location(3) pickID: f32,
+  @location(4) scale: f32
 )-> VSOut {
-  let offset = camera.cameraRight*(corner.x*scaleX) + camera.cameraUp*(corner.y*scaleY);
-  let worldPos = vec4<f32>(pos + offset, 1.0);
+  // Create camera-facing orientation
+  let right = camera.cameraRight;
+  let up = camera.cameraUp;
+
+  // Transform quad vertices to world space
+  let scaledRight = right * (localPos.x * scale);
+  let scaledUp = up * (localPos.y * scale);
+  let worldPos = instancePos + scaledRight + scaledUp;
+
   var out: VSOut;
-  out.pos = camera.mvp * worldPos;
+  out.pos = camera.mvp * vec4<f32>(worldPos, 1.0);
   out.pickID = pickID;
   return out;
 }
@@ -2481,4 +2536,36 @@ function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject
     typeof ro.instanceCount === 'number' &&
     ro.instanceCount > 0
   );
+}
+
+function createTranslucentGeometryPipeline(
+  device: GPUDevice,
+  bindGroupLayout: GPUBindGroupLayout,
+  config: Omit<PipelineConfig, 'primitive' | 'blend' | 'depthStencil'>,
+  format: GPUTextureFormat
+): GPURenderPipeline {
+  return createRenderPipeline(device, bindGroupLayout, {
+    ...config,
+    primitive: {
+      cullMode: 'none',     // Render both faces
+      topology: 'triangle-list'
+    },
+    blend: {
+      color: {
+        srcFactor: 'src-alpha',
+        dstFactor: 'one-minus-src-alpha',
+        operation: 'add'
+      },
+      alpha: {
+        srcFactor: 'one',
+        dstFactor: 'one-minus-src-alpha',
+        operation: 'add'
+      }
+    },
+    depthStencil: {
+      format: 'depth24plus',
+      depthWriteEnabled: true,
+      depthCompare: 'less'
+    }
+  }, format);
 }
