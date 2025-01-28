@@ -54,10 +54,42 @@ const LIGHTING = {
 /******************************************************
  * 1) Data Structures & "Spec" System
  ******************************************************/
-interface PrimitiveDataSpec<E> {
+interface PrimitiveSpec<E> {
+  /** Get the number of instances in this element */
   getCount(element: E): number;
+
+  /** Build vertex buffer data for rendering */
   buildRenderData(element: E): Float32Array | null;
+
+  /** Build vertex buffer data for picking */
   buildPickingData(element: E, baseID: number): Float32Array | null;
+
+  /** The default rendering configuration for this primitive type */
+  renderConfig: RenderConfig;
+
+  /** Return (or lazily create) the GPU render pipeline for this type */
+  getRenderPipeline(
+    device: GPUDevice,
+    bindGroupLayout: GPUBindGroupLayout,
+    cache: Map<string, PipelineCacheEntry>
+  ): GPURenderPipeline;
+
+  /** Return (or lazily create) the GPU picking pipeline for this type */
+  getPickingPipeline(
+    device: GPUDevice,
+    bindGroupLayout: GPUBindGroupLayout,
+    cache: Map<string, PipelineCacheEntry>
+  ): GPURenderPipeline;
+
+  /** Create a RenderObject that references geometry + the two pipelines */
+  createRenderObject(
+    pipeline: GPURenderPipeline,
+    pickingPipeline: GPURenderPipeline,
+    instanceBufferInfo: BufferInfo | null,
+    pickingBufferInfo: BufferInfo | null,
+    instanceCount: number,
+    resources: GeometryResources
+  ): RenderObject;
 }
 
 interface Decoration {
@@ -90,10 +122,12 @@ export interface PointCloudElementConfig {
   onClick?: (index: number) => void;
 }
 
-const pointCloudSpec: PrimitiveDataSpec<PointCloudElementConfig> = {
-  getCount(elem){
+const pointCloudSpec: PrimitiveSpec<PointCloudElementConfig> = {
+  // Data transformation methods
+  getCount(elem) {
     return elem.data.positions.length / 3;
   },
+
   buildRenderData(elem) {
     const { positions, colors, scales } = elem.data;
     const count = positions.length / 3;
@@ -142,7 +176,8 @@ const pointCloudSpec: PrimitiveDataSpec<PointCloudElementConfig> = {
     }
     return arr;
   },
-  buildPickingData(elem, baseID){
+
+  buildPickingData(elem, baseID) {
     const { positions, scales } = elem.data;
     const count = positions.length / 3;
     if(count===0) return null;
@@ -158,6 +193,86 @@ const pointCloudSpec: PrimitiveDataSpec<PointCloudElementConfig> = {
       arr[i*5+4] = s;
     }
     return arr;
+  },
+
+  // Rendering configuration
+  renderConfig: {
+    cullMode: 'none',
+    topology: 'triangle-list'
+  },
+
+  // Pipeline creation methods
+  getRenderPipeline(device, bindGroupLayout, cache) {
+    const format = navigator.gpu.getPreferredCanvasFormat();
+    return getOrCreatePipeline(
+      device,
+      "PointCloudShading",
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: billboardVertCode,
+        fragmentShader: billboardFragCode,
+        vertexEntryPoint: 'vs_main',
+        fragmentEntryPoint: 'fs_main',
+        bufferLayouts: [POINT_CLOUD_GEOMETRY_LAYOUT, POINT_CLOUD_INSTANCE_LAYOUT],
+        primitive: this.renderConfig,
+        blend: {
+          color: {
+            srcFactor: 'src-alpha',
+            dstFactor: 'one-minus-src-alpha',
+            operation: 'add'
+          },
+          alpha: {
+            srcFactor: 'one',
+            dstFactor: 'one-minus-src-alpha',
+            operation: 'add'
+          }
+        },
+        depthStencil: {
+          format: 'depth24plus',
+          depthWriteEnabled: true,
+          depthCompare: 'less'
+        }
+      }, format),
+      cache
+    );
+  },
+
+  getPickingPipeline(device, bindGroupLayout, cache) {
+    return getOrCreatePipeline(
+      device,
+      "PointCloudPicking",
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: pickingVertCode,
+        fragmentShader: pickingVertCode,
+        vertexEntryPoint: 'vs_pointcloud',
+        fragmentEntryPoint: 'fs_pick',
+        bufferLayouts: [POINT_CLOUD_GEOMETRY_LAYOUT, POINT_CLOUD_PICKING_INSTANCE_LAYOUT]
+      }, 'rgba8unorm'),
+      cache
+    );
+  },
+
+  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+    if(!resources.billboardQuad){
+      throw new Error("No billboard geometry available (not yet initialized).");
+    }
+    const { vb, ib } = resources.billboardQuad;
+
+    return {
+      pipeline,
+      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
+      indexBuffer: ib,
+      indexCount: 6,
+      instanceCount,
+
+      pickingPipeline,
+      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
+      pickingIndexBuffer: ib,
+      pickingIndexCount: 6,
+      pickingInstanceCount: instanceCount,
+
+      elementIndex: -1,
+      pickingDataStale: true,
+    };
   }
 };
 
@@ -175,7 +290,7 @@ export interface EllipsoidElementConfig {
   onClick?: (index: number) => void;
 }
 
-const ellipsoidSpec: PrimitiveDataSpec<EllipsoidElementConfig> = {
+const ellipsoidSpec: PrimitiveSpec<EllipsoidElementConfig> = {
   getCount(elem){
     return elem.data.centers.length / 3;
   },
@@ -247,6 +362,61 @@ const ellipsoidSpec: PrimitiveDataSpec<EllipsoidElementConfig> = {
       arr[i*7+6] = baseID + i;
     }
     return arr;
+  },
+  renderConfig: {
+    cullMode: 'back',
+    topology: 'triangle-list'
+  },
+  getRenderPipeline(device, bindGroupLayout, cache) {
+    const format = navigator.gpu.getPreferredCanvasFormat();
+    return getOrCreatePipeline(
+      device,
+      "EllipsoidShading",
+      () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
+        vertexShader: ellipsoidVertCode,
+        fragmentShader: ellipsoidFragCode,
+        vertexEntryPoint: 'vs_main',
+        fragmentEntryPoint: 'fs_main',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT]
+      }, format, ellipsoidSpec),
+      cache
+    );
+  },
+
+  getPickingPipeline(device, bindGroupLayout, cache) {
+    return getOrCreatePipeline(
+      device,
+      "EllipsoidPicking",
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: pickingVertCode,
+        fragmentShader: pickingVertCode,
+        vertexEntryPoint: 'vs_ellipsoid',
+        fragmentEntryPoint: 'fs_pick',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT]
+      }, 'rgba8unorm'),
+      cache
+    );
+  },
+
+  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+    if(!resources.sphereGeo) throw new Error("No sphere geometry available");
+    const { vb, ib, indexCount } = resources.sphereGeo;
+    return {
+      pipeline,
+      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
+      indexBuffer: ib,
+      indexCount,
+      instanceCount,
+
+      pickingPipeline,
+      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
+      pickingIndexBuffer: ib,
+      pickingIndexCount: indexCount,
+      pickingInstanceCount: instanceCount,
+
+      elementIndex: -1,
+      pickingDataStale: true,
+    };
   }
 };
 
@@ -259,7 +429,7 @@ export interface EllipsoidAxesElementConfig {
   onClick?: (index: number) => void;
 }
 
-const ellipsoidAxesSpec: PrimitiveDataSpec<EllipsoidAxesElementConfig> = {
+const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesElementConfig> = {
   getCount(elem) {
     // each ellipsoid => 3 rings
     const c = elem.data.centers.length/3;
@@ -326,6 +496,62 @@ const ellipsoidAxesSpec: PrimitiveDataSpec<EllipsoidAxesElementConfig> = {
       }
     }
     return arr;
+  },
+  renderConfig: {
+    cullMode: 'back',
+    topology: 'triangle-list'
+  },
+  getRenderPipeline(device, bindGroupLayout, cache) {
+    const format = navigator.gpu.getPreferredCanvasFormat();
+    return getOrCreatePipeline(
+      device,
+      "EllipsoidAxesShading",
+      () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
+        vertexShader: ringVertCode,
+        fragmentShader: ringFragCode,
+        vertexEntryPoint: 'vs_main',
+        fragmentEntryPoint: 'fs_main',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT],
+        blend: {} // Use defaults
+      }, format, ellipsoidAxesSpec),
+      cache
+    );
+  },
+
+  getPickingPipeline(device, bindGroupLayout, cache) {
+    return getOrCreatePipeline(
+      device,
+      "EllipsoidAxesPicking",
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: pickingVertCode,
+        fragmentShader: pickingVertCode,
+        vertexEntryPoint: 'vs_bands',
+        fragmentEntryPoint: 'fs_pick',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT]
+      }, 'rgba8unorm'),
+      cache
+    );
+  },
+
+  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+    if(!resources.ringGeo) throw new Error("No ring geometry available");
+    const { vb, ib, indexCount } = resources.ringGeo;
+    return {
+      pipeline,
+      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
+      indexBuffer: ib,
+      indexCount,
+      instanceCount,
+
+      pickingPipeline,
+      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
+      pickingIndexBuffer: ib,
+      pickingIndexCount: indexCount,
+      pickingInstanceCount: instanceCount,
+
+      elementIndex: -1,
+      pickingDataStale: true,
+    };
   }
 };
 
@@ -343,7 +569,7 @@ export interface CuboidElementConfig {
   onClick?: (index: number) => void;
 }
 
-const cuboidSpec: PrimitiveDataSpec<CuboidElementConfig> = {
+const cuboidSpec: PrimitiveSpec<CuboidElementConfig> = {
   getCount(elem){
     return elem.data.centers.length / 3;
   },
@@ -415,6 +641,62 @@ const cuboidSpec: PrimitiveDataSpec<CuboidElementConfig> = {
       arr[i*7+6] = baseID + i;
     }
     return arr;
+  },
+  renderConfig: {
+    cullMode: 'none',  // Cuboids need to be visible from both sides
+    topology: 'triangle-list'
+  },
+  getRenderPipeline(device, bindGroupLayout, cache) {
+    const format = navigator.gpu.getPreferredCanvasFormat();
+    return getOrCreatePipeline(
+      device,
+      "CuboidShading",
+      () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
+        vertexShader: cuboidVertCode,
+        fragmentShader: cuboidFragCode,
+        vertexEntryPoint: 'vs_main',
+        fragmentEntryPoint: 'fs_main',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT]
+      }, format, cuboidSpec),
+      cache
+    );
+  },
+
+  getPickingPipeline(device, bindGroupLayout, cache) {
+    return getOrCreatePipeline(
+      device,
+      "CuboidPicking",
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: pickingVertCode,
+        fragmentShader: pickingVertCode,
+        vertexEntryPoint: 'vs_cuboid',
+        fragmentEntryPoint: 'fs_pick',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT],
+        primitive: this.renderConfig
+      }, 'rgba8unorm'),
+      cache
+    );
+  },
+
+  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+    if(!resources.cubeGeo) throw new Error("No cube geometry available");
+    const { vb, ib, indexCount } = resources.cubeGeo;
+    return {
+      pipeline,
+      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
+      indexBuffer: ib,
+      indexCount,
+      instanceCount,
+
+      pickingPipeline,
+      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
+      pickingIndexBuffer: ib,
+      pickingIndexCount: indexCount,
+      pickingInstanceCount: instanceCount,
+
+      elementIndex: -1,
+      pickingDataStale: true,
+    };
   }
 };
 
@@ -445,35 +727,6 @@ interface DynamicBuffers {
   pickingBuffer: GPUBuffer;
   renderOffset: number;  // Current offset into render buffer
   pickingOffset: number; // Current offset into picking buffer
-}
-
-interface PrimitiveSpec<E> extends PrimitiveDataSpec<E> {
-  /** The default rendering configuration for this primitive type */
-  renderConfig: RenderConfig;
-
-  /** Return (or lazily create) the GPU render pipeline for this type. */
-  getRenderPipeline(
-    device: GPUDevice,
-    bindGroupLayout: GPUBindGroupLayout,
-    cache: Map<string, PipelineCacheEntry>
-  ): GPURenderPipeline;
-
-  /** Return (or lazily create) the GPU picking pipeline for this type. */
-  getPickingPipeline(
-    device: GPUDevice,
-    bindGroupLayout: GPUBindGroupLayout,
-    cache: Map<string, PipelineCacheEntry>
-  ): GPURenderPipeline;
-
-  /** Create a RenderObject that references geometry + the two pipelines. */
-  createRenderObject(
-    pipeline: GPURenderPipeline,
-    pickingPipeline: GPURenderPipeline,
-    instanceBufferInfo: BufferInfo | null,
-    pickingBufferInfo: BufferInfo | null,
-    instanceCount: number,
-    resources: GeometryResources
-  ): RenderObject;
 }
 
 /******************************************************
@@ -742,285 +995,6 @@ const MESH_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
 };
 
 /******************************************************
- * 2.1) PointCloud ExtendedSpec
- ******************************************************/
-const pointCloudExtendedSpec: PrimitiveSpec<PointCloudElementConfig> = {
-  ...pointCloudSpec,
-  renderConfig: {
-    cullMode: 'none',
-    topology: 'triangle-list'
-  },
-  getRenderPipeline(device, bindGroupLayout, cache) {
-    const format = navigator.gpu.getPreferredCanvasFormat();
-    return getOrCreatePipeline(
-      device,
-      "PointCloudShading",
-      () => createRenderPipeline(device, bindGroupLayout, {
-        vertexShader: billboardVertCode,
-        fragmentShader: billboardFragCode,
-        vertexEntryPoint: 'vs_main',
-        fragmentEntryPoint: 'fs_main',
-        bufferLayouts: [POINT_CLOUD_GEOMETRY_LAYOUT, POINT_CLOUD_INSTANCE_LAYOUT],
-        primitive: this.renderConfig,  // Use the spec's render config
-        blend: {
-          color: {
-            srcFactor: 'src-alpha',
-            dstFactor: 'one-minus-src-alpha',
-            operation: 'add'
-          },
-          alpha: {
-            srcFactor: 'one',
-            dstFactor: 'one-minus-src-alpha',
-            operation: 'add'
-          }
-        },
-        depthStencil: {
-          format: 'depth24plus',
-          depthWriteEnabled: true,
-          depthCompare: 'less'
-        }
-      }, format),
-      cache
-    );
-  },
-
-  getPickingPipeline(device, bindGroupLayout, cache) {
-    return getOrCreatePipeline(
-      device,
-      "PointCloudPicking",
-      () => createRenderPipeline(device, bindGroupLayout, {
-        vertexShader: pickingVertCode,
-        fragmentShader: pickingVertCode,
-        vertexEntryPoint: 'vs_pointcloud',
-        fragmentEntryPoint: 'fs_pick',
-        bufferLayouts: [POINT_CLOUD_GEOMETRY_LAYOUT, POINT_CLOUD_PICKING_INSTANCE_LAYOUT]
-      }, 'rgba8unorm'),
-      cache
-    );
-  },
-
-  createRenderObject(
-    pipeline: GPURenderPipeline,
-    pickingPipeline: GPURenderPipeline,
-    instanceBufferInfo: BufferInfo | null,
-    pickingBufferInfo: BufferInfo | null,
-    instanceCount: number,
-    resources: GeometryResources
-  ): RenderObject {
-    if(!resources.billboardQuad){
-      throw new Error("No billboard geometry available (not yet initialized).");
-    }
-    const { vb, ib } = resources.billboardQuad;
-
-    // Return properly typed vertex buffers array
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],  // Explicitly type as tuple
-      indexBuffer: ib,
-      indexCount: 6,
-      instanceCount,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],  // Explicitly type as tuple
-      pickingIndexBuffer: ib,
-      pickingIndexCount: 6,
-      pickingInstanceCount: instanceCount,
-
-      elementIndex: -1,
-      pickingDataStale: true,
-    };
-  }
-};
-
-/******************************************************
- * 2.2) Ellipsoid ExtendedSpec
- ******************************************************/
-const ellipsoidExtendedSpec: PrimitiveSpec<EllipsoidElementConfig> = {
-  ...ellipsoidSpec,
-  renderConfig: {
-    cullMode: 'back',
-    topology: 'triangle-list'
-  },
-  getRenderPipeline(device, bindGroupLayout, cache) {
-    const format = navigator.gpu.getPreferredCanvasFormat();
-    return getOrCreatePipeline(
-      device,
-      "EllipsoidShading",
-      () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
-        vertexShader: ellipsoidVertCode,
-        fragmentShader: ellipsoidFragCode,
-        vertexEntryPoint: 'vs_main',
-        fragmentEntryPoint: 'fs_main',
-        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT]
-      }, format, ellipsoidExtendedSpec),
-      cache
-    );
-  },
-
-  getPickingPipeline(device, bindGroupLayout, cache) {
-    return getOrCreatePipeline(
-      device,
-      "EllipsoidPicking",
-      () => createRenderPipeline(device, bindGroupLayout, {
-        vertexShader: pickingVertCode,
-        fragmentShader: pickingVertCode,
-        vertexEntryPoint: 'vs_ellipsoid',
-        fragmentEntryPoint: 'fs_pick',
-        bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT]
-      }, 'rgba8unorm'),
-      cache
-    );
-  },
-
-  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    if(!resources.sphereGeo) throw new Error("No sphere geometry available");
-    const { vb, ib, indexCount } = resources.sphereGeo;
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
-      indexBuffer: ib,
-      indexCount,
-      instanceCount,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: indexCount,
-      pickingInstanceCount: instanceCount,
-
-      elementIndex: -1,
-      pickingDataStale: true,
-    };
-  }
-};
-
-/******************************************************
- * 2.3) EllipsoidAxes ExtendedSpec
- ******************************************************/
-const ellipsoidAxesExtendedSpec: PrimitiveSpec<EllipsoidAxesElementConfig> = {
-  ...ellipsoidAxesSpec,
-  renderConfig: {
-    cullMode: 'back',
-    topology: 'triangle-list'
-  },
-  getRenderPipeline(device, bindGroupLayout, cache) {
-    const format = navigator.gpu.getPreferredCanvasFormat();
-    return getOrCreatePipeline(
-      device,
-      "EllipsoidAxesShading",
-      () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
-        vertexShader: ringVertCode,
-        fragmentShader: ringFragCode,
-        vertexEntryPoint: 'vs_main',
-        fragmentEntryPoint: 'fs_main',
-        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT],
-        blend: {} // Use defaults
-      }, format, ellipsoidAxesExtendedSpec),
-      cache
-    );
-  },
-
-  getPickingPipeline(device, bindGroupLayout, cache) {
-    return getOrCreatePipeline(
-      device,
-      "EllipsoidAxesPicking",
-      () => createRenderPipeline(device, bindGroupLayout, {
-        vertexShader: pickingVertCode,
-        fragmentShader: pickingVertCode,
-        vertexEntryPoint: 'vs_bands',
-        fragmentEntryPoint: 'fs_pick',
-        bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT]
-      }, 'rgba8unorm'),
-      cache
-    );
-  },
-
-  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    if(!resources.ringGeo) throw new Error("No ring geometry available");
-    const { vb, ib, indexCount } = resources.ringGeo;
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
-      indexBuffer: ib,
-      indexCount,
-      instanceCount,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: indexCount,
-      pickingInstanceCount: instanceCount,
-
-      elementIndex: -1,
-      pickingDataStale: true,
-    };
-  }
-};
-
-/******************************************************
- * 2.4) Cuboid ExtendedSpec
- ******************************************************/
-const cuboidExtendedSpec: PrimitiveSpec<CuboidElementConfig> = {
-  ...cuboidSpec,
-  renderConfig: {
-    cullMode: 'none',  // Cuboids need to be visible from both sides
-    topology: 'triangle-list'
-  },
-  getRenderPipeline(device, bindGroupLayout, cache) {
-    const format = navigator.gpu.getPreferredCanvasFormat();
-    return getOrCreatePipeline(
-      device,
-      "CuboidShading",
-      () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
-        vertexShader: cuboidVertCode,
-        fragmentShader: cuboidFragCode,
-        vertexEntryPoint: 'vs_main',
-        fragmentEntryPoint: 'fs_main',
-        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT]
-      }, format, cuboidExtendedSpec),
-      cache
-    );
-  },
-
-  getPickingPipeline(device, bindGroupLayout, cache) {
-    return getOrCreatePipeline(
-      device,
-      "CuboidPicking",
-      () => createRenderPipeline(device, bindGroupLayout, {
-        vertexShader: pickingVertCode,
-        fragmentShader: pickingVertCode,
-        vertexEntryPoint: 'vs_cuboid',
-        fragmentEntryPoint: 'fs_pick',
-        bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT],
-        primitive: this.renderConfig
-      }, 'rgba8unorm'),
-      cache
-    );
-  },
-
-  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    if(!resources.cubeGeo) throw new Error("No cube geometry available");
-    const { vb, ib, indexCount } = resources.cubeGeo;
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
-      indexBuffer: ib,
-      indexCount,
-      instanceCount,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: indexCount,
-      pickingInstanceCount: instanceCount,
-
-      elementIndex: -1,
-      pickingDataStale: true,
-    };
-  }
-};
-
-/******************************************************
  * 2.5) Put them all in a registry
  ******************************************************/
 export type SceneElementConfig =
@@ -1030,10 +1004,10 @@ export type SceneElementConfig =
   | CuboidElementConfig;
 
 const primitiveRegistry: Record<SceneElementConfig['type'], PrimitiveSpec<any>> = {
-  PointCloud: pointCloudExtendedSpec,
-  Ellipsoid: ellipsoidExtendedSpec,
-  EllipsoidAxes: ellipsoidAxesExtendedSpec,
-  Cuboid: cuboidExtendedSpec,
+  PointCloud: pointCloudSpec,  // Use consolidated spec
+  Ellipsoid: ellipsoidSpec,
+  EllipsoidAxes: ellipsoidAxesSpec,
+  Cuboid: cuboidSpec,
 };
 
 /******************************************************
