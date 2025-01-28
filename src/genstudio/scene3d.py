@@ -221,13 +221,13 @@ def point_cloud(
         colors = np.asarray(colors, dtype=np.float32)
         if colors.ndim == 2:
             colors = colors.flatten()
-        data["colors"] = colors
+    data["colors"] = colors
 
     if isinstance(scales, (np.ndarray, list)):
         scales = np.asarray(scales, dtype=np.float32)
         if scales.ndim > 1:
             scales = scales.flatten()
-        data["scales"] = scales
+    data["scales"] = scales
 
     return SceneElement("PointCloud", data, **kwargs)
 

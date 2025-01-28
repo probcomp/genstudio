@@ -416,21 +416,28 @@ const cuboidSpec: PrimitiveSpec<CuboidElementConfig> = {
  ******************************************************/
 interface RenderObject {
   pipeline: GPURenderPipeline;
-  vertexBuffers: GPUBuffer[];
+  vertexBuffers: [GPUBuffer, BufferInfo];  // First is geometry, second is instance data
   indexBuffer?: GPUBuffer;
   vertexCount?: number;
   indexCount?: number;
   instanceCount?: number;
 
   pickingPipeline: GPURenderPipeline;
-  pickingVertexBuffers: GPUBuffer[];
+  pickingVertexBuffers: [GPUBuffer, BufferInfo];  // First is geometry, second is instance data
   pickingIndexBuffer?: GPUBuffer;
   pickingVertexCount?: number;
   pickingIndexCount?: number;
   pickingInstanceCount?: number;
 
   elementIndex: number;
-  pickingDataStale: boolean;  // New field
+  pickingDataStale: boolean;
+}
+
+interface DynamicBuffers {
+  renderBuffer: GPUBuffer;
+  pickingBuffer: GPUBuffer;
+  renderOffset: number;  // Current offset into render buffer
+  pickingOffset: number; // Current offset into picking buffer
 }
 
 interface ExtendedSpec<E> extends PrimitiveSpec<E> {
@@ -453,8 +460,8 @@ interface ExtendedSpec<E> extends PrimitiveSpec<E> {
     device: GPUDevice,
     pipeline: GPURenderPipeline,
     pickingPipeline: GPURenderPipeline,
-    instanceVB: GPUBuffer|null,
-    pickingVB: GPUBuffer|null,
+    instanceBufferInfo: BufferInfo | null,
+    pickingBufferInfo: BufferInfo | null,
     instanceCount: number,
     resources: {  // Add this parameter
       sphereGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
@@ -671,23 +678,33 @@ const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
     );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count, resources){
+  createRenderObject(
+    device: GPUDevice,
+    pipeline: GPURenderPipeline,
+    pickingPipeline: GPURenderPipeline,
+    instanceBufferInfo: BufferInfo | null,
+    pickingBufferInfo: BufferInfo | null,
+    instanceCount: number,
+    resources: typeof gpuRef.current.resources
+  ): RenderObject {
     if(!resources.billboardQuad){
       throw new Error("No billboard geometry available (not yet initialized).");
     }
     const { vb, ib } = resources.billboardQuad;
+
+    // Return properly typed vertex buffers array
     return {
       pipeline,
-      vertexBuffers: [vb, instanceVB!],
+      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],  // Explicitly type as tuple
       indexBuffer: ib,
       indexCount: 6,
-      instanceCount: count,
+      instanceCount,
 
       pickingPipeline,
-      pickingVertexBuffers: [vb, pickingInstanceVB!],
+      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],  // Explicitly type as tuple
       pickingIndexBuffer: ib,
       pickingIndexCount: 6,
-      pickingInstanceCount: count,
+      pickingInstanceCount: instanceCount,
 
       elementIndex: -1,
       pickingDataStale: true,
@@ -803,23 +820,21 @@ const ellipsoidExtendedSpec: ExtendedSpec<EllipsoidElementConfig> = {
     );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count, resources){
-    if(!resources.sphereGeo) {
-      throw new Error("No sphere geometry available (not yet initialized).");
-    }
+  createRenderObject(device, pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+    if(!resources.sphereGeo) throw new Error("No sphere geometry available");
     const { vb, ib, indexCount } = resources.sphereGeo;
     return {
       pipeline,
-      vertexBuffers: [vb, instanceVB!],
+      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
       indexBuffer: ib,
       indexCount,
-      instanceCount: count,
+      instanceCount,
 
       pickingPipeline,
-      pickingVertexBuffers: [vb, pickingInstanceVB!],
+      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
       pickingIndexBuffer: ib,
       pickingIndexCount: indexCount,
-      pickingInstanceCount: count,
+      pickingInstanceCount: instanceCount,
 
       elementIndex: -1,
       pickingDataStale: true,
@@ -935,23 +950,21 @@ const ellipsoidBoundsExtendedSpec: ExtendedSpec<EllipsoidBoundsElementConfig> = 
     );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count, resources){
-    if(!resources.ringGeo){
-      throw new Error("No ring geometry available (not yet initialized).");
-    }
+  createRenderObject(device, pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+    if(!resources.ringGeo) throw new Error("No ring geometry available");
     const { vb, ib, indexCount } = resources.ringGeo;
     return {
       pipeline,
-      vertexBuffers: [vb, instanceVB!],
+      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
       indexBuffer: ib,
       indexCount,
-      instanceCount: count,
+      instanceCount,
 
       pickingPipeline,
-      pickingVertexBuffers: [vb, pickingInstanceVB!],
+      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
       pickingIndexBuffer: ib,
       pickingIndexCount: indexCount,
-      pickingInstanceCount: count,
+      pickingInstanceCount: instanceCount,
 
       elementIndex: -1,
       pickingDataStale: true,
@@ -1067,23 +1080,21 @@ const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
     );
   },
 
-  createRenderObject(device, pipeline, pickingPipeline, instanceVB, pickingInstanceVB, count, resources){
-    if(!resources.cubeGeo){
-      throw new Error("No cube geometry available (not yet initialized).");
-    }
+  createRenderObject(device, pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+    if(!resources.cubeGeo) throw new Error("No cube geometry available");
     const { vb, ib, indexCount } = resources.cubeGeo;
     return {
       pipeline,
-      vertexBuffers: [vb, instanceVB!],
+      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
       indexBuffer: ib,
       indexCount,
-      instanceCount: count,
+      instanceCount,
 
       pickingPipeline,
-      pickingVertexBuffers: [vb, pickingInstanceVB!],
+      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
       pickingIndexBuffer: ib,
       pickingIndexCount: indexCount,
-      pickingInstanceCount: count,
+      pickingInstanceCount: instanceCount,
 
       elementIndex: -1,
       pickingDataStale: true,
@@ -1284,6 +1295,7 @@ function SceneInner({
     elementBaseId: number[];
     idToElement: {elementIdx: number, instanceIdx: number}[];
     pipelineCache: Map<string, PipelineCacheEntry>;  // Add this
+    dynamicBuffers: DynamicBuffers | null;
     resources: {  // Add this
       sphereGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
       ringGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
@@ -1394,6 +1406,7 @@ function SceneInner({
         elementBaseId: [],
         idToElement: [],
         pipelineCache: new Map(),
+        dynamicBuffers: null,
         resources: {
           sphereGeo: null,
           ringGeo: null,
@@ -1491,10 +1504,94 @@ function SceneInner({
     });
   }, []);
 
-  // Modify buildRenderObjects to use this function
+  // Fix the calculateBufferSize function
+  function calculateBufferSize(elements: SceneElementConfig[]): { renderSize: number, pickingSize: number } {
+    let renderSize = 0;
+    let pickingSize = 0;
+
+    elements.forEach(elem => {
+      const spec = primitiveRegistry[elem.type];
+      if (!spec) return;
+
+      const count = spec.getCount(elem);
+      const renderData = spec.buildRenderData(elem);
+      const pickData = spec.buildPickingData(elem, 0);
+
+      if (renderData) {
+        // Calculate stride and ensure it's aligned to 4 bytes
+        const floatsPerInstance = renderData.length / count;
+        const renderStride = Math.ceil(floatsPerInstance) * 4;
+        // Add to total size (not max)
+        const alignedSize = renderStride * count;
+        renderSize += alignedSize;
+      }
+
+      if (pickData) {
+        // Calculate stride and ensure it's aligned to 4 bytes
+        const floatsPerInstance = pickData.length / count;
+        const pickStride = Math.ceil(floatsPerInstance) * 4;
+        // Add to total size (not max)
+        const alignedSize = pickStride * count;
+        pickingSize += alignedSize;
+
+      }
+    });
+
+    // Add generous padding (100%) and align to 4 bytes
+    renderSize = Math.ceil((renderSize * 2) / 4) * 4;
+    pickingSize = Math.ceil((pickingSize * 2) / 4) * 4;
+
+    return { renderSize, pickingSize };
+  }
+
+  // Modify createDynamicBuffers to take specific sizes
+  function createDynamicBuffers(device: GPUDevice, renderSize: number, pickingSize: number) {
+    const renderBuffer = device.createBuffer({
+      size: renderSize,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      mappedAtCreation: false
+    });
+
+    const pickingBuffer = device.createBuffer({
+      size: pickingSize,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      mappedAtCreation: false
+    });
+
+    return {
+      renderBuffer,
+      pickingBuffer,
+      renderOffset: 0,
+      pickingOffset: 0
+    };
+  }
+
+  // Update buildRenderObjects to use correct stride calculation
   function buildRenderObjects(elements: SceneElementConfig[]): RenderObject[] {
     if(!gpuRef.current) return [];
     const { device, bindGroupLayout, pipelineCache, resources } = gpuRef.current;
+
+    // Calculate required buffer sizes
+    const { renderSize, pickingSize } = calculateBufferSize(elements);
+
+    // Create or recreate dynamic buffers if needed
+    if (!gpuRef.current.dynamicBuffers ||
+        gpuRef.current.dynamicBuffers.renderBuffer.size < renderSize ||
+        gpuRef.current.dynamicBuffers.pickingBuffer.size < pickingSize) {
+
+      // Cleanup old buffers if they exist
+      if (gpuRef.current.dynamicBuffers) {
+        gpuRef.current.dynamicBuffers.renderBuffer.destroy();
+        gpuRef.current.dynamicBuffers.pickingBuffer.destroy();
+      }
+
+      gpuRef.current.dynamicBuffers = createDynamicBuffers(device, renderSize, pickingSize);
+    }
+    const dynamicBuffers = gpuRef.current.dynamicBuffers!;
+
+    // Reset buffer offsets
+    dynamicBuffers.renderOffset = 0;
+    dynamicBuffers.pickingOffset = 0;
 
     // Initialize elementBaseId array
     gpuRef.current.elementBaseId = [];
@@ -1525,29 +1622,42 @@ function SceneInner({
 
       const count = spec.getCount(elem);
       const renderData = spec.buildRenderData(elem);
-      let vb: GPUBuffer|null = null;
-      if(renderData && renderData.length>0){
-        vb = device.createBuffer({
-          size: renderData.byteLength,
-          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-        });
-        device.queue.writeBuffer(vb,0,renderData);
+
+      let renderOffset = 0;
+      let stride = 0;
+      if(renderData && renderData.length > 0) {
+        renderOffset = Math.ceil(dynamicBuffers.renderOffset / 4) * 4;
+        // Calculate stride based on float count (4 bytes per float)
+        const floatsPerInstance = renderData.length / count;
+        stride = Math.ceil(floatsPerInstance) * 4;
+
+        device.queue.writeBuffer(
+          dynamicBuffers.renderBuffer,
+          renderOffset,
+          renderData.buffer,
+          renderData.byteOffset,
+          renderData.byteLength
+        );
+        dynamicBuffers.renderOffset = renderOffset + (stride * count);
       }
 
       const pipeline = spec.getRenderPipeline(device, bindGroupLayout, pipelineCache);
 
-      // Use spec's createRenderObject to get correct geometry setup
+      // Create render object with dynamic buffer reference
       const baseRenderObject = spec.createRenderObject(
         device,
         pipeline,
         null!, // We'll set this later in ensurePickingData
-        vb,
+        {  // Pass buffer info instead of buffer
+          buffer: dynamicBuffers.renderBuffer,
+          offset: renderOffset,
+          stride: stride
+        },
         null, // No picking buffer yet
         count,
         resources
       );
 
-      // Override picking-related properties for lazy initialization
       return {
         ...baseRenderObject,
         pickingPipeline: null,
@@ -1563,29 +1673,34 @@ function SceneInner({
    ******************************************************/
   const renderFrame = useCallback((camState: CameraState) => {
     if(!gpuRef.current) return;
-    const { device, context, uniformBuffer, uniformBindGroup, depthTexture, renderObjects } = gpuRef.current;
-    if(!depthTexture) return;
+    const {
+      device, context, uniformBuffer, uniformBindGroup,
+      renderObjects, depthTexture
+    } = gpuRef.current;
 
-    const aspect = containerWidth/containerHeight;
-
-    // Use camera vectors directly
+    // Update camera uniforms
+    const aspect = containerWidth / containerHeight;
     const view = glMatrix.mat4.lookAt(
-        glMatrix.mat4.create(),
-        camState.position,
-        camState.target,
-        camState.up
+      glMatrix.mat4.create(),
+      camState.position,
+      camState.target,
+      camState.up
     );
 
     const proj = glMatrix.mat4.perspective(
-        glMatrix.mat4.create(),
-        glMatrix.glMatrix.toRadian(camState.fov),  // Convert FOV to radians
-        aspect,
-        camState.near,
-        camState.far
+      glMatrix.mat4.create(),
+      glMatrix.glMatrix.toRadian(camState.fov),
+      aspect,
+      camState.near,
+      camState.far
     );
 
     // Compute MVP matrix
-    const mvp = glMatrix.mat4.multiply(glMatrix.mat4.create(), proj, view);
+    const mvp = glMatrix.mat4.multiply(
+      glMatrix.mat4.create(),
+      proj,
+      view
+    );
 
     // Compute camera vectors for lighting
     const forward = glMatrix.vec3.sub(glMatrix.vec3.create(), camState.target, camState.position);
@@ -1604,50 +1719,57 @@ function SceneInner({
     glMatrix.vec3.normalize(lightDir, lightDir);
 
     // Write uniforms
-    const data = new Float32Array(32);
-    data.set(mvp, 0);
-    data[16] = right[0]; data[17] = right[1]; data[18] = right[2];
-    data[20] = camUp[0]; data[21] = camUp[1]; data[22] = camUp[2];
-    data[24] = lightDir[0]; data[25] = lightDir[1]; data[26] = lightDir[2];
-    device.queue.writeBuffer(uniformBuffer, 0, data);
+    const uniformData = new Float32Array([
+      ...Array.from(mvp),
+      right[0], right[1], right[2], 0,  // pad to vec4
+      camUp[0], camUp[1], camUp[2], 0,  // pad to vec4
+      lightDir[0], lightDir[1], lightDir[2], 0  // pad to vec4
+    ]);
+    device.queue.writeBuffer(uniformBuffer, 0, uniformData);
 
-    let tex: GPUTexture;
-    try {
-        tex = context.getCurrentTexture();
-    } catch(e) {
-        return; // If canvas is resized or lost, bail
-    }
-
-    const passDesc: GPURenderPassDescriptor = {
-        colorAttachments: [{
-            view: tex.createView(),
-            loadOp: 'clear',
-            storeOp: 'store',
-            clearValue: { r: 0.15, g: 0.15, b: 0.15, a: 1 }
-        }],
-        depthStencilAttachment: {
-            view: depthTexture.createView(),
-            depthLoadOp: 'clear',
-            depthStoreOp: 'store',
-            depthClearValue: 1.0
-        }
-    };
-
+    // Begin render pass
     const cmd = device.createCommandEncoder();
-    const pass = cmd.beginRenderPass(passDesc);
+    const pass = cmd.beginRenderPass({
+      colorAttachments: [{
+        view: context.getCurrentTexture().createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1 },
+        loadOp: 'clear',
+        storeOp: 'store'
+      }],
+      depthStencilAttachment: depthTexture ? {
+        view: depthTexture.createView(),
+        depthClearValue: 1.0,
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store'
+      } : undefined
+    });
 
     // Draw each object
-    for(const ro of renderObjects){
-        pass.setPipeline(ro.pipeline);
-        pass.setBindGroup(0, uniformBindGroup);
-        ro.vertexBuffers.forEach((vb,i)=> pass.setVertexBuffer(i,vb));
-        if(ro.indexBuffer){
-            pass.setIndexBuffer(ro.indexBuffer,'uint16');
-            pass.drawIndexed(ro.indexCount ?? 0, ro.instanceCount ?? 1);
-        } else {
-            pass.draw(ro.vertexCount ?? 0, ro.instanceCount ?? 1);
-        }
+    for(const ro of renderObjects) {
+      if (!ro.pipeline || !ro.vertexBuffers || ro.vertexBuffers.length !== 2) {
+        console.warn('Skipping invalid render object:', ro);
+        continue;
+      }
+
+      pass.setPipeline(ro.pipeline);
+      pass.setBindGroup(0, uniformBindGroup);
+
+      // Set geometry buffer (always first)
+      const geometryBuffer = ro.vertexBuffers[0];
+      pass.setVertexBuffer(0, geometryBuffer);
+
+      // Set instance buffer (always second)
+      const instanceInfo = ro.vertexBuffers[1];
+      pass.setVertexBuffer(1, instanceInfo.buffer, instanceInfo.offset);
+
+      if(ro.indexBuffer) {
+        pass.setIndexBuffer(ro.indexBuffer, 'uint16');
+        pass.drawIndexed(ro.indexCount ?? 0, ro.instanceCount ?? 1);
+      } else {
+        pass.draw(ro.vertexCount ?? 0, ro.instanceCount ?? 1);
+      }
     }
+
     pass.end();
     device.queue.submit([cmd.finish()]);
   }, [containerWidth, containerHeight]);
@@ -1705,18 +1827,30 @@ function SceneInner({
       };
       const pass = cmd.beginRenderPass(passDesc);
       pass.setBindGroup(0, uniformBindGroup);
-      for(const ro of renderObjects){
+
+      for(const ro of renderObjects) {
+        if (!ro.pickingPipeline || !ro.pickingVertexBuffers || ro.pickingVertexBuffers.length !== 2) {
+          continue;
+        }
+
         pass.setPipeline(ro.pickingPipeline);
-        ro.pickingVertexBuffers.forEach((vb,i)=>{
-          pass.setVertexBuffer(i, vb);
-        });
-        if(ro.pickingIndexBuffer){
+
+        // Set geometry buffer (always first)
+        const geometryBuffer = ro.pickingVertexBuffers[0];
+        pass.setVertexBuffer(0, geometryBuffer);
+
+        // Set instance buffer (always second)
+        const instanceInfo = ro.pickingVertexBuffers[1];
+        pass.setVertexBuffer(1, instanceInfo.buffer, instanceInfo.offset);
+
+        if(ro.pickingIndexBuffer) {
           pass.setIndexBuffer(ro.pickingIndexBuffer, 'uint16');
           pass.drawIndexed(ro.pickingIndexCount ?? 0, ro.pickingInstanceCount ?? 1);
         } else {
           pass.draw(ro.pickingVertexCount ?? 0, ro.pickingInstanceCount ?? 1);
         }
       }
+
       pass.end();
 
       cmd.copyTextureToBuffer(
@@ -1986,27 +2120,47 @@ function SceneInner({
     if (!gpuRef.current) return;
 
     const { device, bindGroupLayout, pipelineCache, resources } = gpuRef.current;
+
+    // Calculate sizes before creating buffers
+    const { renderSize, pickingSize } = calculateBufferSize(elements);
+
+    // Ensure dynamic buffers exist
+    if (!gpuRef.current.dynamicBuffers) {
+      gpuRef.current.dynamicBuffers = createDynamicBuffers(device, renderSize, pickingSize);
+    }
+    const dynamicBuffers = gpuRef.current.dynamicBuffers!;
+
     const spec = primitiveRegistry[element.type];
     if (!spec) return;
-
-    // Ensure ID mapping is up to date
-    buildElementIdMapping(elements);
 
     // Build picking data
     const pickData = spec.buildPickingData(element, gpuRef.current.elementBaseId[renderObject.elementIndex]);
     if (pickData && pickData.length > 0) {
-      // Clean up old picking buffer if it exists
-      renderObject.pickingVertexBuffers[1]?.destroy(); // Change index to 1 for instance data
+      const pickingOffset = Math.ceil(dynamicBuffers.pickingOffset / 4) * 4;
+      // Calculate stride based on float count (4 bytes per float)
+      const floatsPerInstance = pickData.length / renderObject.instanceCount!;
+      const stride = Math.ceil(floatsPerInstance) * 4; // Align to 4 bytes
 
-      const pickVB = device.createBuffer({
-        size: pickData.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-      });
-      device.queue.writeBuffer(pickVB, 0, pickData);
+      device.queue.writeBuffer(
+        dynamicBuffers.pickingBuffer,
+        pickingOffset,
+        pickData.buffer,
+        pickData.byteOffset,
+        pickData.byteLength
+      );
 
-      // Set both geometry and instance buffers
-      const geometryVB = renderObject.vertexBuffers[0]; // Get geometry buffer from render object
-      renderObject.pickingVertexBuffers = [geometryVB, pickVB]; // Set both buffers
+      // Set picking buffers with offset info
+      const geometryVB = renderObject.vertexBuffers[0];
+      renderObject.pickingVertexBuffers = [
+        geometryVB,
+        {
+          buffer: dynamicBuffers.pickingBuffer,
+          offset: pickingOffset,
+          stride: stride
+        }
+      ];
+
+      dynamicBuffers.pickingOffset = pickingOffset + (stride * renderObject.instanceCount!);
     }
 
     // Get picking pipeline
@@ -2018,7 +2172,7 @@ function SceneInner({
     renderObject.pickingInstanceCount = renderObject.instanceCount;
 
     renderObject.pickingDataStale = false;
-  }, [elements, buildElementIdMapping]); // No dependencies since it only uses gpuRef.current
+  }, [elements, buildElementIdMapping]);
 
   return (
     <div style={{ width: '100%', border: '1px solid #ccc' }}>

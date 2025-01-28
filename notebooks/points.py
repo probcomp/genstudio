@@ -191,41 +191,36 @@ def scene(controlled, point_size, xyz, rgb, scale, select_region=False):
             "camera": js("$state.camera"),
         }
     )
-    return Scene.point_cloud(
-        positions=xyz,
-        colors=rgb,
-        scales=scale,
-        onHover=js("""(i) => {
+    return (
+        Scene.point_cloud(
+            positions=xyz,
+            colors=rgb,
+            scales=scale,
+            onHover=js("""(i) => {
                  $state.update({hovered: i})
                 }"""),
-        onClick=js(
-            """(i) => $state.update({"selected_region_i": i})"""
-            if select_region
-            else """(i) => {
+            onClick=js(
+                """(i) => $state.update({"selected_region_i": i})"""
+                if select_region
+                else """(i) => {
                 $state.update({highlights: $state.highlights.includes(i) ? $state.highlights.filter(h => h !== i) : [...$state.highlights, i]});
                 }"""
-        ),
-        decorations=[
-            deco(
-                js("$state.highlights || []"),
-                color=[1.0, 1.0, 0.0],
-                scale=2,
-                min_size=10,
             ),
-            deco(
-                js("$state.hovered ? [$state.hovered] : []"),
-                color=[0.0, 1.0, 0.0],
-                scale=1.2,
-                min_size=10,
-            ),
-            deco(
-                js("$state.selected_region_indexes || []") if select_region else [],
-                alpha=0.2,
-                scale=0.5,
-            ),
-        ],
-        highlightColor=[1.0, 1.0, 0.0],
-        **cameraProps,
+            decorations=[
+                deco(js("$state.highlights || []"), color=[1.0, 1.0, 0.0], scale=2),
+                deco(
+                    js("$state.hovered ? [$state.hovered] : []"),
+                    color=[0.0, 1.0, 0.0],
+                ),
+                deco(
+                    js("$state.selected_region_indexes || []") if select_region else [],
+                    alpha=0.2,
+                    scale=0.5,
+                ),
+            ],
+            highlightColor=[1.0, 1.0, 0.0],
+        )
+        + cameraProps
     )
 
 
@@ -263,9 +258,9 @@ NUM_FRAMES = 30
 torus_xyz, torus_rgb = make_torus_knot(NUM_POINTS)
 cube_xyz, cube_rgb = make_cube(NUM_POINTS)
 wall_xyz, wall_rgb = make_wall(NUM_POINTS)
-torus_xyz = rotate_points(torus_xyz, n_frames=NUM_FRAMES)
-cube_xyz = rotate_points(cube_xyz, n_frames=NUM_FRAMES)
-wall_xyz = rotate_points(wall_xyz, n_frames=NUM_FRAMES)
+torus_xyzs = rotate_points(torus_xyz, n_frames=NUM_FRAMES)
+cube_xyzs = rotate_points(cube_xyz, n_frames=NUM_FRAMES)
+wall_xyzs = rotate_points(wall_xyz, n_frames=NUM_FRAMES)
 
 (
     Plot.initialState(
@@ -275,9 +270,9 @@ wall_xyz = rotate_points(wall_xyz, n_frames=NUM_FRAMES)
             "hovered": [],
             "selected_region_i": None,
             "selected_region_indexes": [],
-            "cube_xyz": cube_xyz,
+            "cube_xyz": cube_xyzs,
             "cube_rgb": cube_rgb,
-            "torus_xyz": torus_xyz,
+            "torus_xyz": torus_xyzs,
             "torus_rgb": torus_rgb,
             "frame": 0,
         },
@@ -289,21 +284,21 @@ wall_xyz = rotate_points(wall_xyz, n_frames=NUM_FRAMES)
         0.05,
         js("$state.torus_xyz[$state.frame]"),
         js("$state.torus_rgb"),
-        np.random.uniform(0.1, 10, NUM_POINTS).astype(np.float32),
+        np.random.uniform(0.005, 0.1, NUM_POINTS).astype(np.float32),
     )
     & scene(
         True,
         0.3,
         js("$state.torus_xyz[$state.frame]"),
         js("$state.torus_rgb"),
-        np.ones(NUM_POINTS),
+        np.ones(NUM_POINTS) * 0.05,
     )
     | scene(
         False,
         0.05,
         js("$state.cube_xyz[$state.frame]"),
         js("$state.cube_rgb"),
-        np.ones(NUM_POINTS),
+        np.ones(NUM_POINTS) * 0.025,
         True,
     )
     & scene(
@@ -311,7 +306,7 @@ wall_xyz = rotate_points(wall_xyz, n_frames=NUM_FRAMES)
         0.1,
         js("$state.cube_xyz[$state.frame]"),
         js("$state.cube_rgb"),
-        np.random.uniform(0.2, 3, NUM_POINTS).astype(np.float32),
+        np.random.uniform(0.001, 0.1, NUM_POINTS).astype(np.float32),
         True,
     )
     | Plot.onChange(
@@ -328,23 +323,14 @@ wall_xyz = rotate_points(wall_xyz, n_frames=NUM_FRAMES)
 )
 
 # %%
-scene(False, 0.1, cube_xyz, cube_rgb, np.ones(NUM_POINTS) * 0.1)
+scene(False, 0.1, torus_xyz, torus_rgb, np.ones(NUM_POINTS) * 0.1)
 # %%
 
 (
     point_cloud(
-        positions=cube_xyz,
-        colors=cube_rgb,
+        positions=torus_xyz,
+        colors=torus_rgb,
         scales=np.ones(NUM_POINTS) * 0.005,
     )
-    + {
-        "defaultCamera": {
-            "position": [7, 4, 4],
-            "target": [0, 0, 0],
-            "up": [0, 0, 1],
-            "fov": 40,  # Back to degrees, more standard
-            "near": 0.1,
-            "far": 100.0,
-        }
-    }
+    + {"defaultCamera": camera}
 )
