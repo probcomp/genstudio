@@ -579,6 +579,145 @@ function initGeometryResources(device: GPUDevice, resources: GeometryResources) 
 }
 
 /******************************************************
+ * 1.7) Pipeline Configuration Helpers
+ ******************************************************/
+interface VertexBufferLayout {
+  arrayStride: number;
+  stepMode?: GPUVertexStepMode;
+  attributes: {
+    shaderLocation: number;
+    offset: number;
+    format: GPUVertexFormat;
+  }[];
+}
+
+interface PipelineConfig {
+  vertexShader: string;
+  fragmentShader: string;
+  vertexEntryPoint: string;
+  fragmentEntryPoint: string;
+  bufferLayouts: VertexBufferLayout[];
+  primitive?: {
+    topology?: GPUPrimitiveTopology;
+    cullMode?: GPUCullMode;
+  };
+  blend?: {
+    color?: GPUBlendComponent;
+    alpha?: GPUBlendComponent;
+  };
+}
+
+function createRenderPipeline(
+  device: GPUDevice,
+  bindGroupLayout: GPUBindGroupLayout,
+  config: PipelineConfig,
+  format: GPUTextureFormat
+): GPURenderPipeline {
+  const pipelineLayout = device.createPipelineLayout({
+    bindGroupLayouts: [bindGroupLayout]
+  });
+
+  return device.createRenderPipeline({
+    layout: pipelineLayout,
+    vertex: {
+      module: device.createShaderModule({ code: config.vertexShader }),
+      entryPoint: config.vertexEntryPoint,
+      buffers: config.bufferLayouts
+    },
+    fragment: {
+      module: device.createShaderModule({ code: config.fragmentShader }),
+      entryPoint: config.fragmentEntryPoint,
+      targets: [{
+        format,
+        ...(config.blend && {
+          blend: {
+            color: config.blend.color || {
+              srcFactor: 'src-alpha',
+              dstFactor: 'one-minus-src-alpha'
+            },
+            alpha: config.blend.alpha || {
+              srcFactor: 'one',
+              dstFactor: 'one-minus-src-alpha'
+            }
+          }
+        })
+      }]
+    },
+    primitive: {
+      topology: config.primitive?.topology || 'triangle-list',
+      cullMode: config.primitive?.cullMode || 'back'
+    },
+    depthStencil: {
+      format: 'depth24plus',
+      depthWriteEnabled: true,
+      depthCompare: 'less-equal'
+    }
+  });
+}
+
+// Common vertex buffer layouts
+const POINT_CLOUD_GEOMETRY_LAYOUT: VertexBufferLayout = {
+  arrayStride: 8,
+  attributes: [{
+    shaderLocation: 0,
+    offset: 0,
+    format: 'float32x2'
+  }]
+};
+
+const POINT_CLOUD_INSTANCE_LAYOUT: VertexBufferLayout = {
+  arrayStride: 9*4,
+  stepMode: 'instance',
+  attributes: [
+    {shaderLocation: 1, offset: 0,    format: 'float32x3'},
+    {shaderLocation: 2, offset: 3*4,  format: 'float32x3'},
+    {shaderLocation: 3, offset: 6*4,  format: 'float32'},
+    {shaderLocation: 4, offset: 7*4,  format: 'float32'},
+    {shaderLocation: 5, offset: 8*4,  format: 'float32'}
+  ]
+};
+
+const POINT_CLOUD_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
+  arrayStride: 6*4,
+  stepMode: 'instance',
+  attributes: [
+    {shaderLocation: 1, offset: 0,   format: 'float32x3'},
+    {shaderLocation: 2, offset: 3*4, format: 'float32'},
+    {shaderLocation: 3, offset: 4*4, format: 'float32'},
+    {shaderLocation: 4, offset: 5*4, format: 'float32'}
+  ]
+};
+
+const MESH_GEOMETRY_LAYOUT: VertexBufferLayout = {
+  arrayStride: 6*4,
+  attributes: [
+    {shaderLocation: 0, offset: 0,   format: 'float32x3'},
+    {shaderLocation: 1, offset: 3*4, format: 'float32x3'}
+  ]
+};
+
+const ELLIPSOID_INSTANCE_LAYOUT: VertexBufferLayout = {
+  arrayStride: 10*4,
+  stepMode: 'instance',
+  attributes: [
+    {shaderLocation: 2, offset: 0,     format: 'float32x3'},
+    {shaderLocation: 3, offset: 3*4,   format: 'float32x3'},
+    {shaderLocation: 4, offset: 6*4,   format: 'float32x3'},
+    {shaderLocation: 5, offset: 9*4,   format: 'float32'}
+  ]
+};
+
+const MESH_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
+  arrayStride: 7*4,
+  stepMode: 'instance',
+  attributes: [
+    {shaderLocation: 2, offset: 0,   format: 'float32x3'},
+    {shaderLocation: 3, offset: 3*4, format: 'float32x3'},
+    {shaderLocation: 4, offset: 6*4, format: 'float32'}
+  ]
+};
+
+/******************************************************
  * 2.1) PointCloud ExtendedSpec
  ******************************************************/
 const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
@@ -586,99 +725,32 @@ const pointCloudExtendedSpec: ExtendedSpec<PointCloudElementConfig> = {
 
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
-    const pipelineLayout = device.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayout]
-    });
-
     return getOrCreatePipeline(
       device,
       "PointCloudShading",
-      () => {
-        return device.createRenderPipeline({
-          layout: pipelineLayout,
-          vertex:{
-            module: device.createShaderModule({ code: billboardVertCode }),
-            entryPoint:'vs_main',
-            buffers:[
-              // billboard corners
-              {
-                arrayStride: 8,
-                attributes:[{shaderLocation:0, offset:0, format:'float32x2'}]
-              },
-              // instance data
-              {
-                arrayStride: 9*4,
-                stepMode:'instance',
-                attributes:[
-                  {shaderLocation:1, offset:0,    format:'float32x3'},
-                  {shaderLocation:2, offset:3*4,  format:'float32x3'},
-                  {shaderLocation:3, offset:6*4,  format:'float32'},
-                  {shaderLocation:4, offset:7*4,  format:'float32'},
-                  {shaderLocation:5, offset:8*4,  format:'float32'}
-                ]
-              }
-            ]
-          },
-          fragment:{
-            module: device.createShaderModule({ code: billboardFragCode }),
-            entryPoint:'fs_main',
-            targets:[{
-              format,
-              blend:{
-                color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-                alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-              }
-            }]
-          },
-          primitive:{ topology:'triangle-list', cullMode:'back' },
-          depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-        });
-      },
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: billboardVertCode,
+        fragmentShader: billboardFragCode,
+        vertexEntryPoint: 'vs_main',
+        fragmentEntryPoint: 'fs_main',
+        bufferLayouts: [POINT_CLOUD_GEOMETRY_LAYOUT, POINT_CLOUD_INSTANCE_LAYOUT],
+        blend: {} // Use defaults
+      }, format),
       cache
     );
   },
 
   getPickingPipeline(device, bindGroupLayout, cache) {
-    const pipelineLayout = device.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayout]
-    });
     return getOrCreatePipeline(
       device,
       "PointCloudPicking",
-      () => {
-        return device.createRenderPipeline({
-          layout: pipelineLayout,
-          vertex:{
-            module: device.createShaderModule({ code: pickingVertCode }),
-            entryPoint: 'vs_pointcloud',
-            buffers:[
-              // corners
-              {
-                arrayStride: 8,
-                attributes:[{shaderLocation:0, offset:0, format:'float32x2'}]
-              },
-              // instance data
-              {
-                arrayStride: 6*4,
-                stepMode:'instance',
-                attributes:[
-                  {shaderLocation:1, offset:0,   format:'float32x3'},
-                  {shaderLocation:2, offset:3*4, format:'float32'},  // pickID
-                  {shaderLocation:3, offset:4*4, format:'float32'},  // scaleX
-                  {shaderLocation:4, offset:5*4, format:'float32'}   // scaleY
-                ]
-              }
-            ]
-          },
-          fragment:{
-            module: device.createShaderModule({ code: pickingVertCode }),
-            entryPoint:'fs_pick',
-            targets:[{ format:'rgba8unorm' }]
-          },
-          primitive:{ topology:'triangle-list', cullMode:'back'},
-          depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-        });
-      },
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: pickingVertCode,
+        fragmentShader: pickingVertCode,
+        vertexEntryPoint: 'vs_pointcloud',
+        fragmentEntryPoint: 'fs_pick',
+        bufferLayouts: [POINT_CLOUD_GEOMETRY_LAYOUT, POINT_CLOUD_PICKING_INSTANCE_LAYOUT]
+      }, 'rgba8unorm'),
       cache
     );
   },
@@ -725,102 +797,32 @@ const ellipsoidExtendedSpec: ExtendedSpec<EllipsoidElementConfig> = {
 
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
-    const pipelineLayout = device.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayout]
-    });
     return getOrCreatePipeline(
       device,
       "EllipsoidShading",
-      () => {
-        return device.createRenderPipeline({
-          layout: pipelineLayout,
-          vertex:{
-            module: device.createShaderModule({ code: ellipsoidVertCode }),
-            entryPoint:'vs_main',
-            buffers:[
-              // sphere geometry
-              {
-                arrayStride: 6*4,
-                attributes:[
-                  {shaderLocation:0, offset:0,   format:'float32x3'},
-                  {shaderLocation:1, offset:3*4, format:'float32x3'}
-                ]
-              },
-              // instance data
-              {
-                arrayStride: 10*4,
-                stepMode:'instance',
-                attributes:[
-                  {shaderLocation:2, offset:0,     format:'float32x3'},
-                  {shaderLocation:3, offset:3*4,   format:'float32x3'},
-                  {shaderLocation:4, offset:6*4,   format:'float32x3'},
-                  {shaderLocation:5, offset:9*4,   format:'float32'}
-                ]
-              }
-            ]
-          },
-          fragment:{
-            module: device.createShaderModule({ code: ellipsoidFragCode }),
-            entryPoint:'fs_main',
-            targets:[{
-              format,
-              blend:{
-                color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-                alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-              }
-            }]
-          },
-          primitive:{ topology:'triangle-list', cullMode:'back'},
-          depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-        });
-      },
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: ellipsoidVertCode,
+        fragmentShader: ellipsoidFragCode,
+        vertexEntryPoint: 'vs_main',
+        fragmentEntryPoint: 'fs_main',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT],
+        blend: {} // Use defaults
+      }, format),
       cache
     );
   },
 
   getPickingPipeline(device, bindGroupLayout, cache) {
-    const pipelineLayout = device.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayout]
-    });
     return getOrCreatePipeline(
       device,
       "EllipsoidPicking",
-      () => {
-        return device.createRenderPipeline({
-          layout: pipelineLayout,
-          vertex:{
-            module: device.createShaderModule({ code: pickingVertCode }),
-            entryPoint:'vs_ellipsoid',
-            buffers:[
-              // sphere geometry
-              {
-                arrayStride:6*4,
-                attributes:[
-                  {shaderLocation:0, offset:0,   format:'float32x3'},
-                  {shaderLocation:1, offset:3*4, format:'float32x3'}
-                ]
-              },
-              // instance data
-              {
-                arrayStride:7*4,
-                stepMode:'instance',
-                attributes:[
-                  {shaderLocation:2, offset:0,   format:'float32x3'},
-                  {shaderLocation:3, offset:3*4, format:'float32x3'},
-                  {shaderLocation:4, offset:6*4, format:'float32'}
-                ]
-              }
-            ]
-          },
-          fragment:{
-            module: device.createShaderModule({ code: pickingVertCode }),
-            entryPoint:'fs_pick',
-            targets:[{ format:'rgba8unorm' }]
-          },
-          primitive:{ topology:'triangle-list', cullMode:'back'},
-          depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-        });
-      },
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: pickingVertCode,
+        fragmentShader: pickingVertCode,
+        vertexEntryPoint: 'vs_ellipsoid',
+        fragmentEntryPoint: 'fs_pick',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT]
+      }, 'rgba8unorm'),
       cache
     );
   },
@@ -855,102 +857,32 @@ const ellipsoidAxesExtendedSpec: ExtendedSpec<EllipsoidAxesElementConfig> = {
 
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
-    const pipelineLayout = device.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayout]
-    });
     return getOrCreatePipeline(
       device,
       "EllipsoidAxesShading",
-      () => {
-        return device.createRenderPipeline({
-          layout: pipelineLayout,
-          vertex:{
-            module: device.createShaderModule({ code: ringVertCode }),
-            entryPoint:'vs_main',
-            buffers:[
-              // ring geometry
-              {
-                arrayStride:6*4,
-                attributes:[
-                  {shaderLocation:0, offset:0,   format:'float32x3'},
-                  {shaderLocation:1, offset:3*4, format:'float32x3'}
-                ]
-              },
-              // instance data
-              {
-                arrayStride: 10*4,
-                stepMode:'instance',
-                attributes:[
-                  {shaderLocation:2, offset:0,     format:'float32x3'},
-                  {shaderLocation:3, offset:3*4,   format:'float32x3'},
-                  {shaderLocation:4, offset:6*4,   format:'float32x3'},
-                  {shaderLocation:5, offset:9*4,   format:'float32'}
-                ]
-              }
-            ]
-          },
-          fragment:{
-            module: device.createShaderModule({ code: ringFragCode }),
-            entryPoint:'fs_main',
-            targets:[{
-              format,
-              blend:{
-                color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-                alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-              }
-            }]
-          },
-          primitive:{ topology:'triangle-list', cullMode:'back'},
-          depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-        });
-      },
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: ringVertCode,
+        fragmentShader: ringFragCode,
+        vertexEntryPoint: 'vs_main',
+        fragmentEntryPoint: 'fs_main',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT],
+        blend: {} // Use defaults
+      }, format),
       cache
     );
   },
 
   getPickingPipeline(device, bindGroupLayout, cache) {
-    const pipelineLayout = device.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayout]
-    });
     return getOrCreatePipeline(
       device,
       "EllipsoidAxesPicking",
-      () => {
-        return device.createRenderPipeline({
-          layout: pipelineLayout,
-          vertex:{
-            module: device.createShaderModule({ code: pickingVertCode }),
-            entryPoint:'vs_bands',
-            buffers:[
-              // ring geometry
-              {
-                arrayStride:6*4,
-                attributes:[
-                  {shaderLocation:0, offset:0,   format:'float32x3'},
-                  {shaderLocation:1, offset:3*4, format:'float32x3'}
-                ]
-              },
-              // instance data
-              {
-                arrayStride:7*4,
-                stepMode:'instance',
-                attributes:[
-                  {shaderLocation:2, offset:0,   format:'float32x3'},
-                  {shaderLocation:3, offset:3*4, format:'float32x3'},
-                  {shaderLocation:4, offset:6*4, format:'float32'}
-                ]
-              }
-            ]
-          },
-          fragment:{
-            module: device.createShaderModule({ code: pickingVertCode }),
-            entryPoint:'fs_pick',
-            targets:[{ format:'rgba8unorm' }]
-          },
-          primitive:{ topology:'triangle-list', cullMode:'back'},
-          depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-        });
-      },
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: pickingVertCode,
+        fragmentShader: pickingVertCode,
+        vertexEntryPoint: 'vs_bands',
+        fragmentEntryPoint: 'fs_pick',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT]
+      }, 'rgba8unorm'),
       cache
     );
   },
@@ -985,102 +917,34 @@ const cuboidExtendedSpec: ExtendedSpec<CuboidElementConfig> = {
 
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
-    const pipelineLayout = device.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayout]
-    });
     return getOrCreatePipeline(
       device,
       "CuboidShading",
-      () => {
-        return device.createRenderPipeline({
-          layout: pipelineLayout,
-          vertex:{
-            module: device.createShaderModule({ code: cuboidVertCode }),
-            entryPoint:'vs_main',
-            buffers:[
-              // cube geometry
-              {
-                arrayStride: 6*4,
-                attributes:[
-                  {shaderLocation:0, offset:0,   format:'float32x3'},
-                  {shaderLocation:1, offset:3*4, format:'float32x3'}
-                ]
-              },
-              // instance data
-              {
-                arrayStride: 10*4,
-                stepMode:'instance',
-                attributes:[
-                  {shaderLocation:2, offset:0,    format:'float32x3'},
-                  {shaderLocation:3, offset:3*4,  format:'float32x3'},
-                  {shaderLocation:4, offset:6*4,  format:'float32x3'},
-                  {shaderLocation:5, offset:9*4,  format:'float32'}
-                ]
-              }
-            ]
-          },
-          fragment:{
-            module: device.createShaderModule({ code: cuboidFragCode }),
-            entryPoint:'fs_main',
-            targets:[{
-              format,
-              blend:{
-                color:{srcFactor:'src-alpha', dstFactor:'one-minus-src-alpha'},
-                alpha:{srcFactor:'one', dstFactor:'one-minus-src-alpha'}
-              }
-            }]
-          },
-          primitive:{ topology:'triangle-list', cullMode:'none' },
-          depthStencil:{format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-        });
-      },
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: cuboidVertCode,
+        fragmentShader: cuboidFragCode,
+        vertexEntryPoint: 'vs_main',
+        fragmentEntryPoint: 'fs_main',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, ELLIPSOID_INSTANCE_LAYOUT],
+        primitive: { cullMode: 'none' },
+        blend: {} // Use defaults
+      }, format),
       cache
     );
   },
 
   getPickingPipeline(device, bindGroupLayout, cache) {
-    const pipelineLayout = device.createPipelineLayout({
-      bindGroupLayouts: [bindGroupLayout]
-    });
     return getOrCreatePipeline(
       device,
       "CuboidPicking",
-      () => {
-        return device.createRenderPipeline({
-          layout: pipelineLayout,
-          vertex:{
-            module: device.createShaderModule({ code: pickingVertCode }),
-            entryPoint:'vs_cuboid',
-            buffers:[
-              // cube geometry
-              {
-                arrayStride: 6*4,
-                attributes:[
-                  {shaderLocation:0, offset:0,   format:'float32x3'},
-                  {shaderLocation:1, offset:3*4, format:'float32x3'}
-                ]
-              },
-              // instance data
-              {
-                arrayStride: 7*4,
-                stepMode:'instance',
-                attributes:[
-                  {shaderLocation:2, offset:0,   format:'float32x3'},
-                  {shaderLocation:3, offset:3*4, format:'float32x3'},
-                  {shaderLocation:4, offset:6*4, format:'float32'}
-                ]
-              }
-            ]
-          },
-          fragment:{
-            module: device.createShaderModule({ code: pickingVertCode }),
-            entryPoint:'fs_pick',
-            targets:[{ format:'rgba8unorm' }]
-          },
-          primitive:{ topology:'triangle-list', cullMode:'none'},
-          depthStencil:{ format:'depth24plus', depthWriteEnabled:true, depthCompare:'less-equal'}
-        });
-      },
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: pickingVertCode,
+        fragmentShader: pickingVertCode,
+        vertexEntryPoint: 'vs_cuboid',
+        fragmentEntryPoint: 'fs_pick',
+        bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT],
+        primitive: { cullMode: 'none' }
+      }, 'rgba8unorm'),
       cache
     );
   },
@@ -1599,73 +1463,87 @@ function SceneInner({
     // Build ID mapping
     buildElementIdMapping(elements);
 
-    return elements.map((elem, i) => {
+    const validRenderObjects: RenderObject[] = [];
+
+    elements.forEach((elem, i) => {
       const spec = primitiveRegistry[elem.type];
       if(!spec) {
-        return {
-          pipeline: undefined,
-          vertexBuffers: [],
-          indexBuffer: undefined,
-          vertexCount: 0,
-          indexCount: 0,
-          instanceCount: 0,
+        console.warn(`Unknown primitive type: ${elem.type}`);
+        return;
+      }
+
+      try {
+        const count = spec.getCount(elem);
+        if (count === 0) {
+          console.warn(`Element ${i} (${elem.type}) has no instances`);
+          return;
+        }
+
+        const renderData = spec.buildRenderData(elem);
+        if (!renderData) {
+          console.warn(`Failed to build render data for element ${i} (${elem.type})`);
+          return;
+        }
+
+        let renderOffset = 0;
+        let stride = 0;
+        if(renderData.length > 0) {
+          renderOffset = Math.ceil(dynamicBuffers.renderOffset / 4) * 4;
+          // Calculate stride based on float count (4 bytes per float)
+          const floatsPerInstance = renderData.length / count;
+          stride = Math.ceil(floatsPerInstance) * 4;
+
+          device.queue.writeBuffer(
+            dynamicBuffers.renderBuffer,
+            renderOffset,
+            renderData.buffer,
+            renderData.byteOffset,
+            renderData.byteLength
+          );
+          dynamicBuffers.renderOffset = renderOffset + (stride * count);
+        }
+
+        const pipeline = spec.getRenderPipeline(device, bindGroupLayout, pipelineCache);
+        if (!pipeline) {
+          console.warn(`Failed to create pipeline for element ${i} (${elem.type})`);
+          return;
+        }
+
+        // Create render object with dynamic buffer reference
+        const baseRenderObject = spec.createRenderObject(
+          device,
+          pipeline,
+          null!, // We'll set this later in ensurePickingData
+          {  // Pass buffer info instead of buffer
+            buffer: dynamicBuffers.renderBuffer,
+            offset: renderOffset,
+            stride: stride
+          },
+          null, // No picking buffer yet
+          count,
+          resources
+        );
+
+        if (!baseRenderObject.vertexBuffers || baseRenderObject.vertexBuffers.length !== 2) {
+          console.warn(`Invalid vertex buffers for element ${i} (${elem.type})`);
+          return;
+        }
+
+        const renderObject: RenderObject = {
+          ...baseRenderObject,
           pickingPipeline: undefined,
-          pickingVertexBuffers: [],
-          pickingIndexBuffer: undefined,
-          pickingVertexCount: 0,
-          pickingIndexCount: 0,
-          pickingInstanceCount: 0,
+          pickingVertexBuffers: [undefined, undefined] as [GPUBuffer | undefined, BufferInfo | undefined],
           pickingDataStale: true,
           elementIndex: i
         };
+
+        validRenderObjects.push(renderObject);
+      } catch (error) {
+        console.error(`Error creating render object for element ${i} (${elem.type}):`, error);
       }
-
-      const count = spec.getCount(elem);
-      const renderData = spec.buildRenderData(elem);
-
-      let renderOffset = 0;
-      let stride = 0;
-      if(renderData && renderData.length > 0) {
-        renderOffset = Math.ceil(dynamicBuffers.renderOffset / 4) * 4;
-        // Calculate stride based on float count (4 bytes per float)
-        const floatsPerInstance = renderData.length / count;
-        stride = Math.ceil(floatsPerInstance) * 4;
-
-        device.queue.writeBuffer(
-          dynamicBuffers.renderBuffer,
-          renderOffset,
-          renderData.buffer,
-          renderData.byteOffset,
-          renderData.byteLength
-        );
-        dynamicBuffers.renderOffset = renderOffset + (stride * count);
-      }
-
-      const pipeline = spec.getRenderPipeline(device, bindGroupLayout, pipelineCache);
-
-      // Create render object with dynamic buffer reference
-      const baseRenderObject = spec.createRenderObject(
-        device,
-        pipeline,
-        null!, // We'll set this later in ensurePickingData
-        {  // Pass buffer info instead of buffer
-          buffer: dynamicBuffers.renderBuffer,
-          offset: renderOffset,
-          stride: stride
-        },
-        null, // No picking buffer yet
-        count,
-        resources
-      );
-
-      return {
-        ...baseRenderObject,
-        pickingPipeline: undefined,
-        pickingVertexBuffers: [],
-        pickingDataStale: true,
-        elementIndex: i
-      };
     });
+
+    return validRenderObjects;
   }
 
   /******************************************************
@@ -1746,23 +1624,20 @@ function SceneInner({
 
     // Draw each object
     for(const ro of renderObjects) {
-      if (!ro.pipeline || !ro.vertexBuffers || ro.vertexBuffers.length !== 2) {
-        console.warn('Skipping invalid render object:', ro);
+      if (!isValidRenderObject(ro)) {
         continue;
       }
 
+      // Now TypeScript knows ro.pipeline is defined
       pass.setPipeline(ro.pipeline);
       pass.setBindGroup(0, uniformBindGroup);
 
-      // Set geometry buffer (always first)
-      const geometryBuffer = ro.vertexBuffers[0];
-      pass.setVertexBuffer(0, geometryBuffer);
+      // And ro.vertexBuffers[0] is defined
+      pass.setVertexBuffer(0, ro.vertexBuffers[0]);
 
-      // Set instance buffer (always second)
+      // And ro.vertexBuffers[1] is defined
       const instanceInfo = ro.vertexBuffers[1];
-      if (instanceInfo) {
-        pass.setVertexBuffer(1, instanceInfo.buffer, instanceInfo.offset);
-      }
+      pass.setVertexBuffer(1, instanceInfo.buffer, instanceInfo.offset);
 
       if(ro.indexBuffer) {
         pass.setIndexBuffer(ro.indexBuffer, 'uint16');
@@ -2588,4 +2463,22 @@ function computeCanvasDimensions(containerWidth: number, width?: number, height?
             height: `${finalHeight}px`
         }
     };
+}
+
+// Add validation helper
+function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject, 'pipeline' | 'vertexBuffers' | 'instanceCount'>> & {
+  vertexBuffers: [GPUBuffer, BufferInfo];
+} & RenderObject {
+  return (
+    ro.pipeline !== undefined &&
+    Array.isArray(ro.vertexBuffers) &&
+    ro.vertexBuffers.length === 2 &&
+    ro.vertexBuffers[0] !== undefined &&
+    ro.vertexBuffers[1] !== undefined &&
+    'buffer' in ro.vertexBuffers[1] &&
+    'offset' in ro.vertexBuffers[1] &&
+    (ro.indexBuffer !== undefined || ro.vertexCount !== undefined) &&
+    typeof ro.instanceCount === 'number' &&
+    ro.instanceCount > 0
+  );
 }

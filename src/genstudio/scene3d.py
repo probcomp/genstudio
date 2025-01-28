@@ -266,7 +266,7 @@ def EllipsoidAxes(
             colors = colors.flatten()
         data["colors"] = colors
 
-    return SceneElement("EllipsoidBounds", data, **kwargs)
+    return SceneElement("EllipsoidAxes", data, **kwargs)
 
 
 def Cuboid(
