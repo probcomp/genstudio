@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { SceneInner, ComponentConfig, PointCloudGroupConfig, EllipsoidGroupConfig, EllipsoidAxesGroupConfig, CuboidGroupConfig } from './impl3d';
+import { SceneInner, ComponentConfig, PointCloudComponentConfig, EllipsoidComponentConfig, EllipsoidAxesComponentConfig, CuboidComponentConfig } from './impl3d';
 import { CameraParams } from './camera3d';
 import { useContainerWidth } from '../utils';
 
@@ -36,7 +36,7 @@ export function PointCloud(
   decorations?: Decoration[],
   onHover?: (index: number|null) => void,
   onClick?: (index: number|null) => void
-): PointCloudGroupConfig {
+): PointCloudComponentConfig {
   return {
     type: 'PointCloud',
     data: {
@@ -57,7 +57,7 @@ export function Ellipsoid(
   decorations?: Decoration[],
   onHover?: (index: number|null) => void,
   onClick?: (index: number|null) => void
-): EllipsoidGroupConfig {
+): EllipsoidComponentConfig {
   return {
     type: 'Ellipsoid',
     data: {
@@ -78,7 +78,7 @@ export function EllipsoidAxes(
   decorations?: Decoration[],
   onHover?: (index: number|null) => void,
   onClick?: (index: number|null) => void
-): EllipsoidAxesGroupConfig {
+): EllipsoidAxesComponentConfig {
   return {
     type: 'EllipsoidAxes',
     data: {
@@ -99,7 +99,7 @@ export function Cuboid(
   decorations?: Decoration[],
   onHover?: (index: number|null) => void,
   onClick?: (index: number|null) => void
-): CuboidGroupConfig {
+): CuboidComponentConfig {
   return {
     type: 'Cuboid',
     data: {

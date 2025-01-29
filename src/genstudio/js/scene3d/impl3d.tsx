@@ -148,7 +148,7 @@ interface PointCloudData {
   scales?: Float32Array;
   scale?: number;  // Default scale if scales not provided
 }
-export interface PointCloudGroupConfig {
+export interface PointCloudComponentConfig {
   type: 'PointCloud';
   data: PointCloudData;
   decorations?: Decoration[];
@@ -156,7 +156,7 @@ export interface PointCloudGroupConfig {
   onClick?: (index: number) => void;
 }
 
-const pointCloudSpec: PrimitiveSpec<PointCloudGroupConfig> = {
+const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
   // Data transformation methods
   getCount(elem) {
     return elem.data.positions.length / 3;
@@ -323,7 +323,7 @@ interface EllipsoidData {
   colors?: Float32Array;
   color?: [number, number, number];
 }
-export interface EllipsoidGroupConfig {
+export interface EllipsoidComponentConfig {
   type: 'Ellipsoid';
   data: EllipsoidData;
   decorations?: Decoration[];
@@ -331,7 +331,7 @@ export interface EllipsoidGroupConfig {
   onClick?: (index: number) => void;
 }
 
-const ellipsoidSpec: PrimitiveSpec<EllipsoidGroupConfig> = {
+const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
   getCount(elem){
     return elem.data.centers.length / 3;
   },
@@ -487,7 +487,7 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidGroupConfig> = {
 };
 
 /** ===================== ELLIPSOID BOUNDS ===================== **/
-export interface EllipsoidAxesGroupConfig {
+export interface EllipsoidAxesComponentConfig {
   type: 'EllipsoidAxes';
   data: EllipsoidData;
   decorations?: Decoration[];
@@ -495,7 +495,7 @@ export interface EllipsoidAxesGroupConfig {
   onClick?: (index: number) => void;
 }
 
-const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesGroupConfig> = {
+const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
   getCount(elem) {
     // each ellipsoid => 3 rings
     const c = elem.data.centers.length/3;
@@ -628,7 +628,7 @@ interface CuboidData {
   colors?: Float32Array;
   color?: [number, number, number];  // Default color if colors not provided
 }
-export interface CuboidGroupConfig {
+export interface CuboidComponentConfig {
   type: 'Cuboid';
   data: CuboidData;
   decorations?: Decoration[];
@@ -636,7 +636,7 @@ export interface CuboidGroupConfig {
   onClick?: (index: number) => void;
 }
 
-const cuboidSpec: PrimitiveSpec<CuboidGroupConfig> = {
+const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
   getCount(elem){
     return elem.data.centers.length / 3;
   },
@@ -1072,10 +1072,10 @@ const MESH_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
  * 7) Primitive Registry
  ******************************************************/
 export type ComponentConfig =
-  | PointCloudGroupConfig
-  | EllipsoidGroupConfig
-  | EllipsoidAxesGroupConfig
-  | CuboidGroupConfig;
+  | PointCloudComponentConfig
+  | EllipsoidComponentConfig
+  | EllipsoidAxesComponentConfig
+  | CuboidComponentConfig;
 
 const primitiveRegistry: Record<ComponentConfig['type'], PrimitiveSpec<any>> = {
   PointCloud: pointCloudSpec,  // Use consolidated spec
