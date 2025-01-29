@@ -188,7 +188,9 @@ def flatten_array(
 def PointCloud(
     positions: ArrayLike,
     colors: Optional[ArrayLike] = None,
+    color: Optional[ArrayLike] = None,  # Default RGB color for all points
     scales: Optional[ArrayLike] = None,
+    scale: Optional[NumberLike] = None,  # Default scale for all points
     **kwargs: Any,
 ) -> SceneComponent:
     """Create a point cloud element.
@@ -196,7 +198,9 @@ def PointCloud(
     Args:
         positions: Nx3 array of point positions or flattened array
         colors: Nx3 array of RGB colors or flattened array (optional)
+        color: Default RGB color [r,g,b] for all points if colors not provided
         scales: N array of point scales or flattened array (optional)
+        scale: Default scale for all points if scales not provided
         **kwargs: Additional arguments like decorations, onHover, onClick
     """
     positions = flatten_array(positions, dtype=np.float32)
@@ -204,80 +208,116 @@ def PointCloud(
 
     if colors is not None:
         data["colors"] = flatten_array(colors, dtype=np.float32)
+    elif color is not None:
+        data["color"] = color
 
     if scales is not None:
         data["scales"] = flatten_array(scales, dtype=np.float32)
+    elif scale is not None:
+        data["scale"] = scale
 
     return SceneComponent("PointCloud", data, **kwargs)
 
 
 def Ellipsoid(
     centers: ArrayLike,
-    radii: ArrayLike,
+    radii: Optional[ArrayLike] = None,
+    radius: Optional[Union[NumberLike, ArrayLike]] = None,  # Single value or [x,y,z]
     colors: Optional[ArrayLike] = None,
+    color: Optional[ArrayLike] = None,  # Default RGB color for all ellipsoids
     **kwargs: Any,
 ) -> SceneComponent:
     """Create an ellipsoid element.
 
     Args:
         centers: Nx3 array of ellipsoid centers or flattened array
-        radii: Nx3 array of radii (x,y,z) or flattened array
+        radii: Nx3 array of radii (x,y,z) or flattened array (optional)
+        radius: Default radius (sphere) or [x,y,z] radii (ellipsoid) if radii not provided
         colors: Nx3 array of RGB colors or flattened array (optional)
+        color: Default RGB color [r,g,b] for all ellipsoids if colors not provided
         **kwargs: Additional arguments like decorations, onHover, onClick
     """
     centers = flatten_array(centers, dtype=np.float32)
-    radii = flatten_array(radii, dtype=np.float32)
-    data = {"centers": centers, "radii": radii}
+    data: Dict[str, Any] = {"centers": centers}
+
+    if radii is not None:
+        data["radii"] = flatten_array(radii, dtype=np.float32)
+    elif radius is not None:
+        data["radius"] = radius
 
     if colors is not None:
         data["colors"] = flatten_array(colors, dtype=np.float32)
+    elif color is not None:
+        data["color"] = color
 
     return SceneComponent("Ellipsoid", data, **kwargs)
 
 
 def EllipsoidAxes(
     centers: ArrayLike,
-    radii: ArrayLike,
+    radii: Optional[ArrayLike] = None,
+    radius: Optional[Union[NumberLike, ArrayLike]] = None,  # Single value or [x,y,z]
     colors: Optional[ArrayLike] = None,
+    color: Optional[ArrayLike] = None,  # Default RGB color for all ellipsoids
     **kwargs: Any,
 ) -> SceneComponent:
     """Create an ellipsoid bounds (wireframe) element.
 
     Args:
         centers: Nx3 array of ellipsoid centers or flattened array
-        radii: Nx3 array of radii (x,y,z) or flattened array
+        radii: Nx3 array of radii (x,y,z) or flattened array (optional)
+        radius: Default radius (sphere) or [x,y,z] radii (ellipsoid) if radii not provided
         colors: Nx3 array of RGB colors or flattened array (optional)
+        color: Default RGB color [r,g,b] for all ellipsoids if colors not provided
         **kwargs: Additional arguments like decorations, onHover, onClick
     """
     centers = flatten_array(centers, dtype=np.float32)
-    radii = flatten_array(radii, dtype=np.float32)
-    data = {"centers": centers, "radii": radii}
+    data: Dict[str, Any] = {"centers": centers}
+
+    if radii is not None:
+        data["radii"] = flatten_array(radii, dtype=np.float32)
+    elif radius is not None:
+        data["radius"] = radius
 
     if colors is not None:
         data["colors"] = flatten_array(colors, dtype=np.float32)
+    elif color is not None:
+        data["color"] = color
 
     return SceneComponent("EllipsoidAxes", data, **kwargs)
 
 
 def Cuboid(
     centers: ArrayLike,
-    sizes: ArrayLike,
+    sizes: Optional[ArrayLike] = None,
+    size: Optional[
+        Union[ArrayLike, NumberLike]
+    ] = None,  # Default size [w,h,d] for all cuboids
     colors: Optional[ArrayLike] = None,
+    color: Optional[ArrayLike] = None,  # Default RGB color for all cuboids
     **kwargs: Any,
 ) -> SceneComponent:
     """Create a cuboid element.
 
     Args:
         centers: Nx3 array of cuboid centers or flattened array
-        sizes: Nx3 array of sizes (width,height,depth) or flattened array
+        sizes: Nx3 array of sizes (width,height,depth) or flattened array (optional)
+        size: Default size [w,h,d] for all cuboids if sizes not provided
         colors: Nx3 array of RGB colors or flattened array (optional)
+        color: Default RGB color [r,g,b] for all cuboids if colors not provided
         **kwargs: Additional arguments like decorations, onHover, onClick
     """
     centers = flatten_array(centers, dtype=np.float32)
-    sizes = flatten_array(sizes, dtype=np.float32)
-    data = {"centers": centers, "sizes": sizes}
+    data: Dict[str, Any] = {"centers": centers}
+
+    if sizes is not None:
+        data["sizes"] = flatten_array(sizes, dtype=np.float32)
+    elif size is not None:
+        data["size"] = size
 
     if colors is not None:
         data["colors"] = flatten_array(colors, dtype=np.float32)
+    elif color is not None:
+        data["color"] = color
 
     return SceneComponent("Cuboid", data, **kwargs)

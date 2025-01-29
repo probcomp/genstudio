@@ -144,7 +144,9 @@ interface RenderConfig {
 interface PointCloudData {
   positions: Float32Array;
   colors?: Float32Array;
+  color?: [number, number, number];  // Default color if colors not provided
   scales?: Float32Array;
+  scale?: number;  // Default scale if scales not provided
 }
 export interface PointCloudGroupConfig {
   type: 'PointCloud';
@@ -161,15 +163,17 @@ const pointCloudSpec: PrimitiveSpec<PointCloudGroupConfig> = {
   },
 
   buildRenderData(elem) {
-    const { positions, colors, scales } = elem.data;
+    const { positions, colors, color = [1, 1, 1], scales, scale = 0.02 } = elem.data;
     const count = positions.length / 3;
     if(count === 0) return null;
 
     // (pos.x, pos.y, pos.z, color.r, color.g, color.b, alpha, scale)
-    const arr = new Float32Array(count * 8);  // Changed from 9 to 8 floats per instance
+    const arr = new Float32Array(count * 8);
 
     // Initialize default color values outside the loop
     const hasColors = colors && colors.length === count*3;
+    const defaultColor = color;
+    const defaultScale = scale;
 
     for(let i=0; i<count; i++){
       arr[i*8+0] = positions[i*3+0];
@@ -180,13 +184,12 @@ const pointCloudSpec: PrimitiveSpec<PointCloudGroupConfig> = {
         arr[i*8+4] = colors[i*3+1];
         arr[i*8+5] = colors[i*3+2];
       } else {
-        arr[i*8+3] = 1;
-        arr[i*8+4] = 1;
-        arr[i*8+5] = 1;
+        arr[i*8+3] = defaultColor[0];
+        arr[i*8+4] = defaultColor[1];
+        arr[i*8+5] = defaultColor[2];
       }
       arr[i*8+6] = 1.0; // alpha
-      const s = scales ? scales[i] : 0.02;
-      arr[i*8+7] = s;   // single scale value
+      arr[i*8+7] = scales ? scales[i] : defaultScale;
     }
     // decorations
     if(elem.decorations){
@@ -315,8 +318,10 @@ const pointCloudSpec: PrimitiveSpec<PointCloudGroupConfig> = {
 /** ===================== ELLIPSOID ===================== **/
 interface EllipsoidData {
   centers: Float32Array;
-  radii: Float32Array;
+  radii?: Float32Array;
+  radius?: number | [number, number, number];  // Single number for sphere, triple for ellipsoid
   colors?: Float32Array;
+  color?: [number, number, number];
 }
 export interface EllipsoidGroupConfig {
   type: 'Ellipsoid';
@@ -331,25 +336,39 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidGroupConfig> = {
     return elem.data.centers.length / 3;
   },
   buildRenderData(elem){
-    const { centers, radii, colors } = elem.data;
+    const { centers, radii, radius = 0.1, colors, color = [1, 1, 1] } = elem.data;
     const count = centers.length / 3;
     if(count===0)return null;
 
+    // Convert radius to [x,y,z] format
+    const defaultRadius = Array.isArray(radius) ? radius : [radius, radius, radius];
+
     // (pos.x, pos.y, pos.z, scale.x, scale.y, scale.z, col.r, col.g, col.b, alpha)
     const arr = new Float32Array(count*10);
+    const hasColors = colors && colors.length===count*3;
+    const hasRadii = radii && radii.length===count*3;
+
     for(let i=0; i<count; i++){
       arr[i*10+0] = centers[i*3+0];
       arr[i*10+1] = centers[i*3+1];
       arr[i*10+2] = centers[i*3+2];
-      arr[i*10+3] = radii[i*3+0] || 0.1;
-      arr[i*10+4] = radii[i*3+1] || 0.1;
-      arr[i*10+5] = radii[i*3+2] || 0.1;
-      if(colors && colors.length===count*3){
+      if(hasRadii) {
+        arr[i*10+3] = radii[i*3+0];
+        arr[i*10+4] = radii[i*3+1];
+        arr[i*10+5] = radii[i*3+2];
+      } else {
+        arr[i*10+3] = defaultRadius[0];
+        arr[i*10+4] = defaultRadius[1];
+        arr[i*10+5] = defaultRadius[2];
+      }
+      if(hasColors){
         arr[i*10+6] = colors[i*3+0];
         arr[i*10+7] = colors[i*3+1];
         arr[i*10+8] = colors[i*3+2];
       } else {
-        arr[i*10+6] = 1; arr[i*10+7] = 1; arr[i*10+8] = 1;
+        arr[i*10+6] = color[0];
+        arr[i*10+7] = color[1];
+        arr[i*10+8] = color[2];
       }
       arr[i*10+9] = 1.0;
     }
@@ -382,19 +401,30 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidGroupConfig> = {
     return arr;
   },
   buildPickingData(elem, baseID){
-    const { centers, radii } = elem.data;
+    const { centers, radii, radius = 0.1 } = elem.data;
     const count=centers.length/3;
     if(count===0)return null;
 
+    // Convert radius to [x,y,z] format
+    const defaultRadius = Array.isArray(radius) ? radius : [radius, radius, radius];
+
     // (pos.x, pos.y, pos.z, scale.x, scale.y, scale.z, pickID)
     const arr = new Float32Array(count*7);
+    const hasRadii = radii && radii.length===count*3;
+
     for(let i=0; i<count; i++){
       arr[i*7+0] = centers[i*3+0];
       arr[i*7+1] = centers[i*3+1];
       arr[i*7+2] = centers[i*3+2];
-      arr[i*7+3] = radii[i*3+0]||0.1;
-      arr[i*7+4] = radii[i*3+1]||0.1;
-      arr[i*7+5] = radii[i*3+2]||0.1;
+      if(hasRadii) {
+        arr[i*7+3] = radii[i*3+0];
+        arr[i*7+4] = radii[i*3+1];
+        arr[i*7+5] = radii[i*3+2];
+      } else {
+        arr[i*7+3] = defaultRadius[0];
+        arr[i*7+4] = defaultRadius[1];
+        arr[i*7+5] = defaultRadius[2];
+      }
       arr[i*7+6] = baseID + i;
     }
     return arr;
@@ -596,6 +626,7 @@ interface CuboidData {
   centers: Float32Array;
   sizes: Float32Array;
   colors?: Float32Array;
+  color?: [number, number, number];  // Default color if colors not provided
 }
 export interface CuboidGroupConfig {
   type: 'Cuboid';
@@ -610,12 +641,15 @@ const cuboidSpec: PrimitiveSpec<CuboidGroupConfig> = {
     return elem.data.centers.length / 3;
   },
   buildRenderData(elem){
-    const { centers, sizes, colors } = elem.data;
+    const { centers, sizes, colors, color = [1, 1, 1] } = elem.data;
     const count = centers.length / 3;
     if(count===0)return null;
 
     // (center.x, center.y, center.z, size.x, size.y, size.z, color.r, color.g, color.b, alpha)
     const arr = new Float32Array(count*10);
+    const hasColors = colors && colors.length===count*3;
+    const defaultColor = color;
+
     for(let i=0; i<count; i++){
       arr[i*10+0] = centers[i*3+0];
       arr[i*10+1] = centers[i*3+1];
@@ -623,12 +657,14 @@ const cuboidSpec: PrimitiveSpec<CuboidGroupConfig> = {
       arr[i*10+3] = sizes[i*3+0] || 0.1;
       arr[i*10+4] = sizes[i*3+1] || 0.1;
       arr[i*10+5] = sizes[i*3+2] || 0.1;
-      if(colors && colors.length===count*3){
+      if(hasColors){
         arr[i*10+6] = colors[i*3+0];
         arr[i*10+7] = colors[i*3+1];
         arr[i*10+8] = colors[i*3+2];
       } else {
-        arr[i*10+6] = 1; arr[i*10+7] = 1; arr[i*10+8] = 1;
+        arr[i*10+6] = defaultColor[0];
+        arr[i*10+7] = defaultColor[1];
+        arr[i*10+8] = defaultColor[2];
       }
       arr[i*10+9] = 1.0;
     }
@@ -933,6 +969,37 @@ function createRenderPipeline(
     }
   });
 }
+
+function createTranslucentGeometryPipeline(
+  device: GPUDevice,
+  bindGroupLayout: GPUBindGroupLayout,
+  config: PipelineConfig,
+  format: GPUTextureFormat,
+  primitiveSpec: PrimitiveSpec<any>  // Take the primitive spec instead of just type
+): GPURenderPipeline {
+  return createRenderPipeline(device, bindGroupLayout, {
+    ...config,
+    primitive: primitiveSpec.renderConfig,
+    blend: {
+      color: {
+        srcFactor: 'src-alpha',
+        dstFactor: 'one-minus-src-alpha',
+        operation: 'add'
+      },
+      alpha: {
+        srcFactor: 'one',
+        dstFactor: 'one-minus-src-alpha',
+        operation: 'add'
+      }
+    },
+    depthStencil: {
+      format: 'depth24plus',
+      depthWriteEnabled: true,
+      depthCompare: 'less'
+    }
+  }, format);
+}
+
 
 // Common vertex buffer layouts
 const POINT_CLOUD_GEOMETRY_LAYOUT: VertexBufferLayout = {
@@ -1432,6 +1499,25 @@ export function SceneInner({
   /******************************************************
    * D) Render pass (single call, no loop)
    ******************************************************/
+
+  // Add validation helper
+function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject, 'pipeline' | 'vertexBuffers' | 'instanceCount'>> & {
+  vertexBuffers: [GPUBuffer, BufferInfo];
+} & RenderObject {
+  return (
+    ro.pipeline !== undefined &&
+    Array.isArray(ro.vertexBuffers) &&
+    ro.vertexBuffers.length === 2 &&
+    ro.vertexBuffers[0] !== undefined &&
+    ro.vertexBuffers[1] !== undefined &&
+    'buffer' in ro.vertexBuffers[1] &&
+    'offset' in ro.vertexBuffers[1] &&
+    (ro.indexBuffer !== undefined || ro.vertexCount !== undefined) &&
+    typeof ro.instanceCount === 'number' &&
+    ro.instanceCount > 0
+  );
+}
+
   const renderFrame = useCallback((camState: CameraState) => {
     if(!gpuRef.current) return;
     const {
@@ -2343,51 +2429,3 @@ fn fs_pick(@location(0) pickID: f32)-> @location(0) vec4<f32> {
   return vec4<f32>(r,g,b,1.0);
 }
 `;
-
-// Add validation helper
-function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject, 'pipeline' | 'vertexBuffers' | 'instanceCount'>> & {
-  vertexBuffers: [GPUBuffer, BufferInfo];
-} & RenderObject {
-  return (
-    ro.pipeline !== undefined &&
-    Array.isArray(ro.vertexBuffers) &&
-    ro.vertexBuffers.length === 2 &&
-    ro.vertexBuffers[0] !== undefined &&
-    ro.vertexBuffers[1] !== undefined &&
-    'buffer' in ro.vertexBuffers[1] &&
-    'offset' in ro.vertexBuffers[1] &&
-    (ro.indexBuffer !== undefined || ro.vertexCount !== undefined) &&
-    typeof ro.instanceCount === 'number' &&
-    ro.instanceCount > 0
-  );
-}
-
-function createTranslucentGeometryPipeline(
-  device: GPUDevice,
-  bindGroupLayout: GPUBindGroupLayout,
-  config: PipelineConfig,
-  format: GPUTextureFormat,
-  primitiveSpec: PrimitiveSpec<any>  // Take the primitive spec instead of just type
-): GPURenderPipeline {
-  return createRenderPipeline(device, bindGroupLayout, {
-    ...config,
-    primitive: primitiveSpec.renderConfig,
-    blend: {
-      color: {
-        srcFactor: 'src-alpha',
-        dstFactor: 'one-minus-src-alpha',
-        operation: 'add'
-      },
-      alpha: {
-        srcFactor: 'one',
-        dstFactor: 'one-minus-src-alpha',
-        operation: 'add'
-      }
-    },
-    depthStencil: {
-      format: 'depth24plus',
-      depthWriteEnabled: true,
-      depthCompare: 'less'
-    }
-  }, format);
-}
