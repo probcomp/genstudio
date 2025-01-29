@@ -1,32 +1,38 @@
 /// <reference types="react" />
 
-import React, {
-  useRef, useEffect, useState, useCallback, MouseEvent as ReactMouseEvent, useMemo
-} from 'react';
-import { useContainerWidth } from '../utils';
 import * as glMatrix from 'gl-matrix';
+import React, {
+  MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import { throttle } from '../utils';
+import { createCubeGeometry, createSphereGeometry, createTorusGeometry } from './geometry';
 
 import {
-    CameraParams,
-    CameraState,
-    DEFAULT_CAMERA,
-    createCameraState,
-    createCameraParams,
-    orbit,
-    pan,
-    zoom
+  CameraParams,
+  CameraState,
+  DEFAULT_CAMERA,
+  createCameraParams,
+  createCameraState,
+  orbit,
+  pan,
+  zoom
 } from './camera3d';
 
 /******************************************************
  * 1) Types and Interfaces
  ******************************************************/
-interface BufferInfo {
+export interface BufferInfo {
   buffer: GPUBuffer;
   offset: number;
   stride: number;
 }
 
-interface RenderObject {
+export interface RenderObject {
   pipeline?: GPURenderPipeline;
   vertexBuffers: Partial<[GPUBuffer, BufferInfo]>;  // Allow empty or partial arrays
   indexBuffer?: GPUBuffer;
@@ -45,14 +51,14 @@ interface RenderObject {
   pickingDataStale: boolean;
 }
 
-interface DynamicBuffers {
+export interface DynamicBuffers {
   renderBuffer: GPUBuffer;
   pickingBuffer: GPUBuffer;
   renderOffset: number;  // Current offset into render buffer
   pickingOffset: number; // Current offset into picking buffer
 }
 
-interface SceneInnerProps {
+export interface SceneInnerProps {
     elements: any[];
     containerWidth: number;
     containerHeight: number;
@@ -734,7 +740,7 @@ const cuboidSpec: PrimitiveSpec<CuboidElementConfig> = {
  * 4) Pipeline Cache Helper
  ******************************************************/
 // Update the pipeline cache to include device reference
-interface PipelineCacheEntry {
+export interface PipelineCacheEntry {
   pipeline: GPURenderPipeline;
   device: GPUDevice;
 }
@@ -759,7 +765,7 @@ function getOrCreatePipeline(
 /******************************************************
  * 5) Common Resources: Geometry, Layout, etc.
  ******************************************************/
-interface GeometryResources {
+export interface GeometryResources {
   sphereGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
   ringGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
   billboardQuad: { vb: GPUBuffer; ib: GPUBuffer } | null;
@@ -1011,167 +1017,12 @@ const primitiveRegistry: Record<SceneElementConfig['type'], PrimitiveSpec<any>> 
   Cuboid: cuboidSpec,
 };
 
-/******************************************************
- * 8) Geometry Creation Helpers
- ******************************************************/
-function createSphereGeometry(stacks=16, slices=24) {
-  const verts:number[]=[];
-  const idxs:number[]=[];
-  for(let i=0;i<=stacks;i++){
-    const phi=(i/stacks)*Math.PI;
-    const sp=Math.sin(phi), cp=Math.cos(phi);
-    for(let j=0;j<=slices;j++){
-      const theta=(j/slices)*2*Math.PI;
-      const st=Math.sin(theta), ct=Math.cos(theta);
-      const x=sp*ct, y=cp, z=sp*st;
-      verts.push(x,y,z, x,y,z); // pos + normal
-    }
-  }
-  for(let i=0;i<stacks;i++){
-    for(let j=0;j<slices;j++){
-      const row1=i*(slices+1)+j;
-      const row2=(i+1)*(slices+1)+j;
-      // Reverse winding order by swapping vertices
-      idxs.push(row1,row1+1,row2, row1+1,row2+1,row2);  // Changed from (row1,row2,row1+1, row1+1,row2,row2+1)
-    }
-  }
-  return {
-    vertexData: new Float32Array(verts),
-    indexData: new Uint16Array(idxs)
-  };
-}
-
-function createTorusGeometry(majorRadius:number, minorRadius:number, majorSegments:number, minorSegments:number) {
-  const verts:number[]=[];
-  const idxs:number[]=[];
-  for(let j=0;j<=majorSegments;j++){
-    const theta=(j/majorSegments)*2*Math.PI;
-    const ct=Math.cos(theta), st=Math.sin(theta);
-    for(let i=0;i<=minorSegments;i++){
-      const phi=(i/minorSegments)*2*Math.PI;
-      const cp=Math.cos(phi), sp=Math.sin(phi);
-      const x=(majorRadius+minorRadius*cp)*ct;
-      const y=(majorRadius+minorRadius*cp)*st;
-      const z=minorRadius*sp;
-      const nx=cp*ct, ny=cp*st, nz=sp;
-      verts.push(x,y,z, nx,ny,nz);
-    }
-  }
-  for(let j=0;j<majorSegments;j++){
-    const row1=j*(minorSegments+1);
-    const row2=(j+1)*(minorSegments+1);
-    for(let i=0;i<minorSegments;i++){
-      const a=row1+i, b=row1+i+1, c=row2+i, d=row2+i+1;
-      idxs.push(a,b,c, b,d,c);
-    }
-  }
-  return {
-    vertexData: new Float32Array(verts),
-    indexData: new Uint16Array(idxs)
-  };
-}
-
-function createCubeGeometry() {
-  // 6 faces => 24 verts, 36 indices
-  const positions: number[] = [
-    // +X face (right) - when looking at it from right side
-    0.5, -0.5, -0.5,   0.5, -0.5,  0.5,   0.5,  0.5, -0.5,   0.5,  0.5,  0.5,  // reordered: BL,BR,TL,TR
-    // -X face (left) - when looking at it from left side
-    -0.5, -0.5,  0.5,  -0.5, -0.5, -0.5,  -0.5,  0.5,  0.5,  -0.5,  0.5, -0.5,  // reordered: BL,BR,TL,TR
-    // +Y face (top) - when looking down at it
-    -0.5,  0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5,  0.5,   0.5,  0.5,  0.5,  // reordered: BL,BR,TL,TR
-    // -Y face (bottom) - when looking up at it
-    -0.5, -0.5,  0.5,   0.5, -0.5,  0.5,  -0.5, -0.5, -0.5,   0.5, -0.5, -0.5,  // reordered: BL,BR,TL,TR
-    // +Z face (front) - when looking at front
-    -0.5, -0.5,  0.5,   0.5, -0.5,  0.5,  -0.5,  0.5,  0.5,   0.5,  0.5,  0.5,  // reordered: BL,BR,TL,TR
-    // -Z face (back) - when looking at it from behind
-     0.5, -0.5, -0.5,  -0.5, -0.5, -0.5,   0.5,  0.5, -0.5,  -0.5,  0.5, -0.5,  // reordered: BL,BR,TL,TR
-  ];
-
-  // Normals stay the same as they define face orientation
-  const normals: number[] = [
-    // +X
-    1,0,0, 1,0,0, 1,0,0, 1,0,0,
-    // -X
-    -1,0,0, -1,0,0, -1,0,0, -1,0,0,
-    // +Y
-    0,1,0, 0,1,0, 0,1,0, 0,1,0,
-    // -Y
-    0,-1,0, 0,-1,0, 0,-1,0, 0,-1,0,
-    // +Z
-    0,0,1, 0,0,1, 0,0,1, 0,0,1,
-    // -Z
-    0,0,-1, 0,0,-1, 0,0,-1, 0,0,-1,
-  ];
-
-  // For each face, define triangles in CCW order when viewed from outside
-  const indices: number[] = [];
-  for(let face=0; face<6; face++){
-    const base = face*4;
-    // All faces use same pattern: BL->BR->TL, BR->TR->TL
-    indices.push(
-      base+0, base+1, base+2,  // first triangle: BL->BR->TL
-      base+1, base+3, base+2   // second triangle: BR->TR->TL
-    );
-  }
-
-  // Interleave positions and normals
-  const vertexData = new Float32Array(positions.length*2);
-  for(let i=0; i<positions.length/3; i++){
-    vertexData[i*6+0] = positions[i*3+0];
-    vertexData[i*6+1] = positions[i*3+1];
-    vertexData[i*6+2] = positions[i*3+2];
-    vertexData[i*6+3] = normals[i*3+0];
-    vertexData[i*6+4] = normals[i*3+1];
-    vertexData[i*6+5] = normals[i*3+2];
-  }
-  return {
-    vertexData,
-    indexData: new Uint16Array(indices),
-  };
-}
 
 /******************************************************
- * 9) Scene Components
+ * 8) Scene
  ******************************************************/
-interface SceneProps {
-  elements: SceneElementConfig[];
-  width?: number;
-  height?: number;
-  aspectRatio?: number;
-  camera?: CameraParams;
-  defaultCamera?: CameraParams;
-  onCameraChange?: (camera: CameraParams) => void;
-}
 
-export function Scene({ elements, width, height, aspectRatio = 1, camera, defaultCamera, onCameraChange }: SceneProps) {
-  const [containerRef, measuredWidth] = useContainerWidth(1);
-  const dimensions = useMemo(
-    () => computeCanvasDimensions(measuredWidth, width, height, aspectRatio),
-    [measuredWidth, width, height, aspectRatio]
-  );
-
-  return (
-    <div ref={containerRef} style={{ width: '100%' }}>
-      {dimensions && (
-        <SceneInner
-          containerWidth={dimensions.width}
-          containerHeight={dimensions.height}
-          style={dimensions.style}
-          elements={elements}
-          camera={camera}
-          defaultCamera={defaultCamera}
-          onCameraChange={onCameraChange}
-        />
-      )}
-    </div>
-  );
-}
-
-/******************************************************
- * 4.1) The Scene Component
- ******************************************************/
-function SceneInner({
+export function SceneInner({
   elements,
   containerWidth,
   containerHeight,
@@ -1890,7 +1741,7 @@ function SceneInner({
       type: 'dragging',
       button: e.button,
       startX: e.clientX,
-      startY: e.clientY,
+      startY: e.cliefsntY,
       lastX: e.clientX,
       lastY: e.clientY,
       isShiftDown: e.shiftKey,
@@ -2097,7 +1948,7 @@ function SceneInner({
 }
 
 /******************************************************
- * 10) WGSL Shader Code
+ * 9) WGSL Shader Code
  ******************************************************/
 const billboardVertCode = /*wgsl*/`
 struct Camera {
@@ -2492,41 +2343,6 @@ fn fs_pick(@location(0) pickID: f32)-> @location(0) vec4<f32> {
   return vec4<f32>(r,g,b,1.0);
 }
 `;
-
-// Add this at the top with other imports
-function throttle<T extends (...args: any[]) => void>(
-  func: T,
-  limit: number
-): (...args: Parameters<T>) => void {
-  let inThrottle = false;
-  return function(this: any, ...args: Parameters<T>) {
-    if (!inThrottle) {
-      func.apply(this, args);
-      inThrottle = true;
-      setTimeout(() => (inThrottle = false), limit);
-    }
-  };
-}
-
-// Add this helper function near the top with other utility functions
-function computeCanvasDimensions(containerWidth: number, width?: number, height?: number, aspectRatio = 1) {
-    if (!containerWidth && !width) return;
-
-    // Determine final width from explicit width or container width
-    const finalWidth = width || containerWidth;
-
-    // Determine final height from explicit height or aspect ratio
-    const finalHeight = height || finalWidth / aspectRatio;
-
-    return {
-        width: finalWidth,
-        height: finalHeight,
-        style: {
-            width: width ? `${width}px` : '100%',
-            height: `${finalHeight}px`
-        }
-    };
-}
 
 // Add validation helper
 function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject, 'pipeline' | 'vertexBuffers' | 'instanceCount'>> & {

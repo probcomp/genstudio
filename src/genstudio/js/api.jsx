@@ -13,7 +13,7 @@ import { joinClasses, tw } from "./utils";
 const { useState, useEffect, useContext, useRef, useCallback } = React
 import Katex from "katex";
 import markdownItKatex from "./markdown-it-katex";
-import * as scene3d from "./scene3d/scene3dNew"
+import * as scene3d from "./scene3d/scene3d"
 
 export { render, scene3d };
 
