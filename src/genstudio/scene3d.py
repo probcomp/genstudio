@@ -166,9 +166,7 @@ class Scene(Plot.LayoutItem):
         return [Plot.JSRef("scene3d.Scene"), props]
 
 
-def flatten_array(
-    arr: ArrayLike, dtype: Any = np.float32
-) -> Union[np.ndarray, Plot.JSExpr]:
+def flatten_array(arr: Any, dtype: Any = np.float32) -> Any:
     """Flatten an array if it is a 2D array, otherwise return as is.
 
     Args:
