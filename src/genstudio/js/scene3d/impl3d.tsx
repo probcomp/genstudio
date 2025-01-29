@@ -2,7 +2,7 @@
 
 import * as glMatrix from 'gl-matrix';
 import React, {
-  MouseEvent,
+  // DO NOT require MouseEvent
   useCallback,
   useEffect,
   useMemo,
@@ -141,16 +141,13 @@ interface RenderConfig {
 }
 
 /** ===================== POINT CLOUD ===================== **/
-interface PointCloudData {
-  positions: Float32Array;
-  colors?: Float32Array;
-  color?: [number, number, number];  // Default color if colors not provided
-  scales?: Float32Array;
-  scale?: number;  // Default scale if scales not provided
-}
 export interface PointCloudComponentConfig {
   type: 'PointCloud';
-  data: PointCloudData;
+  positions: Float32Array;
+  colors?: Float32Array;
+  color: [number, number, number];  // Required singular option
+  sizes?: Float32Array;  // Per-point sizes in scene units
+  size: number;  // Default size in scene units
   decorations?: Decoration[];
   onHover?: (index: number|null) => void;
   onClick?: (index: number) => void;
@@ -159,22 +156,19 @@ export interface PointCloudComponentConfig {
 const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
   // Data transformation methods
   getCount(elem) {
-    return elem.data.positions.length / 3;
+    return elem.positions.length / 3;
   },
 
   buildRenderData(elem) {
-    const { positions, colors, color = [1, 1, 1], scales, scale = 0.02 } = elem.data;
+    const { positions, colors, color, sizes, size } = elem;
     const count = positions.length / 3;
     if(count === 0) return null;
 
-    // (pos.x, pos.y, pos.z, color.r, color.g, color.b, alpha, scale)
+    // (pos.x, pos.y, pos.z, color.r, color.g, color.b, alpha, size)
     const arr = new Float32Array(count * 8);
 
-    // Initialize default color values outside the loop
+    // Initialize default values outside the loop
     const hasColors = colors && colors.length === count*3;
-    const defaultColor = color;
-    const defaultScale = scale;
-
     for(let i=0; i<count; i++){
       arr[i*8+0] = positions[i*3+0];
       arr[i*8+1] = positions[i*3+1];
@@ -184,14 +178,14 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
         arr[i*8+4] = colors[i*3+1];
         arr[i*8+5] = colors[i*3+2];
       } else {
-        arr[i*8+3] = defaultColor[0];
-        arr[i*8+4] = defaultColor[1];
-        arr[i*8+5] = defaultColor[2];
+        arr[i*8+3] = color[0];
+        arr[i*8+4] = color[1];
+        arr[i*8+5] = color[2];
       }
       arr[i*8+6] = 1.0; // alpha
-      arr[i*8+7] = scales ? scales[i] : defaultScale;
+      arr[i*8+7] = sizes ? sizes[i] : size;
     }
-    // decorations
+    // decorations (keep using scale for decorations since it's a multiplier)
     if(elem.decorations){
       for(const dec of elem.decorations){
         for(const idx of dec.indexes){
@@ -217,19 +211,18 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
   },
 
   buildPickingData(elem, baseID) {
-    const { positions, scales } = elem.data;
+    const { positions, sizes, size } = elem;
     const count = positions.length / 3;
     if(count===0) return null;
 
-    // (pos.x, pos.y, pos.z, pickID, scale)
+    // (pos.x, pos.y, pos.z, pickID, size)
     const arr = new Float32Array(count*5);
     for(let i=0; i<count; i++){
       arr[i*5+0] = positions[i*3+0];
       arr[i*5+1] = positions[i*3+1];
       arr[i*5+2] = positions[i*3+2];
       arr[i*5+3] = baseID + i;
-      const s = scales ? scales[i] : 0.02;
-      arr[i*5+4] = s;
+      arr[i*5+4] = sizes ? sizes[i] : size;
     }
     return arr;
   },
@@ -316,16 +309,13 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
 };
 
 /** ===================== ELLIPSOID ===================== **/
-interface EllipsoidData {
-  centers: Float32Array;
-  radii?: Float32Array;
-  radius?: number | [number, number, number];  // Single number for sphere, triple for ellipsoid
-  colors?: Float32Array;
-  color?: [number, number, number];
-}
 export interface EllipsoidComponentConfig {
   type: 'Ellipsoid';
-  data: EllipsoidData;
+  centers: Float32Array;
+  radii?: Float32Array;
+  radius: [number, number, number];  // Required singular option
+  colors?: Float32Array;
+  color: [number, number, number];  // Required singular option
   decorations?: Decoration[];
   onHover?: (index: number|null) => void;
   onClick?: (index: number) => void;
@@ -333,17 +323,14 @@ export interface EllipsoidComponentConfig {
 
 const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
   getCount(elem){
-    return elem.data.centers.length / 3;
+    return elem.centers.length / 3;
   },
   buildRenderData(elem){
-    const { centers, radii, radius = 0.1, colors, color = [1, 1, 1] } = elem.data;
+    const { centers, radii, radius, colors, color } = elem;
     const count = centers.length / 3;
     if(count===0)return null;
 
-    // Convert radius to [x,y,z] format
-    const defaultRadius = Array.isArray(radius) ? radius : [radius, radius, radius];
-
-    // (pos.x, pos.y, pos.z, scale.x, scale.y, scale.z, col.r, col.g, col.b, alpha)
+    // (center.x, center.y, center.z, scale.x, scale.y, scale.z, color.r, color.g, color.b, alpha)
     const arr = new Float32Array(count*10);
     const hasColors = colors && colors.length===count*3;
     const hasRadii = radii && radii.length===count*3;
@@ -357,9 +344,9 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
         arr[i*10+4] = radii[i*3+1];
         arr[i*10+5] = radii[i*3+2];
       } else {
-        arr[i*10+3] = defaultRadius[0];
-        arr[i*10+4] = defaultRadius[1];
-        arr[i*10+5] = defaultRadius[2];
+        arr[i*10+3] = radius[0];
+        arr[i*10+4] = radius[1];
+        arr[i*10+5] = radius[2];
       }
       if(hasColors){
         arr[i*10+6] = colors[i*3+0];
@@ -401,12 +388,9 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
     return arr;
   },
   buildPickingData(elem, baseID){
-    const { centers, radii, radius = 0.1 } = elem.data;
+    const { centers, radii, radius } = elem;
     const count=centers.length/3;
     if(count===0)return null;
-
-    // Convert radius to [x,y,z] format
-    const defaultRadius = Array.isArray(radius) ? radius : [radius, radius, radius];
 
     // (pos.x, pos.y, pos.z, scale.x, scale.y, scale.z, pickID)
     const arr = new Float32Array(count*7);
@@ -421,9 +405,9 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
         arr[i*7+4] = radii[i*3+1];
         arr[i*7+5] = radii[i*3+2];
       } else {
-        arr[i*7+3] = defaultRadius[0];
-        arr[i*7+4] = defaultRadius[1];
-        arr[i*7+5] = defaultRadius[2];
+        arr[i*7+3] = radius[0];
+        arr[i*7+4] = radius[1];
+        arr[i*7+5] = radius[2];
       }
       arr[i*7+6] = baseID + i;
     }
@@ -489,7 +473,11 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
 /** ===================== ELLIPSOID BOUNDS ===================== **/
 export interface EllipsoidAxesComponentConfig {
   type: 'EllipsoidAxes';
-  data: EllipsoidData;
+  centers: Float32Array;
+  radii?: Float32Array;
+  radius: [number, number, number];  // Required singular option
+  colors?: Float32Array;
+  color: [number, number, number];  // Required singular option
   decorations?: Decoration[];
   onHover?: (index: number|null) => void;
   onClick?: (index: number) => void;
@@ -498,20 +486,24 @@ export interface EllipsoidAxesComponentConfig {
 const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
   getCount(elem) {
     // each ellipsoid => 3 rings
-    const c = elem.data.centers.length/3;
+    const c = elem.centers.length/3;
     return c*3;
   },
   buildRenderData(elem) {
-    const { centers, radii, colors } = elem.data;
+    const { centers, radii, radius, colors } = elem;
     const count = centers.length/3;
     if(count===0)return null;
 
     const ringCount = count*3;
     // (pos.x,pos.y,pos.z, scale.x,scale.y,scale.z, color.r,g,b, alpha)
     const arr = new Float32Array(ringCount*10);
+    const hasRadii = radii && radii.length===count*3;
+
     for(let i=0;i<count;i++){
       const cx=centers[i*3+0], cy=centers[i*3+1], cz=centers[i*3+2];
-      const rx=radii[i*3+0]||0.1, ry=radii[i*3+1]||0.1, rz=radii[i*3+2]||0.1;
+      const rx = hasRadii ? radii[i*3+0] : radius[0];
+      const ry = hasRadii ? radii[i*3+1] : radius[1];
+      const rz = hasRadii ? radii[i*3+2] : radius[2];
       let cr=1, cg=1, cb=1, alpha=1;
       if(colors && colors.length===count*3){
         cr=colors[i*3+0]; cg=colors[i*3+1]; cb=colors[i*3+2];
@@ -543,14 +535,18 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
     return arr;
   },
   buildPickingData(elem, baseID){
-    const { centers, radii } = elem.data;
+    const { centers, radii, radius } = elem;
     const count=centers.length/3;
     if(count===0)return null;
     const ringCount = count*3;
     const arr = new Float32Array(ringCount*7);
+    const hasRadii = radii && radii.length===count*3;
+
     for(let i=0;i<count;i++){
       const cx=centers[i*3+0], cy=centers[i*3+1], cz=centers[i*3+2];
-      const rx=radii[i*3+0]||0.1, ry=radii[i*3+1]||0.1, rz=radii[i*3+2]||0.1;
+      const rx = hasRadii ? radii[i*3+0] : radius[0];
+      const ry = hasRadii ? radii[i*3+1] : radius[1];
+      const rz = hasRadii ? radii[i*3+2] : radius[2];
       const thisID = baseID + i;
       for(let ring=0; ring<3; ring++){
         const idx = i*3 + ring;
@@ -622,15 +618,12 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
 };
 
 /** ===================== CUBOID ===================== **/
-interface CuboidData {
+export interface CuboidComponentConfig {
+  type: 'Cuboid';
   centers: Float32Array;
   sizes: Float32Array;
   colors?: Float32Array;
-  color?: [number, number, number];  // Default color if colors not provided
-}
-export interface CuboidComponentConfig {
-  type: 'Cuboid';
-  data: CuboidData;
+  color: [number, number, number];  // Required singular option
   decorations?: Decoration[];
   onHover?: (index: number|null) => void;
   onClick?: (index: number) => void;
@@ -638,17 +631,16 @@ export interface CuboidComponentConfig {
 
 const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
   getCount(elem){
-    return elem.data.centers.length / 3;
+    return elem.centers.length / 3;
   },
   buildRenderData(elem){
-    const { centers, sizes, colors, color = [1, 1, 1] } = elem.data;
+    const { centers, sizes, colors, color } = elem;
     const count = centers.length / 3;
     if(count===0)return null;
 
     // (center.x, center.y, center.z, size.x, size.y, size.z, color.r, color.g, color.b, alpha)
     const arr = new Float32Array(count*10);
     const hasColors = colors && colors.length===count*3;
-    const defaultColor = color;
 
     for(let i=0; i<count; i++){
       arr[i*10+0] = centers[i*3+0];
@@ -662,9 +654,9 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
         arr[i*10+7] = colors[i*3+1];
         arr[i*10+8] = colors[i*3+2];
       } else {
-        arr[i*10+6] = defaultColor[0];
-        arr[i*10+7] = defaultColor[1];
-        arr[i*10+8] = defaultColor[2];
+        arr[i*10+6] = color[0];
+        arr[i*10+7] = color[1];
+        arr[i*10+8] = color[2];
       }
       arr[i*10+9] = 1.0;
     }
@@ -697,7 +689,7 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
     return arr;
   },
   buildPickingData(elem, baseID){
-    const { centers, sizes } = elem.data;
+    const { centers, sizes } = elem;
     const count=centers.length/3;
     if(count===0)return null;
 
@@ -1025,7 +1017,7 @@ const POINT_CLOUD_INSTANCE_LAYOUT: VertexBufferLayout = {
     {shaderLocation: 2, offset: 0,  format: 'float32x3'},  // instancePos
     {shaderLocation: 3, offset: 12, format: 'float32x3'},  // color
     {shaderLocation: 4, offset: 24, format: 'float32'},    // alpha
-    {shaderLocation: 5, offset: 28, format: 'float32'}     // scale
+    {shaderLocation: 5, offset: 28, format: 'float32'}     // size
   ]
 };
 
@@ -1035,7 +1027,7 @@ const POINT_CLOUD_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
   attributes: [
     {shaderLocation: 2, offset: 0,   format: 'float32x3'},  // instancePos
     {shaderLocation: 3, offset: 12,  format: 'float32'},    // pickID
-    {shaderLocation: 4, offset: 16,  format: 'float32'}     // scale
+    {shaderLocation: 4, offset: 16,  format: 'float32'}     // size
   ]
 };
 
@@ -1797,7 +1789,7 @@ function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject
   );
 
   // Rename to be more specific to scene3d
-  const handleScene3dMouseMove = useCallback((e: MouseEvent) => {
+  const handleScene3dMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if(!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -2074,15 +2066,15 @@ fn vs_main(
   @location(2) instancePos: vec3<f32>,
   @location(3) col: vec3<f32>,
   @location(4) alpha: f32,
-  @location(5) scale: f32
+  @location(5) size: f32
 )-> VSOut {
   // Create camera-facing orientation
   let right = camera.cameraRight;
   let up = camera.cameraUp;
 
   // Transform quad vertices to world space
-  let scaledRight = right * (localPos.x * scale);
-  let scaledUp = up * (localPos.y * scale);
+  let scaledRight = right * (localPos.x * size);
+  let scaledUp = up * (localPos.y * size);
   let worldPos = instancePos + scaledRight + scaledUp;
 
   var out: VSOut;
@@ -2288,15 +2280,15 @@ fn vs_pointcloud(
   @location(1) normal: vec3<f32>,
   @location(2) instancePos: vec3<f32>,
   @location(3) pickID: f32,
-  @location(4) scale: f32
+  @location(4) size: f32
 )-> VSOut {
   // Create camera-facing orientation
   let right = camera.cameraRight;
   let up = camera.cameraUp;
 
   // Transform quad vertices to world space
-  let scaledRight = right * (localPos.x * scale);
-  let scaledUp = up * (localPos.y * scale);
+  let scaledRight = right * (localPos.x * size);
+  let scaledUp = up * (localPos.y * size);
   let worldPos = instancePos + scaledRight + scaledUp;
 
   var out: VSOut;

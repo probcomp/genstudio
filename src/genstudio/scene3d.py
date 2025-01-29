@@ -62,21 +62,11 @@ class SceneComponent(Plot.LayoutItem):
     def __init__(self, type_name: str, data: Dict[str, Any], **kwargs):
         super().__init__()
         self.type = type_name
-        self.data = data
-        self.decorations = kwargs.get("decorations")
-        self.on_hover = kwargs.get("onHover")
-        self.on_click = kwargs.get("onClick")
+        self.props = {**data, **kwargs}
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert the element to a dictionary representation."""
-        element = {"type": self.type, "data": self.data}
-        if self.decorations:
-            element["decorations"] = self.decorations
-        if self.on_hover:
-            element["onHover"] = self.on_hover
-        if self.on_click:
-            element["onClick"] = self.on_click
-        return element
+    def to_js_call(self) -> Any:
+        """Convert the element to a JSCall representation."""
+        return Plot.JSCall(f"scene3d.{self.type}", [self.props])
 
     def for_json(self) -> Dict[str, Any]:
         """Convert the element to a JSON-compatible dictionary."""
@@ -143,7 +133,9 @@ class Scene(Plot.LayoutItem):
     def __add__(self, other: Union[SceneComponent, "Scene", Dict[str, Any]]) -> "Scene":
         """Allow combining scenes with + operator."""
         if isinstance(other, Scene):
-            return Scene(*self.components, *other.components, self.scene_props)
+            return Scene(
+                *self.components, *other.components, self.scene_props, other.scene_props
+            )
         elif isinstance(other, SceneComponent):
             return Scene(*self.components, other, self.scene_props)
         elif isinstance(other, dict):
@@ -158,7 +150,8 @@ class Scene(Plot.LayoutItem):
     def for_json(self) -> Any:
         """Convert to JSON representation for JavaScript."""
         components = [
-            e.to_dict() if isinstance(e, SceneComponent) else e for e in self.components
+            e.to_js_call() if isinstance(e, SceneComponent) else e
+            for e in self.components
         ]
 
         props = {"components": components, **self.scene_props}
@@ -187,8 +180,8 @@ def PointCloud(
     positions: ArrayLike,
     colors: Optional[ArrayLike] = None,
     color: Optional[ArrayLike] = None,  # Default RGB color for all points
-    scales: Optional[ArrayLike] = None,
-    scale: Optional[NumberLike] = None,  # Default scale for all points
+    sizes: Optional[ArrayLike] = None,
+    size: Optional[NumberLike] = None,  # Default size for all points
     **kwargs: Any,
 ) -> SceneComponent:
     """Create a point cloud element.
@@ -197,8 +190,8 @@ def PointCloud(
         positions: Nx3 array of point positions or flattened array
         colors: Nx3 array of RGB colors or flattened array (optional)
         color: Default RGB color [r,g,b] for all points if colors not provided
-        scales: N array of point scales or flattened array (optional)
-        scale: Default scale for all points if scales not provided
+        sizes: N array of point sizes or flattened array (optional)
+        size: Default size for all points if sizes not provided
         **kwargs: Additional arguments like decorations, onHover, onClick
     """
     positions = flatten_array(positions, dtype=np.float32)
@@ -206,13 +199,13 @@ def PointCloud(
 
     if colors is not None:
         data["colors"] = flatten_array(colors, dtype=np.float32)
-    elif color is not None:
+    if color is not None:
         data["color"] = color
 
-    if scales is not None:
-        data["scales"] = flatten_array(scales, dtype=np.float32)
-    elif scale is not None:
-        data["scale"] = scale
+    if sizes is not None:
+        data["sizes"] = flatten_array(sizes, dtype=np.float32)
+    if size is not None:
+        data["size"] = size
 
     return SceneComponent("PointCloud", data, **kwargs)
 

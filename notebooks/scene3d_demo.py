@@ -28,14 +28,14 @@ def create_demo_scene():
     colors[:, 2] = np.clip(1.5 - abs(3.0 * hue - 4.5), 0, 1)
 
     # Create varying scales for points
-    scales = 0.01 + 0.02 * np.sin(t)
+    sizes = 0.01 + 0.02 * np.sin(t)
 
     # Create the base scene with shared elements
     base_scene = (
         PointCloud(
             positions,
             colors,
-            scales,
+            sizes,
             onHover=Plot.js("(i) => $state.update({hover_point: i})"),
             decorations=[
                 {

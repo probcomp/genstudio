@@ -13,12 +13,7 @@ interface Decoration {
 
 export function deco(
   indexes: number | number[],
-  {
-    color,
-    alpha,
-    scale,
-    minSize
-  }: {
+  options: {
     color?: [number, number, number],
     alpha?: number,
     scale?: number,
@@ -26,87 +21,106 @@ export function deco(
   } = {}
 ): Decoration {
   const indexArray = typeof indexes === 'number' ? [indexes] : indexes;
-  return { indexes: indexArray, color, alpha, scale, minSize };
+  return { indexes: indexArray, ...options };
 }
 
-export function PointCloud(
-  positions: Float32Array,
-  colors?: Float32Array,
-  scales?: Float32Array,
-  decorations?: Decoration[],
-  onHover?: (index: number|null) => void,
-  onClick?: (index: number|null) => void
-): PointCloudComponentConfig {
+export function PointCloud(props: PointCloudComponentConfig): PointCloudComponentConfig {
+
+  const {
+    positions,
+    colors,
+    sizes,
+    color = [1, 1, 1],
+    size = 0.02,
+    decorations,
+    onHover,
+    onClick
+  } = props
+  console.log("P--", props)
+
   return {
     type: 'PointCloud',
-    data: {
-      positions,
-      colors,
-      scales
-    },
+    positions,
+    colors,
+    color,
+    sizes,
+    size,
     decorations,
     onHover,
     onClick
   };
 }
 
-export function Ellipsoid(
-  centers: Float32Array,
-  radii: Float32Array,
-  colors?: Float32Array,
-  decorations?: Decoration[],
-  onHover?: (index: number|null) => void,
-  onClick?: (index: number|null) => void
-): EllipsoidComponentConfig {
+export function Ellipsoid({
+  centers,
+  radii,
+  radius = [1, 1, 1],
+  colors,
+  color = [1, 1, 1],
+  decorations,
+  onHover,
+  onClick
+}: EllipsoidComponentConfig): EllipsoidComponentConfig {
+
+  const radiusTriple = typeof radius === 'number' ?
+    [radius, radius, radius] as [number, number, number] : radius;
+
   return {
     type: 'Ellipsoid',
-    data: {
-      centers,
-      radii,
-      colors
-    },
+    centers,
+    radii,
+    radius: radiusTriple,
+    colors,
+    color,
     decorations,
     onHover,
     onClick
   };
 }
 
-export function EllipsoidAxes(
-  centers: Float32Array,
-  radii: Float32Array,
-  colors?: Float32Array,
-  decorations?: Decoration[],
-  onHover?: (index: number|null) => void,
-  onClick?: (index: number|null) => void
-): EllipsoidAxesComponentConfig {
+export function EllipsoidAxes({
+  centers,
+  radii,
+  radius = [1, 1, 1],
+  colors,
+  color = [1, 1, 1],
+  decorations,
+  onHover,
+  onClick
+}: EllipsoidAxesComponentConfig): EllipsoidAxesComponentConfig {
+
+  const radiusTriple = typeof radius === 'number' ?
+    [radius, radius, radius] as [number, number, number] : radius;
+
   return {
     type: 'EllipsoidAxes',
-    data: {
-      centers,
-      radii,
-      colors
-    },
+    centers,
+    radii,
+    radius: radiusTriple,
+    colors,
+    color,
     decorations,
     onHover,
     onClick
   };
 }
 
-export function Cuboid(
-  centers: Float32Array,
-  sizes: Float32Array,
-  colors?: Float32Array,
-  decorations?: Decoration[],
-  onHover?: (index: number|null) => void,
-  onClick?: (index: number|null) => void
-): CuboidComponentConfig {
+export function Cuboid({
+  centers,
+  sizes,
+  colors,
+  color = [1, 1, 1],
+  decorations,
+  onHover,
+  onClick
+}: CuboidComponentConfig): CuboidComponentConfig {
+
   return {
     type: 'Cuboid',
-    data: {
-      centers,
-      sizes,
-      colors
-    },
+    centers,
+    sizes,
+    colors,
+    color,
     decorations,
     onHover,
     onClick

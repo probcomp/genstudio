@@ -146,14 +146,6 @@ def create_ripple_and_morph_scene():
         n_ellipsoids=90, n_frames=n_frames
     )
 
-    # Debug prints to verify data
-    print("Ellipsoid centers shape:", ellipsoid_centers.shape)
-    print("Sample center frame 0:", ellipsoid_centers[0])
-    print("Ellipsoid radii shape:", ellipsoid_radii.shape)
-    print("Sample radii frame 0:", ellipsoid_radii[0])
-    print("Ellipsoid colors shape:", ellipsoid_colors.shape)
-    print("Colors:", ellipsoid_colors)
-
     # We'll set up a default camera that can see everything nicely
     camera = {
         "position": [2.0, 2.0, 1.5],  # Adjusted for better view
