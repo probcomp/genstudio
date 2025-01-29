@@ -2036,7 +2036,9 @@ function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject
 /******************************************************
  * 9) WGSL Shader Code
  ******************************************************/
-const billboardVertCode = /*wgsl*/`
+
+// Common shader code templates
+const cameraStruct = /*wgsl*/`
 struct Camera {
   mvp: mat4x4<f32>,
   cameraRight: vec3<f32>,
@@ -2045,8 +2047,19 @@ struct Camera {
   _pad2: f32,
   lightDir: vec3<f32>,
   _pad3: f32,
+  cameraPos: vec3<f32>,
+  _pad4: f32,
 };
-@group(0) @binding(0) var<uniform> camera : Camera;
+@group(0) @binding(0) var<uniform> camera : Camera;`;
+
+const lightingConstants = /*wgsl*/`
+const AMBIENT_INTENSITY = ${LIGHTING.AMBIENT_INTENSITY}f;
+const DIFFUSE_INTENSITY = ${LIGHTING.DIFFUSE_INTENSITY}f;
+const SPECULAR_INTENSITY = ${LIGHTING.SPECULAR_INTENSITY}f;
+const SPECULAR_POWER = ${LIGHTING.SPECULAR_POWER}f;`;
+
+const billboardVertCode = /*wgsl*/`
+${cameraStruct}
 
 struct VSOut {
   @builtin(position) Position: vec4<f32>,
@@ -2077,27 +2090,16 @@ fn vs_main(
   out.color = col;
   out.alpha = alpha;
   return out;
-}
-`;
+}`;
 
 const billboardFragCode = /*wgsl*/`
 @fragment
 fn fs_main(@location(0) color: vec3<f32>, @location(1) alpha: f32)-> @location(0) vec4<f32> {
   return vec4<f32>(color, alpha);
-}
-`;
+}`;
 
 const ellipsoidVertCode = /*wgsl*/`
-struct Camera {
-  mvp: mat4x4<f32>,
-  cameraRight: vec3<f32>,
-  _pad1: f32,
-  cameraUp: vec3<f32>,
-  _pad2: f32,
-  lightDir: vec3<f32>,
-  _pad3: f32,
-};
-@group(0) @binding(0) var<uniform> camera : Camera;
+${cameraStruct}
 
 struct VSOut {
   @builtin(position) pos: vec4<f32>,
@@ -2105,7 +2107,7 @@ struct VSOut {
   @location(2) baseColor: vec3<f32>,
   @location(3) alpha: f32,
   @location(4) worldPos: vec3<f32>,
-  @location(5) instancePos: vec3<f32>  // Added instance position
+  @location(5) instancePos: vec3<f32>
 };
 
 @vertex
@@ -2126,24 +2128,13 @@ fn vs_main(
   out.baseColor = iColor;
   out.alpha = iAlpha;
   out.worldPos = worldPos;
-  out.instancePos = iPos;  // Pass through instance position
+  out.instancePos = iPos;
   return out;
-}
-`;
+}`;
 
 const ellipsoidFragCode = /*wgsl*/`
-struct Camera {
-  mvp: mat4x4<f32>,
-  cameraRight: vec3<f32>,
-  _pad1: f32,
-  cameraUp: vec3<f32>,
-  _pad2: f32,
-  lightDir: vec3<f32>,
-  _pad3: f32,
-  cameraPos: vec3<f32>,  // Add camera position
-  _pad4: f32,
-};
-@group(0) @binding(0) var<uniform> camera : Camera;
+${cameraStruct}
+${lightingConstants}
 
 @fragment
 fn fs_main(
@@ -2153,44 +2144,23 @@ fn fs_main(
   @location(4) worldPos: vec3<f32>,
   @location(5) instancePos: vec3<f32>
 )-> @location(0) vec4<f32> {
-  // Debug flag to toggle normal visualization
-  let debugNormals = false;
+  let N = normalize(normal);
+  let L = normalize(camera.lightDir);
+  let V = normalize(camera.cameraPos - worldPos);
 
-  if (debugNormals) {
-    // For debugging: show the normal as color while supporting translucency
-    let N = normalize(normal);
-    return vec4<f32>(N, alpha);  // Display the normal vector as RGB color with original alpha
-  } else {
-    // Original shading code
-    let N = normal;
+  let lambert = max(dot(N, L), 0.0);
+  let ambient = AMBIENT_INTENSITY;
+  var color = baseColor * (ambient + lambert * DIFFUSE_INTENSITY);
 
-    let L = normalize(camera.lightDir);
-    let V = normalize(camera.cameraPos - worldPos);
+  let H = normalize(L + V);
+  let spec = pow(max(dot(N, H), 0.0), SPECULAR_POWER);
+  color += vec3<f32>(1.0) * spec * SPECULAR_INTENSITY;
 
-    let lambert = max(dot(N, L), 0.0);
-    let ambient = ${LIGHTING.AMBIENT_INTENSITY};
-    var color = baseColor * (ambient + lambert*${LIGHTING.DIFFUSE_INTENSITY});
-
-    let H = normalize(L + V);
-    let spec = pow(max(dot(N, H),0.0), ${LIGHTING.SPECULAR_POWER});
-    color += vec3<f32>(1.0,1.0,1.0)*spec*${LIGHTING.SPECULAR_INTENSITY};
-
-    return vec4<f32>(color, alpha);
-  }
-}
-`;
+  return vec4<f32>(color, alpha);
+}`;
 
 const ringVertCode = /*wgsl*/`
-struct Camera {
-  mvp: mat4x4<f32>,
-  cameraRight: vec3<f32>,
-  _pad1: f32,
-  cameraUp: vec3<f32>,
-  _pad2: f32,
-  lightDir: vec3<f32>,
-  _pad3: f32,
-};
-@group(0) @binding(0) var<uniform> camera : Camera;
+${cameraStruct}
 
 struct VSOut {
   @builtin(position) pos: vec4<f32>,
@@ -2234,8 +2204,7 @@ fn vs_main(
   out.alpha = alpha;
   out.worldPos = wp;
   return out;
-}
-`;
+}`;
 
 const ringFragCode = /*wgsl*/`
 @fragment
@@ -2247,20 +2216,10 @@ fn fs_main(
 )-> @location(0) vec4<f32> {
   // simple color (no shading)
   return vec4<f32>(c, a);
-}
-`;
+}`;
 
 const cuboidVertCode = /*wgsl*/`
-struct Camera {
-  mvp: mat4x4<f32>,
-  cameraRight: vec3<f32>,
-  _pad1: f32,
-  cameraUp: vec3<f32>,
-  _pad2: f32,
-  lightDir: vec3<f32>,
-  _pad3: f32,
-};
-@group(0) @binding(0) var<uniform> camera: Camera;
+${cameraStruct}
 
 struct VSOut {
   @builtin(position) pos: vec4<f32>,
@@ -2288,20 +2247,11 @@ fn vs_main(
   out.alpha = alpha;
   out.worldPos = worldPos;
   return out;
-}
-`;
+}`;
 
 const cuboidFragCode = /*wgsl*/`
-struct Camera {
-  mvp: mat4x4<f32>,
-  cameraRight: vec3<f32>,
-  _pad1: f32,
-  cameraUp: vec3<f32>,
-  _pad2: f32,
-  lightDir: vec3<f32>,
-  _pad3: f32,
-};
-@group(0) @binding(0) var<uniform> camera: Camera;
+${cameraStruct}
+${lightingConstants}
 
 @fragment
 fn fs_main(
@@ -2312,30 +2262,20 @@ fn fs_main(
 )-> @location(0) vec4<f32> {
   let N = normalize(normal);
   let L = normalize(camera.lightDir);
-  let lambert = max(dot(N,L), 0.0);
-  let ambient = ${LIGHTING.AMBIENT_INTENSITY};
-  var color = baseColor * (ambient + lambert*${LIGHTING.DIFFUSE_INTENSITY});
-
   let V = normalize(-worldPos);
+  let lambert = max(dot(N,L), 0.0);
+  let ambient = AMBIENT_INTENSITY;
+  var color = baseColor * (ambient + lambert * DIFFUSE_INTENSITY);
+
   let H = normalize(L + V);
-  let spec = pow(max(dot(N,H),0.0), ${LIGHTING.SPECULAR_POWER});
-  color += vec3<f32>(1.0,1.0,1.0)*spec*${LIGHTING.SPECULAR_INTENSITY};
+  let spec = pow(max(dot(N,H),0.0), SPECULAR_POWER);
+  color += vec3<f32>(1.0) * spec * SPECULAR_INTENSITY;
 
   return vec4<f32>(color, alpha);
-}
-`;
+}`;
 
 const pickingVertCode = /*wgsl*/`
-struct Camera {
-  mvp: mat4x4<f32>,
-  cameraRight: vec3<f32>,
-  _pad1: f32,
-  cameraUp: vec3<f32>,
-  _pad2: f32,
-  lightDir: vec3<f32>,
-  _pad3: f32,
-};
-@group(0) @binding(0) var<uniform> camera: Camera;
+${cameraStruct}
 
 struct VSOut {
   @builtin(position) pos: vec4<f32>,
@@ -2427,5 +2367,4 @@ fn fs_pick(@location(0) pickID: f32)-> @location(0) vec4<f32> {
   let g = f32((iID>>8)&255u)/255.0;
   let b = f32((iID>>16)&255u)/255.0;
   return vec4<f32>(r,g,b,1.0);
-}
-`;
+}`;
