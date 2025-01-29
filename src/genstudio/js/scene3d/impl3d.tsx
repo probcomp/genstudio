@@ -66,6 +66,7 @@ export interface SceneInnerProps {
     camera?: CameraParams;
     defaultCamera?: CameraParams;
     onCameraChange?: (camera: CameraParams) => void;
+    onFrameRendered?: (renderTime: number) => void;  // Add this line
 }
 
 /******************************************************
@@ -1088,7 +1089,8 @@ export function SceneInner({
   style,
   camera: controlledCamera,
   defaultCamera,
-  onCameraChange
+  onCameraChange,
+  onFrameRendered
 }: SceneInnerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -1517,6 +1519,8 @@ function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject
       renderObjects, depthTexture
     } = gpuRef.current;
 
+    const startTime = performance.now();  // Add timing measurement
+
     // Update camera uniforms
     const aspect = containerWidth / containerHeight;
     const view = glMatrix.mat4.lookAt(
@@ -1611,7 +1615,12 @@ function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject
 
     pass.end();
     device.queue.submit([cmd.finish()]);
-  }, [containerWidth, containerHeight]);
+
+    // Measure frame time and report it
+    const endTime = performance.now();
+    const frameTime = endTime - startTime;
+    onFrameRendered?.(frameTime);
+  }, [containerWidth, containerHeight, onFrameRendered]);  // Add onFrameRendered to deps
 
   /******************************************************
    * E) Pick pass (on hover/click)
@@ -1789,7 +1798,7 @@ function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject
   );
 
   // Rename to be more specific to scene3d
-  const handleScene3dMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleScene3dMouseMove = useCallback((e: MouseEvent) => {
     if(!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;

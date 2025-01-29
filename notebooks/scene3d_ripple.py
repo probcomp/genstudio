@@ -7,7 +7,7 @@ from genstudio.scene3d import PointCloud, Ellipsoid, deco
 
 
 # ----------------- 1) Ripple Grid (Point Cloud) -----------------
-def create_ripple_grid(n_x=50, n_y=50, n_frames=60):
+def create_ripple_grid(n_x=200, n_y=200, n_frames=60):
     """Create frames of a 2D grid of points in the XY plane with sinusoidal ripple over time.
 
     Returns:
@@ -62,67 +62,66 @@ def create_ripple_grid(n_x=50, n_y=50, n_frames=60):
 
 # ----------------- 2) Morphing Ellipsoids -----------------
 def create_morphing_ellipsoids(
-    n_ellipsoids=90, n_frames=180
+    n_ellipsoids=300, n_frames=60
 ):  # More frames for smoother motion
     """
-    Generate per-frame positions/radii for a vehicle-like convoy navigating a virtual city.
-    The convoy follows a distinct path as if following city streets.
+    Generate per-frame positions/radii for a segmented insect-like creature.
+    Each ellipsoid represents one body segment that follows the segment in front of it,
+    like train cars following a track. The creature moves in a curved path,
+    like a snake chasing but never catching its tail.
 
     Returns:
         centers_frames: shape (n_frames, n_ellipsoids, 3)
         radii_frames:   shape (n_frames, n_ellipsoids, 3)
         colors:         shape (n_ellipsoids, 3)
     """
-    n_snakes = 1
-    n_per_snake = n_ellipsoids // n_snakes
+    # Each ellipsoid is a body segment
+    n_segments = n_ellipsoids
 
-    # Create colors that feel more vehicle-like
-    colors = np.zeros((n_ellipsoids, 3), dtype=np.float32)
-    t = np.linspace(0, 1, n_per_snake)
-    # Second convoy: red to orange glow
-    colors[:n_per_snake] = np.column_stack(
-        [0.9 - 0.1 * t, 0.3 + 0.3 * t, 0.2 + 0.1 * t]
-    )
+    # Create colors for the segments - dark insect-like coloring
+    colors = np.zeros((n_segments, 3), dtype=np.float32)
+    t = np.linspace(0, 1, n_segments)
+    colors[:] = np.column_stack([0.2 + 0.1 * t, 0.2 + 0.05 * t, 0.1 + 0.05 * t])
 
-    centers_frames = np.zeros((n_frames, n_ellipsoids, 3), dtype=np.float32)
-    radii_frames = np.zeros((n_frames, n_ellipsoids, 3), dtype=np.float32)
+    centers_frames = np.zeros((n_frames, n_segments, 3), dtype=np.float32)
+    radii_frames = np.zeros((n_frames, n_segments, 3), dtype=np.float32)
 
-    # City grid parameters
-    block_size = 0.8
+    # Path parameters
+    path_radius = 3.0  # Size of spiral path
+    bump_height = 0.3  # How high the bumps go
+    bump_freq = 3.0  # Frequency of bumps
+
+    # Total angle the worm spans (120 degrees = 1/3 of circle)
+    total_angle = math.pi * 2 / 3
+    # Angle between segments stays constant regardless of n_segments
+    segment_spacing = total_angle / (n_segments - 1)
 
     for frame_i in range(n_frames):
         t = 2.0 * math.pi * frame_i / float(n_frames)
 
-        for i in range(n_per_snake):
-            idx = i
-            s = i / n_per_snake
+        # For each segment
+        for i in range(n_segments):
+            # Each segment follows the same path but spaced by fixed angle
+            segment_t = t - (i * segment_spacing)
 
-            # Second convoy: follows rectangular blocks
-            block_t = (t * 0.2 + s * 0.5) % (2.0 * math.pi)
-            if block_t < math.pi / 2:  # First segment
-                x = block_size * (block_t / (math.pi / 2))
-                y = block_size
-            elif block_t < math.pi:  # Second segment
-                x = block_size
-                y = block_size * (2 - block_t / (math.pi / 2))
-            elif block_t < 3 * math.pi / 2:  # Third segment
-                x = block_size * (3 - block_t / (math.pi / 2))
-                y = -block_size
-            else:  # Fourth segment
-                x = -block_size
-                y = block_size * (block_t / (math.pi / 2) - 4)
-            z = 0.15 + 0.05 * math.sin(block_t * 4)
+            # Circular path
+            x = path_radius * math.cos(segment_t)
+            y = path_radius * math.sin(segment_t)
 
-            centers_frames[frame_i, idx] = [x, y, z]
+            # Add bumpy height variation
+            z = bump_height * math.sin(segment_t * bump_freq)
 
-            # Base size smaller for vehicle feel
-            base_size = 0.08 * (0.9 + 0.1 * math.sin(s * 2.0 * math.pi))
+            centers_frames[frame_i, i] = [x, y, z]
 
-            # Elongate in direction of motion
-            radii_frames[frame_i, idx] = [
-                base_size * 1.5,  # longer
-                base_size * 0.8,  # narrower
-                base_size * 0.6,  # lower profile
+            # Size varies slightly along body
+            body_taper = 1.0 - 0.3 * (i / n_segments)  # Taper towards tail
+            base_size = 0.3 * body_taper
+
+            # Segments are elongated horizontally
+            radii_frames[frame_i, i] = [
+                base_size * 1.2,  # length
+                base_size * 0.8,  # width
+                base_size * 0.7,  # height
             ]
 
     return centers_frames, radii_frames, colors
@@ -139,20 +138,20 @@ def create_ripple_and_morph_scene():
     """
     # 1. Generate data for the ripple grid
     n_frames = 120  # More frames for slower motion
-    grid_xyz_frames, grid_rgb = create_ripple_grid(n_x=60, n_y=60, n_frames=n_frames)
+    grid_xyz_frames, grid_rgb = create_ripple_grid(n_frames=n_frames)
 
     # 2. Generate data for morphing ellipsoids
     ellipsoid_centers, ellipsoid_radii, ellipsoid_colors = create_morphing_ellipsoids(
-        n_ellipsoids=90, n_frames=n_frames
+        n_frames=n_frames
     )
 
     # We'll set up a default camera that can see everything nicely
     camera = {
-        "position": [2.0, 2.0, 1.5],  # Adjusted for better view
+        "position": [8.0, 8.0, 6.0],  # Moved further back and up for better overview
         "target": [0, 0, 0],
         "up": [0, 0, 1],
-        "fov": 45,
-        "near": 0.01,
+        "fov": 35,  # Narrower FOV for less perspective distortion
+        "near": 0.1,
         "far": 100.0,
     }
 
@@ -164,7 +163,7 @@ def create_ripple_and_morph_scene():
     scene_grid = PointCloud(
         positions=js("$state.grid_xyz[$state.frame]"),
         colors=js("$state.grid_rgb"),
-        scales=np.ones(60 * 60, dtype=np.float32) * 0.03,  # each point scale
+        size=0.01,  # each point scale
         onHover=js("(i) => $state.update({hover_point: i})"),
         decorations=[
             deco(

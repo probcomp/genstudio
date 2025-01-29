@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { SceneInner, ComponentConfig, PointCloudComponentConfig, EllipsoidComponentConfig, EllipsoidAxesComponentConfig, CuboidComponentConfig } from './impl3d';
 import { CameraParams } from './camera3d';
 import { useContainerWidth } from '../utils';
+import { FPSCounter, useFPSCounter } from './fps';
 
 interface Decoration {
   indexes: number[];
@@ -163,18 +164,24 @@ export function Scene({ components, width, height, aspectRatio = 1, camera, defa
     [measuredWidth, width, height, aspectRatio]
   );
 
+  const { fpsDisplayRef, updateDisplay } = useFPSCounter();
+
   return (
-    <div ref={containerRef} style={{ width: '100%' }}>
+    <div ref={containerRef} style={{ width: '100%', position: 'relative' }}>
       {dimensions && (
-        <SceneInner
-          containerWidth={dimensions.width}
-          containerHeight={dimensions.height}
-          style={dimensions.style}
-          components={components}
-          camera={camera}
-          defaultCamera={defaultCamera}
-          onCameraChange={onCameraChange}
-        />
+        <>
+          <SceneInner
+            containerWidth={dimensions.width}
+            containerHeight={dimensions.height}
+            style={dimensions.style}
+            components={components}
+            camera={camera}
+            defaultCamera={defaultCamera}
+            onCameraChange={onCameraChange}
+            onFrameRendered={updateDisplay}
+          />
+          <FPSCounter fpsRef={fpsDisplayRef} />
+        </>
       )}
     </div>
   );

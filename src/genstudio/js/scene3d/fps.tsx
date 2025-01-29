@@ -1,4 +1,4 @@
-import React, {useRef, useCallback} from "react"
+import React, {useRef, useCallback, useEffect} from "react"
 
 interface FPSCounterProps {
     fpsRef: React.RefObject<HTMLDivElement>;
@@ -26,23 +26,35 @@ export function FPSCounter({ fpsRef }: FPSCounterProps) {
 
 export function useFPSCounter() {
     const fpsDisplayRef = useRef<HTMLDivElement>(null);
-    const renderTimesRef = useRef<number[]>([]);
-    const MAX_SAMPLES = 10;
+    const frameTimesRef = useRef<number[]>([]);
+    const lastRenderTimeRef = useRef<number>(0);
+    const lastUpdateTimeRef = useRef<number>(0);
+    const MAX_SAMPLES = 60;
 
     const updateDisplay = useCallback((renderTime: number) => {
-        renderTimesRef.current.push(renderTime);
-        if (renderTimesRef.current.length > MAX_SAMPLES) {
-            renderTimesRef.current.shift();
-        }
+        const now = performance.now();
 
-        const avgRenderTime = renderTimesRef.current.reduce((a, b) => a + b, 0) /
-            renderTimesRef.current.length;
+        // If this is a new frame (not just a re-render)
+        if (now - lastUpdateTimeRef.current > 1) {
+            // Calculate total frame time (render time + time since last frame)
+            const totalTime = renderTime + (now - lastRenderTimeRef.current);
+            frameTimesRef.current.push(totalTime);
 
-        const avgFps = 1000 / avgRenderTime;
+            if (frameTimesRef.current.length > MAX_SAMPLES) {
+                frameTimesRef.current.shift();
+            }
 
-        if (fpsDisplayRef.current) {
-            fpsDisplayRef.current.textContent =
-                `${avgFps.toFixed(1)} FPS`;
+            // Calculate average FPS from frame times
+            const avgFrameTime = frameTimesRef.current.reduce((a, b) => a + b, 0) /
+                frameTimesRef.current.length;
+            const fps = 1000 / avgFrameTime;
+
+            if (fpsDisplayRef.current) {
+                fpsDisplayRef.current.textContent = `${Math.round(fps)} FPS`;
+            }
+
+            lastUpdateTimeRef.current = now;
+            lastRenderTimeRef.current = now;
         }
     }, []);
 
