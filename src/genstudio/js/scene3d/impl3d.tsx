@@ -47,7 +47,7 @@ export interface RenderObject {
   pickingIndexCount?: number;
   pickingInstanceCount?: number;
 
-  elementIndex: number;
+  componentIndex: number;
   pickingDataStale: boolean;
 }
 
@@ -59,7 +59,7 @@ export interface DynamicBuffers {
 }
 
 export interface SceneInnerProps {
-    elements: any[];
+    components: any[];
     containerWidth: number;
     containerHeight: number;
     style?: React.CSSProperties;
@@ -87,14 +87,14 @@ const LIGHTING = {
  * 3) Data Structures & Primitive Specs
  ******************************************************/
 interface PrimitiveSpec<E> {
-  /** Get the number of instances in this element */
-  getCount(element: E): number;
+  /** Get the number of instances in this component */
+  getCount(component: E): number;
 
   /** Build vertex buffer data for rendering */
-  buildRenderData(element: E): Float32Array | null;
+  buildRenderData(component: E): Float32Array | null;
 
   /** Build vertex buffer data for picking */
-  buildPickingData(element: E, baseID: number): Float32Array | null;
+  buildPickingData(component: E, baseID: number): Float32Array | null;
 
   /** The default rendering configuration for this primitive type */
   renderConfig: RenderConfig;
@@ -146,7 +146,7 @@ interface PointCloudData {
   colors?: Float32Array;
   scales?: Float32Array;
 }
-export interface PointCloudElementConfig {
+export interface PointCloudGroupConfig {
   type: 'PointCloud';
   data: PointCloudData;
   decorations?: Decoration[];
@@ -154,7 +154,7 @@ export interface PointCloudElementConfig {
   onClick?: (index: number) => void;
 }
 
-const pointCloudSpec: PrimitiveSpec<PointCloudElementConfig> = {
+const pointCloudSpec: PrimitiveSpec<PointCloudGroupConfig> = {
   // Data transformation methods
   getCount(elem) {
     return elem.data.positions.length / 3;
@@ -306,7 +306,7 @@ const pointCloudSpec: PrimitiveSpec<PointCloudElementConfig> = {
       pickingIndexCount: 6,
       pickingInstanceCount: instanceCount,
 
-      elementIndex: -1,
+      componentIndex: -1,
       pickingDataStale: true,
     };
   }
@@ -318,7 +318,7 @@ interface EllipsoidData {
   radii: Float32Array;
   colors?: Float32Array;
 }
-export interface EllipsoidElementConfig {
+export interface EllipsoidGroupConfig {
   type: 'Ellipsoid';
   data: EllipsoidData;
   decorations?: Decoration[];
@@ -326,7 +326,7 @@ export interface EllipsoidElementConfig {
   onClick?: (index: number) => void;
 }
 
-const ellipsoidSpec: PrimitiveSpec<EllipsoidElementConfig> = {
+const ellipsoidSpec: PrimitiveSpec<EllipsoidGroupConfig> = {
   getCount(elem){
     return elem.data.centers.length / 3;
   },
@@ -450,14 +450,14 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidElementConfig> = {
       pickingIndexCount: indexCount,
       pickingInstanceCount: instanceCount,
 
-      elementIndex: -1,
+      componentIndex: -1,
       pickingDataStale: true,
     };
   }
 };
 
 /** ===================== ELLIPSOID BOUNDS ===================== **/
-export interface EllipsoidAxesElementConfig {
+export interface EllipsoidAxesGroupConfig {
   type: 'EllipsoidAxes';
   data: EllipsoidData;
   decorations?: Decoration[];
@@ -465,7 +465,7 @@ export interface EllipsoidAxesElementConfig {
   onClick?: (index: number) => void;
 }
 
-const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesElementConfig> = {
+const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesGroupConfig> = {
   getCount(elem) {
     // each ellipsoid => 3 rings
     const c = elem.data.centers.length/3;
@@ -585,7 +585,7 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesElementConfig> = {
       pickingIndexCount: indexCount,
       pickingInstanceCount: instanceCount,
 
-      elementIndex: -1,
+      componentIndex: -1,
       pickingDataStale: true,
     };
   }
@@ -597,7 +597,7 @@ interface CuboidData {
   sizes: Float32Array;
   colors?: Float32Array;
 }
-export interface CuboidElementConfig {
+export interface CuboidGroupConfig {
   type: 'Cuboid';
   data: CuboidData;
   decorations?: Decoration[];
@@ -605,7 +605,7 @@ export interface CuboidElementConfig {
   onClick?: (index: number) => void;
 }
 
-const cuboidSpec: PrimitiveSpec<CuboidElementConfig> = {
+const cuboidSpec: PrimitiveSpec<CuboidGroupConfig> = {
   getCount(elem){
     return elem.data.centers.length / 3;
   },
@@ -730,7 +730,7 @@ const cuboidSpec: PrimitiveSpec<CuboidElementConfig> = {
       pickingIndexCount: indexCount,
       pickingInstanceCount: instanceCount,
 
-      elementIndex: -1,
+      componentIndex: -1,
       pickingDataStale: true,
     };
   }
@@ -1004,13 +1004,13 @@ const MESH_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
 /******************************************************
  * 7) Primitive Registry
  ******************************************************/
-export type SceneElementConfig =
-  | PointCloudElementConfig
-  | EllipsoidElementConfig
-  | EllipsoidAxesElementConfig
-  | CuboidElementConfig;
+export type ComponentConfig =
+  | PointCloudGroupConfig
+  | EllipsoidGroupConfig
+  | EllipsoidAxesGroupConfig
+  | CuboidGroupConfig;
 
-const primitiveRegistry: Record<SceneElementConfig['type'], PrimitiveSpec<any>> = {
+const primitiveRegistry: Record<ComponentConfig['type'], PrimitiveSpec<any>> = {
   PointCloud: pointCloudSpec,  // Use consolidated spec
   Ellipsoid: ellipsoidSpec,
   EllipsoidAxes: ellipsoidAxesSpec,
@@ -1023,7 +1023,7 @@ const primitiveRegistry: Record<SceneElementConfig['type'], PrimitiveSpec<any>> 
  ******************************************************/
 
 export function SceneInner({
-  elements,
+  components,
   containerWidth,
   containerHeight,
   style,
@@ -1046,8 +1046,8 @@ export function SceneInner({
     readbackBuffer: GPUBuffer;
 
     renderObjects: RenderObject[];
-    elementBaseId: number[];
-    idToElement: ({elementIdx: number, instanceIdx: number} | null)[];
+    componentBaseId: number[];
+    idToComponent: ({componentIdx: number, instanceIdx: number} | null)[];
     pipelineCache: Map<string, PipelineCacheEntry>;  // Add this
     dynamicBuffers: DynamicBuffers | null;
     resources: GeometryResources;  // Add this
@@ -1091,7 +1091,7 @@ export function SceneInner({
   const pickingLockRef = useRef(false);
 
   // Add hover state tracking
-  const lastHoverState = useRef<{elementIdx: number, instanceIdx: number} | null>(null);
+  const lastHoverState = useRef<{componentIdx: number, instanceIdx: number} | null>(null);
 
   /******************************************************
    * A) initWebGPU
@@ -1152,8 +1152,8 @@ export function SceneInner({
         pickDepthTexture: null,
         readbackBuffer,
         renderObjects: [],
-        elementBaseId: [],
-        idToElement: [null],  // First ID (0) is reserved
+        componentBaseId: [],
+        idToComponent: [null],  // First ID (0) is reserved
         pipelineCache: new Map(),
         dynamicBuffers: null,
         resources: {
@@ -1224,28 +1224,28 @@ export function SceneInner({
    * C) Building the RenderObjects (no if/else)
    ******************************************************/
   // Move ID mapping logic to a separate function
-  const buildElementIdMapping = useCallback((elements: SceneElementConfig[]) => {
+  const buildComponentIdMapping = useCallback((components: ComponentConfig[]) => {
     if (!gpuRef.current) return;
 
     // Reset ID mapping
-    gpuRef.current.idToElement = [null];  // First ID (0) is reserved
+    gpuRef.current.idToComponent = [null];  // First ID (0) is reserved
     let currentID = 1;
 
     // Build new mapping
-    elements.forEach((elem, elementIdx) => {
+    components.forEach((elem, componentIdx) => {
       const spec = primitiveRegistry[elem.type];
       if (!spec) {
-        gpuRef.current!.elementBaseId[elementIdx] = 0;
+        gpuRef.current!.componentBaseId[componentIdx] = 0;
         return;
       }
 
       const count = spec.getCount(elem);
-      gpuRef.current!.elementBaseId[elementIdx] = currentID;
+      gpuRef.current!.componentBaseId[componentIdx] = currentID;
 
       // Expand global ID table
       for (let j = 0; j < count; j++) {
-        gpuRef.current!.idToElement[currentID + j] = {
-          elementIdx: elementIdx,
+        gpuRef.current!.idToComponent[currentID + j] = {
+          componentIdx: componentIdx,
           instanceIdx: j
         };
       }
@@ -1254,11 +1254,11 @@ export function SceneInner({
   }, []);
 
   // Fix the calculateBufferSize function
-  function calculateBufferSize(elements: SceneElementConfig[]): { renderSize: number, pickingSize: number } {
+  function calculateBufferSize(components: ComponentConfig[]): { renderSize: number, pickingSize: number } {
     let renderSize = 0;
     let pickingSize = 0;
 
-    elements.forEach(elem => {
+    components.forEach(elem => {
       const spec = primitiveRegistry[elem.type];
       if (!spec) return;
 
@@ -1315,12 +1315,12 @@ export function SceneInner({
   }
 
   // Update buildRenderObjects to use correct stride calculation
-  function buildRenderObjects(elements: SceneElementConfig[]): RenderObject[] {
+  function buildRenderObjects(components: ComponentConfig[]): RenderObject[] {
     if(!gpuRef.current) return [];
     const { device, bindGroupLayout, pipelineCache, resources } = gpuRef.current;
 
       // Calculate required buffer sizes
-    const { renderSize, pickingSize } = calculateBufferSize(elements);
+    const { renderSize, pickingSize } = calculateBufferSize(components);
 
     // Create or recreate dynamic buffers if needed
     if (!gpuRef.current.dynamicBuffers ||
@@ -1341,15 +1341,15 @@ export function SceneInner({
       dynamicBuffers.renderOffset = 0;
       dynamicBuffers.pickingOffset = 0;
 
-      // Initialize elementBaseId array
-      gpuRef.current.elementBaseId = [];
+      // Initialize componentBaseId array
+      gpuRef.current.componentBaseId = [];
 
       // Build ID mapping
-      buildElementIdMapping(elements);
+      buildComponentIdMapping(components);
 
     const validRenderObjects: RenderObject[] = [];
 
-      elements.forEach((elem, i) => {
+      components.forEach((elem, i) => {
       const spec = primitiveRegistry[elem.type];
       if(!spec) {
         console.warn(`Unknown primitive type: ${elem.type}`);
@@ -1359,13 +1359,13 @@ export function SceneInner({
       try {
         const count = spec.getCount(elem);
         if (count === 0) {
-          console.warn(`Element ${i} (${elem.type}) has no instances`);
+          console.warn(`Component ${i} (${elem.type}) has no instances`);
           return;
         }
 
         const renderData = spec.buildRenderData(elem);
         if (!renderData) {
-          console.warn(`Failed to build render data for element ${i} (${elem.type})`);
+          console.warn(`Failed to build render data for component ${i} (${elem.type})`);
           return;
         }
 
@@ -1389,7 +1389,7 @@ export function SceneInner({
 
         const pipeline = spec.getRenderPipeline(device, bindGroupLayout, pipelineCache);
         if (!pipeline) {
-          console.warn(`Failed to create pipeline for element ${i} (${elem.type})`);
+          console.warn(`Failed to create pipeline for component ${i} (${elem.type})`);
           return;
         }
 
@@ -1408,7 +1408,7 @@ export function SceneInner({
         );
 
         if (!baseRenderObject.vertexBuffers || baseRenderObject.vertexBuffers.length !== 2) {
-          console.warn(`Invalid vertex buffers for element ${i} (${elem.type})`);
+          console.warn(`Invalid vertex buffers for component ${i} (${elem.type})`);
           return;
         }
 
@@ -1417,12 +1417,12 @@ export function SceneInner({
           pickingPipeline: undefined,
           pickingVertexBuffers: [undefined, undefined] as [GPUBuffer | undefined, BufferInfo | undefined],
           pickingDataStale: true,
-          elementIndex: i
+          componentIndex: i
         };
 
           validRenderObjects.push(renderObject);
       } catch (error) {
-        console.error(`Error creating render object for element ${i} (${elem.type}):`, error);
+        console.error(`Error creating render object for component ${i} (${elem.type}):`, error);
       }
       });
 
@@ -1547,7 +1547,7 @@ export function SceneInner({
     try {
       const {
         device, pickTexture, pickDepthTexture, readbackBuffer,
-        uniformBindGroup, renderObjects, idToElement
+        uniformBindGroup, renderObjects, idToComponent
       } = gpuRef.current;
       if(!pickTexture || !pickDepthTexture || !readbackBuffer) return;
       if (currentPickingId !== pickingId) return;
@@ -1555,7 +1555,7 @@ export function SceneInner({
       // Ensure picking data is ready for all objects
       renderObjects.forEach((ro, i) => {
         if (ro.pickingDataStale) {
-          ensurePickingData(ro, elements[i]);
+          ensurePickingData(ro, components[i]);
         }
       });
 
@@ -1646,30 +1646,30 @@ export function SceneInner({
 
   function handleHoverID(pickedID: number) {
     if (!gpuRef.current) return;
-    const { idToElement } = gpuRef.current;
+    const { idToComponent } = gpuRef.current;
 
     // Get new hover state
-    const newHoverState = idToElement[pickedID] || null;
+    const newHoverState = idToComponent[pickedID] || null;
 
     // If hover state hasn't changed, do nothing
     if ((!lastHoverState.current && !newHoverState) ||
         (lastHoverState.current && newHoverState &&
-         lastHoverState.current.elementIdx === newHoverState.elementIdx &&
+         lastHoverState.current.componentIdx === newHoverState.componentIdx &&
          lastHoverState.current.instanceIdx === newHoverState.instanceIdx)) {
       return;
     }
 
     // Clear previous hover if it exists
     if (lastHoverState.current) {
-      const prevElement = elements[lastHoverState.current.elementIdx];
-      prevElement?.onHover?.(null);
+      const prevComponent = components[lastHoverState.current.componentIdx];
+      prevComponent?.onHover?.(null);
     }
 
     // Set new hover if it exists
     if (newHoverState) {
-      const { elementIdx, instanceIdx } = newHoverState;
-      if (elementIdx >= 0 && elementIdx < elements.length) {
-        elements[elementIdx].onHover?.(instanceIdx);
+      const { componentIdx, instanceIdx } = newHoverState;
+      if (componentIdx >= 0 && componentIdx < components.length) {
+        components[componentIdx].onHover?.(instanceIdx);
       }
     }
 
@@ -1679,12 +1679,12 @@ export function SceneInner({
 
   function handleClickID(pickedID:number){
     if(!gpuRef.current) return;
-    const {idToElement} = gpuRef.current;
-    const rec = idToElement[pickedID];
+    const {idToComponent} = gpuRef.current;
+    const rec = idToComponent[pickedID];
     if(!rec) return;
-    const {elementIdx, instanceIdx} = rec;
-    if(elementIdx<0||elementIdx>=elements.length) return;
-    elements[elementIdx].onClick?.(instanceIdx);
+    const {componentIdx, instanceIdx} = rec;
+    if(componentIdx<0||componentIdx>=components.length) return;
+    components[componentIdx].onClick?.(instanceIdx);
   }
 
   /******************************************************
@@ -1741,7 +1741,7 @@ export function SceneInner({
       type: 'dragging',
       button: e.button,
       startX: e.clientX,
-      startY: e.cliefsntY,
+      startY: e.clientY,
       lastX: e.clientX,
       lastY: e.clientY,
       isShiftDown: e.shiftKey,
@@ -1845,14 +1845,14 @@ export function SceneInner({
     }
 }, [containerWidth, containerHeight, createOrUpdateDepthTexture, createOrUpdatePickTextures, renderFrame, activeCamera]);
 
-  // Update elements effect
+  // Update components effect
   useEffect(() => {
     if (isReady && gpuRef.current) {
-      const ros = buildRenderObjects(elements);
+      const ros = buildRenderObjects(components);
       gpuRef.current.renderObjects = ros;
       renderFrame(activeCamera);
     }
-  }, [isReady, elements]); // Remove activeCamera dependency
+  }, [isReady, components]); // Remove activeCamera dependency
 
   // Add separate effect just for camera updates
   useEffect(() => {
@@ -1878,14 +1878,14 @@ export function SceneInner({
   }, [handleCameraUpdate]);
 
   // Move ensurePickingData inside component
-  const ensurePickingData = useCallback((renderObject: RenderObject, element: SceneElementConfig) => {
+  const ensurePickingData = useCallback((renderObject: RenderObject, component: ComponentConfig) => {
     if (!renderObject.pickingDataStale) return;
     if (!gpuRef.current) return;
 
     const { device, bindGroupLayout, pipelineCache, resources } = gpuRef.current;
 
     // Calculate sizes before creating buffers
-    const { renderSize, pickingSize } = calculateBufferSize(elements);
+    const { renderSize, pickingSize } = calculateBufferSize(components);
 
     // Ensure dynamic buffers exist
     if (!gpuRef.current.dynamicBuffers) {
@@ -1893,11 +1893,11 @@ export function SceneInner({
     }
     const dynamicBuffers = gpuRef.current.dynamicBuffers!;
 
-    const spec = primitiveRegistry[element.type];
+    const spec = primitiveRegistry[component.type];
     if (!spec) return;
 
     // Build picking data
-    const pickData = spec.buildPickingData(element, gpuRef.current.elementBaseId[renderObject.elementIndex]);
+    const pickData = spec.buildPickingData(component, gpuRef.current.componentBaseId[renderObject.componentIndex]);
     if (pickData && pickData.length > 0) {
     const pickingOffset = Math.ceil(dynamicBuffers.pickingOffset / 4) * 4;
       // Calculate stride based on float count (4 bytes per float)
@@ -1935,7 +1935,7 @@ export function SceneInner({
     renderObject.pickingInstanceCount = renderObject.instanceCount;
 
     renderObject.pickingDataStale = false;
-  }, [elements, buildElementIdMapping]);
+  }, [components, buildComponentIdMapping]);
 
   return (
     <div style={{ width: '100%', border: '1px solid #ccc' }}>

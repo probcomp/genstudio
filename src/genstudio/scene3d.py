@@ -24,7 +24,7 @@ def deco(
     scale: Optional[NumberLike] = None,
     min_size: Optional[NumberLike] = None,
 ) -> Decoration:
-    """Create a decoration for scene elements.
+    """Create a decoration for scene components.
 
     Args:
         indexes: Single index or list of indices to decorate
@@ -56,8 +56,8 @@ def deco(
     return decoration  # type: ignore
 
 
-class SceneElement(Plot.LayoutItem):
-    """Base class for all 3D scene elements."""
+class SceneComponent(Plot.LayoutItem):
+    """Base class for all 3D scene components."""
 
     def __init__(self, type_name: str, data: Dict[str, Any], **kwargs):
         super().__init__()
@@ -82,26 +82,28 @@ class SceneElement(Plot.LayoutItem):
         """Convert the element to a JSON-compatible dictionary."""
         return Scene(self).for_json()
 
-    def __add__(self, other: Union["SceneElement", "Scene", Dict[str, Any]]) -> "Scene":
-        """Allow combining elements with + operator."""
+    def __add__(
+        self, other: Union["SceneComponent", "Scene", Dict[str, Any]]
+    ) -> "Scene":
+        """Allow combining components with + operator."""
         if isinstance(other, Scene):
             return other + self
-        elif isinstance(other, SceneElement):
+        elif isinstance(other, SceneComponent):
             return Scene(self, other)
         elif isinstance(other, dict):
             return Scene(self, other)
         else:
-            raise TypeError(f"Cannot add SceneElement with {type(other)}")
+            raise TypeError(f"Cannot add SceneComponent with {type(other)}")
 
     def __radd__(self, other: Dict[str, Any]) -> "Scene":
-        """Allow combining elements with + operator when dict is on the left."""
+        """Allow combining components with + operator when dict is on the left."""
         return Scene(self, other)
 
 
 class Scene(Plot.LayoutItem):
     """A 3D scene visualization component using WebGPU.
 
-    This class creates an interactive 3D scene that can contain multiple types of elements:
+    This class creates an interactive 3D scene that can contain multiple types of components:
     - Point clouds
     - Ellipsoids
     - Ellipsoid bounds (wireframe)
@@ -111,55 +113,55 @@ class Scene(Plot.LayoutItem):
     - Orbit camera control (left mouse drag)
     - Pan camera control (shift + left mouse drag or middle mouse drag)
     - Zoom control (mouse wheel)
-    - Element hover highlighting
-    - Element click selection
+    - Component hover highlighting
+    - Component click selection
     """
 
     def __init__(
         self,
-        *elements_and_props: Union[SceneElement, Dict[str, Any]],
+        *components_and_props: Union[SceneComponent, Dict[str, Any]],
     ):
         """Initialize the scene.
 
         Args:
-            *elements_and_props: Scene elements and optional properties.
+            *components_and_props: Scene components and optional properties.
         """
-        elements = []
+        components = []
         scene_props = {}
-        for item in elements_and_props:
-            if isinstance(item, SceneElement):
-                elements.append(item)
+        for item in components_and_props:
+            if isinstance(item, SceneComponent):
+                components.append(item)
             elif isinstance(item, dict):
                 scene_props.update(item)
             else:
-                raise TypeError(f"Invalid type in elements_and_props: {type(item)}")
+                raise TypeError(f"Invalid type in components_and_props: {type(item)}")
 
-        self.elements = elements
+        self.components = components
         self.scene_props = scene_props
         super().__init__()
 
-    def __add__(self, other: Union[SceneElement, "Scene", Dict[str, Any]]) -> "Scene":
+    def __add__(self, other: Union[SceneComponent, "Scene", Dict[str, Any]]) -> "Scene":
         """Allow combining scenes with + operator."""
         if isinstance(other, Scene):
-            return Scene(*self.elements, *other.elements, self.scene_props)
-        elif isinstance(other, SceneElement):
-            return Scene(*self.elements, other, self.scene_props)
+            return Scene(*self.components, *other.components, self.scene_props)
+        elif isinstance(other, SceneComponent):
+            return Scene(*self.components, other, self.scene_props)
         elif isinstance(other, dict):
-            return Scene(*self.elements, {**self.scene_props, **other})
+            return Scene(*self.components, {**self.scene_props, **other})
         else:
             raise TypeError(f"Cannot add Scene with {type(other)}")
 
     def __radd__(self, other: Dict[str, Any]) -> "Scene":
         """Allow combining scenes with + operator when dict is on the left."""
-        return Scene(*self.elements, {**other, **self.scene_props})
+        return Scene(*self.components, {**other, **self.scene_props})
 
     def for_json(self) -> Any:
         """Convert to JSON representation for JavaScript."""
-        elements = [
-            e.to_dict() if isinstance(e, SceneElement) else e for e in self.elements
+        components = [
+            e.to_dict() if isinstance(e, SceneComponent) else e for e in self.components
         ]
 
-        props = {"elements": elements, **self.scene_props}
+        props = {"components": components, **self.scene_props}
 
         return [Plot.JSRef("scene3d.Scene"), props]
 
@@ -188,7 +190,7 @@ def PointCloud(
     colors: Optional[ArrayLike] = None,
     scales: Optional[ArrayLike] = None,
     **kwargs: Any,
-) -> SceneElement:
+) -> SceneComponent:
     """Create a point cloud element.
 
     Args:
@@ -206,7 +208,7 @@ def PointCloud(
     if scales is not None:
         data["scales"] = flatten_array(scales, dtype=np.float32)
 
-    return SceneElement("PointCloud", data, **kwargs)
+    return SceneComponent("PointCloud", data, **kwargs)
 
 
 def Ellipsoid(
@@ -214,7 +216,7 @@ def Ellipsoid(
     radii: ArrayLike,
     colors: Optional[ArrayLike] = None,
     **kwargs: Any,
-) -> SceneElement:
+) -> SceneComponent:
     """Create an ellipsoid element.
 
     Args:
@@ -230,7 +232,7 @@ def Ellipsoid(
     if colors is not None:
         data["colors"] = flatten_array(colors, dtype=np.float32)
 
-    return SceneElement("Ellipsoid", data, **kwargs)
+    return SceneComponent("Ellipsoid", data, **kwargs)
 
 
 def EllipsoidAxes(
@@ -238,7 +240,7 @@ def EllipsoidAxes(
     radii: ArrayLike,
     colors: Optional[ArrayLike] = None,
     **kwargs: Any,
-) -> SceneElement:
+) -> SceneComponent:
     """Create an ellipsoid bounds (wireframe) element.
 
     Args:
@@ -254,7 +256,7 @@ def EllipsoidAxes(
     if colors is not None:
         data["colors"] = flatten_array(colors, dtype=np.float32)
 
-    return SceneElement("EllipsoidAxes", data, **kwargs)
+    return SceneComponent("EllipsoidAxes", data, **kwargs)
 
 
 def Cuboid(
@@ -262,7 +264,7 @@ def Cuboid(
     sizes: ArrayLike,
     colors: Optional[ArrayLike] = None,
     **kwargs: Any,
-) -> SceneElement:
+) -> SceneComponent:
     """Create a cuboid element.
 
     Args:
@@ -278,4 +280,4 @@ def Cuboid(
     if colors is not None:
         data["colors"] = flatten_array(colors, dtype=np.float32)
 
-    return SceneElement("Cuboid", data, **kwargs)
+    return SceneComponent("Cuboid", data, **kwargs)

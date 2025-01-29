@@ -1,7 +1,117 @@
 import React, { useMemo } from 'react';
-import { SceneInner, SceneElementConfig} from './impl';
+import { SceneInner, ComponentConfig, PointCloudGroupConfig, EllipsoidGroupConfig, EllipsoidAxesGroupConfig, CuboidGroupConfig } from './impl3d';
 import { CameraParams } from './camera3d';
 import { useContainerWidth } from '../utils';
+
+interface Decoration {
+  indexes: number[];
+  color?: [number, number, number];
+  alpha?: number;
+  scale?: number;
+  minSize?: number;
+}
+
+export function deco(
+  indexes: number | number[],
+  {
+    color,
+    alpha,
+    scale,
+    minSize
+  }: {
+    color?: [number, number, number],
+    alpha?: number,
+    scale?: number,
+    minSize?: number
+  } = {}
+): Decoration {
+  const indexArray = typeof indexes === 'number' ? [indexes] : indexes;
+  return { indexes: indexArray, color, alpha, scale, minSize };
+}
+
+export function PointCloud(
+  positions: Float32Array,
+  colors?: Float32Array,
+  scales?: Float32Array,
+  decorations?: Decoration[],
+  onHover?: (index: number|null) => void,
+  onClick?: (index: number|null) => void
+): PointCloudGroupConfig {
+  return {
+    type: 'PointCloud',
+    data: {
+      positions,
+      colors,
+      scales
+    },
+    decorations,
+    onHover,
+    onClick
+  };
+}
+
+export function Ellipsoid(
+  centers: Float32Array,
+  radii: Float32Array,
+  colors?: Float32Array,
+  decorations?: Decoration[],
+  onHover?: (index: number|null) => void,
+  onClick?: (index: number|null) => void
+): EllipsoidGroupConfig {
+  return {
+    type: 'Ellipsoid',
+    data: {
+      centers,
+      radii,
+      colors
+    },
+    decorations,
+    onHover,
+    onClick
+  };
+}
+
+export function EllipsoidAxes(
+  centers: Float32Array,
+  radii: Float32Array,
+  colors?: Float32Array,
+  decorations?: Decoration[],
+  onHover?: (index: number|null) => void,
+  onClick?: (index: number|null) => void
+): EllipsoidAxesGroupConfig {
+  return {
+    type: 'EllipsoidAxes',
+    data: {
+      centers,
+      radii,
+      colors
+    },
+    decorations,
+    onHover,
+    onClick
+  };
+}
+
+export function Cuboid(
+  centers: Float32Array,
+  sizes: Float32Array,
+  colors?: Float32Array,
+  decorations?: Decoration[],
+  onHover?: (index: number|null) => void,
+  onClick?: (index: number|null) => void
+): CuboidGroupConfig {
+  return {
+    type: 'Cuboid',
+    data: {
+      centers,
+      sizes,
+      colors
+    },
+    decorations,
+    onHover,
+    onClick
+  };
+}
 
 // Add this helper function near the top with other utility functions
 export function computeCanvasDimensions(containerWidth: number, width?: number, height?: number, aspectRatio = 1) {
@@ -23,7 +133,7 @@ export function computeCanvasDimensions(containerWidth: number, width?: number, 
     };
 }
 interface SceneProps {
-  elements: SceneElementConfig[];
+  components: ComponentConfig[];
   width?: number;
   height?: number;
   aspectRatio?: number;
@@ -32,7 +142,7 @@ interface SceneProps {
   onCameraChange?: (camera: CameraParams) => void;
 }
 
-export function Scene({ elements, width, height, aspectRatio = 1, camera, defaultCamera, onCameraChange }: SceneProps) {
+export function Scene({ components, width, height, aspectRatio = 1, camera, defaultCamera, onCameraChange }: SceneProps) {
   const [containerRef, measuredWidth] = useContainerWidth(1);
   const dimensions = useMemo(
     () => computeCanvasDimensions(measuredWidth, width, height, aspectRatio),
@@ -46,7 +156,7 @@ export function Scene({ elements, width, height, aspectRatio = 1, camera, defaul
           containerWidth={dimensions.width}
           containerHeight={dimensions.height}
           style={dimensions.style}
-          elements={elements}
+          components={components}
           camera={camera}
           defaultCamera={defaultCamera}
           onCameraChange={onCameraChange}
