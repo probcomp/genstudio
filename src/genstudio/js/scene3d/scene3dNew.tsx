@@ -18,12 +18,38 @@ import {
 } from './camera3d';
 
 /******************************************************
- * 0) Types and Interfaces
+ * 1) Types and Interfaces
  ******************************************************/
 interface BufferInfo {
   buffer: GPUBuffer;
   offset: number;
   stride: number;
+}
+
+interface RenderObject {
+  pipeline?: GPURenderPipeline;
+  vertexBuffers: Partial<[GPUBuffer, BufferInfo]>;  // Allow empty or partial arrays
+  indexBuffer?: GPUBuffer;
+  vertexCount?: number;
+  indexCount?: number;
+  instanceCount?: number;
+
+  pickingPipeline?: GPURenderPipeline;
+  pickingVertexBuffers: Partial<[GPUBuffer, BufferInfo]>;  // Allow empty or partial arrays
+  pickingIndexBuffer?: GPUBuffer;
+  pickingVertexCount?: number;
+  pickingIndexCount?: number;
+  pickingInstanceCount?: number;
+
+  elementIndex: number;
+  pickingDataStale: boolean;
+}
+
+interface DynamicBuffers {
+  renderBuffer: GPUBuffer;
+  pickingBuffer: GPUBuffer;
+  renderOffset: number;  // Current offset into render buffer
+  pickingOffset: number; // Current offset into picking buffer
 }
 
 interface SceneInnerProps {
@@ -37,7 +63,7 @@ interface SceneInnerProps {
 }
 
 /******************************************************
- * 1) Constants and Camera Functions
+ * 2) Constants and Camera Functions
  ******************************************************/
 const LIGHTING = {
     AMBIENT_INTENSITY: 0.4,
@@ -52,7 +78,7 @@ const LIGHTING = {
 } as const;
 
 /******************************************************
- * 1) Data Structures & "Spec" System
+ * 3) Data Structures & Primitive Specs
  ******************************************************/
 interface PrimitiveSpec<E> {
   /** Get the number of instances in this element */
@@ -135,11 +161,15 @@ const pointCloudSpec: PrimitiveSpec<PointCloudElementConfig> = {
 
     // (pos.x, pos.y, pos.z, color.r, color.g, color.b, alpha, scale)
     const arr = new Float32Array(count * 8);  // Changed from 9 to 8 floats per instance
+
+    // Initialize default color values outside the loop
+    const hasColors = colors && colors.length === count*3;
+
     for(let i=0; i<count; i++){
       arr[i*8+0] = positions[i*3+0];
       arr[i*8+1] = positions[i*3+1];
       arr[i*8+2] = positions[i*3+2];
-      if(colors && colors.length === count*3){
+      if(hasColors){
         arr[i*8+3] = colors[i*3+0];
         arr[i*8+4] = colors[i*3+1];
         arr[i*8+5] = colors[i*3+2];
@@ -701,36 +731,7 @@ const cuboidSpec: PrimitiveSpec<CuboidElementConfig> = {
 };
 
 /******************************************************
- * 1.5) Extended Spec: also handle pipeline & render objects
- ******************************************************/
-interface RenderObject {
-  pipeline?: GPURenderPipeline;
-  vertexBuffers: Partial<[GPUBuffer, BufferInfo]>;  // Allow empty or partial arrays
-  indexBuffer?: GPUBuffer;
-  vertexCount?: number;
-  indexCount?: number;
-  instanceCount?: number;
-
-  pickingPipeline?: GPURenderPipeline;
-  pickingVertexBuffers: Partial<[GPUBuffer, BufferInfo]>;  // Allow empty or partial arrays
-  pickingIndexBuffer?: GPUBuffer;
-  pickingVertexCount?: number;
-  pickingIndexCount?: number;
-  pickingInstanceCount?: number;
-
-  elementIndex: number;
-  pickingDataStale: boolean;
-}
-
-interface DynamicBuffers {
-  renderBuffer: GPUBuffer;
-  pickingBuffer: GPUBuffer;
-  renderOffset: number;  // Current offset into render buffer
-  pickingOffset: number; // Current offset into picking buffer
-}
-
-/******************************************************
- * 1.6) Pipeline Cache Helper
+ * 4) Pipeline Cache Helper
  ******************************************************/
 // Update the pipeline cache to include device reference
 interface PipelineCacheEntry {
@@ -756,7 +757,7 @@ function getOrCreatePipeline(
 }
 
 /******************************************************
- * 2) Common Resources: geometry, layout, etc.
+ * 5) Common Resources: Geometry, Layout, etc.
  ******************************************************/
 interface GeometryResources {
   sphereGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
@@ -841,7 +842,7 @@ function initGeometryResources(device: GPUDevice, resources: GeometryResources) 
 }
 
 /******************************************************
- * 1.7) Pipeline Configuration Helpers
+ * 6) Pipeline Configuration Helpers
  ******************************************************/
 interface VertexBufferLayout {
   arrayStride: number;
@@ -995,7 +996,7 @@ const MESH_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
 };
 
 /******************************************************
- * 2.5) Put them all in a registry
+ * 7) Primitive Registry
  ******************************************************/
 export type SceneElementConfig =
   | PointCloudElementConfig
@@ -1011,7 +1012,7 @@ const primitiveRegistry: Record<SceneElementConfig['type'], PrimitiveSpec<any>> 
 };
 
 /******************************************************
- * 3) Geometry creation helpers
+ * 8) Geometry Creation Helpers
  ******************************************************/
 function createSphereGeometry(stacks=16, slices=24) {
   const verts:number[]=[];
@@ -1131,7 +1132,7 @@ function createCubeGeometry() {
 }
 
 /******************************************************
- * 4) Scene + SceneWrapper
+ * 9) Scene Components
  ******************************************************/
 interface SceneProps {
   elements: SceneElementConfig[];
@@ -1430,7 +1431,6 @@ function SceneInner({
         // Add to total size (not max)
         const alignedSize = pickStride * count;
         pickingSize += alignedSize;
-
       }
     });
 
@@ -1468,7 +1468,7 @@ function SceneInner({
     if(!gpuRef.current) return [];
     const { device, bindGroupLayout, pipelineCache, resources } = gpuRef.current;
 
-    // Calculate required buffer sizes
+      // Calculate required buffer sizes
     const { renderSize, pickingSize } = calculateBufferSize(elements);
 
     // Create or recreate dynamic buffers if needed
@@ -1486,19 +1486,19 @@ function SceneInner({
     }
     const dynamicBuffers = gpuRef.current.dynamicBuffers!;
 
-    // Reset buffer offsets
-    dynamicBuffers.renderOffset = 0;
-    dynamicBuffers.pickingOffset = 0;
+      // Reset buffer offsets
+      dynamicBuffers.renderOffset = 0;
+      dynamicBuffers.pickingOffset = 0;
 
-    // Initialize elementBaseId array
-    gpuRef.current.elementBaseId = [];
+      // Initialize elementBaseId array
+      gpuRef.current.elementBaseId = [];
 
-    // Build ID mapping
-    buildElementIdMapping(elements);
+      // Build ID mapping
+      buildElementIdMapping(elements);
 
     const validRenderObjects: RenderObject[] = [];
 
-    elements.forEach((elem, i) => {
+      elements.forEach((elem, i) => {
       const spec = primitiveRegistry[elem.type];
       if(!spec) {
         console.warn(`Unknown primitive type: ${elem.type}`);
@@ -1569,11 +1569,11 @@ function SceneInner({
           elementIndex: i
         };
 
-        validRenderObjects.push(renderObject);
+          validRenderObjects.push(renderObject);
       } catch (error) {
         console.error(`Error creating render object for element ${i} (${elem.type}):`, error);
       }
-    });
+      });
 
     return validRenderObjects;
   }
@@ -2048,29 +2048,29 @@ function SceneInner({
     // Build picking data
     const pickData = spec.buildPickingData(element, gpuRef.current.elementBaseId[renderObject.elementIndex]);
     if (pickData && pickData.length > 0) {
-      const pickingOffset = Math.ceil(dynamicBuffers.pickingOffset / 4) * 4;
+    const pickingOffset = Math.ceil(dynamicBuffers.pickingOffset / 4) * 4;
       // Calculate stride based on float count (4 bytes per float)
       const floatsPerInstance = pickData.length / renderObject.instanceCount!;
       const stride = Math.ceil(floatsPerInstance) * 4; // Align to 4 bytes
 
-      device.queue.writeBuffer(
-        dynamicBuffers.pickingBuffer,
-        pickingOffset,
+    device.queue.writeBuffer(
+      dynamicBuffers.pickingBuffer,
+      pickingOffset,
         pickData.buffer,
         pickData.byteOffset,
         pickData.byteLength
-      );
+    );
 
       // Set picking buffers with offset info
       const geometryVB = renderObject.vertexBuffers[0];
-      renderObject.pickingVertexBuffers = [
+    renderObject.pickingVertexBuffers = [
         geometryVB,
-        {
-          buffer: dynamicBuffers.pickingBuffer,
-          offset: pickingOffset,
+      {
+        buffer: dynamicBuffers.pickingBuffer,
+        offset: pickingOffset,
           stride: stride
-        }
-      ];
+      }
+    ];
 
       dynamicBuffers.pickingOffset = pickingOffset + (stride * renderObject.instanceCount!);
     }
@@ -2096,9 +2096,8 @@ function SceneInner({
   );
 }
 
-
 /******************************************************
- * 6) Minimal WGSL code
+ * 10) WGSL Shader Code
  ******************************************************/
 const billboardVertCode = /*wgsl*/`
 struct Camera {
