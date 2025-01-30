@@ -196,24 +196,36 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
     const defaults = getBaseDefaults(elem);
     const size = elem.size ?? 0.02;
 
+    // Check array validities once before the loop
+    const hasValidColors = elem.colors && elem.colors.length >= count * 3;
+    const colors = hasValidColors ? elem.colors : null;
+    const hasValidAlphas = elem.alphas && elem.alphas.length >= count;
+    const alphas = hasValidAlphas ? elem.alphas : null;
+    const hasValidSizes = elem.sizes && elem.sizes.length >= count;
+    const sizes = hasValidSizes ? elem.sizes : null;
+    const hasValidScales = elem.scales && elem.scales.length >= count;
+    const scales = hasValidScales ? elem.scales : null;
+
     const arr = new Float32Array(count * 8);
     for(let i=0; i<count; i++) {
       arr[i*8+0] = elem.positions[i*3+0];
       arr[i*8+1] = elem.positions[i*3+1];
       arr[i*8+2] = elem.positions[i*3+2];
 
-      if(elem.colors && i*3+2 < elem.colors.length) {
-        arr[i*8+3] = elem.colors[i*3+0];
-        arr[i*8+4] = elem.colors[i*3+1];
-        arr[i*8+5] = elem.colors[i*3+2];
+      if(colors) {
+        arr[i*8+3] = colors[i*3+0];
+        arr[i*8+4] = colors[i*3+1];
+        arr[i*8+5] = colors[i*3+2];
       } else {
         arr[i*8+3] = defaults.color[0];
         arr[i*8+4] = defaults.color[1];
         arr[i*8+5] = defaults.color[2];
       }
 
-      arr[i*8+6] = elem.alphas?.[i] ?? defaults.alpha;
-      arr[i*8+7] = (elem.sizes?.[i] ?? size) * (elem.scales?.[i] ?? defaults.scale);
+      arr[i*8+6] = alphas?.[i] ?? defaults.alpha;
+      const pointSize = sizes?.[i] ?? size;
+      const scale = scales?.[i] ?? defaults.scale;
+      arr[i*8+7] = pointSize * scale;
     }
 
     // Apply decorations last
@@ -241,12 +253,16 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
     const size = elem.size ?? 0.02;
     const arr = new Float32Array(count * 5);
 
+    // Check array validities once before the loop
+    const hasValidSizes = elem.sizes && elem.sizes.length >= count;
+    const sizes = hasValidSizes ? elem.sizes : null;
+
     for(let i=0; i<count; i++) {
       arr[i*5+0] = elem.positions[i*3+0];
       arr[i*5+1] = elem.positions[i*3+1];
       arr[i*5+2] = elem.positions[i*3+2];
       arr[i*5+3] = baseID + i;
-      arr[i*5+4] = elem.sizes?.[i] ?? size;
+      arr[i*5+4] = sizes?.[i] ?? size;
     }
     return arr;
   },
@@ -339,20 +355,26 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
 
     const defaults = getBaseDefaults(elem);
     const defaultRadius = elem.radius ?? [1, 1, 1];
-
     const arr = new Float32Array(count * 10);
-    for(let i=0; i<count; i++) {
+
+    // Check array validities once before the loop
+    const hasValidRadii = elem.radii && elem.radii.length >= count * 3;
+    const radii = hasValidRadii ? elem.radii : null;
+    const hasValidColors = elem.colors && elem.colors.length >= count * 3;
+    const colors = hasValidColors ? elem.colors : null;
+
+    for(let i = 0; i < count; i++) {
       // Centers
       arr[i*10+0] = elem.centers[i*3+0];
       arr[i*10+1] = elem.centers[i*3+1];
       arr[i*10+2] = elem.centers[i*3+2];
 
-      // Radii
+      // Radii (with scale)
       const scale = elem.scales?.[i] ?? defaults.scale;
-      if(elem.radii && i*3+2 < elem.radii.length) {
-        arr[i*10+3] = elem.radii[i*3+0] * scale;
-        arr[i*10+4] = elem.radii[i*3+1] * scale;
-        arr[i*10+5] = elem.radii[i*3+2] * scale;
+      if(radii) {
+        arr[i*10+3] = radii[i*3+0] * scale;
+        arr[i*10+4] = radii[i*3+1] * scale;
+        arr[i*10+5] = radii[i*3+2] * scale;
       } else {
         arr[i*10+3] = defaultRadius[0] * scale;
         arr[i*10+4] = defaultRadius[1] * scale;
@@ -360,10 +382,10 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
       }
 
       // Colors
-      if(elem.colors && i*3+2 < elem.colors.length) {
-        arr[i*10+6] = elem.colors[i*3+0];
-        arr[i*10+7] = elem.colors[i*3+1];
-        arr[i*10+8] = elem.colors[i*3+2];
+      if(colors) {
+        arr[i*10+6] = colors[i*3+0];
+        arr[i*10+7] = colors[i*3+1];
+        arr[i*10+8] = colors[i*3+2];
       } else {
         arr[i*10+6] = defaults.color[0];
         arr[i*10+7] = defaults.color[1];
@@ -399,15 +421,19 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
     const defaultRadius = elem.radius ?? [1, 1, 1];
     const arr = new Float32Array(count * 7);
 
-    for(let i=0; i<count; i++) {
+    // Check if we have valid radii array once before the loop
+    const hasValidRadii = elem.radii && elem.radii.length >= count * 3;
+    const radii = hasValidRadii ? elem.radii : null;
+
+    for(let i = 0; i < count; i++) {
       arr[i*7+0] = elem.centers[i*3+0];
       arr[i*7+1] = elem.centers[i*3+1];
       arr[i*7+2] = elem.centers[i*3+2];
 
-      if(elem.radii && i*3+2 < elem.radii.length) {
-        arr[i*7+3] = elem.radii[i*3+0];
-        arr[i*7+4] = elem.radii[i*3+1];
-        arr[i*7+5] = elem.radii[i*3+2];
+      if(radii) {
+        arr[i*7+3] = radii[i*3+0];
+        arr[i*7+4] = radii[i*3+1];
+        arr[i*7+5] = radii[i*3+2];
       } else {
         arr[i*7+3] = defaultRadius[0];
         arr[i*7+4] = defaultRadius[1];
@@ -774,8 +800,24 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
     const arr = new Float32Array(segCount * floatsPerSeg);
 
     const pointCount = elem.positions.length / 4;
-    let segIndex = 0;
 
+    // Find the maximum line index to validate arrays against
+    let maxLineIndex = -1;
+    for(let p = 0; p < pointCount; p++) {
+      const lineIndex = Math.floor(elem.positions[p * 4 + 3]);
+      maxLineIndex = Math.max(maxLineIndex, lineIndex);
+    }
+    const lineCount = maxLineIndex + 1;
+
+    // Check array validities against line count
+    const hasValidColors = elem.colors && elem.colors.length >= lineCount * 3;
+    const colors = hasValidColors ? elem.colors : null;
+    const hasValidAlphas = elem.alphas && elem.alphas.length >= lineCount;
+    const alphas = hasValidAlphas ? elem.alphas : null;
+    const hasValidRadii = elem.radii && elem.radii.length >= lineCount;
+    const radii = hasValidRadii ? elem.radii : null;
+
+    let segIndex = 0;
     for(let p = 0; p < pointCount - 1; p++) {
       const iCurr = elem.positions[p * 4 + 3];
       const iNext = elem.positions[(p+1) * 4 + 3];
@@ -784,23 +826,23 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
       const lineIndex = Math.floor(iCurr);
 
       // Get base attributes for this line
-      let radius = elem.radii?.[lineIndex] ?? defaultRadius;
+      let radius = (radii?.[lineIndex] ?? defaultRadius);
       let cr = defaults.color[0];
       let cg = defaults.color[1];
       let cb = defaults.color[2];
       let alpha = defaults.alpha;
       const scale = elem.scales?.[lineIndex] ?? defaults.scale;
 
-      // Apply per-line colors if available
-      if(elem.colors && lineIndex * 3 + 2 < elem.colors.length) {
-        cr = elem.colors[lineIndex * 3];
-        cg = elem.colors[lineIndex * 3 + 1];
-        cb = elem.colors[lineIndex * 3 + 2];
+      // Apply per-line colors if available and index is in bounds
+      if(colors && lineIndex * 3 + 2 < colors.length) {
+        cr = colors[lineIndex * 3];
+        cg = colors[lineIndex * 3 + 1];
+        cb = colors[lineIndex * 3 + 2];
       }
 
-      // Apply per-line alpha if available
-      if(elem.alphas && lineIndex < elem.alphas.length) {
-        alpha = elem.alphas[lineIndex];
+      // Apply per-line alpha if available and index is in bounds
+      if(alphas && lineIndex < alphas.length) {
+        alpha = alphas[lineIndex];
       }
 
       // Apply scale to radius
