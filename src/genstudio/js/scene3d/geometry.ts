@@ -115,3 +115,39 @@ export function createCubeGeometry() {
     indexData: new Uint16Array(indices),
   };
 }
+
+/******************************************************
+ * createCylinderGeometry
+ * Returns a "unit cylinder" from z=0..1, radius=1.
+ * No caps. 'segments' sets how many radial divisions.
+ ******************************************************/
+export function createCylinderGeometry(segments: number=8) {
+  const vertexData: number[] = [];
+  const indexData: number[]  = [];
+
+  // Build two rings: z=0 and z=1
+  for (let z of [0, 1]) {
+    for (let s = 0; s < segments; s++) {
+      const theta = 2 * Math.PI * s / segments;
+      const x = Math.cos(theta);
+      const y = Math.sin(theta);
+      // position + normal
+      vertexData.push(x, y, z,  x, y, 0); // (pos.x, pos.y, pos.z, n.x, n.y, n.z)
+    }
+  }
+  // Connect ring 0..segments-1 to ring segments..2*segments-1
+  for (let s = 0; s < segments; s++) {
+    const sNext = (s + 1) % segments;
+    const i0 = s;
+    const i1 = sNext;
+    const i2 = s + segments;
+    const i3 = sNext + segments;
+    // Two triangles: (i0->i2->i1), (i1->i2->i3)
+    indexData.push(i0, i2, i1,  i1, i2, i3);
+  }
+
+  return {
+    vertexData: new Float32Array(vertexData),
+    indexData:  new Uint16Array(indexData)
+  };
+}

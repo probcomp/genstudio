@@ -10,7 +10,7 @@ import React, {
   useState
 } from 'react';
 import { throttle } from '../utils';
-import { createCubeGeometry, createSphereGeometry, createTorusGeometry } from './geometry';
+import { createCubeGeometry, createCylinderGeometry, createSphereGeometry, createTorusGeometry } from './geometry';
 
 import {
   CameraParams,
@@ -766,6 +766,275 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
 };
 
 /******************************************************
+ *  LineCylinders Type
+ ******************************************************/
+export interface LineCylindersComponentConfig {
+  type: 'LineCylinders';
+
+   /**
+   * Flattened quadruples: [x, y, z, i, x, y, z, i, ...].
+   * Consecutive points with the same 'i' form one or more segments.
+   */
+   positions: Float32Array;
+
+   /** radii: radius for each line i. If not given, uses a fallback. */
+   radii?: Float32Array; // indexed by line i
+   radius?: number;          // fallback radius if radii is missing or incomplete
+
+   /** colors: RGB color for each line i. If not given, uses fallback color. */
+   colors?: Float32Array;    // indexed by line i, RGB triplets
+   /** Single fallback color & alpha if no decorations override. */
+   color?: [number, number, number];
+   alpha?: number;
+
+   /** Single fallback is used for each line, but we can override with decorations. */
+   decorations?: Decoration[];
+
+   onHover?: (segmentIndex: number | null) => void;
+   onClick?: (segmentIndex: number) => void;
+}
+
+function countSegments(positions: Float32Array): number {
+  const pointCount = positions.length / 4;
+  if (pointCount < 2) return 0;
+
+  let segCount = 0;
+  for (let p = 0; p < pointCount - 1; p++) {
+    const iCurr = positions[p * 4 + 3];
+    const iNext = positions[(p+1) * 4 + 3];
+    if (iCurr === iNext) {
+      segCount++;
+    }
+  }
+  return segCount;
+}
+
+const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
+  getCount(elem) {
+    return countSegments(elem.positions);
+  },
+
+  buildRenderData(elem) {
+    const segCount = this.getCount(elem);
+    if (segCount === 0) return null;
+
+    const {
+      positions,
+      radii,
+      radius = 0.02,
+      colors,
+      color = [1, 1, 1],
+      alpha = 1.0,
+      decorations
+    } = elem;
+
+    // Each segment => 11 floats
+    const floatsPerSeg = 11;
+    const arr = new Float32Array(segCount * floatsPerSeg);
+
+    // We'll store final line-level color/alpha/radius in temporary variables
+    // and apply them for each segment that belongs to that line.
+    const pointCount = positions.length / 4;
+    let segIndex = 0;
+
+    for (let p = 0; p < pointCount - 1; p++) {
+      const iCurr = positions[p * 4 + 3];
+      const iNext = positions[(p+1)*4 + 3];
+      if (iCurr !== iNext) {
+        // new line => skip
+        continue;
+      }
+      // line i = iCurr
+      // We start from fallback
+      let r = radius;
+      let cR = color[0];
+      let cG = color[1];
+      let cB = color[2];
+      let a  = alpha;
+
+      // radii overrides
+      const lineIndex = Math.floor(iCurr); // or just iCurr if you guarantee it's integer
+      if (radii && lineIndex >= 0 && lineIndex < radii.length) {
+        r = radii[lineIndex];
+      }
+
+      // colors override (before decorations)
+      if (colors && lineIndex >= 0 && lineIndex * 3 + 2 < colors.length) {
+        cR = colors[lineIndex * 3];
+        cG = colors[lineIndex * 3 + 1];
+        cB = colors[lineIndex * 3 + 2];
+      }
+
+      // decorations
+      if (decorations) {
+        // If iCurr is in dec.indexes, apply color, alpha, scale, minSize
+        for (const dec of decorations) {
+          if (dec.indexes.includes(lineIndex)) {
+            if (dec.color) {
+              cR = dec.color[0];
+              cG = dec.color[1];
+              cB = dec.color[2];
+            }
+            if (dec.alpha !== undefined) {
+              a = dec.alpha;
+            }
+            if (dec.scale !== undefined) {
+              r *= dec.scale;
+            }
+            if (dec.minSize !== undefined && r < dec.minSize) {
+              r = dec.minSize;
+            }
+          }
+        }
+      }
+
+      // Now we have final r, cR, cG, cB, a for line i
+      const startX = positions[p * 4 + 0];
+      const startY = positions[p * 4 + 1];
+      const startZ = positions[p * 4 + 2];
+      const endX   = positions[(p+1)*4 + 0];
+      const endY   = positions[(p+1)*4 + 1];
+      const endZ   = positions[(p+1)*4 + 2];
+
+      const base = segIndex * floatsPerSeg;
+      arr[base + 0]  = startX;
+      arr[base + 1]  = startY;
+      arr[base + 2]  = startZ;
+      arr[base + 3]  = endX;
+      arr[base + 4]  = endY;
+      arr[base + 5]  = endZ;
+      arr[base + 6]  = r;
+      arr[base + 7]  = cR;
+      arr[base + 8]  = cG;
+      arr[base + 9]  = cB;
+      arr[base + 10] = a;
+
+      segIndex++;
+    }
+    return arr;
+  },
+
+  buildPickingData(elem, baseID) {
+    const segCount = this.getCount(elem);
+    if (segCount === 0) return null;
+
+    const { positions, radii, radius = 0.02, decorations } = elem;
+    const floatsPerSeg = 8;
+    const arr = new Float32Array(segCount * floatsPerSeg);
+
+    let segIndex = 0;
+    const pointCount = positions.length / 4;
+
+    for (let p = 0; p < pointCount - 1; p++) {
+      const iCurr = positions[p*4 + 3];
+      const iNext = positions[(p+1)*4 + 3];
+      if (iCurr !== iNext) continue;
+
+      let r = radius;
+      const lineIndex = Math.floor(iCurr);
+      if (radii && lineIndex >= 0 && lineIndex < radii.length) {
+        r = radii[lineIndex];
+      }
+      // decorations => scale or minSize might affect radius
+      if (decorations) {
+        for (const dec of decorations) {
+          if (dec.indexes.includes(lineIndex)) {
+            if (dec.scale !== undefined) {
+              r *= dec.scale;
+            }
+            if (dec.minSize !== undefined && r < dec.minSize) {
+              r = dec.minSize;
+            }
+          }
+        }
+      }
+
+      const startX = positions[p*4 + 0];
+      const startY = positions[p*4 + 1];
+      const startZ = positions[p*4 + 2];
+      const endX   = positions[(p+1)*4 + 0];
+      const endY   = positions[(p+1)*4 + 1];
+      const endZ   = positions[(p+1)*4 + 2];
+
+      const base = segIndex * floatsPerSeg;
+      arr[base + 0] = startX;
+      arr[base + 1] = startY;
+      arr[base + 2] = startZ;
+      arr[base + 3] = endX;
+      arr[base + 4] = endY;
+      arr[base + 5] = endZ;
+      arr[base + 6] = r;
+      arr[base + 7] = baseID + segIndex;
+
+      segIndex++;
+    }
+    return arr;
+  },
+
+  // Standard triangle-list, cull as you like
+  renderConfig: {
+    cullMode: 'none',
+    topology: 'triangle-list'
+  },
+
+  getRenderPipeline(device, bindGroupLayout, cache) {
+    const format = navigator.gpu.getPreferredCanvasFormat();
+    return getOrCreatePipeline(
+      device,
+      "LineCylindersShading",
+      () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
+        vertexShader: lineCylVertCode,   // defined below
+        fragmentShader: lineCylFragCode, // defined below
+        vertexEntryPoint: 'vs_main',
+        fragmentEntryPoint: 'fs_main',
+        bufferLayouts: [ CYL_GEOMETRY_LAYOUT, LINE_CYL_INSTANCE_LAYOUT ],
+      }, format, this),
+      cache
+    );
+  },
+
+  getPickingPipeline(device, bindGroupLayout, cache) {
+    return getOrCreatePipeline(
+      device,
+      "LineCylindersPicking",
+      () => createRenderPipeline(device, bindGroupLayout, {
+        vertexShader: pickingVertCode, // We'll add a vs_lineCyl entry
+        fragmentShader: pickingVertCode,
+        vertexEntryPoint: 'vs_lineCyl',
+        fragmentEntryPoint: 'fs_pick',
+        bufferLayouts: [ CYL_GEOMETRY_LAYOUT, LINE_CYL_PICKING_INSTANCE_LAYOUT ],
+        primitive: this.renderConfig
+      }, 'rgba8unorm'),
+      cache
+    );
+  },
+
+  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
+    if (!resources.cylinderGeo) {
+      throw new Error("No cylinderGeo found in resources.");
+    }
+    const { vb, ib, indexCount } = resources.cylinderGeo;
+
+    return {
+      pipeline,
+      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
+      indexBuffer: ib,
+      indexCount,
+      instanceCount,
+
+      pickingPipeline,
+      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
+      pickingIndexBuffer: ib,
+      pickingIndexCount: indexCount,
+      pickingInstanceCount: instanceCount,
+
+      componentIndex: -1,
+      pickingDataStale: true
+    };
+  }
+};
+
+/******************************************************
  * 4) Pipeline Cache Helper
  ******************************************************/
 // Update the pipeline cache to include device reference
@@ -799,6 +1068,7 @@ export interface GeometryResources {
   ringGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
   billboardQuad: { vb: GPUBuffer; ib: GPUBuffer } | null;
   cubeGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+  cylinderGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
 }
 
 function initGeometryResources(device: GPUDevice, resources: GeometryResources) {
@@ -873,6 +1143,24 @@ function initGeometryResources(device: GPUDevice, resources: GeometryResources) 
     });
     device.queue.writeBuffer(ib, 0, cube.indexData);
     resources.cubeGeo = { vb, ib, indexCount: cube.indexData.length };
+  }
+
+  // Create cylinder geometry
+  if (!resources.cylinderGeo) {
+    const { vertexData, indexData } = createCylinderGeometry(8); // or 12, etc.
+    const vb = device.createBuffer({
+      size: vertexData.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(vb, 0, vertexData);
+
+    const ib = device.createBuffer({
+      size: indexData.byteLength,
+      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
+    });
+    device.queue.writeBuffer(ib, 0, indexData);
+
+    resources.cylinderGeo = { vb, ib, indexCount: indexData.length };
   }
 }
 
@@ -1061,6 +1349,41 @@ const MESH_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
   ]
 };
 
+const CYL_GEOMETRY_LAYOUT: VertexBufferLayout = {
+  arrayStride: 6 * 4, // (pos.x, pos.y, pos.z, norm.x, norm.y, norm.z)
+  attributes: [
+    { shaderLocation: 0, offset: 0,  format: 'float32x3' }, // position
+    { shaderLocation: 1, offset: 12, format: 'float32x3' } // normal
+  ]
+};
+
+// For rendering: 11 floats
+// (start.xyz, end.xyz, radius, color.rgb, alpha)
+const LINE_CYL_INSTANCE_LAYOUT: VertexBufferLayout = {
+  arrayStride: 11 * 4,
+  stepMode: 'instance',
+  attributes: [
+    { shaderLocation: 2, offset:  0,  format: 'float32x3' }, // startPos
+    { shaderLocation: 3, offset: 12,  format: 'float32x3' }, // endPos
+    { shaderLocation: 4, offset: 24,  format: 'float32'   }, // radius
+    { shaderLocation: 5, offset: 28,  format: 'float32x3' }, // color
+    { shaderLocation: 6, offset: 40,  format: 'float32'   }, // alpha
+  ]
+};
+
+// For picking: 8 floats
+// (start.xyz, end.xyz, radius, pickID)
+const LINE_CYL_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
+  arrayStride: 8 * 4,
+  stepMode: 'instance',
+  attributes: [
+    { shaderLocation: 2, offset:  0,  format: 'float32x3' },
+    { shaderLocation: 3, offset: 12,  format: 'float32x3' },
+    { shaderLocation: 4, offset: 24,  format: 'float32'   },
+    { shaderLocation: 5, offset: 28,  format: 'float32'   },
+  ]
+};
+
 /******************************************************
  * 7) Primitive Registry
  ******************************************************/
@@ -1068,13 +1391,15 @@ export type ComponentConfig =
   | PointCloudComponentConfig
   | EllipsoidComponentConfig
   | EllipsoidAxesComponentConfig
-  | CuboidComponentConfig;
+  | CuboidComponentConfig
+  | LineCylindersComponentConfig;
 
 const primitiveRegistry: Record<ComponentConfig['type'], PrimitiveSpec<any>> = {
   PointCloud: pointCloudSpec,  // Use consolidated spec
   Ellipsoid: ellipsoidSpec,
   EllipsoidAxes: ellipsoidAxesSpec,
   Cuboid: cuboidSpec,
+  LineCylinders: lineCylindersSpec
 };
 
 
@@ -1221,7 +1546,8 @@ export function SceneInner({
           sphereGeo: null,
           ringGeo: null,
           billboardQuad: null,
-          cubeGeo: null
+          cubeGeo: null,
+          cylinderGeo: null
         }
       };
 
@@ -2275,6 +2601,96 @@ fn fs_main(
   return vec4<f32>(color, alpha);
 }`;
 
+const lineCylVertCode = /*wgsl*/`// lineCylVertCode.wgsl
+${cameraStruct}
+${lightingConstants}
+
+struct VSOut {
+  @builtin(position) pos: vec4<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>,
+};
+
+@vertex
+fn vs_main(
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+
+  @location(2) startPos: vec3<f32>,
+  @location(3) endPos: vec3<f32>,
+  @location(4) radius: f32,
+  @location(5) color: vec3<f32>,
+  @location(6) alpha: f32
+) -> VSOut
+{
+  // The unit cylinder is from z=0..1 along local Z, radius=1 in XY
+  // We'll transform so it goes from start->end with radius=radius.
+  let segDir = endPos - startPos;
+  let length = max(length(segDir), 0.000001);
+  let zDir   = normalize(segDir);
+
+  // build basis xDir,yDir from zDir
+  var tempUp = vec3<f32>(0,0,1);
+  if (abs(dot(zDir, tempUp)) > 0.99) {
+    tempUp = vec3<f32>(0,1,0);
+  }
+  let xDir = normalize(cross(zDir, tempUp));
+  let yDir = cross(zDir, xDir);
+
+  // local scale
+  let localX = inPos.x * radius;
+  let localY = inPos.y * radius;
+  let localZ = inPos.z * length;
+  let worldPos = startPos
+    + xDir * localX
+    + yDir * localY
+    + zDir * localZ;
+
+  // transform normal similarly
+  let rawNormal = vec3<f32>(inNorm.x, inNorm.y, inNorm.z);
+  let nWorld = normalize(
+    xDir*rawNormal.x +
+    yDir*rawNormal.y +
+    zDir*rawNormal.z
+  );
+
+  var out: VSOut;
+  out.pos = camera.mvp * vec4<f32>(worldPos, 1.0);
+  out.normal = nWorld;
+  out.baseColor = color;
+  out.alpha = alpha;
+  out.worldPos = worldPos;
+  return out;
+}`
+
+const lineCylFragCode = /*wgsl*/`// lineCylFragCode.wgsl
+${cameraStruct}
+${lightingConstants}
+
+@fragment
+fn fs_main(
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>
+)-> @location(0) vec4<f32>
+{
+  let N = normalize(normal);
+  let L = normalize(camera.lightDir);
+  let V = normalize(camera.cameraPos - worldPos);
+  let lambert = max(dot(N,L), 0.0);
+  let ambient = AMBIENT_INTENSITY;
+  var color = baseColor * (ambient + lambert*DIFFUSE_INTENSITY);
+
+  let H = normalize(L + V);
+  let spec = pow(max(dot(N,H),0.0), SPECULAR_POWER);
+  color += vec3<f32>(1.0)*spec*SPECULAR_INTENSITY;
+
+  return vec4<f32>(color, alpha);
+}`
+
 const pickingVertCode = /*wgsl*/`
 ${cameraStruct}
 
@@ -2357,6 +2773,41 @@ fn vs_cuboid(
   let wp = center + (inPos * size);
   var out: VSOut;
   out.pos = camera.mvp*vec4<f32>(wp,1.0);
+  out.pickID = pickID;
+  return out;
+}
+
+@vertex
+fn vs_lineCyl(
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+
+  @location(2) startPos: vec3<f32>,
+  @location(3) endPos: vec3<f32>,
+  @location(4) radius: f32,
+  @location(5) pickID: f32
+) -> VSOut {
+  let segDir = endPos - startPos;
+  let length = max(length(segDir), 0.000001);
+  let zDir = normalize(segDir);
+
+  var tempUp = vec3<f32>(0,0,1);
+  if (abs(dot(zDir, tempUp)) > 0.99) {
+    tempUp = vec3<f32>(0,1,0);
+  }
+  let xDir = normalize(cross(zDir, tempUp));
+  let yDir = cross(zDir, xDir);
+
+  let localX = inPos.x * radius;
+  let localY = inPos.y * radius;
+  let localZ = inPos.z * length;
+  let worldPos = startPos
+    + xDir*localX
+    + yDir*localY
+    + zDir*localZ;
+
+  var out: VSOut;
+  out.pos = camera.mvp * vec4<f32>(worldPos, 1.0);
   out.pickID = pickID;
   return out;
 }

@@ -1,5 +1,12 @@
 import numpy as np
-from genstudio.scene3d import PointCloud, Ellipsoid, EllipsoidAxes, Cuboid, deco
+from genstudio.scene3d import (
+    PointCloud,
+    Ellipsoid,
+    EllipsoidAxes,
+    Cuboid,
+    deco,
+    LineCylinders,
+)
 import genstudio.plot as Plot
 import math
 
@@ -36,6 +43,60 @@ def create_demo_scene():
                     "color": [1, 1, 0],
                     "scale": 1.5,
                 }
+            ],
+        )
+        +
+        # # Add some line strips that weave through the scene
+        LineCylinders(
+            positions=np.array(
+                [
+                    # X axis
+                    0.0,
+                    2.0,
+                    0.0,
+                    0,  # Start at origin, offset up
+                    2.0,
+                    2.0,
+                    0.0,
+                    0,  # Extend in X direction
+                    # Y axis
+                    0.0,
+                    2.0,
+                    0.0,
+                    1,  # Start at origin again
+                    0.0,
+                    4.0,
+                    0.0,
+                    1,  # Extend in Y direction
+                    # Z axis
+                    0.0,
+                    2.0,
+                    0.0,
+                    2,  # Start at origin again
+                    0.0,
+                    2.0,
+                    2.0,
+                    2,  # Extend in Z direction
+                ],
+                dtype=np.float32,
+            ),
+            color=np.array([1.0, 0.0, 0.0]),
+            colors=np.array(
+                [
+                    [1.0, 0.0, 0.0],  # Red for X axis
+                    [0.0, 1.0, 0.0],  # Green for Y axis
+                    [0.0, 0.0, 1.0],  # Blue for Z axis
+                ],
+                dtype=np.float32,
+            ),
+            radius=0.02,
+            alpha=1.0,
+            onHover=Plot.js("(i) => $state.update({hover_line: i})"),
+            decorations=[
+                deco([0], alpha=0.5),
+                deco(
+                    Plot.js("$state.hover_line ? [$state.hover_line] : []"), alpha=0.2
+                ),
             ],
         )
         +

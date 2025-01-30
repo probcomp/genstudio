@@ -312,3 +312,40 @@ def Cuboid(
         data["color"] = color
 
     return SceneComponent("Cuboid", data, **kwargs)
+
+
+def LineCylinders(
+    positions: ArrayLike,  # Array of quadruples [x,y,z,i, x,y,z,i, ...]
+    color: Optional[ArrayLike] = None,  # Default RGB color for all cylinders
+    radius: Optional[NumberLike] = None,  # Default radius for all cylinders
+    colors: Optional[ArrayLike] = None,  # Per-segment colors
+    radii: Optional[ArrayLike] = None,  # Per-segment radii
+    **kwargs: Any,
+) -> SceneComponent:
+    """Create a line cylinders element.
+
+    Args:
+        positions: Array of quadruples [x,y,z,i, x,y,z,i, ...] where points sharing
+                  the same i value are connected in sequence
+        color: Default RGB color [r,g,b] for all cylinders if segment_colors not provided
+        radius: Default radius for all cylinders if segment_radii not provided
+        segment_colors: Array of RGB colors per cylinder segment (optional)
+        segment_radii: Array of radii per cylinder segment (optional)
+        **kwargs: Additional arguments like onHover, onClick
+
+    Returns:
+        A LineCylinders scene component that renders connected cylinder segments.
+        Points are connected in sequence within groups sharing the same i value.
+    """
+    data: Dict[str, Any] = {"positions": flatten_array(positions, dtype=np.float32)}
+
+    if color is not None:
+        data["color"] = color
+    if radius is not None:
+        data["radius"] = radius
+    if colors is not None:
+        data["colors"] = flatten_array(colors, dtype=np.float32)
+    if radii is not None:
+        data["radii"] = flatten_array(radii, dtype=np.float32)
+
+    return SceneComponent("LineCylinders", data, **kwargs)

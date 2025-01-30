@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { SceneInner, ComponentConfig, PointCloudComponentConfig, EllipsoidComponentConfig, EllipsoidAxesComponentConfig, CuboidComponentConfig } from './impl3d';
+import { SceneInner, ComponentConfig, PointCloudComponentConfig, EllipsoidComponentConfig, EllipsoidAxesComponentConfig, CuboidComponentConfig, LineCylindersComponentConfig } from './impl3d';
 import { CameraParams } from './camera3d';
 import { useContainerWidth } from '../utils';
 import { FPSCounter, useFPSCounter } from './fps';
@@ -37,8 +37,6 @@ export function PointCloud(props: PointCloudComponentConfig): PointCloudComponen
     onHover,
     onClick
   } = props
-  console.log("P--", props)
-
   return {
     type: 'PointCloud',
     positions,
@@ -125,6 +123,29 @@ export function Cuboid({
     decorations,
     onHover,
     onClick
+  };
+}
+
+export function LineCylinders({
+  positions,
+  color = [1, 1, 1],
+  radius = 0.02,
+  radii,
+  colors,
+  onHover,
+  onClick,
+  decorations
+}: LineCylindersComponentConfig): LineCylindersComponentConfig {
+  return {
+    type: 'LineCylinders',
+    positions,
+    color,
+    radius,
+    radii,
+    colors,
+    onHover,
+    onClick,
+    decorations
   };
 }
 
