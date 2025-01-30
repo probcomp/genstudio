@@ -87,14 +87,14 @@ export interface DynamicBuffers {
 }
 
 export interface SceneInnerProps {
-    components: any[];
+    components: ComponentConfig[];
     containerWidth: number;
     containerHeight: number;
     style?: React.CSSProperties;
     camera?: CameraParams;
     defaultCamera?: CameraParams;
     onCameraChange?: (camera: CameraParams) => void;
-    onFrameRendered?: (renderTime: number) => void;  // Add this line
+    onFrameRendered?: (renderTime: number) => void;
 }
 
 /******************************************************

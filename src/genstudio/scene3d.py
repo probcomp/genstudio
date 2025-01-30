@@ -13,7 +13,6 @@ class Decoration(TypedDict, total=False):
     color: Optional[ArrayLike]  # [r,g,b]
     alpha: Optional[NumberLike]  # 0-1
     scale: Optional[NumberLike]  # scale factor
-    minSize: Optional[NumberLike]  # pixels
 
 
 def deco(
@@ -22,7 +21,6 @@ def deco(
     color: Optional[ArrayLike] = None,
     alpha: Optional[NumberLike] = None,
     scale: Optional[NumberLike] = None,
-    min_size: Optional[NumberLike] = None,
 ) -> Decoration:
     """Create a decoration for scene components.
 
@@ -31,7 +29,6 @@ def deco(
         color: Optional RGB color override [r,g,b]
         alpha: Optional opacity value (0-1)
         scale: Optional scale factor
-        min_size: Optional minimum size in pixels
 
     Returns:
         Dictionary containing decoration settings
@@ -50,8 +47,6 @@ def deco(
         decoration["alpha"] = alpha
     if scale is not None:
         decoration["scale"] = scale
-    if min_size is not None:
-        decoration["minSize"] = min_size
 
     return decoration  # type: ignore
 
