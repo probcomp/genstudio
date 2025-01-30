@@ -26,6 +26,34 @@ import {
 /******************************************************
  * 1) Types and Interfaces
  ******************************************************/
+
+interface BaseComponentConfig {
+  // Per-instance arrays
+  colors?: Float32Array;    // RGB triplets
+  alphas?: Float32Array;    // Per-instance alpha
+  scales?: Float32Array;    // Per-instance scale multipliers
+
+  // Default values
+  color?: [number, number, number];  // defaults to [1,1,1]
+  alpha?: number;                    // defaults to 1.0
+  scale?: number;                    // defaults to 1.0
+
+  // Interaction callbacks
+  onHover?: (index: number|null) => void;
+  onClick?: (index: number) => void;
+
+  // Decorations apply last
+  decorations?: Decoration[];
+}
+
+function getBaseDefaults(config: Partial<BaseComponentConfig>): Required<Omit<BaseComponentConfig, 'colors' | 'alphas' | 'scales' | 'decorations' | 'onHover' | 'onClick'>> {
+  return {
+    color: config.color ?? [1, 1, 1],
+    alpha: config.alpha ?? 1.0,
+    scale: config.scale ?? 1.0,
+  };
+}
+
 export interface BufferInfo {
   buffer: GPUBuffer;
   offset: number;
@@ -123,7 +151,6 @@ interface Decoration {
   color?: [number, number, number];
   alpha?: number;
   scale?: number;
-  minSize?: number;
 }
 
 /** Helper function to apply decorations to an array of instances */
@@ -150,83 +177,76 @@ interface RenderConfig {
 }
 
 /** ===================== POINT CLOUD ===================== **/
-export interface PointCloudComponentConfig {
+export interface PointCloudComponentConfig extends BaseComponentConfig {
   type: 'PointCloud';
   positions: Float32Array;
-  colors?: Float32Array;
-  color: [number, number, number];  // Required singular option
-  sizes?: Float32Array;  // Per-point sizes in scene units
-  size: number;  // Default size in scene units
-  decorations?: Decoration[];
-  onHover?: (index: number|null) => void;
-  onClick?: (index: number) => void;
+  sizes?: Float32Array;     // Per-point sizes
+  size?: number;           // Default size, defaults to 0.02
 }
 
 const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
-  // Data transformation methods
   getCount(elem) {
     return elem.positions.length / 3;
   },
 
   buildRenderData(elem) {
-    const { positions, colors, color, sizes, size } = elem;
-    const count = positions.length / 3;
+    const count = elem.positions.length / 3;
     if(count === 0) return null;
 
-    // (pos.x, pos.y, pos.z, color.r, color.g, color.b, alpha, size)
-    const arr = new Float32Array(count * 8);
+    const defaults = getBaseDefaults(elem);
+    const size = elem.size ?? 0.02;
 
-    // Initialize default values outside the loop
-    const hasColors = colors && colors.length === count*3;
-    for(let i=0; i<count; i++){
-      arr[i*8+0] = positions[i*3+0];
-      arr[i*8+1] = positions[i*3+1];
-      arr[i*8+2] = positions[i*3+2];
-      if(hasColors){
-        arr[i*8+3] = colors[i*3+0];
-        arr[i*8+4] = colors[i*3+1];
-        arr[i*8+5] = colors[i*3+2];
+    const arr = new Float32Array(count * 8);
+    for(let i=0; i<count; i++) {
+      arr[i*8+0] = elem.positions[i*3+0];
+      arr[i*8+1] = elem.positions[i*3+1];
+      arr[i*8+2] = elem.positions[i*3+2];
+
+      if(elem.colors && i*3+2 < elem.colors.length) {
+        arr[i*8+3] = elem.colors[i*3+0];
+        arr[i*8+4] = elem.colors[i*3+1];
+        arr[i*8+5] = elem.colors[i*3+2];
       } else {
-        arr[i*8+3] = color[0];
-        arr[i*8+4] = color[1];
-        arr[i*8+5] = color[2];
+        arr[i*8+3] = defaults.color[0];
+        arr[i*8+4] = defaults.color[1];
+        arr[i*8+5] = defaults.color[2];
       }
-      arr[i*8+6] = 1.0; // alpha
-      arr[i*8+7] = sizes ? sizes[i] : size;
+
+      arr[i*8+6] = elem.alphas?.[i] ?? defaults.alpha;
+      arr[i*8+7] = (elem.sizes?.[i] ?? size) * (elem.scales?.[i] ?? defaults.scale);
     }
-    // decorations (keep using scale for decorations since it's a multiplier)
+
+    // Apply decorations last
     applyDecorations(elem.decorations, count, (idx, dec) => {
-      if(dec.color){
+      if(dec.color) {
         arr[idx*8+3] = dec.color[0];
         arr[idx*8+4] = dec.color[1];
         arr[idx*8+5] = dec.color[2];
       }
-      if(dec.alpha !== undefined){
+      if(dec.alpha !== undefined) {
         arr[idx*8+6] = dec.alpha;
       }
-      if(dec.scale !== undefined){
+      if(dec.scale !== undefined) {
         arr[idx*8+7] *= dec.scale;
       }
-      if(dec.minSize !== undefined){
-        if(arr[idx*8+7] < dec.minSize) arr[idx*8+7] = dec.minSize;
-      }
     });
+
     return arr;
   },
 
   buildPickingData(elem, baseID) {
-    const { positions, sizes, size } = elem;
-    const count = positions.length / 3;
-    if(count===0) return null;
+    const count = elem.positions.length / 3;
+    if(count === 0) return null;
 
-    // (pos.x, pos.y, pos.z, pickID, size)
-    const arr = new Float32Array(count*5);
-    for(let i=0; i<count; i++){
-      arr[i*5+0] = positions[i*3+0];
-      arr[i*5+1] = positions[i*3+1];
-      arr[i*5+2] = positions[i*3+2];
+    const size = elem.size ?? 0.02;
+    const arr = new Float32Array(count * 5);
+
+    for(let i=0; i<count; i++) {
+      arr[i*5+0] = elem.positions[i*3+0];
+      arr[i*5+1] = elem.positions[i*3+1];
+      arr[i*5+2] = elem.positions[i*3+2];
       arr[i*5+3] = baseID + i;
-      arr[i*5+4] = sizes ? sizes[i] : size;
+      arr[i*5+4] = elem.sizes?.[i] ?? size;
     }
     return arr;
   },
@@ -301,109 +321,108 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
 };
 
 /** ===================== ELLIPSOID ===================== **/
-export interface EllipsoidComponentConfig {
+export interface EllipsoidComponentConfig extends BaseComponentConfig {
   type: 'Ellipsoid';
   centers: Float32Array;
-  radii?: Float32Array;
-  radius: [number, number, number];  // Required singular option
-  colors?: Float32Array;
-  color: [number, number, number];  // Required singular option
-  decorations?: Decoration[];
-  onHover?: (index: number|null) => void;
-  onClick?: (index: number) => void;
+  radii?: Float32Array;     // Per-ellipsoid radii
+  radius?: [number, number, number]; // Default radius, defaults to [1,1,1]
 }
 
 const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
-  getCount(elem){
+  getCount(elem) {
     return elem.centers.length / 3;
   },
-  buildRenderData(elem){
-    const { centers, radii, radius, colors, color } = elem;
-    const count = centers.length / 3;
-    if(count===0)return null;
 
-    // (center.x, center.y, center.z, scale.x, scale.y, scale.z, color.r, color.g, color.b, alpha)
-    const arr = new Float32Array(count*10);
-    const hasColors = colors && colors.length===count*3;
-    const hasRadii = radii && radii.length===count*3;
+  buildRenderData(elem) {
+    const count = elem.centers.length / 3;
+    if(count === 0) return null;
 
-    for(let i=0; i<count; i++){
-      arr[i*10+0] = centers[i*3+0];
-      arr[i*10+1] = centers[i*3+1];
-      arr[i*10+2] = centers[i*3+2];
-      if(hasRadii) {
-        arr[i*10+3] = radii[i*3+0];
-        arr[i*10+4] = radii[i*3+1];
-        arr[i*10+5] = radii[i*3+2];
+    const defaults = getBaseDefaults(elem);
+    const defaultRadius = elem.radius ?? [1, 1, 1];
+
+    const arr = new Float32Array(count * 10);
+    for(let i=0; i<count; i++) {
+      // Centers
+      arr[i*10+0] = elem.centers[i*3+0];
+      arr[i*10+1] = elem.centers[i*3+1];
+      arr[i*10+2] = elem.centers[i*3+2];
+
+      // Radii
+      const scale = elem.scales?.[i] ?? defaults.scale;
+      if(elem.radii && i*3+2 < elem.radii.length) {
+        arr[i*10+3] = elem.radii[i*3+0] * scale;
+        arr[i*10+4] = elem.radii[i*3+1] * scale;
+        arr[i*10+5] = elem.radii[i*3+2] * scale;
       } else {
-        arr[i*10+3] = radius[0];
-        arr[i*10+4] = radius[1];
-        arr[i*10+5] = radius[2];
+        arr[i*10+3] = defaultRadius[0] * scale;
+        arr[i*10+4] = defaultRadius[1] * scale;
+        arr[i*10+5] = defaultRadius[2] * scale;
       }
-      if(hasColors){
-        arr[i*10+6] = colors[i*3+0];
-        arr[i*10+7] = colors[i*3+1];
-        arr[i*10+8] = colors[i*3+2];
+
+      // Colors
+      if(elem.colors && i*3+2 < elem.colors.length) {
+        arr[i*10+6] = elem.colors[i*3+0];
+        arr[i*10+7] = elem.colors[i*3+1];
+        arr[i*10+8] = elem.colors[i*3+2];
       } else {
-        arr[i*10+6] = color[0];
-        arr[i*10+7] = color[1];
-        arr[i*10+8] = color[2];
+        arr[i*10+6] = defaults.color[0];
+        arr[i*10+7] = defaults.color[1];
+        arr[i*10+8] = defaults.color[2];
       }
-      arr[i*10+9] = 1.0;
+
+      arr[i*10+9] = elem.alphas?.[i] ?? defaults.alpha;
     }
-    // decorations
+
     applyDecorations(elem.decorations, count, (idx, dec) => {
-      if(dec.color){
+      if(dec.color) {
         arr[idx*10+6] = dec.color[0];
         arr[idx*10+7] = dec.color[1];
         arr[idx*10+8] = dec.color[2];
       }
-      if(dec.alpha!==undefined){
+      if(dec.alpha !== undefined) {
         arr[idx*10+9] = dec.alpha;
       }
-      if(dec.scale!==undefined){
-        arr[idx*10+3]*=dec.scale;
-        arr[idx*10+4]*=dec.scale;
-        arr[idx*10+5]*=dec.scale;
-      }
-      if(dec.minSize!==undefined){
-        if(arr[idx*10+3]<dec.minSize) arr[idx*10+3] = dec.minSize;
-        if(arr[idx*10+4]<dec.minSize) arr[idx*10+4] = dec.minSize;
-        if(arr[idx*10+5]<dec.minSize) arr[idx*10+5] = dec.minSize;
+      if(dec.scale !== undefined) {
+        arr[idx*10+3] *= dec.scale;
+        arr[idx*10+4] *= dec.scale;
+        arr[idx*10+5] *= dec.scale;
       }
     });
+
     return arr;
   },
-  buildPickingData(elem, baseID){
-    const { centers, radii, radius } = elem;
-    const count=centers.length/3;
-    if(count===0)return null;
 
-    // (pos.x, pos.y, pos.z, scale.x, scale.y, scale.z, pickID)
-    const arr = new Float32Array(count*7);
-    const hasRadii = radii && radii.length===count*3;
+  buildPickingData(elem, baseID) {
+    const count = elem.centers.length / 3;
+    if(count === 0) return null;
 
-    for(let i=0; i<count; i++){
-      arr[i*7+0] = centers[i*3+0];
-      arr[i*7+1] = centers[i*3+1];
-      arr[i*7+2] = centers[i*3+2];
-      if(hasRadii) {
-        arr[i*7+3] = radii[i*3+0];
-        arr[i*7+4] = radii[i*3+1];
-        arr[i*7+5] = radii[i*3+2];
+    const defaultRadius = elem.radius ?? [1, 1, 1];
+    const arr = new Float32Array(count * 7);
+
+    for(let i=0; i<count; i++) {
+      arr[i*7+0] = elem.centers[i*3+0];
+      arr[i*7+1] = elem.centers[i*3+1];
+      arr[i*7+2] = elem.centers[i*3+2];
+
+      if(elem.radii && i*3+2 < elem.radii.length) {
+        arr[i*7+3] = elem.radii[i*3+0];
+        arr[i*7+4] = elem.radii[i*3+1];
+        arr[i*7+5] = elem.radii[i*3+2];
       } else {
-        arr[i*7+3] = radius[0];
-        arr[i*7+4] = radius[1];
-        arr[i*7+5] = radius[2];
+        arr[i*7+3] = defaultRadius[0];
+        arr[i*7+4] = defaultRadius[1];
+        arr[i*7+5] = defaultRadius[2];
       }
       arr[i*7+6] = baseID + i;
     }
     return arr;
   },
+
   renderConfig: {
     cullMode: 'back',
     topology: 'triangle-list'
   },
+
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
     return getOrCreatePipeline(
@@ -441,96 +460,124 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
 };
 
 /** ===================== ELLIPSOID BOUNDS ===================== **/
-export interface EllipsoidAxesComponentConfig {
+export interface EllipsoidAxesComponentConfig extends BaseComponentConfig {
   type: 'EllipsoidAxes';
   centers: Float32Array;
   radii?: Float32Array;
-  radius: [number, number, number];  // Required singular option
+  radius?: [number, number, number];  // Make optional since we have BaseComponentConfig defaults
   colors?: Float32Array;
-  color: [number, number, number];  // Required singular option
-  decorations?: Decoration[];
-  onHover?: (index: number|null) => void;
-  onClick?: (index: number) => void;
 }
 
 const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
   getCount(elem) {
-    // each ellipsoid => 3 rings
-    const c = elem.centers.length/3;
-    return c*3;
+    return elem.centers.length / 3;
   },
+
   buildRenderData(elem) {
-    const { centers, radii, radius, colors } = elem;
-    const count = centers.length/3;
-    if(count===0)return null;
+    const count = elem.centers.length / 3;
+    if(count === 0) return null;
 
-    const ringCount = count*3;
-    // (pos.x,pos.y,pos.z, scale.x,scale.y,scale.z, color.r,g,b, alpha)
-    const arr = new Float32Array(ringCount*10);
-    const hasRadii = radii && radii.length===count*3;
+    const defaults = getBaseDefaults(elem);
+    const defaultRadius = elem.radius ?? [1, 1, 1];
+    const ringCount = count * 3;
+    const arr = new Float32Array(ringCount * 10);
 
-    for(let i=0;i<count;i++){
-      const cx=centers[i*3+0], cy=centers[i*3+1], cz=centers[i*3+2];
-      const rx = hasRadii ? radii[i*3+0] : radius[0];
-      const ry = hasRadii ? radii[i*3+1] : radius[1];
-      const rz = hasRadii ? radii[i*3+2] : radius[2];
-      let cr=1, cg=1, cb=1, alpha=1;
-      if(colors && colors.length===count*3){
-        cr=colors[i*3+0]; cg=colors[i*3+1]; cb=colors[i*3+2];
+    for(let i = 0; i < count; i++) {
+      const cx = elem.centers[i*3+0];
+      const cy = elem.centers[i*3+1];
+      const cz = elem.centers[i*3+2];
+
+      // Get radii with scale
+      const scale = elem.scales?.[i] ?? defaults.scale;
+      let rx = (elem.radii?.[i*3+0] ?? defaultRadius[0]) * scale;
+      let ry = (elem.radii?.[i*3+1] ?? defaultRadius[1]) * scale;
+      let rz = (elem.radii?.[i*3+2] ?? defaultRadius[2]) * scale;
+
+      // Get colors
+      let cr = defaults.color[0];
+      let cg = defaults.color[1];
+      let cb = defaults.color[2];
+      let alpha = defaults.alpha;
+
+      if(elem.colors && i*3+2 < elem.colors.length) {
+        cr = elem.colors[i*3+0];
+        cg = elem.colors[i*3+1];
+        cb = elem.colors[i*3+2];
       }
-      // decorations
+
+      // Apply decorations per ellipsoid
       applyDecorations(elem.decorations, count, (idx, dec) => {
         if(idx === i) {
-          if(dec.color){
-            cr=dec.color[0]; cg=dec.color[1]; cb=dec.color[2];
+          if(dec.color) {
+            cr = dec.color[0];
+            cg = dec.color[1];
+            cb = dec.color[2];
           }
-          if(dec.alpha!==undefined){
-            alpha=dec.alpha;
+          if(dec.alpha !== undefined) {
+            alpha = dec.alpha;
+          }
+          if(dec.scale !== undefined) {
+            rx *= dec.scale;
+            ry *= dec.scale;
+            rz *= dec.scale;
           }
         }
       });
-      // fill 3 rings
-      for(let ring=0; ring<3; ring++){
+
+      // Fill 3 rings
+      for(let ring = 0; ring < 3; ring++) {
         const idx = i*3 + ring;
         arr[idx*10+0] = cx;
         arr[idx*10+1] = cy;
         arr[idx*10+2] = cz;
-        arr[idx*10+3] = rx; arr[idx*10+4] = ry; arr[idx*10+5] = rz;
-        arr[idx*10+6] = cr; arr[idx*10+7] = cg; arr[idx*10+8] = cb;
+        arr[idx*10+3] = rx;
+        arr[idx*10+4] = ry;
+        arr[idx*10+5] = rz;
+        arr[idx*10+6] = cr;
+        arr[idx*10+7] = cg;
+        arr[idx*10+8] = cb;
         arr[idx*10+9] = alpha;
       }
     }
     return arr;
   },
-  buildPickingData(elem, baseID){
-    const { centers, radii, radius } = elem;
-    const count=centers.length/3;
-    if(count===0)return null;
-    const ringCount = count*3;
-    const arr = new Float32Array(ringCount*7);
-    const hasRadii = radii && radii.length===count*3;
 
-    for(let i=0;i<count;i++){
-      const cx=centers[i*3+0], cy=centers[i*3+1], cz=centers[i*3+2];
-      const rx = hasRadii ? radii[i*3+0] : radius[0];
-      const ry = hasRadii ? radii[i*3+1] : radius[1];
-      const rz = hasRadii ? radii[i*3+2] : radius[2];
+  buildPickingData(elem, baseID) {
+    const count = elem.centers.length / 3;
+    if(count === 0) return null;
+
+    const defaultRadius = elem.radius ?? [1, 1, 1];
+    const ringCount = count * 3;
+    const arr = new Float32Array(ringCount * 7);
+
+    for(let i = 0; i < count; i++) {
+      const cx = elem.centers[i*3+0];
+      const cy = elem.centers[i*3+1];
+      const cz = elem.centers[i*3+2];
+      const rx = elem.radii?.[i*3+0] ?? defaultRadius[0];
+      const ry = elem.radii?.[i*3+1] ?? defaultRadius[1];
+      const rz = elem.radii?.[i*3+2] ?? defaultRadius[2];
       const thisID = baseID + i;
-      for(let ring=0; ring<3; ring++){
+
+      for(let ring = 0; ring < 3; ring++) {
         const idx = i*3 + ring;
         arr[idx*7+0] = cx;
         arr[idx*7+1] = cy;
         arr[idx*7+2] = cz;
-        arr[idx*7+3] = rx; arr[idx*7+4] = ry; arr[idx*7+5] = rz;
+        arr[idx*7+3] = rx;
+        arr[idx*7+4] = ry;
+        arr[idx*7+5] = rz;
         arr[idx*7+6] = thisID;
       }
     }
     return arr;
   },
+
   renderConfig: {
     cullMode: 'back',
     topology: 'triangle-list'
   },
+
   getRenderPipeline(device, bindGroupLayout, cache) {
     const format = navigator.gpu.getPreferredCanvasFormat();
     return getOrCreatePipeline(
@@ -569,85 +616,79 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
 };
 
 /** ===================== CUBOID ===================== **/
-export interface CuboidComponentConfig {
+export interface CuboidComponentConfig extends BaseComponentConfig {
   type: 'Cuboid';
   centers: Float32Array;
   sizes: Float32Array;
-  colors?: Float32Array;
-  color: [number, number, number];  // Required singular option
-  decorations?: Decoration[];
-  onHover?: (index: number|null) => void;
-  onClick?: (index: number) => void;
 }
 
 const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
   getCount(elem){
     return elem.centers.length / 3;
   },
-  buildRenderData(elem){
-    const { centers, sizes, colors, color } = elem;
-    const count = centers.length / 3;
-    if(count===0)return null;
+  buildRenderData(elem) {
+    const count = elem.centers.length / 3;
+    if(count === 0) return null;
 
-    // (center.x, center.y, center.z, size.x, size.y, size.z, color.r, color.g, color.b, alpha)
-    const arr = new Float32Array(count*10);
-    const hasColors = colors && colors.length===count*3;
+    const defaults = getBaseDefaults(elem);
+    const arr = new Float32Array(count * 10);
 
-    for(let i=0; i<count; i++){
-      arr[i*10+0] = centers[i*3+0];
-      arr[i*10+1] = centers[i*3+1];
-      arr[i*10+2] = centers[i*3+2];
-      arr[i*10+3] = sizes[i*3+0] || 0.1;
-      arr[i*10+4] = sizes[i*3+1] || 0.1;
-      arr[i*10+5] = sizes[i*3+2] || 0.1;
-      if(hasColors){
-        arr[i*10+6] = colors[i*3+0];
-        arr[i*10+7] = colors[i*3+1];
-        arr[i*10+8] = colors[i*3+2];
+    for(let i = 0; i < count; i++) {
+      // Centers
+      arr[i*10+0] = elem.centers[i*3+0];
+      arr[i*10+1] = elem.centers[i*3+1];
+      arr[i*10+2] = elem.centers[i*3+2];
+
+      // Sizes (with scale)
+      const scale = elem.scales?.[i] ?? defaults.scale;
+      arr[i*10+3] = (elem.sizes[i*3+0] || 0.1) * scale;
+      arr[i*10+4] = (elem.sizes[i*3+1] || 0.1) * scale;
+      arr[i*10+5] = (elem.sizes[i*3+2] || 0.1) * scale;
+
+      // Colors
+      if(elem.colors && i*3+2 < elem.colors.length) {
+        arr[i*10+6] = elem.colors[i*3+0];
+        arr[i*10+7] = elem.colors[i*3+1];
+        arr[i*10+8] = elem.colors[i*3+2];
       } else {
-        arr[i*10+6] = color[0];
-        arr[i*10+7] = color[1];
-        arr[i*10+8] = color[2];
+        arr[i*10+6] = defaults.color[0];
+        arr[i*10+7] = defaults.color[1];
+        arr[i*10+8] = defaults.color[2];
       }
-      arr[i*10+9] = 1.0;
+
+      arr[i*10+9] = elem.alphas?.[i] ?? defaults.alpha;
     }
-    // decorations
+
     applyDecorations(elem.decorations, count, (idx, dec) => {
-      if(dec.color){
+      if(dec.color) {
         arr[idx*10+6] = dec.color[0];
         arr[idx*10+7] = dec.color[1];
         arr[idx*10+8] = dec.color[2];
       }
-      if(dec.alpha!==undefined){
+      if(dec.alpha !== undefined) {
         arr[idx*10+9] = dec.alpha;
       }
-      if(dec.scale!==undefined){
-        arr[idx*10+3]*=dec.scale;
-        arr[idx*10+4]*=dec.scale;
-        arr[idx*10+5]*=dec.scale;
-      }
-      if(dec.minSize!==undefined){
-        if(arr[idx*10+3]<dec.minSize) arr[idx*10+3] = dec.minSize;
-        if(arr[idx*10+4]<dec.minSize) arr[idx*10+4] = dec.minSize;
-        if(arr[idx*10+5]<dec.minSize) arr[idx*10+5] = dec.minSize;
+      if(dec.scale !== undefined) {
+        arr[idx*10+3] *= dec.scale;
+        arr[idx*10+4] *= dec.scale;
+        arr[idx*10+5] *= dec.scale;
       }
     });
+
     return arr;
   },
   buildPickingData(elem, baseID){
-    const { centers, sizes } = elem;
-    const count=centers.length/3;
-    if(count===0)return null;
+    const count = elem.centers.length / 3;
+    if(count === 0) return null;
 
-    // (center.x, center.y, center.z, size.x, size.y, size.z, pickID)
-    const arr = new Float32Array(count*7);
-    for(let i=0; i<count; i++){
-      arr[i*7+0] = centers[i*3+0];
-      arr[i*7+1] = centers[i*3+1];
-      arr[i*7+2] = centers[i*3+2];
-      arr[i*7+3] = sizes[i*3+0]||0.1;
-      arr[i*7+4] = sizes[i*3+1]||0.1;
-      arr[i*7+5] = sizes[i*3+2]||0.1;
+    const arr = new Float32Array(count * 7);
+    for(let i = 0; i < count; i++) {
+      arr[i*7+0] = elem.centers[i*3+0];
+      arr[i*7+1] = elem.centers[i*3+1];
+      arr[i*7+2] = elem.centers[i*3+2];
+      arr[i*7+3] = elem.sizes[i*3+0] || 0.1;
+      arr[i*7+4] = elem.sizes[i*3+1] || 0.1;
+      arr[i*7+5] = elem.sizes[i*3+2] || 0.1;
       arr[i*7+6] = baseID + i;
     }
     return arr;
@@ -696,30 +737,11 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
 /******************************************************
  *  LineCylinders Type
  ******************************************************/
-export interface LineCylindersComponentConfig {
+export interface LineCylindersComponentConfig extends BaseComponentConfig {
   type: 'LineCylinders';
-
-   /**
-   * Flattened quadruples: [x, y, z, i, x, y, z, i, ...].
-   * Consecutive points with the same 'i' form one or more segments.
-   */
-   positions: Float32Array;
-
-   /** radii: radius for each line i. If not given, uses a fallback. */
-   radii?: Float32Array; // indexed by line i
-   radius?: number;          // fallback radius if radii is missing or incomplete
-
-   /** colors: RGB color for each line i. If not given, uses fallback color. */
-   colors?: Float32Array;    // indexed by line i, RGB triplets
-   /** Single fallback color & alpha if no decorations override. */
-   color?: [number, number, number];
-   alpha?: number;
-
-   /** Single fallback is used for each line, but we can override with decorations. */
-   decorations?: Decoration[];
-
-   onHover?: (segmentIndex: number | null) => void;
-   onClick?: (segmentIndex: number) => void;
+  positions: Float32Array;  // [x,y,z,i, x,y,z,i, ...]
+  radii?: Float32Array;     // Per-line radii
+  radius?: number;         // Default radius, defaults to 0.02
 }
 
 function countSegments(positions: Float32Array): number {
@@ -744,95 +766,76 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
 
   buildRenderData(elem) {
     const segCount = this.getCount(elem);
-    if (segCount === 0) return null;
+    if(segCount === 0) return null;
 
-    const {
-      positions,
-      radii,
-      radius = 0.02,
-      colors,
-      color = [1, 1, 1],
-      alpha = 1.0,
-      decorations
-    } = elem;
-
-    // Each segment => 11 floats
+    const defaults = getBaseDefaults(elem);
+    const defaultRadius = elem.radius ?? 0.02;
     const floatsPerSeg = 11;
     const arr = new Float32Array(segCount * floatsPerSeg);
 
-    // We'll store final line-level color/alpha/radius in temporary variables
-    // and apply them for each segment that belongs to that line.
-    const pointCount = positions.length / 4;
+    const pointCount = elem.positions.length / 4;
     let segIndex = 0;
 
-    for (let p = 0; p < pointCount - 1; p++) {
-      const iCurr = positions[p * 4 + 3];
-      const iNext = positions[(p+1)*4 + 3];
-      if (iCurr !== iNext) {
-        // new line => skip
-        continue;
-      }
-      // line i = iCurr
-      // We start from fallback
-      let r = radius;
-      let cR = color[0];
-      let cG = color[1];
-      let cB = color[2];
-      let a  = alpha;
+    for(let p = 0; p < pointCount - 1; p++) {
+      const iCurr = elem.positions[p * 4 + 3];
+      const iNext = elem.positions[(p+1) * 4 + 3];
+      if(iCurr !== iNext) continue;
 
-      // radii overrides
-      const lineIndex = Math.floor(iCurr); // or just iCurr if you guarantee it's integer
-      if (radii && lineIndex >= 0 && lineIndex < radii.length) {
-        r = radii[lineIndex];
-      }
+      const lineIndex = Math.floor(iCurr);
 
-      // colors override (before decorations)
-      if (colors && lineIndex >= 0 && lineIndex * 3 + 2 < colors.length) {
-        cR = colors[lineIndex * 3];
-        cG = colors[lineIndex * 3 + 1];
-        cB = colors[lineIndex * 3 + 2];
+      // Get base attributes for this line
+      let radius = elem.radii?.[lineIndex] ?? defaultRadius;
+      let cr = defaults.color[0];
+      let cg = defaults.color[1];
+      let cb = defaults.color[2];
+      let alpha = defaults.alpha;
+      const scale = elem.scales?.[lineIndex] ?? defaults.scale;
+
+      // Apply per-line colors if available
+      if(elem.colors && lineIndex * 3 + 2 < elem.colors.length) {
+        cr = elem.colors[lineIndex * 3];
+        cg = elem.colors[lineIndex * 3 + 1];
+        cb = elem.colors[lineIndex * 3 + 2];
       }
 
-      // decorations
-      applyDecorations(decorations, lineIndex + 1, (idx, dec) => {
-        if (idx === lineIndex) {
-          if (dec.color) {
-            cR = dec.color[0];
-            cG = dec.color[1];
-            cB = dec.color[2];
+      // Apply per-line alpha if available
+      if(elem.alphas && lineIndex < elem.alphas.length) {
+        alpha = elem.alphas[lineIndex];
+      }
+
+      // Apply scale to radius
+      radius *= scale;
+
+      // Apply decorations
+      applyDecorations(elem.decorations, lineIndex + 1, (idx, dec) => {
+        if(idx === lineIndex) {
+          if(dec.color) {
+            cr = dec.color[0];
+            cg = dec.color[1];
+            cb = dec.color[2];
           }
-          if (dec.alpha !== undefined) {
-            a = dec.alpha;
+          if(dec.alpha !== undefined) {
+            alpha = dec.alpha;
           }
-          if (dec.scale !== undefined) {
-            r *= dec.scale;
-          }
-          if (dec.minSize !== undefined && r < dec.minSize) {
-            r = dec.minSize;
+          if(dec.scale !== undefined) {
+            radius *= dec.scale;
           }
         }
       });
 
-      // Now we have final r, cR, cG, cB, a for line i
-      const startX = positions[p * 4 + 0];
-      const startY = positions[p * 4 + 1];
-      const startZ = positions[p * 4 + 2];
-      const endX   = positions[(p+1)*4 + 0];
-      const endY   = positions[(p+1)*4 + 1];
-      const endZ   = positions[(p+1)*4 + 2];
-
+      // Store segment data
       const base = segIndex * floatsPerSeg;
-      arr[base + 0]  = startX;
-      arr[base + 1]  = startY;
-      arr[base + 2]  = startZ;
-      arr[base + 3]  = endX;
-      arr[base + 4]  = endY;
-      arr[base + 5]  = endZ;
-      arr[base + 6]  = r;
-      arr[base + 7]  = cR;
-      arr[base + 8]  = cG;
-      arr[base + 9]  = cB;
-      arr[base + 10] = a;
+      arr[base + 0] = elem.positions[p * 4 + 0];     // start.x
+      arr[base + 1] = elem.positions[p * 4 + 1];     // start.y
+      arr[base + 2] = elem.positions[p * 4 + 2];     // start.z
+      arr[base + 3] = elem.positions[(p+1) * 4 + 0]; // end.x
+      arr[base + 4] = elem.positions[(p+1) * 4 + 1]; // end.y
+      arr[base + 5] = elem.positions[(p+1) * 4 + 2]; // end.z
+      arr[base + 6] = radius;                        // radius
+      arr[base + 7] = cr;                           // color.r
+      arr[base + 8] = cg;                           // color.g
+      arr[base + 9] = cb;                           // color.b
+      arr[base + 10] = alpha;                       // alpha
 
       segIndex++;
     }
@@ -841,55 +844,42 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
 
   buildPickingData(elem, baseID) {
     const segCount = this.getCount(elem);
-    if (segCount === 0) return null;
+    if(segCount === 0) return null;
 
-    const { positions, radii, radius = 0.02, decorations } = elem;
+    const defaultRadius = elem.radius ?? 0.02;
     const floatsPerSeg = 8;
     const arr = new Float32Array(segCount * floatsPerSeg);
 
+    const pointCount = elem.positions.length / 4;
     let segIndex = 0;
-    const pointCount = positions.length / 4;
 
-    for (let p = 0; p < pointCount - 1; p++) {
-      const iCurr = positions[p*4 + 3];
-      const iNext = positions[(p+1)*4 + 3];
-      if (iCurr !== iNext) continue;
+    for(let p = 0; p < pointCount - 1; p++) {
+      const iCurr = elem.positions[p * 4 + 3];
+      const iNext = elem.positions[(p+1) * 4 + 3];
+      if(iCurr !== iNext) continue;
 
-      let r = radius;
       const lineIndex = Math.floor(iCurr);
-      if (radii && lineIndex >= 0 && lineIndex < radii.length) {
-        r = radii[lineIndex];
-      }
-      // decorations => scale or minSize might affect radius
-      if (decorations) {
-        for (const dec of decorations) {
-          if (dec.indexes.includes(lineIndex)) {
-            if (dec.scale !== undefined) {
-              r *= dec.scale;
-            }
-            if (dec.minSize !== undefined && r < dec.minSize) {
-              r = dec.minSize;
-            }
-          }
-        }
-      }
+      let radius = elem.radii?.[lineIndex] ?? defaultRadius;
+      const scale = elem.scales?.[lineIndex] ?? 1.0;
 
-      const startX = positions[p*4 + 0];
-      const startY = positions[p*4 + 1];
-      const startZ = positions[p*4 + 2];
-      const endX   = positions[(p+1)*4 + 0];
-      const endY   = positions[(p+1)*4 + 1];
-      const endZ   = positions[(p+1)*4 + 2];
+      radius *= scale;
+
+      // Apply decorations that affect radius
+      applyDecorations(elem.decorations, lineIndex + 1, (idx, dec) => {
+        if(idx === lineIndex && dec.scale !== undefined) {
+          radius *= dec.scale;
+        }
+      });
 
       const base = segIndex * floatsPerSeg;
-      arr[base + 0] = startX;
-      arr[base + 1] = startY;
-      arr[base + 2] = startZ;
-      arr[base + 3] = endX;
-      arr[base + 4] = endY;
-      arr[base + 5] = endZ;
-      arr[base + 6] = r;
-      arr[base + 7] = baseID + segIndex;
+      arr[base + 0] = elem.positions[p * 4 + 0];     // start.x
+      arr[base + 1] = elem.positions[p * 4 + 1];     // start.y
+      arr[base + 2] = elem.positions[p * 4 + 2];     // start.z
+      arr[base + 3] = elem.positions[(p+1) * 4 + 0]; // end.x
+      arr[base + 4] = elem.positions[(p+1) * 4 + 1]; // end.y
+      arr[base + 5] = elem.positions[(p+1) * 4 + 2]; // end.z
+      arr[base + 6] = radius;                        // radius
+      arr[base + 7] = baseID + segIndex;            // pickID
 
       segIndex++;
     }

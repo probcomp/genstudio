@@ -9,7 +9,6 @@ interface Decoration {
   color?: [number, number, number];
   alpha?: number;
   scale?: number;
-  minSize?: number;
 }
 
 export function deco(
@@ -17,8 +16,7 @@ export function deco(
   options: {
     color?: [number, number, number],
     alpha?: number,
-    scale?: number,
-    minSize?: number
+    scale?: number
   } = {}
 ): Decoration {
   const indexArray = typeof indexes === 'number' ? [indexes] : indexes;
@@ -26,126 +24,47 @@ export function deco(
 }
 
 export function PointCloud(props: PointCloudComponentConfig): PointCloudComponentConfig {
-
-  const {
-    positions,
-    colors,
-    sizes,
-    color = [1, 1, 1],
-    size = 0.02,
-    decorations,
-    onHover,
-    onClick
-  } = props
   return {
+    ...props,
     type: 'PointCloud',
-    positions,
-    colors,
-    color,
-    sizes,
-    size,
-    decorations,
-    onHover,
-    onClick
   };
 }
 
-export function Ellipsoid({
-  centers,
-  radii,
-  radius = [1, 1, 1],
-  colors,
-  color = [1, 1, 1],
-  decorations,
-  onHover,
-  onClick
-}: EllipsoidComponentConfig): EllipsoidComponentConfig {
-
-  const radiusTriple = typeof radius === 'number' ?
-    [radius, radius, radius] as [number, number, number] : radius;
+export function Ellipsoid(props: EllipsoidComponentConfig): EllipsoidComponentConfig {
+  const radius = typeof props.radius === 'number' ?
+    [props.radius, props.radius, props.radius] as [number, number, number] :
+    props.radius;
 
   return {
-    type: 'Ellipsoid',
-    centers,
-    radii,
-    radius: radiusTriple,
-    colors,
-    color,
-    decorations,
-    onHover,
-    onClick
-  };
-}
-
-export function EllipsoidAxes({
-  centers,
-  radii,
-  radius = [1, 1, 1],
-  colors,
-  color = [1, 1, 1],
-  decorations,
-  onHover,
-  onClick
-}: EllipsoidAxesComponentConfig): EllipsoidAxesComponentConfig {
-
-  const radiusTriple = typeof radius === 'number' ?
-    [radius, radius, radius] as [number, number, number] : radius;
-
-  return {
-    type: 'EllipsoidAxes',
-    centers,
-    radii,
-    radius: radiusTriple,
-    colors,
-    color,
-    decorations,
-    onHover,
-    onClick
-  };
-}
-
-export function Cuboid({
-  centers,
-  sizes,
-  colors,
-  color = [1, 1, 1],
-  decorations,
-  onHover,
-  onClick
-}: CuboidComponentConfig): CuboidComponentConfig {
-
-  return {
-    type: 'Cuboid',
-    centers,
-    sizes,
-    colors,
-    color,
-    decorations,
-    onHover,
-    onClick
-  };
-}
-
-export function LineCylinders({
-  positions,
-  color = [1, 1, 1],
-  radius = 0.02,
-  radii,
-  colors,
-  onHover,
-  onClick,
-  decorations
-}: LineCylindersComponentConfig): LineCylindersComponentConfig {
-  return {
-    type: 'LineCylinders',
-    positions,
-    color,
+    ...props,
     radius,
-    radii,
-    colors,
-    onHover,
-    onClick,
-    decorations
+    type: 'Ellipsoid'
+  };
+}
+
+export function EllipsoidAxes(props: EllipsoidAxesComponentConfig): EllipsoidAxesComponentConfig {
+  const radius = typeof props.radius === 'number' ?
+    [props.radius, props.radius, props.radius] as [number, number, number] :
+    props.radius;
+
+  return {
+    ...props,
+    radius,
+    type: 'EllipsoidAxes'
+  };
+}
+
+export function Cuboid(props: CuboidComponentConfig): CuboidComponentConfig {
+  return {
+    ...props,
+    type: 'Cuboid'
+  };
+}
+
+export function LineCylinders(props: LineCylindersComponentConfig): LineCylindersComponentConfig {
+  return {
+    ...props,
+    type: 'LineCylinders'
   };
 }
 
