@@ -126,6 +126,21 @@ interface Decoration {
   minSize?: number;
 }
 
+/** Helper function to apply decorations to an array of instances */
+function applyDecorations(
+  decorations: Decoration[] | undefined,
+  instanceCount: number,
+  setter: (i: number, dec: Decoration) => void
+) {
+  if (!decorations) return;
+  for (const dec of decorations) {
+    for (const idx of dec.indexes) {
+      if (idx < 0 || idx >= instanceCount) continue;
+      setter(idx, dec);
+    }
+  }
+}
+
 /** Configuration for how a primitive type should be rendered */
 interface RenderConfig {
   /** How faces should be culled */
@@ -180,27 +195,22 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
       arr[i*8+7] = sizes ? sizes[i] : size;
     }
     // decorations (keep using scale for decorations since it's a multiplier)
-    if(elem.decorations){
-      for(const dec of elem.decorations){
-        for(const idx of dec.indexes){
-          if(idx<0||idx>=count) continue;
-          if(dec.color){
-            arr[idx*8+3] = dec.color[0];
-            arr[idx*8+4] = dec.color[1];
-            arr[idx*8+5] = dec.color[2];
-          }
-          if(dec.alpha !== undefined){
-            arr[idx*8+6] = dec.alpha;
-          }
-          if(dec.scale !== undefined){
-            arr[idx*8+7] *= dec.scale;
-          }
-          if(dec.minSize !== undefined){
-            if(arr[idx*8+7] < dec.minSize) arr[idx*8+7] = dec.minSize;
-          }
-        }
+    applyDecorations(elem.decorations, count, (idx, dec) => {
+      if(dec.color){
+        arr[idx*8+3] = dec.color[0];
+        arr[idx*8+4] = dec.color[1];
+        arr[idx*8+5] = dec.color[2];
       }
-    }
+      if(dec.alpha !== undefined){
+        arr[idx*8+6] = dec.alpha;
+      }
+      if(dec.scale !== undefined){
+        arr[idx*8+7] *= dec.scale;
+      }
+      if(dec.minSize !== undefined){
+        if(arr[idx*8+7] < dec.minSize) arr[idx*8+7] = dec.minSize;
+      }
+    });
     return arr;
   },
 
@@ -342,31 +352,26 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
       arr[i*10+9] = 1.0;
     }
     // decorations
-    if(elem.decorations){
-      for(const dec of elem.decorations){
-        for(const idx of dec.indexes){
-          if(idx<0||idx>=count) continue;
-          if(dec.color){
-            arr[idx*10+6] = dec.color[0];
-            arr[idx*10+7] = dec.color[1];
-            arr[idx*10+8] = dec.color[2];
-          }
-          if(dec.alpha!==undefined){
-            arr[idx*10+9] = dec.alpha;
-          }
-          if(dec.scale!==undefined){
-            arr[idx*10+3]*=dec.scale;
-            arr[idx*10+4]*=dec.scale;
-            arr[idx*10+5]*=dec.scale;
-          }
-          if(dec.minSize!==undefined){
-            if(arr[idx*10+3]<dec.minSize) arr[idx*10+3] = dec.minSize;
-            if(arr[idx*10+4]<dec.minSize) arr[idx*10+4] = dec.minSize;
-            if(arr[idx*10+5]<dec.minSize) arr[idx*10+5] = dec.minSize;
-          }
-        }
+    applyDecorations(elem.decorations, count, (idx, dec) => {
+      if(dec.color){
+        arr[idx*10+6] = dec.color[0];
+        arr[idx*10+7] = dec.color[1];
+        arr[idx*10+8] = dec.color[2];
       }
-    }
+      if(dec.alpha!==undefined){
+        arr[idx*10+9] = dec.alpha;
+      }
+      if(dec.scale!==undefined){
+        arr[idx*10+3]*=dec.scale;
+        arr[idx*10+4]*=dec.scale;
+        arr[idx*10+5]*=dec.scale;
+      }
+      if(dec.minSize!==undefined){
+        if(arr[idx*10+3]<dec.minSize) arr[idx*10+3] = dec.minSize;
+        if(arr[idx*10+4]<dec.minSize) arr[idx*10+4] = dec.minSize;
+        if(arr[idx*10+5]<dec.minSize) arr[idx*10+5] = dec.minSize;
+      }
+    });
     return arr;
   },
   buildPickingData(elem, baseID){
@@ -474,18 +479,16 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
         cr=colors[i*3+0]; cg=colors[i*3+1]; cb=colors[i*3+2];
       }
       // decorations
-      if(elem.decorations){
-        for(const dec of elem.decorations){
-          if(dec.indexes.includes(i)){
-            if(dec.color){
-              cr=dec.color[0]; cg=dec.color[1]; cb=dec.color[2];
-            }
-            if(dec.alpha!==undefined){
-              alpha=dec.alpha;
-            }
+      applyDecorations(elem.decorations, count, (idx, dec) => {
+        if(idx === i) {
+          if(dec.color){
+            cr=dec.color[0]; cg=dec.color[1]; cb=dec.color[2];
+          }
+          if(dec.alpha!==undefined){
+            alpha=dec.alpha;
           }
         }
-      }
+      });
       // fill 3 rings
       for(let ring=0; ring<3; ring++){
         const idx = i*3 + ring;
@@ -609,31 +612,26 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
       arr[i*10+9] = 1.0;
     }
     // decorations
-    if(elem.decorations){
-      for(const dec of elem.decorations){
-        for(const idx of dec.indexes){
-          if(idx<0||idx>=count) continue;
-          if(dec.color){
-            arr[idx*10+6] = dec.color[0];
-            arr[idx*10+7] = dec.color[1];
-            arr[idx*10+8] = dec.color[2];
-          }
-          if(dec.alpha!==undefined){
-            arr[idx*10+9] = dec.alpha;
-          }
-          if(dec.scale!==undefined){
-            arr[idx*10+3]*=dec.scale;
-            arr[idx*10+4]*=dec.scale;
-            arr[idx*10+5]*=dec.scale;
-          }
-          if(dec.minSize!==undefined){
-            if(arr[idx*10+3]<dec.minSize) arr[idx*10+3] = dec.minSize;
-            if(arr[idx*10+4]<dec.minSize) arr[idx*10+4] = dec.minSize;
-            if(arr[idx*10+5]<dec.minSize) arr[idx*10+5] = dec.minSize;
-          }
-        }
+    applyDecorations(elem.decorations, count, (idx, dec) => {
+      if(dec.color){
+        arr[idx*10+6] = dec.color[0];
+        arr[idx*10+7] = dec.color[1];
+        arr[idx*10+8] = dec.color[2];
       }
-    }
+      if(dec.alpha!==undefined){
+        arr[idx*10+9] = dec.alpha;
+      }
+      if(dec.scale!==undefined){
+        arr[idx*10+3]*=dec.scale;
+        arr[idx*10+4]*=dec.scale;
+        arr[idx*10+5]*=dec.scale;
+      }
+      if(dec.minSize!==undefined){
+        if(arr[idx*10+3]<dec.minSize) arr[idx*10+3] = dec.minSize;
+        if(arr[idx*10+4]<dec.minSize) arr[idx*10+4] = dec.minSize;
+        if(arr[idx*10+5]<dec.minSize) arr[idx*10+5] = dec.minSize;
+      }
+    });
     return arr;
   },
   buildPickingData(elem, baseID){
@@ -796,27 +794,24 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
       }
 
       // decorations
-      if (decorations) {
-        // If iCurr is in dec.indexes, apply color, alpha, scale, minSize
-        for (const dec of decorations) {
-          if (dec.indexes.includes(lineIndex)) {
-            if (dec.color) {
-              cR = dec.color[0];
-              cG = dec.color[1];
-              cB = dec.color[2];
-            }
-            if (dec.alpha !== undefined) {
-              a = dec.alpha;
-            }
-            if (dec.scale !== undefined) {
-              r *= dec.scale;
-            }
-            if (dec.minSize !== undefined && r < dec.minSize) {
-              r = dec.minSize;
-            }
+      applyDecorations(decorations, lineIndex + 1, (idx, dec) => {
+        if (idx === lineIndex) {
+          if (dec.color) {
+            cR = dec.color[0];
+            cG = dec.color[1];
+            cB = dec.color[2];
+          }
+          if (dec.alpha !== undefined) {
+            a = dec.alpha;
+          }
+          if (dec.scale !== undefined) {
+            r *= dec.scale;
+          }
+          if (dec.minSize !== undefined && r < dec.minSize) {
+            r = dec.minSize;
           }
         }
-      }
+      });
 
       // Now we have final r, cR, cG, cB, a for line i
       const startX = positions[p * 4 + 0];
