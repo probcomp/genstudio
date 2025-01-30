@@ -90,7 +90,6 @@ def create_demo_scene():
                 dtype=np.float32,
             ),
             radius=0.02,
-            alpha=1.0,
             onHover=Plot.js("(i) => $state.update({hover_line: i})"),
             decorations=[
                 deco([0], alpha=0.5),

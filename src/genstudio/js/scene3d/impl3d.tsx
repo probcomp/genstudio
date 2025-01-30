@@ -123,6 +123,9 @@ interface PrimitiveSpec<E> {
     instanceCount: number,
     resources: GeometryResources
   ): RenderObject;
+
+  /** Create the geometry resource needed for this primitive type */
+  createGeometryResource(device: GPUDevice): { vb: GPUBuffer; ib: GPUBuffer; indexCount: number };
 }
 
 interface Decoration {
@@ -285,10 +288,7 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
   },
 
   createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    if(!resources.billboardQuad){
-      throw new Error("No billboard geometry available (not yet initialized).");
-    }
-    const { vb, ib } = resources.billboardQuad;
+    const { vb, ib, indexCount } = getGeometryResource(resources, 'PointCloud');
 
     return {
       pipeline,
@@ -306,6 +306,18 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
       componentIndex: -1,
       pickingDataStale: true,
     };
+  },
+
+  createGeometryResource(device) {
+    return createBuffers(device, {
+      vertexData: new Float32Array([
+        -0.5, -0.5, 0.0,     0.0, 0.0, 1.0,
+         0.5, -0.5, 0.0,     0.0, 0.0, 1.0,
+        -0.5,  0.5, 0.0,     0.0, 0.0, 1.0,
+         0.5,  0.5, 0.0,     0.0, 0.0, 1.0
+      ]),
+      indexData: new Uint16Array([0,1,2, 2,1,3])
+    });
   }
 };
 
@@ -450,8 +462,8 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
   },
 
   createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    if(!resources.sphereGeo) throw new Error("No sphere geometry available");
-    const { vb, ib, indexCount } = resources.sphereGeo;
+    const { vb, ib, indexCount } = getGeometryResource(resources, 'Ellipsoid');
+
     return {
       pipeline,
       vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
@@ -468,6 +480,10 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
       componentIndex: -1,
       pickingDataStale: true,
     };
+  },
+
+  createGeometryResource(device) {
+    return createBuffers(device, createSphereGeometry(32, 48));
   }
 };
 
@@ -597,8 +613,8 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
   },
 
   createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    if(!resources.ringGeo) throw new Error("No ring geometry available");
-    const { vb, ib, indexCount } = resources.ringGeo;
+    const { vb, ib, indexCount } = getGeometryResource(resources, 'EllipsoidAxes');
+
     return {
       pipeline,
       vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
@@ -615,6 +631,10 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
       componentIndex: -1,
       pickingDataStale: true,
     };
+  },
+
+  createGeometryResource(device) {
+    return createBuffers(device, createTorusGeometry(1.0, 0.03, 40, 12));
   }
 };
 
@@ -744,8 +764,7 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
   },
 
   createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    if(!resources.cubeGeo) throw new Error("No cube geometry available");
-    const { vb, ib, indexCount } = resources.cubeGeo;
+    const { vb, ib, indexCount } = getGeometryResource(resources, 'Cuboid');
     return {
       pipeline,
       vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
@@ -762,6 +781,10 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
       componentIndex: -1,
       pickingDataStale: true,
     };
+  },
+
+  createGeometryResource(device) {
+    return createBuffers(device, createCubeGeometry());
   }
 };
 
@@ -1010,10 +1033,8 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
   },
 
   createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    if (!resources.cylinderGeo) {
-      throw new Error("No cylinderGeo found in resources.");
-    }
-    const { vb, ib, indexCount } = resources.cylinderGeo;
+
+    const { vb, ib, indexCount } = getGeometryResource(resources, 'LineCylinders');
 
     return {
       pipeline,
@@ -1031,6 +1052,10 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
       componentIndex: -1,
       pickingDataStale: true
     };
+  },
+
+  createGeometryResource(device) {
+    return createBuffers(device, createCylinderGeometry(8));
   }
 };
 
@@ -1063,104 +1088,48 @@ function getOrCreatePipeline(
 /******************************************************
  * 5) Common Resources: Geometry, Layout, etc.
  ******************************************************/
-export interface GeometryResources {
-  sphereGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
-  ringGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
-  billboardQuad: { vb: GPUBuffer; ib: GPUBuffer } | null;
-  cubeGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
-  cylinderGeo: { vb: GPUBuffer; ib: GPUBuffer; indexCount: number } | null;
+export interface GeometryResource {
+  vb: GPUBuffer;
+  ib: GPUBuffer;
+  indexCount?: number;
 }
 
+export type GeometryResources = {
+  [K in keyof typeof primitiveRegistry]: GeometryResource | null;
+}
+
+function getGeometryResource(resources: GeometryResources, type: keyof GeometryResources): GeometryResource {
+  const resource = resources[type];
+  if (!resource) {
+    throw new Error(`No geometry resource found for type ${type}`);
+  }
+  return resource;
+}
+
+
+const createBuffers = (device: GPUDevice, { vertexData, indexData }: { vertexData: Float32Array, indexData: Uint16Array | Uint32Array }) => {
+  const vb = device.createBuffer({
+    size: vertexData.byteLength,
+    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+  });
+  device.queue.writeBuffer(vb, 0, vertexData);
+
+  const ib = device.createBuffer({
+    size: indexData.byteLength,
+    usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
+  });
+  device.queue.writeBuffer(ib, 0, indexData);
+
+  return { vb, ib, indexCount: indexData.length };
+};
+
 function initGeometryResources(device: GPUDevice, resources: GeometryResources) {
-  // Create sphere geometry
-  if(!resources.sphereGeo) {
-    const { vertexData, indexData } = createSphereGeometry(32,48);  // Doubled from 16,24
-    const vb = device.createBuffer({
-      size: vertexData.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(vb,0,vertexData);
-    const ib = device.createBuffer({
-      size: indexData.byteLength,
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(ib,0,indexData);
-    resources.sphereGeo = { vb, ib, indexCount: indexData.length };
-  }
-
-  // Create ring geometry
-  if(!resources.ringGeo) {
-    const { vertexData, indexData } = createTorusGeometry(1.0,0.03,40,12);
-    const vb = device.createBuffer({
-      size: vertexData.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(vb,0,vertexData);
-    const ib = device.createBuffer({
-      size: indexData.byteLength,
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(ib,0,indexData);
-    resources.ringGeo = { vb, ib, indexCount: indexData.length };
-  }
-
-  // Create billboard quad geometry
-  if(!resources.billboardQuad) {
-    // Create a unit quad centered at origin, in the XY plane
-    // Each vertex has position (xyz) and normal (xyz)
-    const quadVerts = new Float32Array([
-      // Position (xyz)     Normal (xyz)
-      -0.5, -0.5, 0.0,     0.0, 0.0, 1.0,  // bottom-left
-       0.5, -0.5, 0.0,     0.0, 0.0, 1.0,  // bottom-right
-      -0.5,  0.5, 0.0,     0.0, 0.0, 1.0,  // top-left
-       0.5,  0.5, 0.0,     0.0, 0.0, 1.0   // top-right
-    ]);
-    const quadIdx = new Uint16Array([0,1,2, 2,1,3]);
-    const vb = device.createBuffer({
-      size: quadVerts.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(vb,0,quadVerts);
-    const ib = device.createBuffer({
-      size: quadIdx.byteLength,
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(ib,0,quadIdx);
-    resources.billboardQuad = { vb, ib };
-  }
-
-  // Create cube geometry
-  if(!resources.cubeGeo) {
-    const cube = createCubeGeometry();
-    const vb = device.createBuffer({
-      size: cube.vertexData.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(vb, 0, cube.vertexData);
-    const ib = device.createBuffer({
-      size: cube.indexData.byteLength,
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(ib, 0, cube.indexData);
-    resources.cubeGeo = { vb, ib, indexCount: cube.indexData.length };
-  }
-
-  // Create cylinder geometry
-  if (!resources.cylinderGeo) {
-    const { vertexData, indexData } = createCylinderGeometry(8); // or 12, etc.
-    const vb = device.createBuffer({
-      size: vertexData.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(vb, 0, vertexData);
-
-    const ib = device.createBuffer({
-      size: indexData.byteLength,
-      usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
-    });
-    device.queue.writeBuffer(ib, 0, indexData);
-
-    resources.cylinderGeo = { vb, ib, indexCount: indexData.length };
+  // Create geometry for each primitive type
+  for (const [primitiveName, spec] of Object.entries(primitiveRegistry)) {
+    const typedName = primitiveName as keyof GeometryResources;
+    if (!resources[typedName]) {
+      resources[typedName] = spec.createGeometryResource(device);
+    }
   }
 }
 
@@ -1543,11 +1512,11 @@ export function SceneInner({
         pipelineCache: new Map(),
         dynamicBuffers: null,
         resources: {
-          sphereGeo: null,
-          ringGeo: null,
-          billboardQuad: null,
-          cubeGeo: null,
-          cylinderGeo: null
+          PointCloud: null,
+          Ellipsoid: null,
+          EllipsoidAxes: null,
+          Cuboid: null,
+          LineCylinders: null
         }
       };
 
@@ -2210,10 +2179,12 @@ function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject
         const { device, resources, pipelineCache } = gpuRef.current;
 
         device.queue.onSubmittedWorkDone().then(() => {
-          // Cleanup instance resources
-          resources.sphereGeo?.vb.destroy();
-          resources.sphereGeo?.ib.destroy();
-          // ... cleanup other geometries ...
+          for (const resource of Object.values(resources)) {
+            if (resource) {
+              resource.vb.destroy();
+              resource.ib.destroy();
+            }
+          }
 
           // Clear instance pipeline cache
           pipelineCache.clear();
@@ -2385,6 +2356,23 @@ const DIFFUSE_INTENSITY = ${LIGHTING.DIFFUSE_INTENSITY}f;
 const SPECULAR_INTENSITY = ${LIGHTING.SPECULAR_INTENSITY}f;
 const SPECULAR_POWER = ${LIGHTING.SPECULAR_POWER}f;`;
 
+const lightingCalc = /*wgsl*/`
+fn calculateLighting(baseColor: vec3<f32>, normal: vec3<f32>, worldPos: vec3<f32>) -> vec3<f32> {
+  let N = normalize(normal);
+  let L = normalize(camera.lightDir);
+  let V = normalize(camera.cameraPos - worldPos);
+
+  let lambert = max(dot(N, L), 0.0);
+  let ambient = AMBIENT_INTENSITY;
+  var color = baseColor * (ambient + lambert * DIFFUSE_INTENSITY);
+
+  let H = normalize(L + V);
+  let spec = pow(max(dot(N, H), 0.0), SPECULAR_POWER);
+  color += vec3<f32>(1.0) * spec * SPECULAR_INTENSITY;
+
+  return color;
+}`;
+
 const billboardVertCode = /*wgsl*/`
 ${cameraStruct}
 
@@ -2462,6 +2450,7 @@ fn vs_main(
 const ellipsoidFragCode = /*wgsl*/`
 ${cameraStruct}
 ${lightingConstants}
+${lightingCalc}
 
 @fragment
 fn fs_main(
@@ -2471,18 +2460,7 @@ fn fs_main(
   @location(4) worldPos: vec3<f32>,
   @location(5) instancePos: vec3<f32>
 )-> @location(0) vec4<f32> {
-  let N = normalize(normal);
-  let L = normalize(camera.lightDir);
-  let V = normalize(camera.cameraPos - worldPos);
-
-  let lambert = max(dot(N, L), 0.0);
-  let ambient = AMBIENT_INTENSITY;
-  var color = baseColor * (ambient + lambert * DIFFUSE_INTENSITY);
-
-  let H = normalize(L + V);
-  let spec = pow(max(dot(N, H), 0.0), SPECULAR_POWER);
-  color += vec3<f32>(1.0) * spec * SPECULAR_INTENSITY;
-
+  let color = calculateLighting(baseColor, normal, worldPos);
   return vec4<f32>(color, alpha);
 }`;
 
@@ -2579,6 +2557,7 @@ fn vs_main(
 const cuboidFragCode = /*wgsl*/`
 ${cameraStruct}
 ${lightingConstants}
+${lightingCalc}
 
 @fragment
 fn fs_main(
@@ -2587,17 +2566,7 @@ fn fs_main(
   @location(3) alpha: f32,
   @location(4) worldPos: vec3<f32>
 )-> @location(0) vec4<f32> {
-  let N = normalize(normal);
-  let L = normalize(camera.lightDir);
-  let V = normalize(-worldPos);
-  let lambert = max(dot(N,L), 0.0);
-  let ambient = AMBIENT_INTENSITY;
-  var color = baseColor * (ambient + lambert * DIFFUSE_INTENSITY);
-
-  let H = normalize(L + V);
-  let spec = pow(max(dot(N,H),0.0), SPECULAR_POWER);
-  color += vec3<f32>(1.0) * spec * SPECULAR_INTENSITY;
-
+  let color = calculateLighting(baseColor, normal, worldPos);
   return vec4<f32>(color, alpha);
 }`;
 
@@ -2668,6 +2637,7 @@ fn vs_main(
 const lineCylFragCode = /*wgsl*/`// lineCylFragCode.wgsl
 ${cameraStruct}
 ${lightingConstants}
+${lightingCalc}
 
 @fragment
 fn fs_main(
@@ -2677,17 +2647,7 @@ fn fs_main(
   @location(4) worldPos: vec3<f32>
 )-> @location(0) vec4<f32>
 {
-  let N = normalize(normal);
-  let L = normalize(camera.lightDir);
-  let V = normalize(camera.cameraPos - worldPos);
-  let lambert = max(dot(N,L), 0.0);
-  let ambient = AMBIENT_INTENSITY;
-  var color = baseColor * (ambient + lambert*DIFFUSE_INTENSITY);
-
-  let H = normalize(L + V);
-  let spec = pow(max(dot(N,H),0.0), SPECULAR_POWER);
-  color += vec3<f32>(1.0)*spec*SPECULAR_INTENSITY;
-
+  let color = calculateLighting(baseColor, normal, worldPos);
   return vec4<f32>(color, alpha);
 }`
 
