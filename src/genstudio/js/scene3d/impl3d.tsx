@@ -114,16 +114,6 @@ interface PrimitiveSpec<E> {
     cache: Map<string, PipelineCacheEntry>
   ): GPURenderPipeline;
 
-  /** Create a RenderObject that references geometry + the two pipelines */
-  createRenderObject(
-    pipeline: GPURenderPipeline,
-    pickingPipeline: GPURenderPipeline,
-    instanceBufferInfo: BufferInfo | null,
-    pickingBufferInfo: BufferInfo | null,
-    instanceCount: number,
-    resources: GeometryResources
-  ): RenderObject;
-
   /** Create the geometry resource needed for this primitive type */
   createGeometryResource(device: GPUDevice): { vb: GPUBuffer; ib: GPUBuffer; indexCount: number };
 }
@@ -287,27 +277,6 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
     );
   },
 
-  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    const { vb, ib, indexCount } = getGeometryResource(resources, 'PointCloud');
-
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
-      indexBuffer: ib,
-      indexCount: 6,
-      instanceCount,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: 6,
-      pickingInstanceCount: instanceCount,
-
-      componentIndex: -1,
-      pickingDataStale: true,
-    };
-  },
-
   createGeometryResource(device) {
     return createBuffers(device, {
       vertexData: new Float32Array([
@@ -461,27 +430,6 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
     );
   },
 
-  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    const { vb, ib, indexCount } = getGeometryResource(resources, 'Ellipsoid');
-
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
-      indexBuffer: ib,
-      indexCount,
-      instanceCount,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: indexCount,
-      pickingInstanceCount: instanceCount,
-
-      componentIndex: -1,
-      pickingDataStale: true,
-    };
-  },
-
   createGeometryResource(device) {
     return createBuffers(device, createSphereGeometry(32, 48));
   }
@@ -612,27 +560,6 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
     );
   },
 
-  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    const { vb, ib, indexCount } = getGeometryResource(resources, 'EllipsoidAxes');
-
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
-      indexBuffer: ib,
-      indexCount,
-      instanceCount,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: indexCount,
-      pickingInstanceCount: instanceCount,
-
-      componentIndex: -1,
-      pickingDataStale: true,
-    };
-  },
-
   createGeometryResource(device) {
     return createBuffers(device, createTorusGeometry(1.0, 0.03, 40, 12));
   }
@@ -761,26 +688,6 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
       }, 'rgba8unorm'),
       cache
     );
-  },
-
-  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-    const { vb, ib, indexCount } = getGeometryResource(resources, 'Cuboid');
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
-      indexBuffer: ib,
-      indexCount,
-      instanceCount,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: indexCount,
-      pickingInstanceCount: instanceCount,
-
-      componentIndex: -1,
-      pickingDataStale: true,
-    };
   },
 
   createGeometryResource(device) {
@@ -1030,28 +937,6 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
       }, 'rgba8unorm'),
       cache
     );
-  },
-
-  createRenderObject(pipeline, pickingPipeline, instanceBufferInfo, pickingBufferInfo, instanceCount, resources) {
-
-    const { vb, ib, indexCount } = getGeometryResource(resources, 'LineCylinders');
-
-    return {
-      pipeline,
-      vertexBuffers: [vb, instanceBufferInfo!] as [GPUBuffer, BufferInfo],
-      indexBuffer: ib,
-      indexCount,
-      instanceCount,
-
-      pickingPipeline,
-      pickingVertexBuffers: [vb, pickingBufferInfo!] as [GPUBuffer, BufferInfo],
-      pickingIndexBuffer: ib,
-      pickingIndexCount: indexCount,
-      pickingInstanceCount: instanceCount,
-
-      componentIndex: -1,
-      pickingDataStale: true
-    };
   },
 
   createGeometryResource(device) {
@@ -1749,34 +1634,33 @@ export function SceneInner({
           return;
         }
 
-        // Create render object with dynamic buffer reference
-        const baseRenderObject = spec.createRenderObject(
-          pipeline,
-          null!, // We'll set this later in ensurePickingData
-          {  // Pass buffer info instead of buffer
-            buffer: dynamicBuffers.renderBuffer,
-            offset: renderOffset,
-            stride: stride
-          },
-          null, // No picking buffer yet
-          count,
-          resources
-        );
-
-        if (!baseRenderObject.vertexBuffers || baseRenderObject.vertexBuffers.length !== 2) {
-          console.warn(`Invalid vertex buffers for component ${i} (${elem.type})`);
-          return;
-        }
-
+        // Create render object directly instead of using createRenderObject
+        const geometryResource = getGeometryResource(resources, elem.type);
         const renderObject: RenderObject = {
-          ...baseRenderObject,
+          pipeline,
           pickingPipeline: undefined,
+          vertexBuffers: [
+            geometryResource.vb,
+            {  // Pass buffer info for instances
+              buffer: dynamicBuffers.renderBuffer,
+              offset: renderOffset,
+              stride: stride
+            }
+          ],
+          indexBuffer: geometryResource.ib,
+          indexCount: geometryResource.indexCount,
+          instanceCount: count,
           pickingVertexBuffers: [undefined, undefined] as [GPUBuffer | undefined, BufferInfo | undefined],
           pickingDataStale: true,
           componentIndex: i
         };
 
-          validRenderObjects.push(renderObject);
+        if (!renderObject.vertexBuffers || renderObject.vertexBuffers.length !== 2) {
+          console.warn(`Invalid vertex buffers for component ${i} (${elem.type})`);
+          return;
+        }
+
+        validRenderObjects.push(renderObject);
       } catch (error) {
         console.error(`Error creating render object for component ${i} (${elem.type}):`, error);
       }
