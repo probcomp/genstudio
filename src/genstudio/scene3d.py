@@ -344,3 +344,14 @@ def LineBeams(
         data["sizes"] = flatten_array(sizes, dtype=np.float32)
 
     return SceneComponent("LineBeams", data, **kwargs)
+
+
+__all__ = [
+    "Scene",
+    "PointCloud",
+    "Ellipsoid",
+    "EllipsoidAxes",
+    "Cuboid",
+    "LineBeams",
+    "deco",
+]

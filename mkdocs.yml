@@ -50,7 +50,9 @@ nav:
       - Highlighting Code: examples/bylight.py
       - Rendering LaTeX: examples/katex.py
       - Render Pixel Data: examples/pixels.py
-  - API Docs: api/plot.md
+  - API Docs:
+    - Plot: api/plot.md
+    - Scene3D: api/scene3d.md
   - How Do I...: learn-more/how-do-i.py
 
   - Changelog: CHANGELOG.md

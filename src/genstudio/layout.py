@@ -298,6 +298,7 @@ class JSCode(LayoutItem):
 
 
 JSExpr = Union[JSCall, JSRef, JSCode]
+"""A type alias representing JavaScript expressions that can be evaluated in the runtime."""
 
 
 def js(txt: str, *params: Any, expression=True) -> JSCode:
