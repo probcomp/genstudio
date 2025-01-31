@@ -1,4 +1,3 @@
-
 export function createSphereGeometry(stacks=16, slices=24) {
   const verts:number[]=[];
   const idxs:number[]=[];
@@ -118,36 +117,84 @@ export function createCubeGeometry() {
 
 /******************************************************
  * createBeamGeometry
- * Returns a "unit beam" from z=0..1, radius=1.
- * No caps. 'segments' sets how many radial divisions.
+ * Returns a "unit beam" from z=0..1, with rectangular cross-section of width=1.
+ * Includes all six faces of the beam.
  ******************************************************/
-export function createBeamGeometry(segments: number=8) {
+export function createBeamGeometry() {
   const vertexData: number[] = [];
-  const indexData: number[]  = [];
+  const indexData: number[] = [];
+  let vertexCount = 0;
 
-  // Build two rings: z=0 and z=1
-  for (let z of [0, 1]) {
-    for (let s = 0; s < segments; s++) {
-      const theta = 2 * Math.PI * s / segments;
-      const x = Math.cos(theta);
-      const y = Math.sin(theta);
-      // position + normal
-      vertexData.push(x, y, z,  x, y, 0); // (pos.x, pos.y, pos.z, n.x, n.y, n.z)
-    }
+  // Helper to add a quad face with normal
+  function addQuad(
+    p1: [number, number, number],
+    p2: [number, number, number],
+    p3: [number, number, number],
+    p4: [number, number, number],
+    normal: [number, number, number]
+  ) {
+    // Add vertices with positions and normals
+    vertexData.push(
+      // First vertex
+      p1[0], p1[1], p1[2],  normal[0], normal[1], normal[2],
+      // Second vertex
+      p2[0], p2[1], p2[2],  normal[0], normal[1], normal[2],
+      // Third vertex
+      p3[0], p3[1], p3[2],  normal[0], normal[1], normal[2],
+      // Fourth vertex
+      p4[0], p4[1], p4[2],  normal[0], normal[1], normal[2]
+    );
+
+    // Add indices for two triangles
+    indexData.push(
+      vertexCount + 0, vertexCount + 1, vertexCount + 2,
+      vertexCount + 2, vertexCount + 1, vertexCount + 3
+    );
+    vertexCount += 4;
   }
-  // Connect ring 0..segments-1 to ring segments..2*segments-1
-  for (let s = 0; s < segments; s++) {
-    const sNext = (s + 1) % segments;
-    const i0 = s;
-    const i1 = sNext;
-    const i2 = s + segments;
-    const i3 = sNext + segments;
-    // Two triangles: (i0->i2->i1), (i1->i2->i3)
-    indexData.push(i0, i2, i1,  i1, i2, i3);
-  }
+
+  // Create the six faces of the beam
+  // We'll create a beam centered in X and Y, extending from Z=0 to Z=1
+  const w = 0.5;  // Half-width, so total width is 1
+
+  // Front face (z = 0)
+  addQuad(
+    [-w, -w, 0], [w, -w, 0], [-w, w, 0], [w, w, 0],
+    [0, 0, -1]
+  );
+
+  // Back face (z = 1)
+  addQuad(
+    [w, -w, 1], [-w, -w, 1], [w, w, 1], [-w, w, 1],
+    [0, 0, 1]
+  );
+
+  // Right face (x = w)
+  addQuad(
+    [w, -w, 0], [w, -w, 1], [w, w, 0], [w, w, 1],
+    [1, 0, 0]
+  );
+
+  // Left face (x = -w)
+  addQuad(
+    [-w, -w, 1], [-w, -w, 0], [-w, w, 1], [-w, w, 0],
+    [-1, 0, 0]
+  );
+
+  // Top face (y = w)
+  addQuad(
+    [-w, w, 0], [w, w, 0], [-w, w, 1], [w, w, 1],
+    [0, 1, 0]
+  );
+
+  // Bottom face (y = -w)
+  addQuad(
+    [-w, -w, 1], [w, -w, 1], [-w, -w, 0], [w, -w, 0],
+    [0, -1, 0]
+  );
 
   return {
     vertexData: new Float32Array(vertexData),
-    indexData:  new Uint16Array(indexData)
+    indexData: new Uint16Array(indexData)
   };
 }

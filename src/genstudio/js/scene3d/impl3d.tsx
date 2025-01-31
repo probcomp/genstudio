@@ -637,11 +637,9 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
     const defaultRadius = elem.radius ?? [1, 1, 1];
     const radii = elem.radii && elem.radii.length >= count * 3 ? elem.radii : null;
 
-
     const arr = new Float32Array(count * 10);
-
-
     for(let i = 0; i < count; i++) {
+
       // Centers
       arr[i*10+0] = elem.centers[i*3+0];
       arr[i*10+1] = elem.centers[i*3+1];
@@ -649,6 +647,7 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
 
       // Radii (with scale)
       const scale = scales ? scales[i] : defaults.scale;
+
       if(radii) {
         arr[i*10+3] = radii[i*3+0] * scale;
         arr[i*10+4] = radii[i*3+1] * scale;
@@ -659,7 +658,6 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
         arr[i*10+5] = defaultRadius[2] * scale;
       }
 
-      // Colors
       if(colors) {
         arr[i*10+6] = colors[i*3+0];
         arr[i*10+7] = colors[i*3+1];
@@ -862,59 +860,56 @@ export interface EllipsoidAxesComponentConfig extends BaseComponentConfig {
 
 const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
   getCount(elem) {
-    return elem.centers.length / 3;
+    // Each ellipsoid has 3 rings
+    return (elem.centers.length / 3) * 3;
   },
 
   buildRenderData(elem) {
     const count = elem.centers.length / 3;
     if(count === 0) return null;
 
-    const defaults = getBaseDefaults(elem);
-    const defaultRadius = elem.radius ?? [1, 1, 1];
-    const ringCount = count * 3;
-    const arr = new Float32Array(ringCount * 10);
 
+    const defaults = getBaseDefaults(elem);
+    const { colors, alphas, scales } = getColumnarParams(elem, count);
+
+    const defaultRadius = elem.radius ?? [1, 1, 1];
+    const radii = elem.radii;
+    const ringCount = count * 3;
+
+    const arr = new Float32Array(ringCount * 10);
     for(let i = 0; i < count; i++) {
       const cx = elem.centers[i*3+0];
       const cy = elem.centers[i*3+1];
       const cz = elem.centers[i*3+2];
-
       // Get radii with scale
-      const scale = elem.scales?.[i] ?? defaults.scale;
-      let rx = (elem.radii?.[i*3+0] ?? defaultRadius[0]) * scale;
-      let ry = (elem.radii?.[i*3+1] ?? defaultRadius[1]) * scale;
-      let rz = (elem.radii?.[i*3+2] ?? defaultRadius[2]) * scale;
+      const scale = scales ? scales[i] : defaults.scale;
+
+      let rx: number, ry: number, rz: number;
+      if (radii) {
+        rx = radii[i*3+0];
+        ry = radii[i*3+1];
+        rz = radii[i*3+2];
+      } else {
+        rx = defaultRadius[0];
+        ry = defaultRadius[1];
+        rz = defaultRadius[2];
+      }
+      rx *= scale;
+      ry *= scale;
+      rz *= scale;
 
       // Get colors
-      let cr = defaults.color[0];
-      let cg = defaults.color[1];
-      let cb = defaults.color[2];
-      let alpha = defaults.alpha;
-
-      if(elem.colors && i*3+2 < elem.colors.length) {
-        cr = elem.colors[i*3+0];
-        cg = elem.colors[i*3+1];
-        cb = elem.colors[i*3+2];
+      let cr: number, cg: number, cb: number;
+      if (colors) {
+        cr = colors[i*3+0];
+        cg = colors[i*3+1];
+        cb = colors[i*3+2];
+      } else {
+        cr = defaults.color[0];
+        cg = defaults.color[1];
+        cb = defaults.color[2];
       }
-
-      // Apply decorations per ellipsoid
-      applyDecorations(elem.decorations, count, (idx, dec) => {
-        if(idx === i) {
-          if(dec.color) {
-            cr = dec.color[0];
-            cg = dec.color[1];
-            cb = dec.color[2];
-          }
-          if(dec.alpha !== undefined) {
-            alpha = dec.alpha;
-          }
-          if(dec.scale !== undefined) {
-            rx *= dec.scale;
-            ry *= dec.scale;
-            rz *= dec.scale;
-          }
-        }
-      });
+      let alpha = alphas ? alphas[i] : defaults.alpha;
 
       // Fill 3 rings
       for(let ring = 0; ring < 3; ring++) {
@@ -931,6 +926,27 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
         arr[idx*10+9] = alpha;
       }
     }
+
+    // Apply decorations after the main loop, accounting for ring structure
+    applyDecorations(elem.decorations, count, (idx, dec) => {
+      // For each decorated ellipsoid, update all 3 of its rings
+      for(let ring = 0; ring < 3; ring++) {
+        const arrIdx = idx*3 + ring;
+        if(dec.color) {
+          arr[arrIdx*10+6] = dec.color[0];
+          arr[arrIdx*10+7] = dec.color[1];
+          arr[arrIdx*10+8] = dec.color[2];
+        }
+        if(dec.alpha !== undefined) {
+          arr[arrIdx*10+9] = dec.alpha;
+        }
+        if(dec.scale !== undefined) {
+          arr[arrIdx*10+3] *= dec.scale;
+          arr[arrIdx*10+4] *= dec.scale;
+          arr[arrIdx*10+5] *= dec.scale;
+        }
+      }
+    });
     return arr;
   },
 
@@ -1077,6 +1093,7 @@ export interface CuboidComponentConfig extends BaseComponentConfig {
   type: 'Cuboid';
   centers: Float32Array;
   sizes: Float32Array;
+  size?: [number, number, number];
 }
 
 const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
@@ -1088,32 +1105,48 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
     if(count === 0) return null;
 
     const defaults = getBaseDefaults(elem);
+    const { colors, alphas, scales } = getColumnarParams(elem, count);
+
+    const defaultSize = elem.size || [0.1, 0.1, 0.1];
+    const sizes = elem.sizes && elem.sizes.length >= count * 3 ? elem.sizes : null;
+
     const arr = new Float32Array(count * 10);
-
     for(let i = 0; i < count; i++) {
-      // Centers
-      arr[i*10+0] = elem.centers[i*3+0];
-      arr[i*10+1] = elem.centers[i*3+1];
-      arr[i*10+2] = elem.centers[i*3+2];
+      const cx = elem.centers[i*3+0];
+      const cy = elem.centers[i*3+1];
+      const cz = elem.centers[i*3+2];
+      const scale = scales ? scales[i] : defaults.scale;
 
-      // Sizes (with scale)
-      const scale = elem.scales?.[i] ?? defaults.scale;
-      arr[i*10+3] = (elem.sizes[i*3+0] || 0.1) * scale;
-      arr[i*10+4] = (elem.sizes[i*3+1] || 0.1) * scale;
-      arr[i*10+5] = (elem.sizes[i*3+2] || 0.1) * scale;
+      // Get sizes with scale
+      const sx = (sizes ? sizes[i*3+0] : defaultSize[0]) * scale;
+      const sy = (sizes ? sizes[i*3+1] : defaultSize[1]) * scale;
+      const sz = (sizes ? sizes[i*3+2] : defaultSize[2]) * scale;
 
-      // Colors
-      if(elem.colors && i*3+2 < elem.colors.length) {
-        arr[i*10+6] = elem.colors[i*3+0];
-        arr[i*10+7] = elem.colors[i*3+1];
-        arr[i*10+8] = elem.colors[i*3+2];
+      // Get colors
+      let cr: number, cg: number, cb: number;
+      if (colors) {
+        cr = colors[i*3+0];
+        cg = colors[i*3+1];
+        cb = colors[i*3+2];
       } else {
-        arr[i*10+6] = defaults.color[0];
-        arr[i*10+7] = defaults.color[1];
-        arr[i*10+8] = defaults.color[2];
+        cr = defaults.color[0];
+        cg = defaults.color[1];
+        cb = defaults.color[2];
       }
+      const alpha = alphas ? alphas[i] : defaults.alpha;
 
-      arr[i*10+9] = elem.alphas?.[i] ?? defaults.alpha;
+      // Fill array
+      const idx = i * 10;
+      arr[idx+0] = cx;
+      arr[idx+1] = cy;
+      arr[idx+2] = cz;
+      arr[idx+3] = sx;
+      arr[idx+4] = sy;
+      arr[idx+5] = sz;
+      arr[idx+6] = cr;
+      arr[idx+7] = cg;
+      arr[idx+8] = cb;
+      arr[idx+9] = alpha;
     }
 
     applyDecorations(elem.decorations, count, (idx, dec) => {
@@ -1138,16 +1171,31 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
     const count = elem.centers.length / 3;
     if(count === 0) return null;
 
+    const defaultSize = elem.size || [0.1, 0.1, 0.1];
+    const sizes = elem.sizes && elem.sizes.length >= count * 3 ? elem.sizes : null;
+    const { scales } = getColumnarParams(elem, count);
+
     const arr = new Float32Array(count * 7);
     for(let i = 0; i < count; i++) {
+      const scale = scales ? scales[i] : 1;
       arr[i*7+0] = elem.centers[i*3+0];
       arr[i*7+1] = elem.centers[i*3+1];
       arr[i*7+2] = elem.centers[i*3+2];
-      arr[i*7+3] = elem.sizes[i*3+0] || 0.1;
-      arr[i*7+4] = elem.sizes[i*3+1] || 0.1;
-      arr[i*7+5] = elem.sizes[i*3+2] || 0.1;
+      arr[i*7+3] = (sizes ? sizes[i*3+0] : defaultSize[0]) * scale;
+      arr[i*7+4] = (sizes ? sizes[i*3+1] : defaultSize[1]) * scale;
+      arr[i*7+5] = (sizes ? sizes[i*3+2] : defaultSize[2]) * scale;
       arr[i*7+6] = baseID + i;
     }
+
+    // Apply scale decorations
+    applyDecorations(elem.decorations, count, (idx, dec) => {
+      if(dec.scale !== undefined) {
+        arr[idx*7+3] *= dec.scale;
+        arr[idx*7+4] *= dec.scale;
+        arr[idx*7+5] *= dec.scale;
+      }
+    });
+
     return arr;
   },
   renderConfig: {
@@ -1215,13 +1263,13 @@ fn vs_main(
 
   @location(2) startPos: vec3<f32>,
   @location(3) endPos: vec3<f32>,
-  @location(4) radius: f32,
+  @location(4) size: f32,
   @location(5) color: vec3<f32>,
   @location(6) alpha: f32
 ) -> VSOut
 {
-  // The unit beam is from z=0..1 along local Z, radius=1 in XY
-  // We'll transform so it goes from start->end with radius=radius.
+  // The unit beam is from z=0..1 along local Z, size=1 in XY
+  // We'll transform so it goes from start->end with size=size.
   let segDir = endPos - startPos;
   let length = max(length(segDir), 0.000001);
   let zDir   = normalize(segDir);
@@ -1234,9 +1282,9 @@ fn vs_main(
   let xDir = normalize(cross(zDir, tempUp));
   let yDir = cross(zDir, xDir);
 
-  // local scale
-  let localX = inPos.x * radius;
-  let localY = inPos.y * radius;
+  // For cuboid, we want corners at ±size in both x and y
+  let localX = inPos.x * size;
+  let localY = inPos.y * size;
   let localZ = inPos.z * length;
   let worldPos = startPos
     + xDir * localX
@@ -1258,7 +1306,7 @@ fn vs_main(
   out.alpha = alpha;
   out.worldPos = worldPos;
   return out;
-}`
+}`;
 
 const lineBeamFragCode = /*wgsl*/`// lineBeamFragCode.wgsl
 ${cameraStruct}
@@ -1279,13 +1327,13 @@ fn fs_main(
 
 const lineBeamPickingVertCode = /*wgsl*/`
 @vertex
-fn vs_lineCyl(
+fn vs_lineBeam(  // Rename from vs_lineCyl to vs_lineBeam
   @location(0) inPos: vec3<f32>,
   @location(1) inNorm: vec3<f32>,
 
   @location(2) startPos: vec3<f32>,
   @location(3) endPos: vec3<f32>,
-  @location(4) radius: f32,
+  @location(4) size: f32,
   @location(5) pickID: f32
 ) -> VSOut {
   let segDir = endPos - startPos;
@@ -1299,8 +1347,8 @@ fn vs_lineCyl(
   let xDir = normalize(cross(zDir, tempUp));
   let yDir = cross(zDir, xDir);
 
-  let localX = inPos.x * radius;
-  let localY = inPos.y * radius;
+  let localX = inPos.x * size;
+  let localY = inPos.y * size;
   let localZ = inPos.z * length;
   let worldPos = startPos
     + xDir*localX
@@ -1316,8 +1364,8 @@ fn vs_lineCyl(
 export interface LineBeamsComponentConfig extends BaseComponentConfig {
   type: 'LineBeams';
   positions: Float32Array;  // [x,y,z,i, x,y,z,i, ...]
-  radii?: Float32Array;     // Per-line radii
-  radius?: number;         // Default radius, defaults to 0.02
+  sizes?: Float32Array;     // Per-line sizes
+  size?: number;         // Default size, defaults to 0.02
 }
 
 function countSegments(positions: Float32Array): number {
@@ -1345,29 +1393,15 @@ const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
     if(segCount === 0) return null;
 
     const defaults = getBaseDefaults(elem);
-    const defaultRadius = elem.radius ?? 0.02;
-    const floatsPerSeg = 11;
-    const arr = new Float32Array(segCount * floatsPerSeg);
+    const { colors, alphas, scales } = getColumnarParams(elem, segCount);
+
+    const defaultSize = elem.size ?? 0.02;
+    const sizes = elem.sizes instanceof Float32Array && elem.sizes.length >= segCount ? elem.sizes : null;
+
+    const arr = new Float32Array(segCount * 11);
+    let segIndex = 0;
 
     const pointCount = elem.positions.length / 4;
-
-    // Find the maximum line index to validate arrays against
-    let maxLineIndex = -1;
-    for(let p = 0; p < pointCount; p++) {
-      const lineIndex = Math.floor(elem.positions[p * 4 + 3]);
-      maxLineIndex = Math.max(maxLineIndex, lineIndex);
-    }
-    const lineCount = maxLineIndex + 1;
-
-    // Check array validities against line count
-    const hasValidColors = elem.colors && elem.colors.length >= lineCount * 3;
-    const colors = hasValidColors ? elem.colors : null;
-    const hasValidAlphas = elem.alphas && elem.alphas.length >= lineCount;
-    const alphas = hasValidAlphas ? elem.alphas : null;
-    const hasValidRadii = elem.radii && elem.radii.length >= lineCount;
-    const radii = hasValidRadii ? elem.radii : null;
-
-    let segIndex = 0;
     for(let p = 0; p < pointCount - 1; p++) {
       const iCurr = elem.positions[p * 4 + 3];
       const iNext = elem.positions[(p+1) * 4 + 3];
@@ -1375,62 +1409,51 @@ const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
 
       const lineIndex = Math.floor(iCurr);
 
-      // Get base attributes for this line
-      let radius = (radii?.[lineIndex] ?? defaultRadius);
-      let cr = defaults.color[0];
-      let cg = defaults.color[1];
-      let cb = defaults.color[2];
-      let alpha = defaults.alpha;
-      const scale = elem.scales?.[lineIndex] ?? defaults.scale;
+      // Start point
+      arr[segIndex*11+0] = elem.positions[p * 4 + 0];
+      arr[segIndex*11+1] = elem.positions[p * 4 + 1];
+      arr[segIndex*11+2] = elem.positions[p * 4 + 2];
 
-      // Apply per-line colors if available and index is in bounds
-      if(colors && lineIndex * 3 + 2 < colors.length) {
-        cr = colors[lineIndex * 3];
-        cg = colors[lineIndex * 3 + 1];
-        cb = colors[lineIndex * 3 + 2];
+      // End point
+      arr[segIndex*11+3] = elem.positions[(p+1) * 4 + 0];
+      arr[segIndex*11+4] = elem.positions[(p+1) * 4 + 1];
+      arr[segIndex*11+5] = elem.positions[(p+1) * 4 + 2];
+
+      // Size with scale
+      const scale = scales ? scales[lineIndex] : defaults.scale;
+      arr[segIndex*11+6] = (sizes ? sizes[lineIndex] : defaultSize) * scale;
+
+      // Colors
+      if(colors) {
+        arr[segIndex*11+7] = colors[lineIndex*3+0];
+        arr[segIndex*11+8] = colors[lineIndex*3+1];
+        arr[segIndex*11+9] = colors[lineIndex*3+2];
+      } else {
+        arr[segIndex*11+7] = defaults.color[0];
+        arr[segIndex*11+8] = defaults.color[1];
+        arr[segIndex*11+9] = defaults.color[2];
       }
 
-      // Apply per-line alpha if available and index is in bounds
-      if(alphas && lineIndex < alphas.length) {
-        alpha = alphas[lineIndex];
-      }
-
-      // Apply scale to radius
-      radius *= scale;
-
-      // Apply decorations
-      applyDecorations(elem.decorations, lineIndex + 1, (idx, dec) => {
-        if(idx === lineIndex) {
-          if(dec.color) {
-            cr = dec.color[0];
-            cg = dec.color[1];
-            cb = dec.color[2];
-          }
-          if(dec.alpha !== undefined) {
-            alpha = dec.alpha;
-          }
-          if(dec.scale !== undefined) {
-            radius *= dec.scale;
-          }
-        }
-      });
-
-      // Store segment data
-      const base = segIndex * floatsPerSeg;
-      arr[base + 0] = elem.positions[p * 4 + 0];     // start.x
-      arr[base + 1] = elem.positions[p * 4 + 1];     // start.y
-      arr[base + 2] = elem.positions[p * 4 + 2];     // start.z
-      arr[base + 3] = elem.positions[(p+1) * 4 + 0]; // end.x
-      arr[base + 4] = elem.positions[(p+1) * 4 + 1]; // end.y
-      arr[base + 5] = elem.positions[(p+1) * 4 + 2]; // end.z
-      arr[base + 6] = radius;                        // radius
-      arr[base + 7] = cr;                           // color.r
-      arr[base + 8] = cg;                           // color.g
-      arr[base + 9] = cb;                           // color.b
-      arr[base + 10] = alpha;                       // alpha
+      arr[segIndex*11+10] = alphas ? alphas[lineIndex] : defaults.alpha;
 
       segIndex++;
     }
+
+    // Apply decorations last
+    applyDecorations(elem.decorations, segCount, (idx, dec) => {
+      if(dec.color) {
+        arr[idx*11+7] = dec.color[0];
+        arr[idx*11+8] = dec.color[1];
+        arr[idx*11+9] = dec.color[2];
+      }
+      if(dec.alpha !== undefined) {
+        arr[idx*11+10] = dec.alpha;
+      }
+      if(dec.scale !== undefined) {
+        arr[idx*11+6] *= dec.scale;
+      }
+    });
+
     return arr;
   },
 
@@ -1438,7 +1461,7 @@ const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
     const segCount = this.getCount(elem);
     if(segCount === 0) return null;
 
-    const defaultRadius = elem.radius ?? 0.02;
+    const defaultSize = elem.size ?? 0.02;
     const floatsPerSeg = 8;
     const arr = new Float32Array(segCount * floatsPerSeg);
 
@@ -1451,15 +1474,15 @@ const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
       if(iCurr !== iNext) continue;
 
       const lineIndex = Math.floor(iCurr);
-      let radius = elem.radii?.[lineIndex] ?? defaultRadius;
+      let size = elem.sizes?.[lineIndex] ?? defaultSize;
       const scale = elem.scales?.[lineIndex] ?? 1.0;
 
-      radius *= scale;
+      size *= scale;
 
-      // Apply decorations that affect radius
+      // Apply decorations that affect size
       applyDecorations(elem.decorations, lineIndex + 1, (idx, dec) => {
         if(idx === lineIndex && dec.scale !== undefined) {
-          radius *= dec.scale;
+          size *= dec.scale;
         }
       });
 
@@ -1470,7 +1493,7 @@ const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
       arr[base + 3] = elem.positions[(p+1) * 4 + 0]; // end.x
       arr[base + 4] = elem.positions[(p+1) * 4 + 1]; // end.y
       arr[base + 5] = elem.positions[(p+1) * 4 + 2]; // end.z
-      arr[base + 6] = radius;                        // radius
+      arr[base + 6] = size;                        // size
       arr[base + 7] = baseID + segIndex;            // pickID
 
       segIndex++;
@@ -1494,7 +1517,7 @@ const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
         fragmentShader: lineBeamFragCode, // defined below
         vertexEntryPoint: 'vs_main',
         fragmentEntryPoint: 'fs_main',
-        bufferLayouts: [ CYL_GEOMETRY_LAYOUT, LINE_CYL_INSTANCE_LAYOUT ],
+        bufferLayouts: [ MESH_GEOMETRY_LAYOUT, LINE_BEAM_INSTANCE_LAYOUT ],
       }, format, this),
       cache
     );
@@ -1507,9 +1530,9 @@ const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
       () => createRenderPipeline(device, bindGroupLayout, {
         vertexShader: pickingVertCode, // We'll add a vs_lineCyl entry
         fragmentShader: pickingVertCode,
-        vertexEntryPoint: 'vs_lineCyl',
+        vertexEntryPoint: 'vs_lineBeam',
         fragmentEntryPoint: 'fs_pick',
-        bufferLayouts: [ CYL_GEOMETRY_LAYOUT, LINE_CYL_PICKING_INSTANCE_LAYOUT ],
+        bufferLayouts: [ MESH_GEOMETRY_LAYOUT, LINE_BEAM_PICKING_INSTANCE_LAYOUT ],
         primitive: this.renderConfig
       }, 'rgba8unorm'),
       cache
@@ -1517,7 +1540,7 @@ const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
   },
 
   createGeometryResource(device) {
-    return createBuffers(device, createBeamGeometry(8));
+    return createBuffers(device, createBeamGeometry());
   }
 };
 
@@ -1815,28 +1838,28 @@ const CYL_GEOMETRY_LAYOUT: VertexBufferLayout = {
 };
 
 // For rendering: 11 floats
-// (start.xyz, end.xyz, radius, color.rgb, alpha)
-const LINE_CYL_INSTANCE_LAYOUT: VertexBufferLayout = {
+// (start.xyz, end.xyz, size, color.rgb, alpha)
+const LINE_BEAM_INSTANCE_LAYOUT: VertexBufferLayout = {
   arrayStride: 11 * 4,
   stepMode: 'instance',
   attributes: [
     { shaderLocation: 2, offset:  0,  format: 'float32x3' }, // startPos
     { shaderLocation: 3, offset: 12,  format: 'float32x3' }, // endPos
-    { shaderLocation: 4, offset: 24,  format: 'float32'   }, // radius
+    { shaderLocation: 4, offset: 24,  format: 'float32'   }, // size
     { shaderLocation: 5, offset: 28,  format: 'float32x3' }, // color
     { shaderLocation: 6, offset: 40,  format: 'float32'   }, // alpha
   ]
 };
 
 // For picking: 8 floats
-// (start.xyz, end.xyz, radius, pickID)
-const LINE_CYL_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
+// (start.xyz, end.xyz, size, pickID)
+const LINE_BEAM_PICKING_INSTANCE_LAYOUT: VertexBufferLayout = {
   arrayStride: 8 * 4,
   stepMode: 'instance',
   attributes: [
     { shaderLocation: 2, offset:  0,  format: 'float32x3' },
     { shaderLocation: 3, offset: 12,  format: 'float32x3' },
-    { shaderLocation: 4, offset: 24,  format: 'float32'   },
+    { shaderLocation: 4, offset: 24,  format: 'float32'   }, // size
     { shaderLocation: 5, offset: 28,  format: 'float32'   },
   ]
 };

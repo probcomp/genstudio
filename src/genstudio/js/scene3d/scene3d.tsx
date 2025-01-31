@@ -55,8 +55,13 @@ export function EllipsoidAxes(props: EllipsoidAxesComponentConfig): EllipsoidAxe
 }
 
 export function Cuboid(props: CuboidComponentConfig): CuboidComponentConfig {
+  const size = typeof props.size === 'number' ?
+    [props.size, props.size, props.size] as [number, number, number] :
+    props.size;
+
   return {
     ...props,
+    size,
     type: 'Cuboid'
   };
 }

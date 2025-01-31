@@ -312,9 +312,9 @@ def Cuboid(
 def LineBeams(
     positions: ArrayLike,  # Array of quadruples [x,y,z,i, x,y,z,i, ...]
     color: Optional[ArrayLike] = None,  # Default RGB color for all beams
-    radius: Optional[NumberLike] = None,  # Default radius for all beams
+    size: Optional[NumberLike] = None,  # Default size for all beams
     colors: Optional[ArrayLike] = None,  # Per-segment colors
-    radii: Optional[ArrayLike] = None,  # Per-segment radii
+    sizes: Optional[ArrayLike] = None,  # Per-segment sizes
     **kwargs: Any,
 ) -> SceneComponent:
     """Create a line beams element.
@@ -336,11 +336,11 @@ def LineBeams(
 
     if color is not None:
         data["color"] = color
-    if radius is not None:
-        data["radius"] = radius
+    if size is not None:
+        data["size"] = size
     if colors is not None:
         data["colors"] = flatten_array(colors, dtype=np.float32)
-    if radii is not None:
-        data["radii"] = flatten_array(radii, dtype=np.float32)
+    if sizes is not None:
+        data["sizes"] = flatten_array(sizes, dtype=np.float32)
 
     return SceneComponent("LineBeams", data, **kwargs)
