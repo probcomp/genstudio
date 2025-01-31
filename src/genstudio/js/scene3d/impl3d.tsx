@@ -10,7 +10,7 @@ import React, {
   useState
 } from 'react';
 import { throttle } from '../utils';
-import { createCubeGeometry, createCylinderGeometry, createSphereGeometry, createTorusGeometry } from './geometry';
+import { createCubeGeometry, createBeamGeometry, createSphereGeometry, createTorusGeometry } from './geometry';
 
 import {
   CameraParams,
@@ -761,10 +761,10 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
 };
 
 /******************************************************
- *  LineCylinders Type
+ *  LineBeams Type
  ******************************************************/
-export interface LineCylindersComponentConfig extends BaseComponentConfig {
-  type: 'LineCylinders';
+export interface LineBeamsComponentConfig extends BaseComponentConfig {
+  type: 'LineBeams';
   positions: Float32Array;  // [x,y,z,i, x,y,z,i, ...]
   radii?: Float32Array;     // Per-line radii
   radius?: number;         // Default radius, defaults to 0.02
@@ -785,7 +785,7 @@ function countSegments(positions: Float32Array): number {
   return segCount;
 }
 
-const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
+const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
   getCount(elem) {
     return countSegments(elem.positions);
   },
@@ -938,7 +938,7 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
     const format = navigator.gpu.getPreferredCanvasFormat();
     return getOrCreatePipeline(
       device,
-      "LineCylindersShading",
+      "LineBeamsShading",
       () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
         vertexShader: lineCylVertCode,   // defined below
         fragmentShader: lineCylFragCode, // defined below
@@ -953,7 +953,7 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
   getPickingPipeline(device, bindGroupLayout, cache) {
     return getOrCreatePipeline(
       device,
-      "LineCylindersPicking",
+      "LineBeamsPicking",
       () => createRenderPipeline(device, bindGroupLayout, {
         vertexShader: pickingVertCode, // We'll add a vs_lineCyl entry
         fragmentShader: pickingVertCode,
@@ -967,7 +967,7 @@ const lineCylindersSpec: PrimitiveSpec<LineCylindersComponentConfig> = {
   },
 
   createGeometryResource(device) {
-    return createBuffers(device, createCylinderGeometry(8));
+    return createBuffers(device, createBeamGeometry(8));
   }
 };
 
@@ -1273,14 +1273,14 @@ export type ComponentConfig =
   | EllipsoidComponentConfig
   | EllipsoidAxesComponentConfig
   | CuboidComponentConfig
-  | LineCylindersComponentConfig;
+  | LineBeamsComponentConfig;
 
 const primitiveRegistry: Record<ComponentConfig['type'], PrimitiveSpec<any>> = {
   PointCloud: pointCloudSpec,  // Use consolidated spec
   Ellipsoid: ellipsoidSpec,
   EllipsoidAxes: ellipsoidAxesSpec,
   Cuboid: cuboidSpec,
-  LineCylinders: lineCylindersSpec
+  LineBeams: lineBeamsSpec
 };
 
 
@@ -1428,7 +1428,7 @@ export function SceneInner({
           Ellipsoid: null,
           EllipsoidAxes: null,
           Cuboid: null,
-          LineCylinders: null
+          LineBeams: null
         }
       };
 
@@ -2505,7 +2505,7 @@ fn vs_main(
   @location(6) alpha: f32
 ) -> VSOut
 {
-  // The unit cylinder is from z=0..1 along local Z, radius=1 in XY
+  // The unit beam is from z=0..1 along local Z, radius=1 in XY
   // We'll transform so it goes from start->end with radius=radius.
   let segDir = endPos - startPos;
   let length = max(length(segDir), 0.000001);

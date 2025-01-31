@@ -5,7 +5,7 @@ from genstudio.scene3d import (
     EllipsoidAxes,
     Cuboid,
     deco,
-    LineCylinders,
+    LineBeams,
 )
 import genstudio.plot as Plot
 import math
@@ -47,7 +47,7 @@ def create_demo_scene():
         )
         +
         # # Add some line strips that weave through the scene
-        LineCylinders(
+        LineBeams(
             positions=np.array(
                 [
                     # X axis

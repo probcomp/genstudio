@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { SceneInner, ComponentConfig, PointCloudComponentConfig, EllipsoidComponentConfig, EllipsoidAxesComponentConfig, CuboidComponentConfig, LineCylindersComponentConfig } from './impl3d';
+import { SceneInner, ComponentConfig, PointCloudComponentConfig, EllipsoidComponentConfig, EllipsoidAxesComponentConfig, CuboidComponentConfig, LineBeamsComponentConfig } from './impl3d';
 import { CameraParams } from './camera3d';
 import { useContainerWidth } from '../utils';
 import { FPSCounter, useFPSCounter } from './fps';
@@ -61,10 +61,10 @@ export function Cuboid(props: CuboidComponentConfig): CuboidComponentConfig {
   };
 }
 
-export function LineCylinders(props: LineCylindersComponentConfig): LineCylindersComponentConfig {
+export function LineBeams(props: LineBeamsComponentConfig): LineBeamsComponentConfig {
   return {
     ...props,
-    type: 'LineCylinders'
+    type: 'LineBeams'
   };
 }
 

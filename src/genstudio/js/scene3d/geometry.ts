@@ -117,11 +117,11 @@ export function createCubeGeometry() {
 }
 
 /******************************************************
- * createCylinderGeometry
- * Returns a "unit cylinder" from z=0..1, radius=1.
+ * createBeamGeometry
+ * Returns a "unit beam" from z=0..1, radius=1.
  * No caps. 'segments' sets how many radial divisions.
  ******************************************************/
-export function createCylinderGeometry(segments: number=8) {
+export function createBeamGeometry(segments: number=8) {
   const vertexData: number[] = [];
   const indexData: number[]  = [];
 
