@@ -935,7 +935,7 @@ def Slider(
     range: Optional[Union[int, float, List[Union[int, float]]]] = None,
     rangeFrom: Any = None,
     fps: Optional[Union[int, str]] = None,
-    step: int = 1,
+    step: int | float = 1,
     tail: bool = False,
     loop: bool = True,
     label: Optional[str] = None,

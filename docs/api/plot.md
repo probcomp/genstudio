@@ -316,6 +316,8 @@ Render a string as Markdown, in a LayoutItem.
 
 ### JSExpr {: .api .api-member }
 
+A type alias representing JavaScript expressions that can be evaluated in the runtime.
+
 
 
 

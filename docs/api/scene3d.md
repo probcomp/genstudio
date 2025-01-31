@@ -5,12 +5,14 @@
 A 3D scene visualization component using WebGPU.
 
 This class creates an interactive 3D scene that can contain multiple types of components:
+
 - Point clouds
 - Ellipsoids
 - Ellipsoid bounds (wireframe)
 - Cuboids
 
 The visualization supports:
+
 - Orbit camera control (left mouse drag)
 - Pan camera control (shift + left mouse drag or middle mouse drag)
 - Zoom control (mouse wheel)
@@ -115,9 +117,7 @@ Parameters
 {: .api .api-section }
 
 
-- `positions` (ArrayLike): Array of quadruples [x,y,z,i, x,y,z,i, ...] where points sharing
-
-          the same i value are connected in sequence
+- `positions` (ArrayLike): Array of quadruples [x,y,z,i, x,y,z,i, ...] where points sharing the same i value are connected in sequence
 
 - `color` (Optional[ArrayLike]): Default RGB color [r,g,b] for all beams if segment_colors not provided
 

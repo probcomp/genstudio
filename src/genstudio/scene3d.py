@@ -84,17 +84,43 @@ class SceneComponent(Plot.LayoutItem):
         """Allow combining components with + operator when dict is on the left."""
         return Scene(self, other)
 
+    def merge(
+        self, new_props: Optional[Dict[str, Any]] = None, **kwargs: Any
+    ) -> "SceneComponent":
+        """Return a new SceneComponent with updated properties.
+
+        This method does not modify the current SceneComponent instance. Instead, it creates and returns a *new* SceneComponent instance.
+        The new instance's properties are derived by merging the properties of the current instance with the provided `new_props` and `kwargs`.
+        If there are any conflicts in property keys, the values in `kwargs` take precedence over `new_props`, and `new_props` take precedence over the original properties of this SceneComponent.
+
+        Args:
+            new_props: An optional dictionary of new properties to merge. These properties will override the existing properties of this SceneComponent if there are key conflicts.
+            **kwargs: Additional keyword arguments representing properties to merge. These properties will take the highest precedence in case of key conflicts, overriding both `new_props` and the existing properties.
+
+        Returns:
+            A new SceneComponent instance with all properties merged.
+        """
+        merged_props = {**self.props}  # Start with existing props
+        if new_props:
+            merged_props.update(new_props)  # Update with new_props
+        merged_props.update(kwargs)  # Update with kwargs, overriding if necessary
+        return SceneComponent(
+            self.type, merged_props
+        )  # Create and return a new instance
+
 
 class Scene(Plot.LayoutItem):
     """A 3D scene visualization component using WebGPU.
 
     This class creates an interactive 3D scene that can contain multiple types of components:
+
     - Point clouds
     - Ellipsoids
     - Ellipsoid bounds (wireframe)
     - Cuboids
 
     The visualization supports:
+
     - Orbit camera control (left mouse drag)
     - Pan camera control (shift + left mouse drag or middle mouse drag)
     - Zoom control (mouse wheel)
@@ -320,8 +346,7 @@ def LineBeams(
     """Create a line beams element.
 
     Args:
-        positions: Array of quadruples [x,y,z,i, x,y,z,i, ...] where points sharing
-                  the same i value are connected in sequence
+        positions: Array of quadruples [x,y,z,i, x,y,z,i, ...] where points sharing the same i value are connected in sequence
         color: Default RGB color [r,g,b] for all beams if segment_colors not provided
         radius: Default radius for all beams if segment_radii not provided
         segment_colors: Array of RGB colors per beam segment (optional)

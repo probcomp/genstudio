@@ -35,6 +35,7 @@ export const DEFAULT_CAMERA: CameraParams = {
 };
 
 export function createCameraState(params: CameraParams): CameraState {
+    params = {...DEFAULT_CAMERA, ...params}
     const position = glMatrix.vec3.fromValues(...params.position);
     const target = glMatrix.vec3.fromValues(...params.target);
     const up = glMatrix.vec3.fromValues(...params.up);
