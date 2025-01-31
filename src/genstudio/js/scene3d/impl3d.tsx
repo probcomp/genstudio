@@ -28,21 +28,58 @@ import {
  ******************************************************/
 
 interface BaseComponentConfig {
-  // Per-instance arrays
-  colors?: Float32Array;    // RGB triplets
-  alphas?: Float32Array;    // Per-instance alpha
-  scales?: Float32Array;    // Per-instance scale multipliers
+  /**
+   * Per-instance RGB color values as a Float32Array of RGB triplets.
+   * Each instance requires 3 consecutive values in the range [0,1].
+   */
+  colors?: Float32Array;
 
-  // Default values
-  color?: [number, number, number];  // defaults to [1,1,1]
-  alpha?: number;                    // defaults to 1.0
-  scale?: number;                    // defaults to 1.0
+  /**
+   * Per-instance alpha (opacity) values.
+   * Each value should be in the range [0,1].
+   */
+  alphas?: Float32Array;
 
-  // Interaction callbacks
+  /**
+   * Per-instance scale multipliers.
+   * These multiply the base size/radius of each instance.
+   */
+  scales?: Float32Array;
+
+  /**
+   * Default RGB color applied to all instances without specific colors.
+   * Values should be in range [0,1]. Defaults to [1,1,1] (white).
+   */
+  color?: [number, number, number];
+
+  /**
+   * Default alpha (opacity) for all instances without specific alpha.
+   * Should be in range [0,1]. Defaults to 1.0.
+   */
+  alpha?: number;
+
+  /**
+   * Default scale multiplier for all instances without specific scale.
+   * Defaults to 1.0.
+   */
+  scale?: number;
+
+  /**
+   * Callback fired when the mouse hovers over an instance.
+   * The index parameter is the instance index, or null when hover ends.
+   */
   onHover?: (index: number|null) => void;
+
+  /**
+   * Callback fired when an instance is clicked.
+   * The index parameter is the clicked instance index.
+   */
   onClick?: (index: number) => void;
 
-  // Decorations apply last
+  /**
+   * Optional array of decorations to apply to specific instances.
+   * Decorations can override colors, alpha, and scale for individual instances.
+   */
   decorations?: Decoration[];
 }
 
@@ -51,6 +88,19 @@ function getBaseDefaults(config: Partial<BaseComponentConfig>): Required<Omit<Ba
     color: config.color ?? [1, 1, 1],
     alpha: config.alpha ?? 1.0,
     scale: config.scale ?? 1.0,
+  };
+}
+
+function getColumnarParams(elem: BaseComponentConfig, count: number) {
+
+  const hasValidColors = elem.colors instanceof Float32Array && elem.colors.length >= count * 3;
+  const hasValidAlphas = elem.alphas instanceof Float32Array && elem.alphas.length >= count;
+  const hasValidScales = elem.scales instanceof Float32Array && elem.scales.length >= count;
+
+  return {
+    colors: hasValidColors ? elem.colors : null,
+    alphas: hasValidAlphas ? elem.alphas : null,
+    scales: hasValidScales ? elem.scales : null
   };
 }
 
@@ -87,27 +137,59 @@ export interface DynamicBuffers {
 }
 
 export interface SceneInnerProps {
-    components: ComponentConfig[];
-    containerWidth: number;
-    containerHeight: number;
-    style?: React.CSSProperties;
-    camera?: CameraParams;
-    defaultCamera?: CameraParams;
-    onCameraChange?: (camera: CameraParams) => void;
-    onFrameRendered?: (renderTime: number) => void;
+  /** Array of 3D components to render in the scene */
+  components: ComponentConfig[];
+
+  /** Width of the container in pixels */
+  containerWidth: number;
+
+  /** Height of the container in pixels */
+  containerHeight: number;
+
+  /** Optional CSS styles to apply to the canvas */
+  style?: React.CSSProperties;
+
+  /** Optional controlled camera state. If provided, the component becomes controlled */
+  camera?: CameraParams;
+
+  /** Default camera configuration used when uncontrolled */
+  defaultCamera?: CameraParams;
+
+  /** Callback fired when camera parameters change */
+  onCameraChange?: (camera: CameraParams) => void;
+
+  /** Callback fired after each frame render with the render time in milliseconds */
+  onFrameRendered?: (renderTime: number) => void;
 }
 
 /******************************************************
  * 2) Constants and Camera Functions
  ******************************************************/
+
+/**
+ * Global lighting configuration for the 3D scene.
+ * Uses a simple Blinn-Phong lighting model with ambient, diffuse, and specular components.
+ */
 const LIGHTING = {
+    /** Ambient light intensity, affects overall scene brightness */
     AMBIENT_INTENSITY: 0.4,
+
+    /** Diffuse light intensity, affects surface shading based on light direction */
     DIFFUSE_INTENSITY: 0.6,
+
+    /** Specular highlight intensity */
     SPECULAR_INTENSITY: 0.2,
+
+    /** Specular power/shininess, higher values create sharper highlights */
     SPECULAR_POWER: 20.0,
+
+    /** Light direction components relative to camera */
     DIRECTION: {
+        /** Right component of light direction */
         RIGHT: 0.2,
+        /** Up component of light direction */
         UP: 0.5,
+        /** Forward component of light direction */
         FORWARD: 0,
     }
 } as const;
@@ -115,34 +197,101 @@ const LIGHTING = {
 /******************************************************
  * 3) Data Structures & Primitive Specs
  ******************************************************/
+
+// Common shader code templates
+const cameraStruct = /*wgsl*/`
+struct Camera {
+  mvp: mat4x4<f32>,
+  cameraRight: vec3<f32>,
+  _pad1: f32,
+  cameraUp: vec3<f32>,
+  _pad2: f32,
+  lightDir: vec3<f32>,
+  _pad3: f32,
+  cameraPos: vec3<f32>,
+  _pad4: f32,
+};
+@group(0) @binding(0) var<uniform> camera : Camera;`;
+
+const lightingConstants = /*wgsl*/`
+const AMBIENT_INTENSITY = ${LIGHTING.AMBIENT_INTENSITY}f;
+const DIFFUSE_INTENSITY = ${LIGHTING.DIFFUSE_INTENSITY}f;
+const SPECULAR_INTENSITY = ${LIGHTING.SPECULAR_INTENSITY}f;
+const SPECULAR_POWER = ${LIGHTING.SPECULAR_POWER}f;`;
+
+const lightingCalc = /*wgsl*/`
+fn calculateLighting(baseColor: vec3<f32>, normal: vec3<f32>, worldPos: vec3<f32>) -> vec3<f32> {
+  let N = normalize(normal);
+  let L = normalize(camera.lightDir);
+  let V = normalize(camera.cameraPos - worldPos);
+
+  let lambert = max(dot(N, L), 0.0);
+  let ambient = AMBIENT_INTENSITY;
+  var color = baseColor * (ambient + lambert * DIFFUSE_INTENSITY);
+
+  let H = normalize(L + V);
+  let spec = pow(max(dot(N, H), 0.0), SPECULAR_POWER);
+  color += vec3<f32>(1.0) * spec * SPECULAR_INTENSITY;
+
+  return color;
+}`;
+
 interface PrimitiveSpec<E> {
-  /** Get the number of instances in this component */
+  /**
+   * Returns the number of instances in this component.
+   * Used to allocate buffers and determine draw call parameters.
+   */
   getCount(component: E): number;
 
-  /** Build vertex buffer data for rendering */
+  /**
+   * Builds vertex buffer data for rendering.
+   * Returns a Float32Array containing interleaved vertex attributes,
+   * or null if the component has no renderable data.
+   */
   buildRenderData(component: E): Float32Array | null;
 
-  /** Build vertex buffer data for picking */
+  /**
+   * Builds vertex buffer data for GPU-based picking.
+   * Returns a Float32Array containing picking IDs and instance data,
+   * or null if the component doesn't support picking.
+   * @param baseID Starting ID for this component's instances
+   */
   buildPickingData(component: E, baseID: number): Float32Array | null;
 
-  /** The default rendering configuration for this primitive type */
+  /**
+   * Default WebGPU rendering configuration for this primitive type.
+   * Specifies face culling and primitive topology.
+   */
   renderConfig: RenderConfig;
 
-  /** Return (or lazily create) the GPU render pipeline for this type */
+  /**
+   * Creates or retrieves a cached WebGPU render pipeline for this primitive.
+   * @param device The WebGPU device
+   * @param bindGroupLayout Layout for uniform bindings
+   * @param cache Pipeline cache to prevent duplicate creation
+   */
   getRenderPipeline(
     device: GPUDevice,
     bindGroupLayout: GPUBindGroupLayout,
     cache: Map<string, PipelineCacheEntry>
   ): GPURenderPipeline;
 
-  /** Return (or lazily create) the GPU picking pipeline for this type */
+  /**
+   * Creates or retrieves a cached WebGPU pipeline for picking.
+   * @param device The WebGPU device
+   * @param bindGroupLayout Layout for uniform bindings
+   * @param cache Pipeline cache to prevent duplicate creation
+   */
   getPickingPipeline(
     device: GPUDevice,
     bindGroupLayout: GPUBindGroupLayout,
     cache: Map<string, PipelineCacheEntry>
   ): GPURenderPipeline;
 
-  /** Create the geometry resource needed for this primitive type */
+  /**
+   * Creates the base geometry buffers needed for this primitive type.
+   * These buffers are shared across all instances of the primitive.
+   */
   createGeometryResource(device: GPUDevice): { vb: GPUBuffer; ib: GPUBuffer; indexCount: number };
 }
 
@@ -177,6 +326,72 @@ interface RenderConfig {
 }
 
 /** ===================== POINT CLOUD ===================== **/
+
+
+const billboardVertCode = /*wgsl*/`
+${cameraStruct}
+
+struct VSOut {
+  @builtin(position) Position: vec4<f32>,
+  @location(0) color: vec3<f32>,
+  @location(1) alpha: f32
+};
+
+@vertex
+fn vs_main(
+  @location(0) localPos: vec3<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) instancePos: vec3<f32>,
+  @location(3) col: vec3<f32>,
+  @location(4) alpha: f32,
+  @location(5) size: f32
+)-> VSOut {
+  // Create camera-facing orientation
+  let right = camera.cameraRight;
+  let up = camera.cameraUp;
+
+  // Transform quad vertices to world space
+  let scaledRight = right * (localPos.x * size);
+  let scaledUp = up * (localPos.y * size);
+  let worldPos = instancePos + scaledRight + scaledUp;
+
+  var out: VSOut;
+  out.Position = camera.mvp * vec4<f32>(worldPos, 1.0);
+  out.color = col;
+  out.alpha = alpha;
+  return out;
+}`;
+
+const billboardPickingVertCode = /*wgsl*/`
+@vertex
+fn vs_pointcloud(
+  @location(0) localPos: vec3<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) instancePos: vec3<f32>,
+  @location(3) pickID: f32,
+  @location(4) size: f32
+)-> VSOut {
+  // Create camera-facing orientation
+  let right = camera.cameraRight;
+  let up = camera.cameraUp;
+
+  // Transform quad vertices to world space
+  let scaledRight = right * (localPos.x * size);
+  let scaledUp = up * (localPos.y * size);
+  let worldPos = instancePos + scaledRight + scaledUp;
+
+  var out: VSOut;
+  out.pos = camera.mvp * vec4<f32>(worldPos, 1.0);
+  out.pickID = pickID;
+  return out;
+}`;
+
+const billboardFragCode = /*wgsl*/`
+@fragment
+fn fs_main(@location(0) color: vec3<f32>, @location(1) alpha: f32)-> @location(0) vec4<f32> {
+  return vec4<f32>(color, alpha);
+}`;
+
 export interface PointCloudComponentConfig extends BaseComponentConfig {
   type: 'PointCloud';
   positions: Float32Array;
@@ -194,17 +409,10 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
     if(count === 0) return null;
 
     const defaults = getBaseDefaults(elem);
-    const size = elem.size ?? 0.02;
+    const { colors, alphas, scales } = getColumnarParams(elem, count);
 
-    // Check array validities once before the loop
-    const hasValidColors = elem.colors && elem.colors.length >= count * 3;
-    const colors = hasValidColors ? elem.colors : null;
-    const hasValidAlphas = elem.alphas && elem.alphas.length >= count;
-    const alphas = hasValidAlphas ? elem.alphas : null;
-    const hasValidSizes = elem.sizes && elem.sizes.length >= count;
-    const sizes = hasValidSizes ? elem.sizes : null;
-    const hasValidScales = elem.scales && elem.scales.length >= count;
-    const scales = hasValidScales ? elem.scales : null;
+    const size = elem.size ?? 0.02;
+    const sizes = elem.sizes instanceof Float32Array && elem.sizes.length >= count ? elem.sizes : null;
 
     const arr = new Float32Array(count * 8);
     for(let i=0; i<count; i++) {
@@ -222,9 +430,9 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
         arr[i*8+5] = defaults.color[2];
       }
 
-      arr[i*8+6] = alphas?.[i] ?? defaults.alpha;
-      const pointSize = sizes?.[i] ?? size;
-      const scale = scales?.[i] ?? defaults.scale;
+      arr[i*8+6] = alphas ? alphas[i] : defaults.alpha;
+      const pointSize = sizes  ? sizes[i] : size;
+      const scale = scales ? scales[i] : defaults.scale;
       arr[i*8+7] = pointSize * scale;
     }
 
@@ -337,6 +545,76 @@ const pointCloudSpec: PrimitiveSpec<PointCloudComponentConfig> = {
 };
 
 /** ===================== ELLIPSOID ===================== **/
+
+
+const ellipsoidVertCode = /*wgsl*/`
+${cameraStruct}
+
+struct VSOut {
+  @builtin(position) pos: vec4<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>,
+  @location(5) instancePos: vec3<f32>
+};
+
+@vertex
+fn vs_main(
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+  @location(2) iPos: vec3<f32>,
+  @location(3) iScale: vec3<f32>,
+  @location(4) iColor: vec3<f32>,
+  @location(5) iAlpha: f32
+)-> VSOut {
+  let worldPos = iPos + (inPos * iScale);
+  let scaledNorm = normalize(inNorm / iScale);
+
+  var out: VSOut;
+  out.pos = camera.mvp * vec4<f32>(worldPos,1.0);
+  out.normal = scaledNorm;
+  out.baseColor = iColor;
+  out.alpha = iAlpha;
+  out.worldPos = worldPos;
+  out.instancePos = iPos;
+  return out;
+}`;
+
+const ellipsoidPickingVertCode = /*wgsl*/`
+@vertex
+fn vs_ellipsoid(
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+  @location(2) iPos: vec3<f32>,
+  @location(3) iScale: vec3<f32>,
+  @location(4) pickID: f32
+)-> VSOut {
+  let wp = iPos + (inPos * iScale);
+  var out: VSOut;
+  out.pos = camera.mvp*vec4<f32>(wp,1.0);
+  out.pickID = pickID;
+  return out;
+}`;
+
+const ellipsoidFragCode = /*wgsl*/`
+${cameraStruct}
+${lightingConstants}
+${lightingCalc}
+
+@fragment
+fn fs_main(
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>,
+  @location(5) instancePos: vec3<f32>
+)-> @location(0) vec4<f32> {
+  let color = calculateLighting(baseColor, normal, worldPos);
+  return vec4<f32>(color, alpha);
+}`;
+
+
 export interface EllipsoidComponentConfig extends BaseComponentConfig {
   type: 'Ellipsoid';
   centers: Float32Array;
@@ -354,14 +632,14 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
     if(count === 0) return null;
 
     const defaults = getBaseDefaults(elem);
+    const { colors, alphas, scales } = getColumnarParams(elem, count);
+
     const defaultRadius = elem.radius ?? [1, 1, 1];
+    const radii = elem.radii && elem.radii.length >= count * 3 ? elem.radii : null;
+
+
     const arr = new Float32Array(count * 10);
 
-    // Check array validities once before the loop
-    const hasValidRadii = elem.radii && elem.radii.length >= count * 3;
-    const radii = hasValidRadii ? elem.radii : null;
-    const hasValidColors = elem.colors && elem.colors.length >= count * 3;
-    const colors = hasValidColors ? elem.colors : null;
 
     for(let i = 0; i < count; i++) {
       // Centers
@@ -370,7 +648,7 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
       arr[i*10+2] = elem.centers[i*3+2];
 
       // Radii (with scale)
-      const scale = elem.scales?.[i] ?? defaults.scale;
+      const scale = scales ? scales[i] : defaults.scale;
       if(radii) {
         arr[i*10+3] = radii[i*3+0] * scale;
         arr[i*10+4] = radii[i*3+1] * scale;
@@ -392,7 +670,7 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
         arr[i*10+8] = defaults.color[2];
       }
 
-      arr[i*10+9] = elem.alphas?.[i] ?? defaults.alpha;
+      arr[i*10+9] = alphas ? alphas[i] : defaults.alpha;
     }
 
     applyDecorations(elem.decorations, count, (idx, dec) => {
@@ -485,7 +763,95 @@ const ellipsoidSpec: PrimitiveSpec<EllipsoidComponentConfig> = {
   }
 };
 
-/** ===================== ELLIPSOID BOUNDS ===================== **/
+/** ===================== ELLIPSOID AXES ===================== **/
+
+
+const ringVertCode = /*wgsl*/`
+${cameraStruct}
+
+struct VSOut {
+  @builtin(position) pos: vec4<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) color: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>,
+};
+
+@vertex
+fn vs_main(
+  @builtin(instance_index) instID: u32,
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+  @location(2) center: vec3<f32>,
+  @location(3) scale: vec3<f32>,
+  @location(4) color: vec3<f32>,
+  @location(5) alpha: f32
+)-> VSOut {
+  let ringIndex = i32(instID % 3u);
+  var lp = inPos;
+  // rotate the ring geometry differently for x-y-z rings
+  if(ringIndex==0){
+    let tmp = lp.z;
+    lp.z = -lp.y;
+    lp.y = tmp;
+  } else if(ringIndex==1){
+    let px = lp.x;
+    lp.x = -lp.y;
+    lp.y = px;
+    let pz = lp.z;
+    lp.z = lp.x;
+    lp.x = pz;
+  }
+  lp *= scale;
+  let wp = center + lp;
+  var out: VSOut;
+  out.pos = camera.mvp * vec4<f32>(wp,1.0);
+  out.normal = inNorm;
+  out.color = color;
+  out.alpha = alpha;
+  out.worldPos = wp;
+  return out;
+}`;
+
+
+const ringPickingVertCode = /*wgsl*/`
+@vertex
+fn vs_rings(
+  @builtin(instance_index) instID:u32,
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+  @location(2) center: vec3<f32>,
+  @location(3) scale: vec3<f32>,
+  @location(4) pickID: f32
+)-> VSOut {
+  let ringIndex=i32(instID%3u);
+  var lp=inPos;
+  if(ringIndex==0){
+    let tmp=lp.z; lp.z=-lp.y; lp.y=tmp;
+  } else if(ringIndex==1){
+    let px=lp.x; lp.x=-lp.y; lp.y=px;
+    let pz=lp.z; lp.z=lp.x; lp.x=pz;
+  }
+  lp*=scale;
+  let wp=center+lp;
+  var out:VSOut;
+  out.pos=camera.mvp*vec4<f32>(wp,1.0);
+  out.pickID=pickID;
+  return out;
+}`;
+
+const ringFragCode = /*wgsl*/`
+@fragment
+fn fs_main(
+  @location(1) n: vec3<f32>,
+  @location(2) c: vec3<f32>,
+  @location(3) a: f32,
+  @location(4) wp: vec3<f32>
+)-> @location(0) vec4<f32> {
+  // simple color (no shading)
+  return vec4<f32>(c, a);
+}`;
+
 export interface EllipsoidAxesComponentConfig extends BaseComponentConfig {
   type: 'EllipsoidAxes';
   centers: Float32Array;
@@ -628,7 +994,7 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
       () => createRenderPipeline(device, bindGroupLayout, {
         vertexShader: pickingVertCode,
         fragmentShader: pickingVertCode,
-        vertexEntryPoint: 'vs_bands',
+        vertexEntryPoint: 'vs_rings',
         fragmentEntryPoint: 'fs_pick',
         bufferLayouts: [MESH_GEOMETRY_LAYOUT, MESH_PICKING_INSTANCE_LAYOUT]
       }, 'rgba8unorm'),
@@ -642,6 +1008,71 @@ const ellipsoidAxesSpec: PrimitiveSpec<EllipsoidAxesComponentConfig> = {
 };
 
 /** ===================== CUBOID ===================== **/
+
+
+const cuboidVertCode = /*wgsl*/`
+${cameraStruct}
+
+struct VSOut {
+  @builtin(position) pos: vec4<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>
+};
+
+@vertex
+fn vs_main(
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+  @location(2) center: vec3<f32>,
+  @location(3) size: vec3<f32>,
+  @location(4) color: vec3<f32>,
+  @location(5) alpha: f32
+)-> VSOut {
+  let worldPos = center + (inPos * size);
+  let scaledNorm = normalize(inNorm / size);
+  var out: VSOut;
+  out.pos = camera.mvp * vec4<f32>(worldPos,1.0);
+  out.normal = scaledNorm;
+  out.baseColor = color;
+  out.alpha = alpha;
+  out.worldPos = worldPos;
+  return out;
+}`;
+
+const cuboidPickingVertCode = /*wgsl*/`
+@vertex
+fn vs_cuboid(
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+  @location(2) center: vec3<f32>,
+  @location(3) size: vec3<f32>,
+  @location(4) pickID: f32
+)-> VSOut {
+  let wp = center + (inPos * size);
+  var out: VSOut;
+  out.pos = camera.mvp*vec4<f32>(wp,1.0);
+  out.pickID = pickID;
+  return out;
+}`;
+
+const cuboidFragCode = /*wgsl*/`
+${cameraStruct}
+${lightingConstants}
+${lightingCalc}
+
+@fragment
+fn fs_main(
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>
+)-> @location(0) vec4<f32> {
+  let color = calculateLighting(baseColor, normal, worldPos);
+  return vec4<f32>(color, alpha);
+}`;
+
 export interface CuboidComponentConfig extends BaseComponentConfig {
   type: 'Cuboid';
   centers: Float32Array;
@@ -763,6 +1194,125 @@ const cuboidSpec: PrimitiveSpec<CuboidComponentConfig> = {
 /******************************************************
  *  LineBeams Type
  ******************************************************/
+
+
+const lineBeamVertCode = /*wgsl*/`// lineBeamVertCode.wgsl
+${cameraStruct}
+${lightingConstants}
+
+struct VSOut {
+  @builtin(position) pos: vec4<f32>,
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>,
+};
+
+@vertex
+fn vs_main(
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+
+  @location(2) startPos: vec3<f32>,
+  @location(3) endPos: vec3<f32>,
+  @location(4) radius: f32,
+  @location(5) color: vec3<f32>,
+  @location(6) alpha: f32
+) -> VSOut
+{
+  // The unit beam is from z=0..1 along local Z, radius=1 in XY
+  // We'll transform so it goes from start->end with radius=radius.
+  let segDir = endPos - startPos;
+  let length = max(length(segDir), 0.000001);
+  let zDir   = normalize(segDir);
+
+  // build basis xDir,yDir from zDir
+  var tempUp = vec3<f32>(0,0,1);
+  if (abs(dot(zDir, tempUp)) > 0.99) {
+    tempUp = vec3<f32>(0,1,0);
+  }
+  let xDir = normalize(cross(zDir, tempUp));
+  let yDir = cross(zDir, xDir);
+
+  // local scale
+  let localX = inPos.x * radius;
+  let localY = inPos.y * radius;
+  let localZ = inPos.z * length;
+  let worldPos = startPos
+    + xDir * localX
+    + yDir * localY
+    + zDir * localZ;
+
+  // transform normal similarly
+  let rawNormal = vec3<f32>(inNorm.x, inNorm.y, inNorm.z);
+  let nWorld = normalize(
+    xDir*rawNormal.x +
+    yDir*rawNormal.y +
+    zDir*rawNormal.z
+  );
+
+  var out: VSOut;
+  out.pos = camera.mvp * vec4<f32>(worldPos, 1.0);
+  out.normal = nWorld;
+  out.baseColor = color;
+  out.alpha = alpha;
+  out.worldPos = worldPos;
+  return out;
+}`
+
+const lineBeamFragCode = /*wgsl*/`// lineBeamFragCode.wgsl
+${cameraStruct}
+${lightingConstants}
+${lightingCalc}
+
+@fragment
+fn fs_main(
+  @location(1) normal: vec3<f32>,
+  @location(2) baseColor: vec3<f32>,
+  @location(3) alpha: f32,
+  @location(4) worldPos: vec3<f32>
+)-> @location(0) vec4<f32>
+{
+  let color = calculateLighting(baseColor, normal, worldPos);
+  return vec4<f32>(color, alpha);
+}`
+
+const lineBeamPickingVertCode = /*wgsl*/`
+@vertex
+fn vs_lineCyl(
+  @location(0) inPos: vec3<f32>,
+  @location(1) inNorm: vec3<f32>,
+
+  @location(2) startPos: vec3<f32>,
+  @location(3) endPos: vec3<f32>,
+  @location(4) radius: f32,
+  @location(5) pickID: f32
+) -> VSOut {
+  let segDir = endPos - startPos;
+  let length = max(length(segDir), 0.000001);
+  let zDir = normalize(segDir);
+
+  var tempUp = vec3<f32>(0,0,1);
+  if (abs(dot(zDir, tempUp)) > 0.99) {
+    tempUp = vec3<f32>(0,1,0);
+  }
+  let xDir = normalize(cross(zDir, tempUp));
+  let yDir = cross(zDir, xDir);
+
+  let localX = inPos.x * radius;
+  let localY = inPos.y * radius;
+  let localZ = inPos.z * length;
+  let worldPos = startPos
+    + xDir*localX
+    + yDir*localY
+    + zDir*localZ;
+
+  var out: VSOut;
+  out.pos = camera.mvp * vec4<f32>(worldPos, 1.0);
+  out.pickID = pickID;
+  return out;
+}`;
+
 export interface LineBeamsComponentConfig extends BaseComponentConfig {
   type: 'LineBeams';
   positions: Float32Array;  // [x,y,z,i, x,y,z,i, ...]
@@ -940,8 +1490,8 @@ const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
       device,
       "LineBeamsShading",
       () => createTranslucentGeometryPipeline(device, bindGroupLayout, {
-        vertexShader: lineCylVertCode,   // defined below
-        fragmentShader: lineCylFragCode, // defined below
+        vertexShader: lineBeamVertCode,   // defined below
+        fragmentShader: lineBeamFragCode, // defined below
         vertexEntryPoint: 'vs_main',
         fragmentEntryPoint: 'fs_main',
         bufferLayouts: [ CYL_GEOMETRY_LAYOUT, LINE_CYL_INSTANCE_LAYOUT ],
@@ -970,6 +1520,32 @@ const lineBeamsSpec: PrimitiveSpec<LineBeamsComponentConfig> = {
     return createBuffers(device, createBeamGeometry(8));
   }
 };
+
+
+const pickingVertCode = /*wgsl*/`
+${cameraStruct}
+
+struct VSOut {
+  @builtin(position) pos: vec4<f32>,
+  @location(0) pickID: f32
+};
+
+@fragment
+fn fs_pick(@location(0) pickID: f32)-> @location(0) vec4<f32> {
+  let iID = u32(pickID);
+  let r = f32(iID & 255u)/255.0;
+  let g = f32((iID>>8)&255u)/255.0;
+  let b = f32((iID>>16)&255u)/255.0;
+  return vec4<f32>(r,g,b,1.0);
+}
+
+${billboardPickingVertCode}
+${ellipsoidPickingVertCode}
+${ringPickingVertCode}
+${cuboidPickingVertCode}
+${lineBeamPickingVertCode}
+`;
+
 
 /******************************************************
  * 4) Pipeline Cache Helper
@@ -1983,14 +2559,33 @@ function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject
   /******************************************************
    * F) Mouse Handling
    ******************************************************/
+  /**
+   * Tracks the current state of mouse interaction with the scene.
+   * Used for camera control and picking operations.
+   */
   interface MouseState {
+    /** Current interaction mode */
     type: 'idle'|'dragging';
+
+    /** Which mouse button initiated the drag (0=left, 1=middle, 2=right) */
     button?: number;
+
+    /** Initial X coordinate when drag started */
     startX?: number;
+
+    /** Initial Y coordinate when drag started */
     startY?: number;
+
+    /** Most recent X coordinate during drag */
     lastX?: number;
+
+    /** Most recent Y coordinate during drag */
     lastY?: number;
+
+    /** Whether shift key was held when drag started */
     isShiftDown?: boolean;
+
+    /** Accumulated drag distance in pixels */
     dragDistance?: number;
   }
   const mouseState=useRef<MouseState>({type:'idle'});
@@ -2241,453 +2836,3 @@ function isValidRenderObject(ro: RenderObject): ro is Required<Pick<RenderObject
     </div>
   );
 }
-
-/******************************************************
- * 9) WGSL Shader Code
- ******************************************************/
-
-// Common shader code templates
-const cameraStruct = /*wgsl*/`
-struct Camera {
-  mvp: mat4x4<f32>,
-  cameraRight: vec3<f32>,
-  _pad1: f32,
-  cameraUp: vec3<f32>,
-  _pad2: f32,
-  lightDir: vec3<f32>,
-  _pad3: f32,
-  cameraPos: vec3<f32>,
-  _pad4: f32,
-};
-@group(0) @binding(0) var<uniform> camera : Camera;`;
-
-const lightingConstants = /*wgsl*/`
-const AMBIENT_INTENSITY = ${LIGHTING.AMBIENT_INTENSITY}f;
-const DIFFUSE_INTENSITY = ${LIGHTING.DIFFUSE_INTENSITY}f;
-const SPECULAR_INTENSITY = ${LIGHTING.SPECULAR_INTENSITY}f;
-const SPECULAR_POWER = ${LIGHTING.SPECULAR_POWER}f;`;
-
-const lightingCalc = /*wgsl*/`
-fn calculateLighting(baseColor: vec3<f32>, normal: vec3<f32>, worldPos: vec3<f32>) -> vec3<f32> {
-  let N = normalize(normal);
-  let L = normalize(camera.lightDir);
-  let V = normalize(camera.cameraPos - worldPos);
-
-  let lambert = max(dot(N, L), 0.0);
-  let ambient = AMBIENT_INTENSITY;
-  var color = baseColor * (ambient + lambert * DIFFUSE_INTENSITY);
-
-  let H = normalize(L + V);
-  let spec = pow(max(dot(N, H), 0.0), SPECULAR_POWER);
-  color += vec3<f32>(1.0) * spec * SPECULAR_INTENSITY;
-
-  return color;
-}`;
-
-const billboardVertCode = /*wgsl*/`
-${cameraStruct}
-
-struct VSOut {
-  @builtin(position) Position: vec4<f32>,
-  @location(0) color: vec3<f32>,
-  @location(1) alpha: f32
-};
-
-@vertex
-fn vs_main(
-  @location(0) localPos: vec3<f32>,
-  @location(1) normal: vec3<f32>,
-  @location(2) instancePos: vec3<f32>,
-  @location(3) col: vec3<f32>,
-  @location(4) alpha: f32,
-  @location(5) size: f32
-)-> VSOut {
-  // Create camera-facing orientation
-  let right = camera.cameraRight;
-  let up = camera.cameraUp;
-
-  // Transform quad vertices to world space
-  let scaledRight = right * (localPos.x * size);
-  let scaledUp = up * (localPos.y * size);
-  let worldPos = instancePos + scaledRight + scaledUp;
-
-  var out: VSOut;
-  out.Position = camera.mvp * vec4<f32>(worldPos, 1.0);
-  out.color = col;
-  out.alpha = alpha;
-  return out;
-}`;
-
-const billboardFragCode = /*wgsl*/`
-@fragment
-fn fs_main(@location(0) color: vec3<f32>, @location(1) alpha: f32)-> @location(0) vec4<f32> {
-  return vec4<f32>(color, alpha);
-}`;
-
-const ellipsoidVertCode = /*wgsl*/`
-${cameraStruct}
-
-struct VSOut {
-  @builtin(position) pos: vec4<f32>,
-  @location(1) normal: vec3<f32>,
-  @location(2) baseColor: vec3<f32>,
-  @location(3) alpha: f32,
-  @location(4) worldPos: vec3<f32>,
-  @location(5) instancePos: vec3<f32>
-};
-
-@vertex
-fn vs_main(
-  @location(0) inPos: vec3<f32>,
-  @location(1) inNorm: vec3<f32>,
-  @location(2) iPos: vec3<f32>,
-  @location(3) iScale: vec3<f32>,
-  @location(4) iColor: vec3<f32>,
-  @location(5) iAlpha: f32
-)-> VSOut {
-  let worldPos = iPos + (inPos * iScale);
-  let scaledNorm = normalize(inNorm / iScale);
-
-  var out: VSOut;
-  out.pos = camera.mvp * vec4<f32>(worldPos,1.0);
-  out.normal = scaledNorm;
-  out.baseColor = iColor;
-  out.alpha = iAlpha;
-  out.worldPos = worldPos;
-  out.instancePos = iPos;
-  return out;
-}`;
-
-const ellipsoidFragCode = /*wgsl*/`
-${cameraStruct}
-${lightingConstants}
-${lightingCalc}
-
-@fragment
-fn fs_main(
-  @location(1) normal: vec3<f32>,
-  @location(2) baseColor: vec3<f32>,
-  @location(3) alpha: f32,
-  @location(4) worldPos: vec3<f32>,
-  @location(5) instancePos: vec3<f32>
-)-> @location(0) vec4<f32> {
-  let color = calculateLighting(baseColor, normal, worldPos);
-  return vec4<f32>(color, alpha);
-}`;
-
-const ringVertCode = /*wgsl*/`
-${cameraStruct}
-
-struct VSOut {
-  @builtin(position) pos: vec4<f32>,
-  @location(1) normal: vec3<f32>,
-  @location(2) color: vec3<f32>,
-  @location(3) alpha: f32,
-  @location(4) worldPos: vec3<f32>,
-};
-
-@vertex
-fn vs_main(
-  @builtin(instance_index) instID: u32,
-  @location(0) inPos: vec3<f32>,
-  @location(1) inNorm: vec3<f32>,
-  @location(2) center: vec3<f32>,
-  @location(3) scale: vec3<f32>,
-  @location(4) color: vec3<f32>,
-  @location(5) alpha: f32
-)-> VSOut {
-  let ringIndex = i32(instID % 3u);
-  var lp = inPos;
-  // rotate the ring geometry differently for x-y-z rings
-  if(ringIndex==0){
-    let tmp = lp.z;
-    lp.z = -lp.y;
-    lp.y = tmp;
-  } else if(ringIndex==1){
-    let px = lp.x;
-    lp.x = -lp.y;
-    lp.y = px;
-    let pz = lp.z;
-    lp.z = lp.x;
-    lp.x = pz;
-  }
-  lp *= scale;
-  let wp = center + lp;
-  var out: VSOut;
-  out.pos = camera.mvp * vec4<f32>(wp,1.0);
-  out.normal = inNorm;
-  out.color = color;
-  out.alpha = alpha;
-  out.worldPos = wp;
-  return out;
-}`;
-
-const ringFragCode = /*wgsl*/`
-@fragment
-fn fs_main(
-  @location(1) n: vec3<f32>,
-  @location(2) c: vec3<f32>,
-  @location(3) a: f32,
-  @location(4) wp: vec3<f32>
-)-> @location(0) vec4<f32> {
-  // simple color (no shading)
-  return vec4<f32>(c, a);
-}`;
-
-const cuboidVertCode = /*wgsl*/`
-${cameraStruct}
-
-struct VSOut {
-  @builtin(position) pos: vec4<f32>,
-  @location(1) normal: vec3<f32>,
-  @location(2) baseColor: vec3<f32>,
-  @location(3) alpha: f32,
-  @location(4) worldPos: vec3<f32>
-};
-
-@vertex
-fn vs_main(
-  @location(0) inPos: vec3<f32>,
-  @location(1) inNorm: vec3<f32>,
-  @location(2) center: vec3<f32>,
-  @location(3) size: vec3<f32>,
-  @location(4) color: vec3<f32>,
-  @location(5) alpha: f32
-)-> VSOut {
-  let worldPos = center + (inPos * size);
-  let scaledNorm = normalize(inNorm / size);
-  var out: VSOut;
-  out.pos = camera.mvp * vec4<f32>(worldPos,1.0);
-  out.normal = scaledNorm;
-  out.baseColor = color;
-  out.alpha = alpha;
-  out.worldPos = worldPos;
-  return out;
-}`;
-
-const cuboidFragCode = /*wgsl*/`
-${cameraStruct}
-${lightingConstants}
-${lightingCalc}
-
-@fragment
-fn fs_main(
-  @location(1) normal: vec3<f32>,
-  @location(2) baseColor: vec3<f32>,
-  @location(3) alpha: f32,
-  @location(4) worldPos: vec3<f32>
-)-> @location(0) vec4<f32> {
-  let color = calculateLighting(baseColor, normal, worldPos);
-  return vec4<f32>(color, alpha);
-}`;
-
-const lineCylVertCode = /*wgsl*/`// lineCylVertCode.wgsl
-${cameraStruct}
-${lightingConstants}
-
-struct VSOut {
-  @builtin(position) pos: vec4<f32>,
-  @location(1) normal: vec3<f32>,
-  @location(2) baseColor: vec3<f32>,
-  @location(3) alpha: f32,
-  @location(4) worldPos: vec3<f32>,
-};
-
-@vertex
-fn vs_main(
-  @location(0) inPos: vec3<f32>,
-  @location(1) inNorm: vec3<f32>,
-
-  @location(2) startPos: vec3<f32>,
-  @location(3) endPos: vec3<f32>,
-  @location(4) radius: f32,
-  @location(5) color: vec3<f32>,
-  @location(6) alpha: f32
-) -> VSOut
-{
-  // The unit beam is from z=0..1 along local Z, radius=1 in XY
-  // We'll transform so it goes from start->end with radius=radius.
-  let segDir = endPos - startPos;
-  let length = max(length(segDir), 0.000001);
-  let zDir   = normalize(segDir);
-
-  // build basis xDir,yDir from zDir
-  var tempUp = vec3<f32>(0,0,1);
-  if (abs(dot(zDir, tempUp)) > 0.99) {
-    tempUp = vec3<f32>(0,1,0);
-  }
-  let xDir = normalize(cross(zDir, tempUp));
-  let yDir = cross(zDir, xDir);
-
-  // local scale
-  let localX = inPos.x * radius;
-  let localY = inPos.y * radius;
-  let localZ = inPos.z * length;
-  let worldPos = startPos
-    + xDir * localX
-    + yDir * localY
-    + zDir * localZ;
-
-  // transform normal similarly
-  let rawNormal = vec3<f32>(inNorm.x, inNorm.y, inNorm.z);
-  let nWorld = normalize(
-    xDir*rawNormal.x +
-    yDir*rawNormal.y +
-    zDir*rawNormal.z
-  );
-
-  var out: VSOut;
-  out.pos = camera.mvp * vec4<f32>(worldPos, 1.0);
-  out.normal = nWorld;
-  out.baseColor = color;
-  out.alpha = alpha;
-  out.worldPos = worldPos;
-  return out;
-}`
-
-const lineCylFragCode = /*wgsl*/`// lineCylFragCode.wgsl
-${cameraStruct}
-${lightingConstants}
-${lightingCalc}
-
-@fragment
-fn fs_main(
-  @location(1) normal: vec3<f32>,
-  @location(2) baseColor: vec3<f32>,
-  @location(3) alpha: f32,
-  @location(4) worldPos: vec3<f32>
-)-> @location(0) vec4<f32>
-{
-  let color = calculateLighting(baseColor, normal, worldPos);
-  return vec4<f32>(color, alpha);
-}`
-
-const pickingVertCode = /*wgsl*/`
-${cameraStruct}
-
-struct VSOut {
-  @builtin(position) pos: vec4<f32>,
-  @location(0) pickID: f32
-};
-
-@vertex
-fn vs_pointcloud(
-  @location(0) localPos: vec3<f32>,
-  @location(1) normal: vec3<f32>,
-  @location(2) instancePos: vec3<f32>,
-  @location(3) pickID: f32,
-  @location(4) size: f32
-)-> VSOut {
-  // Create camera-facing orientation
-  let right = camera.cameraRight;
-  let up = camera.cameraUp;
-
-  // Transform quad vertices to world space
-  let scaledRight = right * (localPos.x * size);
-  let scaledUp = up * (localPos.y * size);
-  let worldPos = instancePos + scaledRight + scaledUp;
-
-  var out: VSOut;
-  out.pos = camera.mvp * vec4<f32>(worldPos, 1.0);
-  out.pickID = pickID;
-  return out;
-}
-
-@vertex
-fn vs_ellipsoid(
-  @location(0) inPos: vec3<f32>,
-  @location(1) inNorm: vec3<f32>,
-  @location(2) iPos: vec3<f32>,
-  @location(3) iScale: vec3<f32>,
-  @location(4) pickID: f32
-)-> VSOut {
-  let wp = iPos + (inPos * iScale);
-  var out: VSOut;
-  out.pos = camera.mvp*vec4<f32>(wp,1.0);
-  out.pickID = pickID;
-  return out;
-}
-
-@vertex
-fn vs_bands(
-  @builtin(instance_index) instID:u32,
-  @location(0) inPos: vec3<f32>,
-  @location(1) inNorm: vec3<f32>,
-  @location(2) center: vec3<f32>,
-  @location(3) scale: vec3<f32>,
-  @location(4) pickID: f32
-)-> VSOut {
-  let ringIndex=i32(instID%3u);
-  var lp=inPos;
-  if(ringIndex==0){
-    let tmp=lp.z; lp.z=-lp.y; lp.y=tmp;
-  } else if(ringIndex==1){
-    let px=lp.x; lp.x=-lp.y; lp.y=px;
-    let pz=lp.z; lp.z=lp.x; lp.x=pz;
-  }
-  lp*=scale;
-  let wp=center+lp;
-  var out:VSOut;
-  out.pos=camera.mvp*vec4<f32>(wp,1.0);
-  out.pickID=pickID;
-  return out;
-}
-
-@vertex
-fn vs_cuboid(
-  @location(0) inPos: vec3<f32>,
-  @location(1) inNorm: vec3<f32>,
-  @location(2) center: vec3<f32>,
-  @location(3) size: vec3<f32>,
-  @location(4) pickID: f32
-)-> VSOut {
-  let wp = center + (inPos * size);
-  var out: VSOut;
-  out.pos = camera.mvp*vec4<f32>(wp,1.0);
-  out.pickID = pickID;
-  return out;
-}
-
-@vertex
-fn vs_lineCyl(
-  @location(0) inPos: vec3<f32>,
-  @location(1) inNorm: vec3<f32>,
-
-  @location(2) startPos: vec3<f32>,
-  @location(3) endPos: vec3<f32>,
-  @location(4) radius: f32,
-  @location(5) pickID: f32
-) -> VSOut {
-  let segDir = endPos - startPos;
-  let length = max(length(segDir), 0.000001);
-  let zDir = normalize(segDir);
-
-  var tempUp = vec3<f32>(0,0,1);
-  if (abs(dot(zDir, tempUp)) > 0.99) {
-    tempUp = vec3<f32>(0,1,0);
-  }
-  let xDir = normalize(cross(zDir, tempUp));
-  let yDir = cross(zDir, xDir);
-
-  let localX = inPos.x * radius;
-  let localY = inPos.y * radius;
-  let localZ = inPos.z * length;
-  let worldPos = startPos
-    + xDir*localX
-    + yDir*localY
-    + zDir*localZ;
-
-  var out: VSOut;
-  out.pos = camera.mvp * vec4<f32>(worldPos, 1.0);
-  out.pickID = pickID;
-  return out;
-}
-
-@fragment
-fn fs_pick(@location(0) pickID: f32)-> @location(0) vec4<f32> {
-  let iID = u32(pickID);
-  let r = f32(iID & 255u)/255.0;
-  let g = f32((iID>>8)&255u)/255.0;
-  let b = f32((iID>>16)&255u)/255.0;
-  return vec4<f32>(r,g,b,1.0);
-}`;

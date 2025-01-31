@@ -66,6 +66,8 @@ plugins:
       modules:
         - module: genstudio.plot
           output: api/plot.md
+        - module: genstudio.scene3d
+          output: api/scene3d.md
   - mkdocs-jupyter:
       include: ["*.py"]
       ignore: ["llms.py"]
