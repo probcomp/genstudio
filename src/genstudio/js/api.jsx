@@ -85,11 +85,10 @@ export const Slider = mobxReact.observer(
             style } = options;
 
         // Set default controls based on fps
-        if (controls === undefined) {
+        if (!controls) {
             controls = fps ? ["slider", "play"] : ["slider"];
-        } else if (controls === false) {
-            controls = [];
         }
+        controls = controls || []
         if (options.showSlider === false) {
             controls = controls.filter(control => control !== "slider");
         }
