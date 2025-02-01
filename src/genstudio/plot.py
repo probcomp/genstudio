@@ -14,6 +14,7 @@ from genstudio.layout import (
     Hiccup,
     JSCall,
     JSCode,
+    JSExpr,
     JSRef,
     Row,
     ref,
@@ -932,6 +933,16 @@ def Slider(
     key: str,
     init: Any = None,
     range: Optional[Union[int, float, List[Union[int, float]]]] = None,
+    rangeFrom: Any = None,
+    fps: Optional[Union[int, str]] = None,
+    step: int | float = 1,
+    tail: bool = False,
+    loop: bool = True,
+    label: Optional[str] = None,
+    showValue: bool = False,
+    controls: Optional[List[str]] = None,
+    className: Optional[str] = None,
+    style: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ):
     """
@@ -957,9 +968,6 @@ def Slider(
     Example:
         >>> Plot.Slider("frame", init=0, range=100, fps=30, label="Frame")
     """
-    init = kwargs.get("init")
-    rangeFrom = kwargs.get("rangeFrom")
-    tail = kwargs.get("tail")
 
     if init is None and range is None and rangeFrom is None:
         raise ValueError("Slider: 'init', 'range', or 'rangeFrom' must be defined")
@@ -972,6 +980,16 @@ def Slider(
         "state_key": key,
         "init": init,
         "range": range,
+        "rangeFrom": rangeFrom,
+        "fps": fps,
+        "step": step,
+        "tail": tail,
+        "loop": loop,
+        "label": label,
+        "showValue": showValue,
+        "controls": controls,
+        "className": className,
+        "style": style,
         "kind": "Slider",
         **kwargs,
     }
@@ -1220,6 +1238,7 @@ __all__ = [
     "case",
     "html",
     "md",
+    "JSExpr",
     # ## JavaScript Interop
     "js",
     "ref",
